@@ -1,0 +1,129 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { db } from "@/db";
+import { users, ownership, transactions } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { pusher } from "@/lib/pusher-server";
+
+export async function sellPlayer(otherId: number) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "Unauthorized" };
+  }
+
+  const sellerId = parseInt(session.user.id);
+
+  try {
+    // Check if seller owns the other player
+    const [ownershipRecord] = await db
+      .select()
+      .from(ownership)
+      .where(
+        and(
+          eq(ownership.ownerId, sellerId),
+          eq(ownership.ownedId, otherId)
+        )
+      );
+
+    if (!ownershipRecord) {
+      return { error: "You don't own this player" };
+    }
+
+    // Check if this specific ownership has Block Sell active
+    if (ownershipRecord.blockSellUntil && new Date(ownershipRecord.blockSellUntil) > new Date()) {
+      return { error: "This player has blocked you from selling them" };
+    }
+
+    // Get the other player's current value (sell price)
+    const [targetPlayer] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, otherId));
+
+    if (!targetPlayer) {
+      return { error: "Player not found" };
+    }
+
+    const sellPrice = targetPlayer.playerValue;
+
+    // Get seller info
+    const [seller] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, sellerId));
+
+    // 1. Distribute sell price: 50% to owner, 50% to the sold player
+    const ownerShare = Math.floor(sellPrice / 2);
+    const playerShare = sellPrice - ownerShare;
+
+    // Give 50% to the owner (seller)
+    await db
+      .update(users)
+      .set({ credits: sql`credits + ${ownerShare}` })
+      .where(eq(users.id, sellerId));
+
+    // Give 50% to the sold player
+    await db
+      .update(users)
+      .set({ credits: sql`credits + ${playerShare}` })
+      .where(eq(users.id, otherId));
+
+    // 2. Reset the sold player's value to their floor (milestone-based minimum)
+    await db
+      .update(users)
+      .set({
+        playerValue: sql`value_floor`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, otherId));
+
+    // 3. Remove ownership record
+    await db
+      .delete(ownership)
+      .where(eq(ownership.id, ownershipRecord.id));
+
+
+    // 3b. After selling, set 1min sell block on the player record so new buyers inherit it
+    const blockUntil = new Date(Date.now() + 1 * 60 * 1000);
+    await db
+      .update(users)
+      .set({
+        blockSellUntil: blockUntil,
+        blockSellBy: seller.username,
+      })
+      .where(eq(users.id, otherId));
+
+    // 4. Log transaction
+    await db.insert(transactions).values({
+      buyerId: sellerId,
+      targetId: otherId,
+      type: "sell",
+      amount: sellPrice,
+    });
+
+    // 5. Trigger real-time updates
+    try {
+      await Promise.all([
+        pusher.trigger(`player-${sellerId}`, "credits-updated", {
+          newCredits: seller.credits + sellPrice,
+        }),
+        pusher.trigger(`player-${otherId}`, "ownership-changed", {
+          type: "sell",
+          initiator: seller.username,
+          newValue: targetPlayer.valueFloor,
+        }),
+      ]);
+    } catch (pusherError) {
+      console.error("Pusher error:", pusherError);
+    }
+
+    return {
+      success: true,
+      sellPrice,
+    };
+  } catch (error) {
+    console.error("Sell error:", error);
+    return { error: "Sell failed. Please try again." };
+  }
+}

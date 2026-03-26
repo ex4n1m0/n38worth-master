@@ -1,0 +1,28 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/dividends",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/inflate",
+      "schedule": "0,30 * * * *"
+    },
+    {
+      "path": "/api/cron/leaderboard-prizes",
+      "schedule": "0,30 * * * *"
+    },
+    {
+      "path": "/api/cron/random-player",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/offline-penalty",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/rank-bonus",
+      "schedule": "0 0 * * *"
+    }
+  ]
+}

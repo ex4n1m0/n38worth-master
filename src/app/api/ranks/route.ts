@@ -1,0 +1,111 @@
+import { NextResponse } from "next/server";
+import { db } from "@/db";
+import { users, ownership } from "@/db/schema";
+import { sql, eq } from "drizzle-orm";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  try {
+    // ── 1. Fetch ALL players once (NO avatarUrl — base64 causes OOM on Neon) ──
+    const allPlayers = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        playerValue: users.playerValue,
+        createdAt: users.createdAt,
+        lastOnlineAt: users.lastOnlineAt,
+        credits: users.credits,
+      })
+      .from(users);
+
+    const totalPlayers = allPlayers.length;
+
+    // ── 2. Bulk ownership aggregates (2 queries) ──
+    const ownerCounts = await db
+      .select({
+        ownedId: ownership.ownedId,
+        count: sql<number>`count(*)`.as("count"),
+      })
+      .from(ownership)
+      .groupBy(ownership.ownedId);
+
+    const ownedCounts = await db
+      .select({
+        ownerId: ownership.ownerId,
+        count: sql<number>`count(*)`.as("count"),
+      })
+      .from(ownership)
+      .groupBy(ownership.ownerId);
+
+    // ── 3. Owned player value sums for portfolio calc ──
+    const ownedValueSums = await db
+      .select({
+        ownerId: ownership.ownerId,
+        totalValue: sql<number>`COALESCE(SUM(${users.playerValue}), 0)`.as("total_value"),
+      })
+      .from(ownership)
+      .innerJoin(users, eq(ownership.ownedId, users.id))
+      .groupBy(ownership.ownerId);
+
+    // Build lookup maps
+    const ownerMap = new Map(ownerCounts.map((r) => [r.ownedId, Number(r.count)]));
+    const ownedMap = new Map(ownedCounts.map((r) => [r.ownerId, Number(r.count)]));
+    const ownedValueMap = new Map(ownedValueSums.map((r) => [r.ownerId, Number(r.totalValue)]));
+
+    // ── 4. Enrich all players with computed fields ──
+    const enriched = allPlayers.map((p) => {
+      const ownerCount = ownerMap.get(p.id) ?? 0;
+      const ownedCount = ownedMap.get(p.id) ?? 0;
+      const ownedTotal = ownedValueMap.get(p.id) ?? 0;
+      const basePortfolio = p.playerValue + ownedTotal;
+      const portfolioValue = Math.round(basePortfolio * Math.max(ownerCount, 1) * 100) / 100;
+      return { ...p, ownerCount, ownedCount, portfolioValue };
+    });
+
+    // ── 5. Sort & slice for each category (all in JS — fast) ──
+    const topOwners = [...enriched]
+      .sort((a, b) => b.ownerCount - a.ownerCount || b.playerValue - a.playerValue)
+      .slice(0, 10);
+
+    const topEmpire = [...enriched]
+      .sort((a, b) => b.ownedCount - a.ownedCount || b.playerValue - a.playerValue)
+      .slice(0, 10);
+
+    const topLegacy = [...enriched]
+      .sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Infinity;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Infinity;
+        return aTime - bTime;
+      })
+      .slice(0, 10);
+
+    const topPortfolio = [...enriched]
+      .sort((a, b) => b.portfolioValue - a.portfolioValue)
+      .slice(0, 10);
+
+    const topCredits = [...enriched]
+      .sort((a, b) => b.credits - a.credits)
+      .slice(0, 10);
+
+    const topValue = [...enriched]
+      .sort((a, b) => b.playerValue - a.playerValue)
+      .slice(0, 10);
+
+    return NextResponse.json({
+      topOwners,
+      topEmpire,
+      topLegacy,
+      topPortfolio,
+      topCredits,
+      topValue,
+      totalPlayers,
+    });
+  } catch (error) {
+    console.error("Ranks API error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch ranks" },
+      { status: 500 }
+    );
+  }
+}
