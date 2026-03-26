@@ -196,15 +196,9 @@ export default function RanksPage() {
               className={`${category.bgColor} ${category.borderColor} border`}
             >
               <CardHeader className="pb-3">
-                <CardTitle className={`text-lg flex items-center justify-between gap-2`}>
-                  <span className={`flex items-center gap-2 ${category.color}`}>
-                    <category.icon className="h-5 w-5" />
-                    {category.title}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs font-normal text-gray-400">
-                    <Gift className="h-3.5 w-3.5 text-yellow-400" />
-                    {category.prizeLabel}
-                  </span>
+                <CardTitle className={`text-lg flex items-center gap-2 ${category.color}`}>
+                  <category.icon className="h-5 w-5" />
+                  {category.title}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -238,16 +232,9 @@ export default function RanksPage() {
                         {player.username}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-sm font-semibold ${category.color}`}>
-                        {category.getValue(player)}
-                      </span>
-                      {index < 3 && (
-                        <span className={`text-xs font-bold ${MEDAL_COLORS[index]}`}>
-                          {MEDAL_LABELS[index]} +{PRIZE_AMOUNTS[index]}¢
-                        </span>
-                      )}
-                    </div>
+                    <span className={`text-sm font-semibold ${category.color} shrink-0`}>
+                      {category.getValue(player)}
+                    </span>
                   </Link>
                 ))}
               </CardContent>

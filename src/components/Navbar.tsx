@@ -30,10 +30,9 @@ import { useLanguage } from "./LanguageContext";
 
 const mainNavLinks = [
   { href: "/leaderboard", label: "Browse", icon: Search },
-  { href: "/ranks", label: "Ranks", icon: Trophy },
   { href: "/my-players", label: "My Players", icon: Swords },
   { href: "/my-owners", label: "My Owner", icon: Crown },
-  { href: "/chat", label: "Chat", icon: MessageCircle },
+  { href: "/ranks", label: "Ranks", icon: Trophy },
 ];
 
 const themes: { value: ThemeName; label: string }[] = [
