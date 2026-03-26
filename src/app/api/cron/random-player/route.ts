@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createRandomPlayer, cleanupUnownedNpcs } from "@/lib/random-player";
+import { createRandomPlayer, cleanupUnownedNpcs, cleanupInactiveNpcs } from "@/lib/random-player";
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -18,9 +18,13 @@ export async function GET(req: Request) {
     // Clean up NPC players without owners older than 1 day
     const cleanup = await cleanupUnownedNpcs();
 
+    // Clean up NPC players offline 3+ days with $1 credit and $1 value
+    const inactiveCleanup = await cleanupInactiveNpcs();
+
     return NextResponse.json({
       ...result,
       cleanup,
+      inactiveCleanup,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

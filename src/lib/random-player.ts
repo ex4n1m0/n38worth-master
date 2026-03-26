@@ -353,3 +353,59 @@ export async function cleanupUnownedNpcs(): Promise<{
 
   return { deleted: deletedUsernames.length, usernames: deletedUsernames };
 }
+
+/**
+ * Delete NPC players that have been offline for 3+ days
+ * and have only $1 credit and $1 player value (worthless NPCs).
+ * This prevents the game from being cluttered with inactive, low-value NPCs.
+ */
+export async function cleanupInactiveNpcs(): Promise<{
+  deleted: number;
+  usernames: string[];
+}> {
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+
+  // Find NPC players offline for 3+ days with $1 credit and $1 value
+  const inactiveNpcs = await db
+    .select({ id: users.id, username: users.username })
+    .from(users)
+    .where(
+      and(
+        eq(users.isNpc, 1),
+        sql`${users.lastOnlineAt} < ${threeDaysAgo}`,
+        sql`${users.credits} <= 1`,
+        sql`${users.playerValue} <= 1`
+      )
+    );
+
+  const deletedUsernames: string[] = [];
+
+  for (const npc of inactiveNpcs) {
+    try {
+      // Remove any ownerships where this NPC owns other players
+      await db.delete(ownership).where(eq(ownership.ownerId, npc.id));
+      // Remove any ownerships where this NPC is owned
+      await db.delete(ownership).where(eq(ownership.ownedId, npc.id));
+      // Remove all transactions involving this NPC
+      await db.delete(transactions).where(
+        or(eq(transactions.buyerId, npc.id), eq(transactions.targetId, npc.id))
+      );
+      // Remove all messages involving this NPC
+      await db.delete(messages).where(
+        or(eq(messages.senderId, npc.id), eq(messages.recipientId, npc.id))
+      );
+      // Delete the NPC user
+      await db.delete(users).where(eq(users.id, npc.id));
+
+      deletedUsernames.push(npc.username);
+    } catch (err) {
+      console.error(`Failed to delete inactive NPC "${npc.username}" (id: ${npc.id}):`, err);
+    }
+  }
+
+  if (deletedUsernames.length > 0) {
+    console.log(`Cleaned up ${deletedUsernames.length} inactive NPC(s) (offline 3+ days, $1 credit, $1 value): ${deletedUsernames.join(", ")}`);
+  }
+
+  return { deleted: deletedUsernames.length, usernames: deletedUsernames };
+}
