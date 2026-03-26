@@ -21,10 +21,10 @@ export async function GET(req: Request) {
       conditions.push(ilike(users.username, `%${search}%`));
     }
     if (hasOwner === "true") {
-      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) > 0`);
+      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0`);
     }
     if (hasPlayers === "true") {
-      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id}) > 0`);
+      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id") > 0`);
     }
     if (playerType === "human") {
       conditions.push(eq(users.isNpc, 0));
@@ -37,9 +37,9 @@ export async function GET(req: Request) {
       : undefined;
 
     // SQL subqueries for counts and portfolio value (avoids N+1 queries)
-    const ownerCountSql = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id})`;
-    const ownedCountSql = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`;
-    const portfolioSql = sql<number>`(${users.playerValue} + COALESCE((SELECT SUM(u2.player_value) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = ${users.id}), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o3 WHERE o3.owned_id = ${users.id}), 1)`;
+    const ownerCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`;
+    const ownedCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`;
+    const portfolioExpr = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o3 WHERE o3.owned_id = "users"."id"), 1)`;
 
     // Common select fields with computed columns
     const selectFields = {
@@ -56,38 +56,35 @@ export async function GET(req: Request) {
       totalOnlineMinutes: users.totalOnlineMinutes,
       lastOnlineAt: users.lastOnlineAt,
       isVerified: users.isVerified,
-      playerType: sql<string>`CASE WHEN ${users.isNpc} = 1 THEN 'card' ELSE 'human' END`,
+      playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
       photoAuthorName: users.photoAuthorName,
       photoAuthorUrl: users.photoAuthorUrl,
       photoSourceUrl: users.photoSourceUrl,
-      ownerCount: ownerCountSql.as("owner_count"),
-      ownedCount: ownedCountSql.as("owned_count"),
-      portfolioValue: portfolioSql.as("portfolio_value"),
+      ownerCount: ownerCountExpr.as("owner_count"),
+      ownedCount: ownedCountExpr.as("owned_count"),
+      portfolioValue: portfolioExpr.as("portfolio_value"),
     };
 
     let playersList;
 
     if (sort === "most-owned") {
-      playersList = await db
-        .select(selectFields)
-        .from(users)
-        .where(whereClause ?? undefined)
-        .orderBy(desc(ownerCountSql), desc(users.playerValue))
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered
+        .orderBy(desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
     } else if (sort === "most-players") {
-      playersList = await db
-        .select(selectFields)
-        .from(users)
-        .where(whereClause ?? undefined)
-        .orderBy(desc(ownedCountSql), desc(users.playerValue))
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered
+        .orderBy(desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
     } else if (sort === "online-cheapest") {
-      playersList = await db
-        .select(selectFields)
-        .from(users)
-        .where(whereClause ?? undefined)
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered
         .orderBy(desc(users.lastOnlineAt), asc(users.playerValue))
         .limit(limit)
         .offset(offset);
@@ -105,13 +102,9 @@ export async function GET(req: Request) {
                   ? desc(users.credits)
                   : desc(users.playerValue);
 
-      playersList = await db
-        .select(selectFields)
-        .from(users)
-        .where(whereClause ?? undefined)
-        .orderBy(orderBy)
-        .limit(limit)
-        .offset(offset);
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered.orderBy(orderBy).limit(limit).offset(offset);
     }
 
     // Map results — all computed fields already included, no extra queries needed
@@ -124,15 +117,9 @@ export async function GET(req: Request) {
     }));
 
     // Get total count with same filters (single query)
-    const countQuery = db
-      .select({ count: sql<number>`count(*)` })
-      .from(users);
-
-    const filteredCountQuery = whereClause
-      ? countQuery.where(whereClause)
-      : countQuery;
-
-    const [{ count: total }] = await filteredCountQuery;
+    const countBase = db.select({ count: sql<number>`count(*)` }).from(users);
+    const countFiltered = whereClause ? countBase.where(whereClause) : countBase;
+    const [{ count: total }] = await countFiltered;
 
     return NextResponse.json({
       players: playersWithCounts,

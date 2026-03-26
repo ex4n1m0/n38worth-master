@@ -3,9 +3,6 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 
-// SQL subquery for portfolio value — reusable across queries
-const portfolioValueSql = sql<number>`(${users.playerValue} + COALESCE((SELECT SUM(u2.player_value) FROM ownership o_pv JOIN users u2 ON o_pv.owned_id = u2.id WHERE o_pv.owner_id = ${users.id}), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o_oc WHERE o_oc.owned_id = ${users.id}), 1)`;
-
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ username: string }> }
@@ -13,6 +10,9 @@ export async function GET(
   const { username } = await params;
 
   try {
+    // SQL subquery for portfolio value — reusable across queries
+    const portfolioValueExpr = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o_pv JOIN users u2 ON o_pv.owned_id = u2.id WHERE o_pv.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o_oc WHERE o_oc.owned_id = "users"."id"), 1)`;
+
     const [player] = await db
       .select({
         id: users.id,
@@ -28,10 +28,10 @@ export async function GET(
         totalOnlineMinutes: users.totalOnlineMinutes,
         lastOnlineAt: users.lastOnlineAt,
         isVerified: users.isVerified,
-        playerType: sql<string>`CASE WHEN ${users.isNpc} = 1 THEN 'card' ELSE 'human' END`,
-        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id})`,
-        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`,
-        portfolioValue: portfolioValueSql,
+        playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`.as("owner_count"),
+        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`.as("owned_count"),
+        portfolioValue: portfolioValueExpr.as("portfolio_value"),
       })
       .from(users)
       .where(eq(users.username, username));
@@ -59,10 +59,10 @@ export async function GET(
         blockSellUntil: ownership.blockSellUntil,
         blockSellBy: ownership.blockSellBy,
         isVerified: users.isVerified,
-        playerType: sql<string>`CASE WHEN ${users.isNpc} = 1 THEN 'card' ELSE 'human' END`,
-        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = ${users.id})`,
-        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = ${users.id})`,
-        portfolioValue: portfolioValueSql,
+        playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
+        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
+        portfolioValue: portfolioValueExpr.as("portfolio_value"),
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownerId, users.id))
@@ -93,10 +93,10 @@ export async function GET(
         blockSellUntil: ownership.blockSellUntil,
         blockSellBy: ownership.blockSellBy,
         isVerified: users.isVerified,
-        playerType: sql<string>`CASE WHEN ${users.isNpc} = 1 THEN 'card' ELSE 'human' END`,
-        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = ${users.id})`,
-        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = ${users.id})`,
-        portfolioValue: portfolioValueSql,
+        playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
+        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
+        portfolioValue: portfolioValueExpr.as("portfolio_value"),
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
