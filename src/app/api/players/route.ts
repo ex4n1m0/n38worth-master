@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, sql, ilike, desc, asc, and } from "drizzle-orm";
+import { eq, sql, ilike, desc, asc, and, ne } from "drizzle-orm";
+import { auth } from "@/lib/auth";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -15,8 +16,22 @@ export async function GET(req: Request) {
   const offset = (page - 1) * limit;
 
   try {
+    // Get current user session to exclude self and owned players
+    const session = await auth();
+    const currentUserId = session?.user?.id ? Number(session.user.id) : null;
+
     // Build WHERE conditions
     const conditions = [];
+
+    // Exclude the current user from browse results
+    if (currentUserId) {
+      conditions.push(ne(users.id, currentUserId));
+      // Exclude players the current user already owns
+      conditions.push(
+        sql`"users"."id" NOT IN (SELECT o.owned_id FROM ownership o WHERE o.owner_id = ${currentUserId})`
+      );
+    }
+
     if (search) {
       conditions.push(ilike(users.username, `%${search}%`));
     }

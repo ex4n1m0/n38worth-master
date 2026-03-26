@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { MyProfileCard } from "@/components/MyProfileCard";
 import { CreateNPCButton } from "@/components/CreateNPCButton";
+import { useCredits } from "@/hooks/useCredits";
+import { toast } from "sonner";
 import {
   Crown,
   Users,
@@ -17,6 +19,8 @@ import {
   User,
   CreditCard,
   LayoutGrid,
+  List,
+  ShoppingCart,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -24,11 +28,78 @@ const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
   { key: "credits", label: "Credits" },
-  { key: "most-owned", label: "Most Owners" },
   { key: "most-players", label: "Most Players" },
   { key: "newest", label: "Newest" },
   { key: "name", label: "Name" },
 ] as const;
+
+// Compact buy button for mosaic cards
+function MosaicBuyButton({
+  targetId,
+  targetUsername,
+  cost,
+  disabled,
+}: {
+  targetId: number;
+  targetUsername: string;
+  cost: number;
+  disabled?: boolean;
+}) {
+  const queryClient = useQueryClient();
+  const [isPending, setIsPending] = useState(false);
+
+  const handleBuy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (disabled || isPending) return;
+
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/game/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Purchase failed");
+
+      toast.success(
+        `You bought ${targetUsername}! Their value is now ${data.newValue} 💰`
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+      ]);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleBuy}
+      disabled={disabled || isPending}
+      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
+        disabled
+          ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
+          : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
+      }`}
+    >
+      {isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <>
+          <ShoppingCart className="h-3 w-3" />
+          <span>{cost}¢</span>
+        </>
+      )}
+    </button>
+  );
+}
 
 export default function LeaderboardPage() {
   const { data: session } = useSession();
@@ -64,18 +135,33 @@ function BrowsePlayersSection({
   onSearch: (value: string) => void;
   debouncedSearch: string;
 }) {
+  const { data: session } = useSession();
+  const { data: credits } = useCredits();
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
   const [hasOwner, setHasOwner] = useState(false);
   const [hasPlayers, setHasPlayers] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
+  const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
+
+  const currentUsername = session?.user?.name;
+  const limit = viewMode === "mosaic" ? 18 : 9;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["players", debouncedSearch, sort, hasOwner, hasPlayers, playerType, page],
+    queryKey: [
+      "players",
+      debouncedSearch,
+      sort,
+      hasOwner,
+      hasPlayers,
+      playerType,
+      page,
+      limit,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: String(page),
-        limit: "9",
+        limit: String(limit),
         sort,
         ...(debouncedSearch && { search: debouncedSearch }),
         ...(hasOwner && { hasOwner: "true" }),
@@ -125,22 +211,37 @@ function BrowsePlayersSection({
         </div>
         <CreateNPCButton />
         <div className="flex gap-2 flex-wrap">
-          <Link href="/leaderboard/mosaic">
+          {/* View mode toggle */}
+          {viewMode === "mosaic" ? (
             <Button
               variant="outline"
               size="sm"
+              onClick={() => { setViewMode("details"); setPage(1); }}
+              className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
+            >
+              <List className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setViewMode("mosaic"); setPage(1); }}
               className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
             >
               <LayoutGrid className="h-4 w-4 mr-1" />
               Mosaic
             </Button>
-          </Link>
+          )}
           {SORT_OPTIONS.map((s) => (
             <Button
               key={s.key}
               variant={sort === s.key ? "default" : "outline"}
               size="sm"
-              onClick={() => { setSort(s.key); setPage(1); }}
+              onClick={() => {
+                setSort(s.key);
+                setPage(1);
+              }}
               className={
                 sort === s.key
                   ? "bg-t1-600 hover:bg-t1-500 text-white"
@@ -153,7 +254,10 @@ function BrowsePlayersSection({
           <Button
             variant={hasOwner ? "default" : "outline"}
             size="sm"
-            onClick={() => { setHasOwner(!hasOwner); setPage(1); }}
+            onClick={() => {
+              setHasOwner(!hasOwner);
+              setPage(1);
+            }}
             className={
               hasOwner
                 ? "bg-amber-600 hover:bg-amber-500 text-white"
@@ -166,7 +270,10 @@ function BrowsePlayersSection({
           <Button
             variant={hasPlayers ? "default" : "outline"}
             size="sm"
-            onClick={() => { setHasPlayers(!hasPlayers); setPage(1); }}
+            onClick={() => {
+              setHasPlayers(!hasPlayers);
+              setPage(1);
+            }}
             className={
               hasPlayers
                 ? "bg-purple-600 hover:bg-purple-500 text-white"
@@ -179,7 +286,10 @@ function BrowsePlayersSection({
           <Button
             variant={playerType === "human" ? "default" : "outline"}
             size="sm"
-            onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}
+            onClick={() => {
+              setPlayerType(playerType === "human" ? "" : "human");
+              setPage(1);
+            }}
             className={
               playerType === "human"
                 ? "bg-emerald-600 hover:bg-emerald-500 text-white"
@@ -192,7 +302,10 @@ function BrowsePlayersSection({
           <Button
             variant={playerType === "card" ? "default" : "outline"}
             size="sm"
-            onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}
+            onClick={() => {
+              setPlayerType(playerType === "card" ? "" : "card");
+              setPage(1);
+            }}
             className={
               playerType === "card"
                 ? "bg-cyan-600 hover:bg-cyan-500 text-white"
@@ -215,32 +328,124 @@ function BrowsePlayersSection({
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
             <p className="text-gray-400">No players found</p>
             {search && (
-              <p className="text-sm text-gray-500 mt-1">Try a different search term</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Try a different search term
+              </p>
             )}
           </CardContent>
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {data?.players?.map(
-              (player: {
-                id: number;
-                username: string;
-                avatarUrl: string | null;
-                playerValue: number;
-                valueFloor?: number;
-                ownerCount: number;
-                ownedCount: number;
-                credits?: number;
-                portfolioValue?: number;
-                isActive?: number;
-                lastOnlineAt?: string | null;
-                estimatedDeletionAt?: string | null;
-              }) => (
-                <PlayerCard key={player.id} {...player} />
-              )
-            )}
-          </div>
+          {viewMode === "mosaic" ? (
+            /* ── Mosaic View ── */
+            <div className="grid grid-cols-3 gap-1 sm:gap-2">
+              {data?.players?.map(
+                (player: {
+                  id: number;
+                  username: string;
+                  avatarUrl: string | null;
+                  playerValue: number;
+                  ownerCount: number;
+                  ownedCount: number;
+                  playerType?: string;
+                }) => {
+                  const isOwnProfile = currentUsername === player.username;
+                  const canAfford = (credits ?? 0) >= player.playerValue;
+
+                  return (
+                    <div
+                      key={player.id}
+                      className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
+                    >
+                      <Link
+                        href={`/players/${player.username}`}
+                        className="block w-full h-full"
+                      >
+                        {player.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={player.avatarUrl}
+                            alt={player.username}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                            <User className="h-1/3 w-1/3 text-gray-600" />
+                          </div>
+                        )}
+                      </Link>
+                      {/* Overlay with name and buy button */}
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 pt-8">
+                        <div className="flex items-end justify-between gap-1">
+                          <Link
+                            href={`/players/${player.username}`}
+                            className="flex-1 min-w-0"
+                          >
+                            <p className="text-white text-xs sm:text-sm font-medium truncate">
+                              {player.username}
+                            </p>
+                            <div className="flex items-center gap-2 text-gray-300 text-[10px] sm:text-xs">
+                              <span>
+                                ₡{player.playerValue?.toLocaleString()}
+                              </span>
+                              {player.ownerCount > 0 && (
+                                <span className="flex items-center gap-0.5">
+                                  <Crown className="h-2.5 w-2.5" />
+                                  {player.ownerCount}
+                                </span>
+                              )}
+                            </div>
+                          </Link>
+                          {session && !isOwnProfile && (
+                            <MosaicBuyButton
+                              targetId={player.id}
+                              targetUsername={player.username}
+                              cost={player.playerValue}
+                              disabled={!canAfford}
+                            />
+                          )}
+                        </div>
+                      </div>
+                      {/* Player type badge */}
+                      {player.playerType === "card" && (
+                        <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                          NPC
+                        </div>
+                      )}
+                      {/* Own profile badge */}
+                      {isOwnProfile && (
+                        <div className="absolute top-1 left-1 bg-t1-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                          You
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+              )}
+            </div>
+          ) : (
+            /* ── Details View ── */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {data?.players?.map(
+                (player: {
+                  id: number;
+                  username: string;
+                  avatarUrl: string | null;
+                  playerValue: number;
+                  valueFloor?: number;
+                  ownerCount: number;
+                  ownedCount: number;
+                  credits?: number;
+                  portfolioValue?: number;
+                  isActive?: number;
+                  lastOnlineAt?: string | null;
+                  estimatedDeletionAt?: string | null;
+                }) => (
+                  <PlayerCard key={player.id} {...player} />
+                )
+              )}
+            </div>
+          )}
 
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1 pt-2">
@@ -253,7 +458,10 @@ function BrowsePlayersSection({
               </button>
               {getPageNumbers().map((p, i) =>
                 typeof p === "string" ? (
-                  <span key={`ellipsis-${i}`} className="px-2 text-gray-500 text-sm">
+                  <span
+                    key={`ellipsis-${i}`}
+                    className="px-2 text-gray-500 text-sm"
+                  >
                     …
                   </span>
                 ) : (

@@ -176,6 +176,14 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* Version & Last Update Info */}
+        <div className="relative z-10 flex justify-center px-4 sm:px-6 lg:px-8 pt-4 pb-4">
+          <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
+            <span className="font-semibold text-gray-400">Version 1.2</span>
+            <span>Last updated: March 26, 2026 — 18:58 UTC+8</span>
+          </div>
+        </div>
       </div>
     </div>
   );

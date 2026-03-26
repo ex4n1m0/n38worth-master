@@ -5,11 +5,26 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardAction,
+} from "@/components/ui/card";
 import { OwnershipList } from "@/components/OwnershipList";
 import { MyProfileCard } from "@/components/MyProfileCard";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
-import { Users, Loader2, Search, User, CreditCard, LayoutGrid } from "lucide-react";
+import { InlineDMChat } from "@/components/InlineDMChat";
+import {
+  Users,
+  Loader2,
+  Search,
+  User,
+  CreditCard,
+  LayoutGrid,
+  List,
+} from "lucide-react";
 import Link from "next/link";
 
 const SORT_OPTIONS = [
@@ -28,7 +43,8 @@ export default function MyPlayersPage() {
   const [sort, setSort] = useState("last-online");
   const [search, setSearch] = useState("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
-  const perPage = 5;
+  const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
+  const perPage = 9;
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me"],
@@ -137,16 +153,6 @@ export default function MyPlayersPage() {
           </CardTitle>
           <CardAction>
             <div className="flex items-center gap-2">
-              <Link href="/my-players/mosaic">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Mosaic
-                </Button>
-              </Link>
               <DiscardAllButton
                 ownedCount={items.length}
                 totalValue={
@@ -168,11 +174,36 @@ export default function MyPlayersPage() {
               <Input
                 placeholder="Search players..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-9"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
+              {/* View mode toggle */}
+              {viewMode === "mosaic" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewMode("details")}
+                  className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
+                >
+                  <List className="h-4 w-4 mr-1" />
+                  Details
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setViewMode("mosaic")}
+                  className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-1" />
+                  Mosaic
+                </Button>
+              )}
               {SORT_OPTIONS.map((s) => (
                 <Button
                   key={s.key}
@@ -194,7 +225,10 @@ export default function MyPlayersPage() {
               <Button
                 variant={playerType === "human" ? "default" : "outline"}
                 size="sm"
-                onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}
+                onClick={() => {
+                  setPlayerType(playerType === "human" ? "" : "human");
+                  setPage(1);
+                }}
                 className={
                   playerType === "human"
                     ? "bg-emerald-600 hover:bg-emerald-500 text-white"
@@ -207,7 +241,10 @@ export default function MyPlayersPage() {
               <Button
                 variant={playerType === "card" ? "default" : "outline"}
                 size="sm"
-                onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}
+                onClick={() => {
+                  setPlayerType(playerType === "card" ? "" : "card");
+                  setPage(1);
+                }}
                 className={
                   playerType === "card"
                     ? "bg-cyan-600 hover:bg-cyan-500 text-white"
@@ -226,12 +263,103 @@ export default function MyPlayersPage() {
             </div>
           ) : (
             <>
-          <OwnershipList
-            items={paginatedItems}
-            type="owned"
-            showDiscard
-            showSendCredits
-          />
+              {viewMode === "mosaic" ? (
+                /* ── Mosaic View ── */
+                paginatedItems.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No players owned yet
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                    {paginatedItems.map(
+                      (p: {
+                        id: number;
+                        ownershipId: number;
+                        username: string;
+                        avatarUrl: string | null;
+                        playerValue: number;
+                        playerType?: string;
+                      }) => (
+                        <Link
+                          key={p.ownershipId}
+                          href={`/players/${p.username}`}
+                          className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
+                        >
+                          {p.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.avatarUrl}
+                              alt={p.username}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                              <User className="h-1/3 w-1/3 text-gray-600" />
+                            </div>
+                          )}
+                          {/* Overlay with name */}
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6">
+                            <p className="text-white text-xs sm:text-sm font-medium truncate">
+                              {p.username}
+                            </p>
+                            <p className="text-gray-300 text-[10px] sm:text-xs">
+                              ₡{p.playerValue?.toLocaleString()}
+                            </p>
+                          </div>
+                          {/* Player type badge */}
+                          {p.playerType === "card" && (
+                            <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                              NPC
+                            </div>
+                          )}
+                        </Link>
+                      )
+                    )}
+                  </div>
+                )
+              ) : (
+                /* ── Details View with Chat ── */
+                <>
+                  <OwnershipList
+                    items={paginatedItems}
+                    type="owned"
+                    showDiscard
+                    showSendCredits
+                  />
+
+                  {/* Inline Chat for each owned player */}
+                  {paginatedItems.length > 0 && (
+                    <div className="mt-4 space-y-4">
+                      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+                        Chat with your players
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {paginatedItems.map(
+                          (item: {
+                            id: number;
+                            ownershipId: number;
+                            username: string;
+                            avatarUrl?: string | null;
+                          }) => (
+                            <Card
+                              key={`chat-${item.ownershipId}`}
+                              className="border-gray-800 bg-gray-900/60"
+                            >
+                              <CardContent className="p-3">
+                                <InlineDMChat
+                                  targetId={item.id}
+                                  targetUsername={item.username}
+                                  targetAvatarUrl={item.avatarUrl}
+                                />
+                              </CardContent>
+                            </Card>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Pagination */}
               {totalPages > 1 && (
