@@ -8,6 +8,7 @@ import { SellOutButton } from "@/components/SellOutButton";
 import { DiscardButton } from "@/components/DiscardButton";
 import { SendCreditsButton } from "@/components/SendCreditsButton";
 import { BlockSellButton } from "@/components/BlockSellButton";
+import { InlineDMChat } from "@/components/InlineDMChat";
 import {
   Clock,
   Briefcase,
@@ -97,6 +98,7 @@ interface OwnershipListProps {
   showDiscard?: boolean;
   showBlockSell?: boolean;
   showSendCredits?: boolean;
+  showChat?: boolean;
   myPlayerValue?: number;
 }
 
@@ -107,6 +109,7 @@ export function OwnershipList({
   showDiscard,
   showBlockSell,
   showSendCredits,
+  showChat,
   myPlayerValue,
 }: OwnershipListProps) {
   const { data: session } = useSession();
@@ -289,6 +292,17 @@ export function OwnershipList({
                 />
               )}
             </div>
+
+            {/* Inline Chat */}
+            {showChat && (
+              <div className="mt-3 pt-3 border-t border-gray-800/60">
+                <InlineDMChat
+                  targetId={item.id}
+                  targetUsername={item.username}
+                  targetAvatarUrl={item.avatarUrl}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}

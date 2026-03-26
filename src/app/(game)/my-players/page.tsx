@@ -318,47 +318,14 @@ export default function MyPlayersPage() {
                   </div>
                 )
               ) : (
-                /* ── Details View with Chat ── */
-                <>
-                  <OwnershipList
-                    items={paginatedItems}
-                    type="owned"
-                    showDiscard
-                    showSendCredits
-                  />
-
-                  {/* Inline Chat for each owned player */}
-                  {paginatedItems.length > 0 && (
-                    <div className="mt-4 space-y-4">
-                      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-                        Chat with your players
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {paginatedItems.map(
-                          (item: {
-                            id: number;
-                            ownershipId: number;
-                            username: string;
-                            avatarUrl?: string | null;
-                          }) => (
-                            <Card
-                              key={`chat-${item.ownershipId}`}
-                              className="border-gray-800 bg-gray-900/60"
-                            >
-                              <CardContent className="p-3">
-                                <InlineDMChat
-                                  targetId={item.id}
-                                  targetUsername={item.username}
-                                  targetAvatarUrl={item.avatarUrl}
-                                />
-                              </CardContent>
-                            </Card>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+                /* ── Details View with Chat inside each card ── */
+                <OwnershipList
+                  items={paginatedItems}
+                  type="owned"
+                  showDiscard
+                  showSendCredits
+                  showChat
+                />
               )}
 
               {/* Pagination */}
