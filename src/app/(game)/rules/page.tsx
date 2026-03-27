@@ -7,9 +7,7 @@ import {
   Clock,
   Trophy,
   ShieldAlert,
-  ArrowRightLeft,
   Trash2,
-  Ban,
   Gift,
   BookOpen,
 } from "lucide-react";
@@ -34,24 +32,6 @@ const sections = [
       "The other 50% goes to the **purchased player** themselves.",
       "You can own a maximum of **111 players** at a time.",
       "You cannot buy yourself.",
-    ],
-  },
-  {
-    icon: ArrowRightLeft,
-    title: "Sell Out (Self-Liberation)",
-    items: [
-      "If someone owns you, you can **sell yourself out** to become free.",
-      "Your value is **halved** when you sell out.",
-      "Your owner receives compensation based on your current value.",
-    ],
-  },
-  {
-    icon: Ban,
-    title: "Block Sell",
-    items: [
-      "Owners can **block** a player they own from selling out.",
-      "The block costs credits and lasts for a limited time.",
-      "While blocked, the player **cannot** use Sell Out.",
     ],
   },
   {
@@ -85,9 +65,9 @@ const sections = [
   },
   {
     icon: Trophy,
-    title: "Rank Bonuses (Daily)",
+    title: "Rank Bonuses (Hourly)",
     items: [
-      "Every day, the **top 3 players** in each of 5 categories earn bonus credits:",
+      "Every hour, the **top 3 players** in each of 5 categories earn bonus credits:",
       "🥇 1st place: **$3** · 🥈 2nd place: **$2** · 🥉 3rd place: **$1**",
       "Categories: **Empire** (most players owned), **Legacy** (oldest account), **Credits** (most credits), **Value** (highest player value), **Portfolio** (total portfolio worth).",
     ],
@@ -184,7 +164,7 @@ export default function RulesPage() {
 
       {/* Footer tip */}
       <div className="text-center text-sm text-gray-500 pb-4">
-        💡 Tip: Stay online, buy smart, and climb the ranks to earn daily
+        💡 Tip: Stay online, buy smart, and climb the ranks to earn hourly
         bonuses!
       </div>
     </div>
