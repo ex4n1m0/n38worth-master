@@ -23,6 +23,7 @@ import {
   Swords,
   MessageCircle,
   Trophy,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { useThemeColor, type ThemeName } from "./ThemeContext";
@@ -33,6 +34,7 @@ const mainNavLinks = [
   { href: "/my-players", label: "My Players", icon: Swords },
   { href: "/my-owners", label: "My Owner", icon: Crown },
   { href: "/ranks", label: "Ranks", icon: Trophy },
+  { href: "/rules", label: "Rules", icon: BookOpen },
 ];
 
 const themes: { value: ThemeName; label: string }[] = [
