@@ -414,8 +414,8 @@ function BrowsePlayersSection({
                           NPC
                         </div>
                       )}
-                      {/* Deletion countdown badge */}
-                      {player.estimatedDeletionAt && (
+                      {/* Deletion countdown badge — only for NPC (card) players */}
+                      {player.playerType === "card" && player.estimatedDeletionAt && (
                         <div className="absolute top-1 right-1 bg-red-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                           ⚠ Deleting
                         </div>

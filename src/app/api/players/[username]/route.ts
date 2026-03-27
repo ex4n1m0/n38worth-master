@@ -111,12 +111,23 @@ export async function GET(
       estimatedDeletionAt: null,
     }));
 
+    // Only NPC players without an owner get deletion countdown
+    const playerOwnerCount = Number(player.ownerCount);
+    const isNpcWithoutOwner = player.playerType === 'card' && playerOwnerCount === 0;
+    let estimatedDeletionAt: Date | null = null;
+    if (isNpcWithoutOwner && player.credits > 1 && player.lastOnlineAt) {
+      const hoursUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
+      estimatedDeletionAt = new Date(Date.now() + hoursUntilDeletion * 60 * 60 * 1000);
+    } else if (isNpcWithoutOwner && player.credits <= 1) {
+      estimatedDeletionAt = new Date();
+    }
+
     return NextResponse.json({
       ...player,
-      ownerCount: Number(player.ownerCount),
+      ownerCount: playerOwnerCount,
       ownedCount: Number(player.ownedCount),
       portfolioValue: Math.round(Number(player.portfolioValue) * 100) / 100,
-      estimatedDeletionAt: null,
+      estimatedDeletionAt,
       owners: ownersWithMeta,
       ownedPlayers,
     });

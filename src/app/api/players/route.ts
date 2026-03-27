@@ -124,25 +124,23 @@ export async function GET(req: Request) {
 
     // Map results — all computed fields already included, no extra queries needed
     const playersWithCounts = playersList.map((player) => {
-      // Calculate estimated deletion for players at minimum ($1 credits AND $1 value)
-      let estimatedDeletionAt = player.estimatedDeletionAt;
-      if (
-        player.credits <= 1 &&
-        player.playerValue <= 1 &&
-        player.lastOnlineAt
-      ) {
-        // If no DB-stored deletion date, estimate 7 days from last online
-        if (!estimatedDeletionAt) {
-          const lastOnline = new Date(player.lastOnlineAt);
-          estimatedDeletionAt = new Date(lastOnline.getTime() + 7 * 24 * 60 * 60 * 1000);
-        }
-      } else {
-        estimatedDeletionAt = null;
+      const ownerCount = Number(player.ownerCount);
+      const isNpcWithoutOwner = player.playerType === 'card' && ownerCount === 0;
+
+      // Only NPC players without an owner get deletion countdown
+      let estimatedDeletionAt: Date | typeof player.estimatedDeletionAt = null;
+      if (isNpcWithoutOwner && player.credits > 1 && player.lastOnlineAt) {
+        // Calculate hours until credits decay to 1: ln(credits) / (-ln(0.99))
+        const hoursUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
+        estimatedDeletionAt = new Date(Date.now() + hoursUntilDeletion * 60 * 60 * 1000);
+      } else if (isNpcWithoutOwner && player.credits <= 1) {
+        // Already at minimum — deletion imminent
+        estimatedDeletionAt = new Date();
       }
 
       return {
         ...player,
-        ownerCount: Number(player.ownerCount),
+        ownerCount,
         ownedCount: Number(player.ownedCount),
         portfolioValue: Math.round(Number(player.portfolioValue) * 100) / 100,
         estimatedDeletionAt,
