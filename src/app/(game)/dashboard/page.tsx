@@ -104,11 +104,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Create NPC Button */}
-      <Card className="border-gray-800 bg-gray-900/60">
-        <CardContent className="p-4">
-          <CreateNPCButton />
-        </CardContent>
-      </Card>
+      <CreateNPCButton />
 
       {/* Browse Players */}
       <BrowsePlayersSection

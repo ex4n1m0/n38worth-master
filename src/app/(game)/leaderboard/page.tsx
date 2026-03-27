@@ -347,7 +347,9 @@ function BrowsePlayersSection({
                   playerValue: number;
                   ownerCount: number;
                   ownedCount: number;
+                  credits?: number;
                   playerType?: string;
+                  estimatedDeletionAt?: string | null;
                 }) => {
                   const isOwnProfile = currentUsername === player.username;
                   const canAfford = (credits ?? 0) >= player.playerValue;
@@ -410,6 +412,12 @@ function BrowsePlayersSection({
                       {player.playerType === "card" && (
                         <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
                           NPC
+                        </div>
+                      )}
+                      {/* Deletion countdown badge */}
+                      {player.estimatedDeletionAt && (
+                        <div className="absolute top-1 right-1 bg-red-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                          ⚠ Deleting
                         </div>
                       )}
                       {/* Own profile badge */}

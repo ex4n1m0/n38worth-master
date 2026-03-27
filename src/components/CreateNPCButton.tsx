@@ -1,18 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { useCredits } from "@/hooks/useCredits";
 import { Sparkles, Loader2 } from "lucide-react";
-import { useLanguage } from "./LanguageContext";
 
 export function CreateNPCButton() {
+  const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
-  const { t } = useLanguage();
   const [isCreating, setIsCreating] = useState(false);
+
+  // Fetch current player data to check owned count
+  const { data: player } = useQuery({
+    queryKey: ["player", "me"],
+    queryFn: async () => {
+      const res = await fetch(`/api/players/${session?.user?.name}`);
+      if (!res.ok) throw new Error("Failed to fetch player");
+      return res.json();
+    },
+    enabled: !!session?.user?.name,
+    staleTime: 10 * 1000,
+  });
+
+  const ownedCount = player?.ownedPlayers?.length ?? 0;
 
   const createNPCMutation = useMutation({
     mutationFn: async () => {
@@ -44,26 +59,36 @@ export function CreateNPCButton() {
     createNPCMutation.mutate();
   };
 
+  // Only show if player has purchased at least 55 players
+  if (ownedCount < 55) return null;
+
   const canCreate = (credits ?? 0) >= 100;
   const isLoading = createNPCMutation.isPending || isCreating;
 
   return (
-    <Button
-      onClick={handleCreateNPC}
-      disabled={!canCreate || isLoading}
-      className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      {isLoading ? (
-        <>
-          <Loader2 className="h-5 w-5 animate-spin mr-2" />
-          Creating NPC...
-        </>
-      ) : (
-        <>
-          <Sparkles className="h-5 w-5 mr-2" />
-          Create Random NPC (100¢)
-        </>
-      )}
-    </Button>
+    <Card className="border-purple-500/30 bg-gradient-to-r from-purple-900/20 to-pink-900/20">
+      <CardContent className="p-4">
+        <Button
+          onClick={handleCreateNPC}
+          disabled={!canCreate || isLoading}
+          className="w-full h-12 text-base font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Creating NPC...
+            </>
+          ) : (
+            <>
+              <Sparkles className="h-5 w-5 mr-2" />
+              Create Random NPC (100¢)
+            </>
+          )}
+        </Button>
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Unlocked at 55 owned players • Costs 100¢
+        </p>
+      </CardContent>
+    </Card>
   );
 }

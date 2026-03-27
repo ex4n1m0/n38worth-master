@@ -123,13 +123,31 @@ export async function GET(req: Request) {
     }
 
     // Map results — all computed fields already included, no extra queries needed
-    const playersWithCounts = playersList.map((player) => ({
-      ...player,
-      ownerCount: Number(player.ownerCount),
-      ownedCount: Number(player.ownedCount),
-      portfolioValue: Math.round(Number(player.portfolioValue) * 100) / 100,
-      estimatedDeletionAt: null,
-    }));
+    const playersWithCounts = playersList.map((player) => {
+      // Calculate estimated deletion for players at minimum ($1 credits AND $1 value)
+      let estimatedDeletionAt = player.estimatedDeletionAt;
+      if (
+        player.credits <= 1 &&
+        player.playerValue <= 1 &&
+        player.lastOnlineAt
+      ) {
+        // If no DB-stored deletion date, estimate 7 days from last online
+        if (!estimatedDeletionAt) {
+          const lastOnline = new Date(player.lastOnlineAt);
+          estimatedDeletionAt = new Date(lastOnline.getTime() + 7 * 24 * 60 * 60 * 1000);
+        }
+      } else {
+        estimatedDeletionAt = null;
+      }
+
+      return {
+        ...player,
+        ownerCount: Number(player.ownerCount),
+        ownedCount: Number(player.ownedCount),
+        portfolioValue: Math.round(Number(player.portfolioValue) * 100) / 100,
+        estimatedDeletionAt,
+      };
+    });
 
     // Get total count with same filters (single query)
     const countBase = db.select({ count: sql<number>`count(*)` }).from(users);

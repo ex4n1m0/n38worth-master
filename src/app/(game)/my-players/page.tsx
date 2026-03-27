@@ -44,7 +44,7 @@ export default function MyPlayersPage() {
   const [search, setSearch] = useState("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
-  const perPage = 9;
+  const perPage = viewMode === "mosaic" ? 18 : 9;
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me"],

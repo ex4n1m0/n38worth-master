@@ -63,11 +63,7 @@ export default function PlayersPage() {
       </div>
 
       {/* Create NPC Button */}
-      <Card className="border-gray-800 bg-gray-900/60">
-        <CardContent className="p-4">
-          <CreateNPCButton />
-        </CardContent>
-      </Card>
+      <CreateNPCButton />
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
