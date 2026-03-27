@@ -13,6 +13,12 @@ import {
   CREDITS_RANKS,
   VALUE_RANKS,
   PORTFOLIO_RANKS,
+  getValueRank,
+  getPortfolioRank,
+  getCreditsRank,
+  getOwnedRank,
+  getAgeRank,
+  getAgeDays,
   type RankTier,
 } from "@/lib/ranks";
 
@@ -172,6 +178,24 @@ const RANK_LADDERS = [
     formatThreshold: (t: number) => `$${formatNumber(t)}`,
   },
 ];
+
+/** Get the rank title for a player based on the leaderboard category */
+function getPlayerRankTitle(player: RankedPlayer, categoryKey: string): string {
+  switch (categoryKey) {
+    case "topValue":
+      return getValueRank(player.playerValue).title;
+    case "topPortfolio":
+      return getPortfolioRank(player.portfolioValue).title;
+    case "topCredits":
+      return getCreditsRank(player.credits).title;
+    case "topEmpire":
+      return getOwnedRank(player.ownedCount).title;
+    case "topLegacy":
+      return getAgeRank(getAgeDays(player.createdAt)).title;
+    default:
+      return "";
+  }
+}
 
 function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
@@ -420,6 +444,7 @@ export default function RanksPage() {
                   <CardContent className="space-y-1">
                     {players.map((player, index) => {
                       const isTopThree = index < 3;
+                      const rankTitle = getPlayerRankTitle(player, category.key);
                       return (
                         <Link
                           key={player.id}
@@ -450,9 +475,14 @@ export default function RanksPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate group-hover:text-t1-400 transition-colors">
-                              {player.username}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-white truncate group-hover:text-t1-400 transition-colors">
+                                {player.username}
+                              </p>
+                              <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full border ${category.borderColor} ${category.bgColor} ${category.color}`}>
+                                {rankTitle}
+                              </span>
+                            </div>
                             {isTopThree && (
                               <p className="text-[10px] text-gray-500">
                                 +{PRIZE_AMOUNTS[index]}¢/hr
