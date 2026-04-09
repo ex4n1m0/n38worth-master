@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 const BLOCK_SELL_COST_PERCENT = 0.01; // 1% of self cost per hour
 const BLOCK_SELL_DURATION_MS = 1 * 60 * 60 * 1000; // 1 hour per press
@@ -61,6 +62,16 @@ export async function blockSell(ownershipId: number) {
       return { error: `Not enough credits. You need ${cost}¢ (1% of your value of ${player.playerValue}¢)` };
     }
 
+    // Execute all database operations in a transaction
+    // Calculate new expiry: if already blocked, extend from current expiry; otherwise from now
+    const currentBlockEnd = record.blockSellUntil && new Date(record.blockSellUntil) > new Date()
+      ? new Date(record.blockSellUntil).getTime()
+      : Date.now();
+    const newExpiresAt = new Date(currentBlockEnd + BLOCK_SELL_DURATION_MS);
+    const totalHoursRemaining = Math.ceil((newExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
+    
+    // Note: neon-http does not support transactions, so we execute operations individually
+
     // Deduct credits from the player (floor at 0, never go negative)
     await db
       .update(users)
@@ -70,17 +81,11 @@ export async function blockSell(ownershipId: number) {
       })
       .where(eq(users.id, playerId));
 
-    // Pay the owner
+    // Pay the owner — cap to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${cost}` })
+      .set({ credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, record.ownerId));
-
-    // Calculate new expiry: if already blocked, extend from current expiry; otherwise from now
-    const currentBlockEnd = record.blockSellUntil && new Date(record.blockSellUntil) > new Date()
-      ? new Date(record.blockSellUntil).getTime()
-      : Date.now();
-    const newExpiresAt = new Date(currentBlockEnd + BLOCK_SELL_DURATION_MS);
 
     // Set block on the ownership record
     await db
@@ -102,7 +107,6 @@ export async function blockSell(ownershipId: number) {
       hour12: true,
     });
 
-    const totalHoursRemaining = Math.ceil((newExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
     const partnerContent = `🤝 ${player.username} partnered with you for ${cost}¢ (+1h, ${totalHoursRemaining}h total) — ${timestamp}`;
 
     const [partnerMessage] = await db

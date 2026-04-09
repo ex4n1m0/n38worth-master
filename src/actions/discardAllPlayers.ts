@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users, ownership, transactions } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 export async function sellAllPlayers() {
   const session = await auth();
@@ -50,6 +51,8 @@ export async function sellAllPlayers() {
 
     const blockUntil = new Date(Date.now() + 1 * 60 * 1000);
 
+    // Execute all database operations individually
+    // Note: neon-http does not support transactions, so we execute operations individually
     for (const record of sellable) {
       // Get the player's current value
       const [targetPlayer] = await db
@@ -111,23 +114,12 @@ export async function sellAllPlayers() {
         type: "sell",
         amount: sellPrice,
       });
-
-      // Trigger real-time update for each sold player
-      try {
-        await pusher.trigger(`player-${record.ownedId}`, "ownership-changed", {
-          type: "sell",
-          initiator: seller.username,
-          newValue: targetPlayer.valueFloor,
-        });
-      } catch (pusherError) {
-        console.error("Pusher error:", pusherError);
-      }
     }
 
-    // Add total sell price to seller's credits
+    // Add total sell price to seller's credits — cap to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${totalCreditsEarned}` })
+      .set({ credits: sql`LEAST(credits + ${totalCreditsEarned}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, sellerId));
 
     // Trigger real-time update for seller

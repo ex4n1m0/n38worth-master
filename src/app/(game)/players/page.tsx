@@ -172,6 +172,8 @@ export default function PlayersPage() {
                 isActive?: number;
                 lastOnlineAt?: string | null;
                 estimatedDeletionAt?: string | null;
+                ownerName?: string | null;
+                ownerValue?: number | null;
               }) => (
                 <PlayerCard key={player.id} {...player} />
               )

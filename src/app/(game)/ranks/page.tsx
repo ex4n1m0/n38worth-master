@@ -3,13 +3,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, Crown, Users, Clock, Wallet, TrendingUp, DollarSign, Gift, Swords, Hourglass, Coins, Briefcase, ChevronDown, ChevronUp, Trophy, Star } from "lucide-react";
+import { Loader2, Crown, Users, Wallet, TrendingUp, DollarSign, Swords, Coins, Briefcase, ChevronDown, ChevronUp, Trophy, Star } from "lucide-react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   OWNED_RANKS,
-  AGE_RANKS,
   CREDITS_RANKS,
   VALUE_RANKS,
   PORTFOLIO_RANKS,
@@ -17,8 +15,6 @@ import {
   getPortfolioRank,
   getCreditsRank,
   getOwnedRank,
-  getAgeRank,
-  getAgeDays,
   type RankTier,
 } from "@/lib/ranks";
 
@@ -37,7 +33,6 @@ interface RankedPlayer {
 
 interface RanksData {
   topEmpire: RankedPlayer[];
-  topLegacy: RankedPlayer[];
   topPortfolio: RankedPlayer[];
   topCredits: RankedPlayer[];
   topValue: RankedPlayer[];
@@ -51,11 +46,11 @@ const RANK_CATEGORIES = [
     key: "topValue",
     title: "Highest Value",
     icon: DollarSign,
-    color: "text-yellow-400",
-    bgColor: "bg-yellow-500/10",
-    borderColor: "border-yellow-500/30",
-    gradientFrom: "from-yellow-900/30",
-    gradientTo: "to-amber-900/10",
+    color: "text-t1-400",
+    bgColor: "bg-t1-500/10",
+    borderColor: "border-t1-500/30",
+    gradientFrom: "from-t1-900/30",
+    gradientTo: "to-t2-900/10",
     getValue: (p: RankedPlayer) => `$${formatNumber(p.playerValue)}`,
     prizeLabel: "Value Prize",
   },
@@ -63,11 +58,11 @@ const RANK_CATEGORIES = [
     key: "topPortfolio",
     title: "Top Portfolio",
     icon: TrendingUp,
-    color: "text-purple-400",
-    bgColor: "bg-purple-500/10",
-    borderColor: "border-purple-500/30",
-    gradientFrom: "from-purple-900/30",
-    gradientTo: "to-indigo-900/10",
+    color: "text-t2-400",
+    bgColor: "bg-t2-500/10",
+    borderColor: "border-t2-500/30",
+    gradientFrom: "from-t2-900/30",
+    gradientTo: "to-t1-900/10",
     getValue: (p: RankedPlayer) => `$${formatNumber(p.portfolioValue)}`,
     prizeLabel: "Portfolio Prize",
   },
@@ -75,11 +70,11 @@ const RANK_CATEGORIES = [
     key: "topCredits",
     title: "Most Credits",
     icon: Wallet,
-    color: "text-emerald-400",
-    bgColor: "bg-emerald-500/10",
-    borderColor: "border-emerald-500/30",
-    gradientFrom: "from-emerald-900/30",
-    gradientTo: "to-green-900/10",
+    color: "text-t1-300",
+    bgColor: "bg-t1-500/10",
+    borderColor: "border-t1-500/30",
+    gradientFrom: "from-t1-900/30",
+    gradientTo: "to-t2-900/10",
     getValue: (p: RankedPlayer) => formatNumber(p.credits),
     prizeLabel: "Credits Prize",
   },
@@ -87,26 +82,13 @@ const RANK_CATEGORIES = [
     key: "topEmpire",
     title: "Biggest Empire",
     icon: Users,
-    color: "text-blue-400",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/30",
-    gradientFrom: "from-blue-900/30",
-    gradientTo: "to-cyan-900/10",
+    color: "text-t2-300",
+    bgColor: "bg-t2-500/10",
+    borderColor: "border-t2-500/30",
+    gradientFrom: "from-t2-900/30",
+    gradientTo: "to-t1-900/10",
     getValue: (p: RankedPlayer) => `${p.ownedCount} players`,
     prizeLabel: "Empire Prize",
-  },
-  {
-    key: "topLegacy",
-    title: "OG Players",
-    icon: Clock,
-    color: "text-orange-400",
-    bgColor: "bg-orange-500/10",
-    borderColor: "border-orange-500/30",
-    gradientFrom: "from-orange-900/30",
-    gradientTo: "to-red-900/10",
-    getValue: (p: RankedPlayer) =>
-      p.createdAt ? formatDistanceToNow(new Date(p.createdAt), { addSuffix: false }) : "N/A",
-    prizeLabel: "Legacy Prize",
   },
 ] as const;
 
@@ -116,37 +98,24 @@ const RANK_LADDERS = [
     name: "Empire",
     description: "Based on number of owned players",
     icon: Swords,
-    color: "text-blue-400",
-    bgColor: "bg-blue-500/10",
-    borderColor: "border-blue-500/30",
-    accentColor: "text-blue-300",
-    barColor: "bg-blue-500",
+    color: "text-t1-400",
+    bgColor: "bg-t1-500/10",
+    borderColor: "border-t1-500/30",
+    accentColor: "text-t1-300",
+    barColor: "bg-t1-500",
     tiers: OWNED_RANKS,
     unit: "players",
     formatThreshold: (t: number) => `${t} players`,
   },
   {
-    name: "Legacy",
-    description: "Based on account age",
-    icon: Hourglass,
-    color: "text-orange-400",
-    bgColor: "bg-orange-500/10",
-    borderColor: "border-orange-500/30",
-    accentColor: "text-orange-300",
-    barColor: "bg-orange-500",
-    tiers: AGE_RANKS,
-    unit: "days",
-    formatThreshold: (t: number) => t === 0 ? "0 days" : t < 30 ? `${t} days` : t < 365 ? `${Math.floor(t / 30)} months` : `${(t / 365).toFixed(1)} years`,
-  },
-  {
     name: "Credits",
     description: "Based on credit balance",
     icon: Coins,
-    color: "text-emerald-400",
-    bgColor: "bg-emerald-500/10",
-    borderColor: "border-emerald-500/30",
-    accentColor: "text-emerald-300",
-    barColor: "bg-emerald-500",
+    color: "text-t2-400",
+    bgColor: "bg-t2-500/10",
+    borderColor: "border-t2-500/30",
+    accentColor: "text-t2-300",
+    barColor: "bg-t2-500",
     tiers: CREDITS_RANKS,
     unit: "¢",
     formatThreshold: (t: number) => `${formatNumber(t)}¢`,
@@ -155,11 +124,11 @@ const RANK_LADDERS = [
     name: "Value",
     description: "Based on player value",
     icon: TrendingUp,
-    color: "text-rose-400",
-    bgColor: "bg-rose-500/10",
-    borderColor: "border-rose-500/30",
-    accentColor: "text-rose-300",
-    barColor: "bg-rose-500",
+    color: "text-t1-400",
+    bgColor: "bg-t1-500/10",
+    borderColor: "border-t1-500/30",
+    accentColor: "text-t1-300",
+    barColor: "bg-t1-500",
     tiers: VALUE_RANKS,
     unit: "value",
     formatThreshold: (t: number) => `$${formatNumber(t)}`,
@@ -168,11 +137,11 @@ const RANK_LADDERS = [
     name: "Portfolio",
     description: "Based on total portfolio value",
     icon: Briefcase,
-    color: "text-purple-400",
-    bgColor: "bg-purple-500/10",
-    borderColor: "border-purple-500/30",
-    accentColor: "text-purple-300",
-    barColor: "bg-purple-500",
+    color: "text-t2-400",
+    bgColor: "bg-t2-500/10",
+    borderColor: "border-t2-500/30",
+    accentColor: "text-t2-300",
+    barColor: "bg-t2-500",
     tiers: PORTFOLIO_RANKS,
     unit: "value",
     formatThreshold: (t: number) => `$${formatNumber(t)}`,
@@ -190,8 +159,6 @@ function getPlayerRankTitle(player: RankedPlayer, categoryKey: string): string {
       return getCreditsRank(player.credits).title;
     case "topEmpire":
       return getOwnedRank(player.ownedCount).title;
-    case "topLegacy":
-      return getAgeRank(getAgeDays(player.createdAt)).title;
     default:
       return "";
   }
@@ -201,42 +168,6 @@ function formatNumber(num: number): string {
   if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(2)}M`;
   if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
   return num.toLocaleString();
-}
-
-/** Calculate seconds remaining until the next :00 mark (top of hour) */
-function getSecondsToNextHour() {
-  const now = new Date();
-  const mins = now.getMinutes();
-  const secs = now.getSeconds();
-  const minutesLeft = 59 - mins;
-  const secondsLeft = 59 - secs;
-  return minutesLeft * 60 + secondsLeft;
-}
-
-function PrizeCountdown() {
-  const [totalSeconds, setTotalSeconds] = useState(0);
-
-  useEffect(() => {
-    const update = () => {
-      setTotalSeconds(getSecondsToNextHour());
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
-  return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-yellow-500/20">
-      <Clock className="h-3.5 w-3.5 text-yellow-400" />
-      <span className="font-mono font-bold text-white text-sm">
-        {pad(minutes)}:{pad(seconds)}
-      </span>
-    </div>
-  );
 }
 
 function RankTierCard({
@@ -374,28 +305,12 @@ export default function RanksPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Crown className="h-6 w-6 text-yellow-400" />
+          <Crown className="h-6 w-6 text-t1-400" />
           Hall of Fame
         </h1>
         <div className="flex items-center gap-3">
           <p className="text-sm text-gray-400">{data.totalPlayers} players total</p>
         </div>
-      </div>
-
-      {/* Global Prize Countdown */}
-      <div className="rounded-xl bg-gradient-to-br from-yellow-900/20 to-amber-900/20 border border-yellow-500/20 p-4 sm:p-5">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <Gift className="h-5 w-5 text-yellow-400" />
-            <h3 className="text-sm sm:text-base font-semibold text-yellow-400">
-              Rank Prizes — Every Hour
-            </h3>
-          </div>
-          <PrizeCountdown />
-        </div>
-        <p className="text-xs text-gray-500 mt-2">
-          Top 3 players in each category receive credits every hour: 🥇 +{PRIZE_AMOUNTS[0]}¢ &nbsp; 🥈 +{PRIZE_AMOUNTS[1]}¢ &nbsp; 🥉 +{PRIZE_AMOUNTS[2]}¢
-        </p>
       </div>
 
       {/* Tab Toggle */}
@@ -404,7 +319,7 @@ export default function RanksPage() {
           onClick={() => setActiveTab("leaderboard")}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
             activeTab === "leaderboard"
-              ? "bg-gradient-to-r from-yellow-600/30 to-amber-600/30 text-yellow-400 border border-yellow-500/30 shadow-sm"
+              ? "bg-gradient-to-r from-t1-600/30 to-t2-600/30 text-t1-400 border border-t1-500/30 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-gray-800/50"
           }`}
         >
@@ -415,7 +330,7 @@ export default function RanksPage() {
           onClick={() => setActiveTab("titles")}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
             activeTab === "titles"
-              ? "bg-gradient-to-r from-purple-600/30 to-pink-600/30 text-purple-400 border border-purple-500/30 shadow-sm"
+              ? "bg-gradient-to-r from-t1-600/30 to-t2-600/30 text-t1-400 border border-t1-500/30 shadow-sm"
               : "text-gray-400 hover:text-white hover:bg-gray-800/50"
           }`}
         >
@@ -458,11 +373,11 @@ export default function RanksPage() {
                           <span
                             className={`w-6 text-center font-bold text-sm ${
                               index === 0
-                                ? "text-yellow-400"
+                                ? "text-t1-400"
                                 : index === 1
-                                  ? "text-gray-300"
+                                  ? "text-t2-400"
                                   : index === 2
-                                    ? "text-orange-400"
+                                    ? "text-t1-300"
                                     : "text-gray-500"
                             }`}
                           >
@@ -507,15 +422,15 @@ export default function RanksPage() {
       {activeTab === "titles" && (
         <div className="space-y-6">
           {/* Introduction */}
-          <div className="rounded-xl bg-gradient-to-br from-purple-900/20 to-pink-900/20 border border-purple-500/20 p-4 sm:p-5">
+          <div className="rounded-xl bg-gradient-to-br from-t1-900/20 to-t2-900/20 border border-t1-500/20 p-4 sm:p-5">
             <div className="flex items-center gap-2 mb-2">
-              <Star className="h-5 w-5 text-purple-400" />
-              <h3 className="text-sm sm:text-base font-semibold text-purple-400">
+              <Star className="h-5 w-5 text-t1-400" />
+              <h3 className="text-sm sm:text-base font-semibold text-t1-400">
                 Rank Title System
               </h3>
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">
-              Every player earns titles across 5 different categories. Each category has 10 tiers — 
+              Every player earns titles across 4 different categories. Each category has 10 tiers — 
               from beginner to legendary. Your titles update automatically as you progress. 
               Rank titles are displayed on your player card for everyone to see.
             </p>
@@ -529,10 +444,10 @@ export default function RanksPage() {
           </div>
 
           {/* Summary Table */}
-          <Card className="border-gray-800 bg-gray-900/60 overflow-hidden">
+          <Card className="border-t1-500/30 bg-card overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-yellow-400" />
+              <CardTitle className="text-base text-foreground flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-t1-400" />
                 Quick Reference — All Titles
               </CardTitle>
             </CardHeader>
@@ -540,8 +455,8 @@ export default function RanksPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-gray-800">
-                      <th className="text-left py-2.5 px-3 text-gray-500 font-medium">Tier</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2.5 px-3 text-muted-foreground font-medium">Tier</th>
                       {RANK_LADDERS.map((l) => (
                         <th key={l.name} className={`text-left py-2.5 px-3 font-medium ${l.color}`}>
                           <span className="flex items-center gap-1">
@@ -556,13 +471,13 @@ export default function RanksPage() {
                     {Array.from({ length: 10 }, (_, i) => (
                       <tr
                         key={i}
-                        className={`border-b border-gray-800/50 ${
-                          i === 9 ? "bg-yellow-500/5" : i >= 7 ? "bg-white/[0.02]" : ""
+                        className={`border-b border-border/50 ${
+                          i === 9 ? "bg-t1-500/5" : i >= 7 ? "bg-white/[0.02]" : ""
                         }`}
                       >
-                        <td className="py-2 px-3 text-gray-500 font-mono">
+                        <td className="py-2 px-3 text-muted-foreground font-mono">
                           {i === 9 ? (
-                            <Crown className="h-3 w-3 text-yellow-400 inline" />
+                            <Crown className="h-3 w-3 text-t1-400 inline" />
                           ) : (
                             i + 1
                           )}
@@ -572,10 +487,10 @@ export default function RanksPage() {
                           if (!tier) return <td key={l.name} className="py-2 px-3">—</td>;
                           return (
                             <td key={l.name} className="py-2 px-3">
-                              <span className={`font-semibold ${i === 9 ? l.color : "text-gray-300"}`}>
+                              <span className={`font-semibold ${i === 9 ? l.color : "text-foreground"}`}>
                                 {tier.title}
                               </span>
-                              <span className="text-gray-600 ml-1">
+                              <span className="text-muted-foreground ml-1">
                                 {i === 0 ? "" : `(${l.formatThreshold(tier.threshold)})`}
                               </span>
                             </td>

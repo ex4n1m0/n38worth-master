@@ -58,17 +58,17 @@ function MosaicBuyButton({
     <button
       onClick={handleBuy}
       disabled={disabled || isPending}
-      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
+      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-3 rounded text-[14px] sm:text-[20px] md:text-[28px] lg:text-[36px] font-semibold transition-all ${
         disabled
           ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
           : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
       }`}
     >
       {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9 animate-spin" />
       ) : (
         <>
-          <ShoppingCart className="h-3 w-3" />
+          <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9" />
           <span>{cost}¢</span>
         </>
       )}
@@ -233,7 +233,7 @@ export default function BrowseMosaicPage() {
                         <p className="text-white text-xs sm:text-sm font-medium truncate">
                           {p.username}
                         </p>
-                        <div className="flex items-center gap-2 text-gray-300 text-[10px] sm:text-xs">
+                        <div className="flex items-center gap-2 text-gray-300 text-[30px] sm:text-[36px]">
                           <span>₡{p.playerValue?.toLocaleString()}</span>
                           {p.ownerCount > 0 && (
                             <span className="flex items-center gap-0.5">

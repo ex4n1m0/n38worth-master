@@ -2,9 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership, transactions } from "@/db/schema";
+import { users, ownership, transactions, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 export async function sellPlayer(otherId: number) {
   const session = await auth();
@@ -53,20 +54,23 @@ export async function sellPlayer(otherId: number) {
       .from(users)
       .where(eq(users.id, sellerId));
 
+    // 1-4. Execute all database operations individually
+    // Note: neon-http does not support transactions, so we execute operations individually
     // 1. Distribute sell price: 50% to owner, 50% to the sold player
     const ownerShare = Math.floor(sellPrice / 2);
     const playerShare = sellPrice - ownerShare;
+    const blockUntil = new Date(Date.now() + 1 * 60 * 1000);
 
-    // Give 50% to the owner (seller)
+    // Give 50% to the owner (seller) — cap credits to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${ownerShare}` })
+      .set({ credits: sql`LEAST(credits + ${ownerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, sellerId));
 
-    // Give 50% to the sold player
+    // Give 50% to the sold player — cap credits to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${playerShare}` })
+      .set({ credits: sql`LEAST(credits + ${playerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, otherId));
 
     // 2. Reset the sold player's value to their floor (milestone-based minimum)
@@ -83,9 +87,15 @@ export async function sellPlayer(otherId: number) {
       .delete(ownership)
       .where(eq(ownership.id, ownershipRecord.id));
 
+    // 3b. If sold player is an NPC, set ownerlessAt timestamp
+    if (targetPlayer.isNpc === 1) {
+      await db
+        .update(users)
+        .set({ ownerlessAt: new Date() })
+        .where(eq(users.id, otherId));
+    }
 
-    // 3b. After selling, set 1min sell block on the player record so new buyers inherit it
-    const blockUntil = new Date(Date.now() + 1 * 60 * 1000);
+    // 3c. After selling, set 1min sell block on the player record so new buyers inherit it
     await db
       .update(users)
       .set({
@@ -100,6 +110,15 @@ export async function sellPlayer(otherId: number) {
       targetId: otherId,
       type: "sell",
       amount: sellPrice,
+    });
+
+    // 4b. Log to game history
+    await db.insert(gameHistory).values({
+      eventType: "sell",
+      actorId: sellerId,
+      targetId: otherId,
+      targetUsername: targetPlayer.username,
+      details: JSON.stringify({ amount: sellPrice }),
     });
 
     // 5. Trigger real-time updates

@@ -1,20 +1,39 @@
 import { auth } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
+// Protected game routes that require authentication
+const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/players",
+  "/leaderboard",
+  "/settings",
+  "/my-profile",
+  "/my-players",
+  "/my-owners",
+  "/ranks",
+  "/history",
+  "/chat",
+  "/transactions",
+];
+
+// Routes that should be blocked during onboarding (only accessible after avatar completion)
+const AVATAR_REQUIRED_ROUTES = ["/leaderboard", "/players"];
+
+// Routes that should be blocked until onboarding is complete
+const ONBOARDING_REQUIRED_ROUTES = [
+  "/my-players",
+  "/my-owners",
+  "/ranks",
+  "/history",
+];
+
 export default auth((req) => {
-  // A user is truly logged in only if they have an auth session AND a valid user ID.
-  // When a user's account is deleted from the DB, the JWT callback invalidates the token
-  // by clearing the ID, so we must check for a non-empty user ID.
   const isLoggedIn = !!req.auth?.user?.id;
   const isAuthPage =
     req.nextUrl.pathname.startsWith("/login") ||
     req.nextUrl.pathname.startsWith("/register");
-  const isGamePage =
-    req.nextUrl.pathname.startsWith("/dashboard") ||
-    req.nextUrl.pathname.startsWith("/players") ||
-    req.nextUrl.pathname.startsWith("/leaderboard") ||
-    req.nextUrl.pathname.startsWith("/settings");
   const isApiRoute = req.nextUrl.pathname.startsWith("/api");
+  const pathname = req.nextUrl.pathname;
 
   // Redirect logged-in users away from auth pages
   if (isLoggedIn && isAuthPage) {
@@ -22,12 +41,16 @@ export default auth((req) => {
   }
 
   // Allow API routes and public pages
-  if (isApiRoute || req.nextUrl.pathname === "/") {
+  if (isApiRoute || pathname === "/" || pathname.startsWith("/privacy") || pathname.startsWith("/terms")) {
     return NextResponse.next();
   }
 
   // Protect game pages - redirect to login if not authenticated
-  if (isGamePage && !isLoggedIn) {
+  const isProtectedRoute = PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  if (isProtectedRoute && !isLoggedIn) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

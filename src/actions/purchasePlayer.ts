@@ -2,9 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership, transactions } from "@/db/schema";
+import { users, ownership, transactions, gameHistory, gameSettings } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { PG_BIGINT_MAX, MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 export async function purchasePlayer(targetId: number) {
   const session = await auth();
@@ -19,13 +20,16 @@ export async function purchasePlayer(targetId: number) {
   }
 
   try {
-    // Use Neon HTTP transactions via drizzle
-    // Note: Neon HTTP driver doesn't support traditional transactions with FOR UPDATE
-    // We use a serializable approach with conflict detection
-
     // 1. Get target player
     const [target] = await db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        playerValue: users.playerValue,
+        credits: users.credits,
+        blockSellUntil: users.blockSellUntil,
+        blockSellBy: users.blockSellBy,
+      })
       .from(users)
       .where(eq(users.id, targetId));
 
@@ -35,7 +39,12 @@ export async function purchasePlayer(targetId: number) {
 
     // 2. Get buyer
     const [buyer] = await db
-      .select()
+      .select({
+        id: users.id,
+        username: users.username,
+        playerValue: users.playerValue,
+        credits: users.credits,
+      })
       .from(users)
       .where(eq(users.id, buyerId));
 
@@ -62,14 +71,21 @@ export async function purchasePlayer(targetId: number) {
       return { error: "You already own this player" };
     }
 
-    // 4b. Check ownership limit (max 111 players)
+    // 4b. Check ownership limit (dynamic based on total players)
+    const [limitSetting] = await db
+      .select({ value: gameSettings.settingValue })
+      .from(gameSettings)
+      .where(eq(gameSettings.settingKey, "max_ownership_limit"));
+
+    const ownershipLimit = limitSetting?.value ?? 111; // Fallback to 111 if not set
+
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(ownership)
       .where(eq(ownership.ownerId, buyerId));
 
-    if (ownershipCount.count >= 111) {
-      return { error: "You've reached the maximum limit of 111 owned players. Discard some players to buy more!" };
+    if (ownershipCount.count >= ownershipLimit) {
+      return { error: `You've reached the maximum limit of ${ownershipLimit} owned players. Discard some players to buy more!` };
     }
 
     // 5. Get the current owner of target (single owner now)
@@ -78,21 +94,41 @@ export async function purchasePlayer(targetId: number) {
       .from(ownership)
       .where(eq(ownership.ownedId, targetId));
 
-    // 6. Deduct credits from buyer (allow negative credits)
-    await db
-      .update(users)
-      .set({ credits: sql`credits - ${cost}` })
-      .where(eq(users.id, buyerId));
-
-    // 7. Distribute revenue: 50% to original owner, 50% to the purchased player
-    const ownerShare = Math.floor(cost / 2);
+    // Pre-compute values
+    // Cap the doubled value at the PostgreSQL bigint limit (2^63 - 1) to prevent overflow
+    // Use BigInt for precise arithmetic since values may exceed JS safe integer range (2^53)
+    const bigPlayerValue = BigInt(target.playerValue);
+    const bigDoubled = bigPlayerValue * BigInt(2);
+    const canDouble = bigDoubled <= PG_BIGINT_MAX;
+    const newValue = canDouble ? Number(bigDoubled) : target.playerValue;
+    const ownerShare = Math.floor(cost * 0.75);
     const playerShare = cost - ownerShare;
 
-    // Give 50% to the original owner (if exists)
+    // Determine block sell data from current ownership
+    let blockUntil: Date | null = null;
+    let blockBy: string | null = null;
+    if (currentOwner?.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
+      blockUntil = new Date(currentOwner.blockSellUntil);
+      blockBy = currentOwner.blockSellBy ?? null;
+    } else if (target.blockSellUntil && new Date(target.blockSellUntil) > new Date()) {
+      blockUntil = new Date(target.blockSellUntil);
+      blockBy = target.blockSellBy ?? null;
+    }
+
+    // 6. Deduct credits from buyer (floor at 0)
+    // Note: neon-http does not support transactions, so we execute operations individually
+    await db
+      .update(users)
+      .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
+      .where(eq(users.id, buyerId));
+
+    // 7. Distribute revenue: 75% to original owner, 25% to the purchased player
+
+    // Give 75% to the original owner (if exists) — cap to prevent overflow
     if (currentOwner) {
       await db
         .update(users)
-        .set({ credits: sql`credits + ${ownerShare}` })
+        .set({ credits: sql`LEAST(credits + ${ownerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
         .where(eq(users.id, currentOwner.ownerId));
 
       // Remove the original ownership
@@ -101,47 +137,22 @@ export async function purchasePlayer(targetId: number) {
         .where(eq(ownership.id, currentOwner.id));
     }
 
-    // Give 50% to the purchased player
+    // Give 25% to the purchased player — cap to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${playerShare}` })
+      .set({ credits: sql`LEAST(credits + ${playerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, targetId));
 
-    // 8. Double the target's player value after purchase
-    const newValue = target.playerValue * 2;
+    // 8. Update the target's player value after purchase (double it, or keep it if at the cap)
     await db
       .update(users)
       .set({
-        playerValue: sql`player_value * 2`,
+        playerValue: newValue,
         updatedAt: new Date(),
       })
       .where(eq(users.id, targetId));
 
     // 9. Create ownership record — inherit any active sell block from the target player
-    // Check ownership records first, then fall back to the player's own record
-    const existingBlocked = await db
-      .select({
-        blockSellUntil: ownership.blockSellUntil,
-        blockSellBy: ownership.blockSellBy,
-      })
-      .from(ownership)
-      .where(
-        and(
-          eq(ownership.ownedId, targetId),
-          sql`block_sell_until > NOW()`
-        )
-      )
-      .limit(1);
-
-    let blockUntil = existingBlocked.length > 0 ? existingBlocked[0].blockSellUntil : null;
-    let blockBy = existingBlocked.length > 0 ? existingBlocked[0].blockSellBy : null;
-
-    // Fallback: check the player record itself (covers case where seller was the only owner)
-    if (!blockUntil && target.blockSellUntil && new Date(target.blockSellUntil) > new Date()) {
-      blockUntil = target.blockSellUntil;
-      blockBy = target.blockSellBy ?? null;
-    }
-
     await db.insert(ownership).values({
       ownerId: buyerId,
       ownedId: targetId,
@@ -149,7 +160,6 @@ export async function purchasePlayer(targetId: number) {
       blockSellUntil: blockUntil,
       blockSellBy: blockBy,
     });
-
 
     // 10. Log transaction
     await db.insert(transactions).values({
@@ -159,7 +169,47 @@ export async function purchasePlayer(targetId: number) {
       amount: cost,
     });
 
-    // 11. Trigger real-time updates via Pusher
+    // 10b. Log to game history
+    await db.insert(gameHistory).values({
+      eventType: "purchase",
+      actorId: buyerId,
+      targetId,
+      targetUsername: target.username,
+      details: JSON.stringify({ amount: cost, newValue }),
+    });
+
+    // 11. Track onboarding NPC purchase (optional - columns may not exist yet)
+    try {
+      const [buyerOnboarding] = await db
+        .select({
+          onboardingNpcs: users.onboardingNpcs,
+          onboardingOwnedCount: users.onboardingOwnedCount,
+          onboardingComplete: users.onboardingComplete,
+        })
+        .from(users)
+        .where(eq(users.id, buyerId));
+
+      const starterNpcIds = (buyerOnboarding?.onboardingNpcs as number[]) || [];
+      if (
+        starterNpcIds.includes(targetId) &&
+        buyerOnboarding?.onboardingComplete !== 1
+      ) {
+        const newOwnedCount = (buyerOnboarding?.onboardingOwnedCount ?? 0) + 1;
+        const isComplete = newOwnedCount >= 3;
+        await db
+          .update(users)
+          .set({
+            onboardingOwnedCount: newOwnedCount,
+            onboardingComplete: isComplete ? 1 : 0,
+          })
+          .where(eq(users.id, buyerId));
+      }
+    } catch (onboardingError) {
+      // Onboarding columns may not exist yet - continue without tracking
+      console.log("Onboarding tracking skipped:", onboardingError);
+    }
+
+    // 12. Trigger real-time updates via Pusher
     try {
       const pusherPromises = [
         pusher.trigger(`player-${targetId}`, "purchased", {
@@ -184,7 +234,7 @@ export async function purchasePlayer(targetId: number) {
 
       await Promise.all(pusherPromises);
     } catch (pusherError) {
-      // Don't fail the transaction if Pusher fails
+      // Don't fail the purchase if Pusher fails
       console.error("Pusher error:", pusherError);
     }
 
@@ -193,8 +243,10 @@ export async function purchasePlayer(targetId: number) {
       newValue,
       cost,
     };
-  } catch (error) {
-    console.error("Purchase error:", error);
+  } catch (error: unknown) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("Purchase error:", errMsg);
+    console.error("Purchase error full:", error);
     return { error: "Purchase failed. Please try again." };
   }
 }

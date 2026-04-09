@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, index, uniqueIndex, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, bigint, timestamp, index, uniqueIndex, varchar } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const ownership = pgTable(
@@ -12,7 +12,7 @@ export const ownership = pgTable(
       .references(() => users.id)
       .notNull(),
     purchasedAt: timestamp("purchased_at").defaultNow().notNull(),
-    purchasePrice: integer("purchase_price").notNull(),
+    purchasePrice: bigint("purchase_price", { mode: "number" }).notNull(),
     blockSellUntil: timestamp("block_sell_until"),
     blockSellBy: varchar("block_sell_by", { length: 30 }),
   },

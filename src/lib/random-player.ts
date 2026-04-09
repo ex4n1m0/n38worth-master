@@ -1,47 +1,64 @@
 import { db } from "@/db";
-import { users, ownership, transactions, messages } from "@/db/schema";
-import { sql, eq, and, or } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { sql, eq, or } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 
 const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
-const PEXELS_API_KEY = "GFaOCSJqSdJaNrEb9Cw9YHgQnjhJjFMurBpVmsZBFYn7bB0jK1bsMB5h";
 
 const PORTRAIT_QUERIES = [
-  "woman in lingerie",
-  "women lingerie",
-  "lingerie model",
-  "sexy girl in lingerie",
-  "lingerie fashion",
-  "black lingerie woman",
-  "white lingerie woman",
-  "red lingerie model",
-  "lace lingerie woman",
-  "sheer lingerie",
-  "sensual portrait woman",
-  "boudoir photography",
-  "boudoir woman lingerie",
-  "intimate portrait woman",
-  "bedroom portrait woman",
-  "woman on bed lingerie",
-  "moody lighting lingerie",
-  "low light boudoir",
-  "soft light boudoir",
-  "glamour portrait woman",
-  "slim female body lingerie",
-  "fit woman lingerie",
-  "curvy woman lingerie",
-  "female body silhouette",
-  "female body in shadow",
-  "back of woman lingerie",
-  "woman torso lingerie",
-  "female figure lingerie",
-  "close up lingerie details",
-  "close up female body lingerie",
-  "crop torso lingerie",
-  "woman legs lingerie",
-  "sitting woman lingerie",
-  "standing woman lingerie side view",
-  "mirror selfie lingerie",
+  // Fashion
+  "luxury fashion model",
+  "high fashion editorial",
+  "runway model",
+  "fashion photography",
+  "street style fashion",
+  "haute couture",
+  "fashion influencer",
+  "glamour model",
+  "vogue style",
+  "fashion portrait",
+  // Fun
+  "fun portrait smile",
+  "happy person lifestyle",
+  "joyful candid photo",
+  "party vibes portrait",
+  "cheerful model",
+  // Action
+  "action portrait photography",
+  "dynamic pose model",
+  "athletic portrait",
+  "sporty lifestyle photo",
+  "energetic movement portrait",
+  // Lust
+  "seductive portrait",
+  "alluring model photo",
+  "sultry editorial",
+  "sensual portrait photography",
+  "glamour night portrait",
+  // Cyber
+  "cyberpunk portrait",
+  "neon lights person",
+  "futuristic cyber model",
+  "digital aesthetic portrait",
+  "cyber style photography",
+  // Future
+  "futuristic portrait",
+  "sci-fi inspired model",
+  "space age fashion",
+  "future aesthetic portrait",
+  "avant garde futuristic",
+  // Techno
+  "techno club portrait",
+  "electronic music aesthetic",
+  "rave culture portrait",
+  "techno style model",
+  "underground music portrait",
+  // Dance
+  "dance portrait photography",
+  "dancer movement photo",
+  "ballet portrait elegant",
+  "contemporary dance model",
+  "dance performance portrait",
 ];
 
 function generateRandomUsername(): string {
@@ -66,40 +83,66 @@ function generateRandomUsername(): string {
 
 /**
  * Creates a single random NPC player with an Unsplash avatar.
- * Called by the cron job once per day.
+ * Called by the cron job once every 3 minutes.
+ * @param customQuery - Optional custom Unsplash search term.
  * Returns the created player info or null on failure.
  */
-export async function createRandomPlayer(): Promise<{
+export async function createRandomPlayer(customQuery?: string): Promise<{
   success: boolean;
   message: string;
   player?: { id: number; username: string; avatarUrl: string };
 }> {
   try {
     // Fetch a unique random image for the avatar
-    // Strategy: Try Unsplash first (2 attempts to conserve rate limit),
-    // then Pexels as fallback, then picsum.photos as last resort
+    // Strategy: Try Unsplash first (2 attempts to conserve rate limit)
     let avatarUrl: string | null = null;
     let photoAuthorName: string | null = null;
     let photoAuthorUrl: string | null = null;
     let photoSourceUrl: string | null = null;
 
-    // --- Attempt 1: Unsplash (max 2 attempts to conserve rate limit) ---
+    // --- Attempt 1: Unsplash (increased to 6 attempts for better quality with production quota) ---
+    // Use custom query if provided (with content_filter=low), otherwise random from PORTRAIT_QUERIES (with content_filter=high)
+    const useCustomQuery = customQuery && customQuery.trim().length > 0;
+    const sanitizedQuery = useCustomQuery
+      ? customQuery!.trim().slice(0, 100).replace(/[<>]/g, "")
+      : null;
+
     const queryOffset = Math.floor(Math.random() * PORTRAIT_QUERIES.length);
-    for (let i = 0; i < 2 && !avatarUrl; i++) {
-      const query = PORTRAIT_QUERIES[(i + queryOffset) % PORTRAIT_QUERIES.length];
+    for (let i = 0; i < 6 && !avatarUrl; i++) {
+      const query = useCustomQuery
+        ? sanitizedQuery!
+        : PORTRAIT_QUERIES[(i + queryOffset) % PORTRAIT_QUERIES.length];
       try {
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+
+        // For custom queries, don't filter by orientation to get more relevant results
+        const orientationParam = useCustomQuery ? "" : "&orientation=squarish";
         const unsplashRes = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&content_filter=low`,
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}${orientationParam}`,
           {
             headers: {
               Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
             },
+            signal: controller.signal,
           }
         );
 
+        clearTimeout(timeout);
+
         if (!unsplashRes.ok) {
+          // Check rate limit headers for monitoring
+          const remaining = unsplashRes.headers.get("X-Ratelimit-Remaining");
+          if (remaining !== null && parseInt(remaining) < 100) {
+            console.warn(`Unsplash rate limit remaining: ${remaining} requests`);
+          }
           console.error(`Unsplash API error (attempt ${i + 1}):`, unsplashRes.status);
-          break; // Don't retry on rate limit / auth errors
+          // Continue trying on 404 (no results for query) but break on auth/rate limit errors
+          if (unsplashRes.status === 404 || unsplashRes.status === 422) {
+            continue;
+          }
+          break; // Stop on rate limit / auth errors
         }
 
         const unsplashData = await unsplashRes.json();
@@ -113,10 +156,20 @@ export async function createRandomPlayer(): Promise<{
         const compressed = await downloadAndCompressAvatar(candidateUrl);
         const finalUrl = compressed || candidateUrl;
 
+        // Check for duplicates using both avatarUrl and photoSourceUrl (Unsplash photo ID)
+        const sourceUrl = unsplashData.links?.html
+          ? `${unsplashData.links.html}?utm_source=networth&utm_medium=referral`
+          : null;
+
         const [duplicate] = await db
           .select({ id: users.id })
           .from(users)
-          .where(eq(users.avatarUrl, finalUrl))
+          .where(
+            or(
+              eq(users.avatarUrl, finalUrl),
+              sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
+            )
+          )
           .limit(1);
 
         if (!duplicate) {
@@ -126,123 +179,25 @@ export async function createRandomPlayer(): Promise<{
           photoAuthorUrl = unsplashData.user?.links?.html
             ? `${unsplashData.user.links.html}?utm_source=networth&utm_medium=referral`
             : null;
-          photoSourceUrl = unsplashData.links?.html
-            ? `${unsplashData.links.html}?utm_source=networth&utm_medium=referral`
-            : null;
+          photoSourceUrl = sourceUrl;
           // Trigger Unsplash download event (required by API guidelines)
           if (unsplashData.links?.download_location) {
             fetch(unsplashData.links.download_location, {
               headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-            }).catch(() => {});
+            }).catch((err) => console.error("Unsplash download event failed:", err));
           }
         }
       } catch (fetchError) {
         console.error(`Unsplash fetch error (attempt ${i + 1}):`, fetchError);
-        break;
-      }
-    }
-
-    // --- Attempt 2: Pexels API fallback (max 3 attempts) ---
-    if (!avatarUrl) {
-      console.log("Unsplash unavailable, trying Pexels...");
-      const pexelsQueries = ["woman portrait", "fashion model", "beauty", "girl portrait", "glamour"];
-      const pexelsQuery = pexelsQueries[Math.floor(Math.random() * pexelsQueries.length)];
-      const randomPage = Math.floor(Math.random() * 20) + 1;
-
-      for (let i = 0; i < 3 && !avatarUrl; i++) {
-        try {
-          const pexelsRes = await fetch(
-            `https://api.pexels.com/v1/search?query=${encodeURIComponent(pexelsQuery)}&per_page=15&page=${randomPage + i}`,
-            {
-              headers: {
-                Authorization: PEXELS_API_KEY,
-              },
-            }
-          );
-
-          if (!pexelsRes.ok) {
-            console.error(`Pexels API error (attempt ${i + 1}):`, pexelsRes.status);
-            break;
-          }
-
-          const pexelsData = await pexelsRes.json();
-          const photos = pexelsData.photos || [];
-
-          if (photos.length === 0) continue;
-
-          // Pick a random photo from the results
-          const photo = photos[Math.floor(Math.random() * photos.length)];
-          const candidateUrl = photo.src?.medium || photo.src?.small || photo.src?.portrait;
-
-          if (!candidateUrl) continue;
-
-          const compressed = await downloadAndCompressAvatar(candidateUrl);
-          const finalUrl = compressed || candidateUrl;
-
-          const [duplicate] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.avatarUrl, finalUrl))
-            .limit(1);
-
-          if (!duplicate) {
-            avatarUrl = finalUrl;
-            // Capture Pexels attribution data
-            photoAuthorName = photo.photographer || null;
-            photoAuthorUrl = photo.photographer_url || null;
-            photoSourceUrl = photo.url || null;
-          }
-        } catch (fetchError) {
-          console.error(`Pexels fetch error (attempt ${i + 1}):`, fetchError);
-          continue;
-        }
-      }
-    }
-
-    // --- Attempt 3: picsum.photos as last resort (no API key needed) ---
-    if (!avatarUrl) {
-      console.log("Pexels unavailable, trying picsum.photos...");
-      for (let i = 0; i < 5 && !avatarUrl; i++) {
-        try {
-          const randomId = Math.floor(Math.random() * 1000) + 1;
-          const picsumUrl = `https://picsum.photos/id/${randomId}/512/512`;
-
-          const compressed = await downloadAndCompressAvatar(picsumUrl);
-          if (!compressed) continue;
-
-          const [duplicate] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.avatarUrl, compressed))
-            .limit(1);
-
-          if (!duplicate) {
-            avatarUrl = compressed;
-            // Fetch picsum info to get author and original Unsplash URL
-            try {
-              const infoRes = await fetch(`https://picsum.photos/id/${randomId}/info`);
-              if (infoRes.ok) {
-                const info = await infoRes.json();
-                photoAuthorName = info.author || null;
-                photoSourceUrl = info.url || `https://picsum.photos/id/${randomId}/512/512`;
-              } else {
-                photoSourceUrl = `https://picsum.photos/id/${randomId}/512/512`;
-              }
-            } catch {
-              photoSourceUrl = `https://picsum.photos/id/${randomId}/512/512`;
-            }
-          }
-        } catch (fetchError) {
-          console.error(`Picsum fetch error (attempt ${i + 1}):`, fetchError);
-          continue;
-        }
+        // Continue to next attempt instead of breaking on network errors
+        continue;
       }
     }
 
     if (!avatarUrl) {
       return {
         success: false,
-        message: "Could not fetch a unique avatar image from any source",
+        message: "Could not fetch a fashion avatar image from Unsplash after multiple attempts",
       };
     }
 
@@ -302,110 +257,3 @@ export async function createRandomPlayer(): Promise<{
   }
 }
 
-/**
- * Delete NPC (card) players that have no owners and were created more than 7 days ago.
- * Called by the same cron job that creates random players.
- */
-export async function cleanupUnownedNpcs(): Promise<{
-  deleted: number;
-  usernames: string[];
-}> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  // Find NPC players with no owners, created more than 7 days ago
-  const staleNpcs = await db
-    .select({ id: users.id, username: users.username })
-    .from(users)
-    .where(
-      and(
-        eq(users.isNpc, 1),
-        sql`${users.createdAt} < ${sevenDaysAgo}`,
-        sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`
-      )
-    );
-
-  const deletedUsernames: string[] = [];
-
-  for (const npc of staleNpcs) {
-    try {
-      // Remove any ownerships where this NPC owns other players
-      await db.delete(ownership).where(eq(ownership.ownerId, npc.id));
-      // Remove all transactions involving this NPC
-      await db.delete(transactions).where(
-        or(eq(transactions.buyerId, npc.id), eq(transactions.targetId, npc.id))
-      );
-      // Remove all messages involving this NPC
-      await db.delete(messages).where(
-        or(eq(messages.senderId, npc.id), eq(messages.recipientId, npc.id))
-      );
-      // Delete the NPC user
-      await db.delete(users).where(eq(users.id, npc.id));
-
-      deletedUsernames.push(npc.username);
-    } catch (err) {
-      console.error(`Failed to delete NPC "${npc.username}" (id: ${npc.id}):`, err);
-    }
-  }
-
-  if (deletedUsernames.length > 0) {
-    console.log(`Cleaned up ${deletedUsernames.length} unowned NPC(s): ${deletedUsernames.join(", ")}`);
-  }
-
-  return { deleted: deletedUsernames.length, usernames: deletedUsernames };
-}
-
-/**
- * Delete NPC players that have been offline for 3+ days
- * and have only $1 credit and $1 player value (worthless NPCs).
- * This prevents the game from being cluttered with inactive, low-value NPCs.
- */
-export async function cleanupInactiveNpcs(): Promise<{
-  deleted: number;
-  usernames: string[];
-}> {
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-
-  // Find NPC players offline for 3+ days with $1 credit and $1 value
-  const inactiveNpcs = await db
-    .select({ id: users.id, username: users.username })
-    .from(users)
-    .where(
-      and(
-        eq(users.isNpc, 1),
-        sql`${users.lastOnlineAt} < ${threeDaysAgo}`,
-        sql`${users.credits} <= 1`,
-        sql`${users.playerValue} <= 1`
-      )
-    );
-
-  const deletedUsernames: string[] = [];
-
-  for (const npc of inactiveNpcs) {
-    try {
-      // Remove any ownerships where this NPC owns other players
-      await db.delete(ownership).where(eq(ownership.ownerId, npc.id));
-      // Remove any ownerships where this NPC is owned
-      await db.delete(ownership).where(eq(ownership.ownedId, npc.id));
-      // Remove all transactions involving this NPC
-      await db.delete(transactions).where(
-        or(eq(transactions.buyerId, npc.id), eq(transactions.targetId, npc.id))
-      );
-      // Remove all messages involving this NPC
-      await db.delete(messages).where(
-        or(eq(messages.senderId, npc.id), eq(messages.recipientId, npc.id))
-      );
-      // Delete the NPC user
-      await db.delete(users).where(eq(users.id, npc.id));
-
-      deletedUsernames.push(npc.username);
-    } catch (err) {
-      console.error(`Failed to delete inactive NPC "${npc.username}" (id: ${npc.id}):`, err);
-    }
-  }
-
-  if (deletedUsernames.length > 0) {
-    console.log(`Cleaned up ${deletedUsernames.length} inactive NPC(s) (offline 3+ days, $1 credit, $1 value): ${deletedUsernames.join(", ")}`);
-  }
-
-  return { deleted: deletedUsernames.length, usernames: deletedUsernames };
-}

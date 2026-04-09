@@ -4,25 +4,25 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Users, Crown, Clock, Star, Gem, ShoppingCart, Loader2, Briefcase, Coins, AlertTriangle, BadgeCheck, Shield, Swords, Hourglass, User, CreditCard, Camera } from "lucide-react";
+import { TrendingUp, Users, Crown, Clock, Star, Gem, ShoppingCart, Loader2, Briefcase, Coins, AlertTriangle, BadgeCheck, Shield, Swords, User, CreditCard, Camera } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
+import { useSound } from "@/hooks/useSound";
+import { useCredits } from "@/hooks/useCredits";
 import {
   getOwnedRank,
-  getAgeRank,
   getCreditsRank,
   getValueRank,
   getPortfolioRank,
   getOnlineHours,
-  getAgeDays,
   getOwnedRankColor,
-  getAgeRankColor,
   getCreditsRankColor,
   getValueRankColor,
   getPortfolioRankColor,
 } from "@/lib/ranks";
+import { formatNumber, getDynamicFontSize } from "@/lib/utils";
 
 function formatLastOnline(date: string | Date | null | undefined): string {
   if (!date) return "Never";
@@ -73,6 +73,8 @@ interface PlayerCardProps {
   photoAuthorUrl?: string | null;
   photoSourceUrl?: string | null;
   lastRankBonusAt?: string | Date | null;
+  ownerName?: string | null;
+  ownerValue?: number | null;
 }
 
 function isRankBonusClaimedToday(lastRankBonusAt: string | Date | null | undefined): boolean {
@@ -106,10 +108,15 @@ export function PlayerCard({
   photoAuthorUrl,
   photoSourceUrl,
   lastRankBonusAt,
+  ownerName,
+  ownerValue,
 }: PlayerCardProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const { data: myCredits } = useCredits();
   const isOwnProfile = session?.user?.name === username;
+  const canAfford = (myCredits ?? 0) >= playerValue;
+  const { play } = useSound();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -153,6 +160,7 @@ export function PlayerCard({
   const handleBuyClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    play("buy");
     mutation.mutate();
   };
 
@@ -180,23 +188,29 @@ export function PlayerCard({
                 )}
                 <Badge
                   variant="secondary"
-                  className="bg-t1-500/10 text-t1-400 border-t1-500/20 font-mono text-xs"
+                  className={`bg-t1-500/10 text-t1-400 border-t1-500/20 font-mono ${getDynamicFontSize(playerValue)}`}
                 >
-                  {playerValue}¢
+                  {formatNumber(playerValue)}¢
                 </Badge>
               </div>
               {!isOwnProfile && (
                 <Button
                   onClick={handleBuyClick}
-                  disabled={mutation.isPending}
-                  className="bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white text-xs sm:text-sm font-bold shadow-lg shadow-t1-500/20 px-2.5 py-1.5 sm:px-4 sm:py-2 h-auto whitespace-nowrap"
+                  disabled={!canAfford || mutation.isPending}
+                  className={`text-xs sm:text-sm font-bold px-2.5 py-1.5 sm:px-4 sm:py-2 h-auto whitespace-nowrap ${
+                    canAfford
+                      ? "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg shadow-t1-500/20"
+                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  }`}
                 >
                   {mutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <>
                       <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                      Buy {playerValue}¢
+                      <span className={getDynamicFontSize(playerValue)}>
+                        Buy {formatNumber(playerValue)}¢
+                      </span>
                     </>
                   )}
                 </Button>
@@ -233,44 +247,46 @@ export function PlayerCard({
                   Card
                 </span>
               )}
-              {isRankBonusClaimedToday(lastRankBonusAt) && (
+              {playerType === "human" && isRankBonusClaimedToday(lastRankBonusAt) && (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border text-yellow-300 bg-yellow-500/15 border-yellow-500/30">
                   <Coins className="h-2.5 w-2.5" />
                   Bonus
                 </span>
               )}
-              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getOwnedRankColor(ownedCount)}`}>
-                <Swords className="h-2.5 w-2.5" />
-                {getOwnedRank(ownedCount).title}
-              </span>
-              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getAgeRankColor(getAgeDays(createdAt))}`}>
-                <Hourglass className="h-2.5 w-2.5" />
-                {getAgeRank(getAgeDays(createdAt)).title}
-              </span>
-              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(credits ?? 0)}`}>
-                <Coins className="h-2.5 w-2.5" />
-                {getCreditsRank(credits ?? 0).title}
-              </span>
-              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getValueRankColor(playerValue)}`}>
-                <TrendingUp className="h-2.5 w-2.5" />
-                {getValueRank(playerValue).title}
-              </span>
-              <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getPortfolioRankColor(portfolioValue ?? 0)}`}>
-                <Briefcase className="h-2.5 w-2.5" />
-                {getPortfolioRank(portfolioValue ?? 0).title}
-              </span>
+              {playerType === "human" && (
+                <>
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getOwnedRankColor(ownedCount)}`}>
+                    <Swords className="h-2.5 w-2.5" />
+                    {getOwnedRank(ownedCount).title}
+                  </span>
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(credits ?? 0)}`}>
+                    <Coins className="h-2.5 w-2.5" />
+                    {getCreditsRank(credits ?? 0).title}
+                  </span>
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getValueRankColor(playerValue)}`}>
+                    <TrendingUp className="h-2.5 w-2.5" />
+                    {getValueRank(playerValue).title}
+                  </span>
+                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getPortfolioRankColor(portfolioValue ?? 0)}`}>
+                    <Briefcase className="h-2.5 w-2.5" />
+                    {getPortfolioRank(portfolioValue ?? 0).title}
+                  </span>
+                </>
+              )}
             </div>
 
             {/* Stats row */}
             <div className="flex items-center gap-3 flex-wrap mt-1.5 text-xs text-gray-400">
               <span className="flex items-center gap-1">
-                <TrendingUp className="h-3 w-3 text-t1-400" />
-                {playerValue}
-              </span>
-              <span className="flex items-center gap-1">
                 <Crown className="h-3 w-3 text-yellow-400" />
                 {ownerCount}
               </span>
+              {ownerName && (
+                <span className="flex items-center gap-1 text-yellow-300/80">
+                  <User className="h-3 w-3" />
+                  {ownerName}{ownerValue !== null && ownerValue !== undefined ? ` (${ownerValue}$)` : ''}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3 text-t2-400" />
                 {ownedCount}
@@ -278,29 +294,23 @@ export function PlayerCard({
               {portfolioValue !== undefined && (
                 <span className="flex items-center gap-1">
                   <Briefcase className="h-3 w-3 text-purple-400" />
-                  {Math.round(portfolioValue)}¢
+                  {formatNumber(Math.round(portfolioValue))}¢
                 </span>
               )}
               {credits !== undefined && (
                 <span className="flex items-center gap-1 text-t1-400">
                   <Coins className="h-3 w-3" />
-                  {credits.toFixed(2)}¢
+                  {formatNumber(Number(credits.toFixed(2)))}¢
                 </span>
               )}
             </div>
 
-            {/* Footer: last online + deletion */}
+            {/* Footer: last online */}
             <div className="flex items-center gap-3 mt-1 text-[11px]">
               <span className="flex items-center gap-1 text-gray-500">
                 <Clock className="h-3 w-3" />
                 {formatLastOnline(lastOnlineAt)}
               </span>
-              {estimatedDeletionAt && (
-                <span className="flex items-center gap-1 text-amber-400">
-                  <AlertTriangle className="h-3 w-3" />
-                  Deletion in {formatTimeRemaining(estimatedDeletionAt)}
-                </span>
-              )}
             </div>
 
             {/* Photo attribution (Unsplash / Pexels) */}

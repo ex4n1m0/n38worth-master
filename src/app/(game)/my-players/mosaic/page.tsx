@@ -113,7 +113,7 @@ export default function MosaicPage() {
                   <p className="text-white text-xs sm:text-sm font-medium truncate">
                     {p.username}
                   </p>
-                  <p className="text-gray-300 text-[10px] sm:text-xs">
+                  <p className="text-gray-300 text-[30px] sm:text-[36px]">
                     ₡{p.playerValue?.toLocaleString()}
                   </p>
                 </div>

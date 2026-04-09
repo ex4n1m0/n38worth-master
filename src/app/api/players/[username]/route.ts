@@ -11,7 +11,8 @@ export async function GET(
 
   try {
     // SQL subquery for portfolio value — reusable across queries
-    const portfolioValueExpr = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o_pv JOIN users u2 ON o_pv.owned_id = u2.id WHERE o_pv.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o_oc WHERE o_oc.owned_id = "users"."id"), 1)`;
+    // Count ALL owned players, multiply each by (1 + number of players they own)
+    const portfolioValueExpr = sql<number>`LEAST(("users"."player_value"::numeric + COALESCE((SELECT SUM(u2.player_value::numeric * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o_pv JOIN users u2 ON o_pv.owned_id = u2.id WHERE o_pv.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o_oc WHERE o_oc.owned_id = "users"."id"), 1), 9007199254740991)`;
 
     const [player] = await db
       .select({
@@ -116,8 +117,10 @@ export async function GET(
     const isNpcWithoutOwner = player.playerType === 'card' && playerOwnerCount === 0;
     let estimatedDeletionAt: Date | null = null;
     if (isNpcWithoutOwner && player.credits > 1 && player.lastOnlineAt) {
-      const hoursUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
-      estimatedDeletionAt = new Date(Date.now() + hoursUntilDeletion * 60 * 60 * 1000);
+      // Calculate minutes until credits decay to 1: ln(credits) / (-ln(0.99))
+      // Each 1% decay happens every 1 minute
+      const minutesUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
+      estimatedDeletionAt = new Date(Date.now() + minutesUntilDeletion * 60 * 1000);
     } else if (isNpcWithoutOwner && player.credits <= 1) {
       estimatedDeletionAt = new Date();
     }

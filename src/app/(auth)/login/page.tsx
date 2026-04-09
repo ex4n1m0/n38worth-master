@@ -3,7 +3,6 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,49 +15,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Link from "next/link";
-import { Trophy, Loader2, BadgeCheck, Zap } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
+import { useSound } from "@/hooks/useSound";
 
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [quickPlayLoading, setQuickPlayLoading] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
-  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery({
-    queryKey: ["leaderboard", "portfolio", "public"],
-    queryFn: async () => {
-      const res = await fetch(`/api/leaderboard?type=portfolio`);
-      if (!res.ok) throw new Error("Failed to fetch leaderboard");
-      return res.json();
-    },
-    staleTime: 60 * 1000,
-    refetchInterval: 120 * 1000,
-  });
-
-  const getMedalColor = (index: number) => {
-    if (index === 0) return "text-yellow-400";
-    if (index === 1) return "text-gray-300";
-    if (index === 2) return "text-amber-600";
-    return "text-gray-500";
-  };
-
-  const getRankBgColor = (index: number) => {
-    if (index === 0) return "bg-yellow-400/20 border-yellow-400/40";
-    if (index === 1) return "bg-gray-300/20 border-gray-300/40";
-    if (index === 2) return "bg-amber-600/20 border-amber-600/40";
-    return "bg-gray-700/40 border-gray-600/40";
-  };
-
-  const avatarPlayers = (leaderboardData?.players ?? []).filter(
-    (p: { avatarUrl: string | null }) =>
-      p.avatarUrl !== null && p.avatarUrl !== undefined && p.avatarUrl !== ""
-  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    play("buttons");
     setError("");
     setLoading(true);
 
@@ -76,7 +48,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid username or password");
       } else {
-        router.push("/leaderboard");
+        router.push("/my-profile");
         router.refresh();
       }
     } catch {
@@ -155,9 +127,10 @@ export default function LoginPage() {
               type="button"
               disabled={googleLoading}
               onClick={() => {
+                play("buttons");
                 setError("");
                 setGoogleLoading(true);
-                signIn("google", { callbackUrl: "/leaderboard" }).catch(() => {
+                signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
                   setError("Google sign-in failed. Please try again.");
                   setGoogleLoading(false);
                 });
@@ -185,62 +158,6 @@ export default function LoginPage() {
               {googleLoading ? t.connecting : t.signUpGoogle}
             </Button>
 
-            <div className="relative w-full">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-700" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-gray-900 px-2 text-gray-500">
-                  {t.orTryInstantly}
-                </span>
-              </div>
-            </div>
-
-            <Button
-              type="button"
-              onClick={async () => {
-                setQuickPlayLoading(true);
-                setError("");
-                try {
-                  const res = await fetch("/api/quickplay", { method: "POST" });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data.error || "Quick play failed");
-                  const signInResult = await signIn("credentials", {
-                    username: data.username,
-                    password: data.password,
-                    redirect: false,
-                  });
-                  if (signInResult?.error) {
-                    setError("Quick play sign-in failed. Please try again.");
-                  } else {
-                    router.push("/leaderboard");
-                    router.refresh();
-                  }
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Quick play failed");
-                } finally {
-                  setQuickPlayLoading(false);
-                }
-              }}
-              disabled={quickPlayLoading}
-              className="w-full h-12 text-base font-bold bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black shadow-lg shadow-yellow-500/20"
-            >
-              {quickPlayLoading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  {t.creatingPlayer}
-                </>
-              ) : (
-                <>
-                  <Zap className="h-5 w-5 mr-2" />
-                  {t.quickPlay}
-                </>
-              )}
-            </Button>
-            <p className="text-xs text-gray-500 text-center -mt-2">
-              {t.quickPlayHint}
-            </p>
-
             <p className="text-sm text-gray-400">
               {t.dontHaveAccount}{" "}
               <Link
@@ -254,81 +171,6 @@ export default function LoginPage() {
         </form>
       </Card>
 
-      {/* Non-clickable Leaderboard */}
-      <Card className="w-full max-w-2xl border-gray-800 bg-gray-900/60 backdrop-blur">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-yellow-400" />
-            {t.portfolioRankings}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {leaderboardLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-t1-400" />
-            </div>
-          ) : avatarPlayers.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              {t.noPlayersYet}
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-3 sm:gap-4">
-              {avatarPlayers.slice(0, 9).map(
-                (
-                  player: {
-                    id: number;
-                    username: string;
-                    avatarUrl: string;
-                    portfolioValue: number;
-                    isVerified?: number;
-                  },
-                  index: number
-                ) => (
-                  <div
-                    key={player.id}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-gray-700/50"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={player.avatarUrl}
-                      alt={player.username}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-
-                    {/* Rank badge */}
-                    <div
-                      className={`absolute top-2 left-2 flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full border ${getRankBgColor(index)} backdrop-blur-sm`}
-                    >
-                      {index < 3 ? (
-                        <Trophy
-                          className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${getMedalColor(index)}`}
-                        />
-                      ) : (
-                        <span className="text-xs sm:text-sm font-bold text-white">
-                          {index + 1}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Portfolio value + username */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent pt-6 pb-2 px-2">
-                      <p className="text-white text-[10px] sm:text-xs font-medium text-center truncate flex items-center justify-center gap-0.5">
-                        {player.username}
-                        {player.isVerified === 1 && (
-                          <BadgeCheck className="h-3 w-3 text-blue-400 shrink-0" />
-                        )}
-                      </p>
-                      <p className="text-white text-xs sm:text-sm font-semibold text-center drop-shadow-lg">
-                        {Number(player.portfolioValue).toFixed(2)}¢
-                      </p>
-                    </div>
-                  </div>
-                )
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

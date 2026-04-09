@@ -14,9 +14,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { MessageCircle, Send, Lock, Loader2 } from "lucide-react";
+import { MessageCircle, Send, Lock, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { getPusherClient } from "@/lib/pusher-client";
+import { useSound } from "@/hooks/useSound";
 
 interface ChatMessage {
   id: number;
@@ -61,6 +62,7 @@ export function PrivateMessageButton({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
+  const { play } = useSound();
 
   // Mark messages as read (store last read timestamp)
   const markAsRead = useCallback(() => {
@@ -235,6 +237,11 @@ export function PrivateMessageButton({
     sendMutation.mutate();
   };
 
+  const handleClear = () => {
+    setLocalMessages([]);
+    toast.success("Chat cleared");
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -243,6 +250,7 @@ export function PrivateMessageButton({
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
+            play("buttons");
           }}
           className={
             hasUnread
@@ -273,6 +281,17 @@ export function PrivateMessageButton({
             >
               Free
             </Badge>
+            {localMessages.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClear}
+                className="ml-auto text-gray-400 hover:text-red-400 hover:bg-red-500/10 h-6 px-2"
+              >
+                <Trash2 className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 

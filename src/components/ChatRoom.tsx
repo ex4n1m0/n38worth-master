@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
+import { useSound } from "@/hooks/useSound";
 
 interface ChatMessage {
   id: number;
@@ -46,6 +47,7 @@ export function ChatRoom() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
+  const { play } = useSound();
 
   // Fetch messages
   const { data: fetchedMessages, isLoading } = useQuery({
@@ -126,6 +128,7 @@ export function ChatRoom() {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    play("buttons");
     sendMutation.mutate();
   };
 

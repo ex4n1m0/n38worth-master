@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { users, ownership, transactions } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 /**
  * Sell Out: A player pays their current value to release themselves from an owner.
@@ -63,6 +64,9 @@ export async function sellOut(ownershipId: number) {
       return { error: "Owner not found" };
     }
 
+    // 1-5. Execute all database operations individually
+    // Note: neon-http does not support transactions, so we execute operations individually
+
     // 1. Deduct credits from the player (floor at 0, never go negative)
     await db
       .update(users)
@@ -72,10 +76,10 @@ export async function sellOut(ownershipId: number) {
       })
       .where(eq(users.id, playerId));
 
-    // 2. Pay the owner the player's current value
+    // 2. Pay the owner the player's current value — cap to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`credits + ${cost}` })
+      .set({ credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, record.ownerId));
 
     // 3. Reset the player's value to their floor

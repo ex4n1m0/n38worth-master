@@ -37,9 +37,10 @@ async function enrichPlayers(
 
 async function getPortfolioLeaderboard() {
   // Use a single SQL query instead of N+1
+  // Only count owned players who themselves own other players
   const portfolioSql = sql<number>`(
     "users"."player_value" + COALESCE(
-      (SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0
+      (SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0
     )
   ) * GREATEST(
     (SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1
@@ -56,6 +57,7 @@ async function getPortfolioLeaderboard() {
       portfolioValue: portfolioSql.as("portfolio_value"),
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(desc(portfolioSql))
     .limit(10);
 
@@ -93,6 +95,7 @@ async function getDemandLeaderboard() {
       credits: users.credits,
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id})`),
       desc(users.playerValue)
@@ -113,6 +116,7 @@ async function getEmpireLeaderboard() {
       credits: users.credits,
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`),
       desc(users.playerValue)
@@ -133,6 +137,7 @@ async function getLegacyLeaderboard() {
       credits: users.credits,
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(asc(users.createdAt))
     .limit(10);
 
@@ -150,6 +155,7 @@ async function getCreditsLeaderboard() {
       credits: users.credits,
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(desc(users.credits))
     .limit(10);
 
@@ -167,6 +173,7 @@ async function getValueLeaderboard() {
       credits: users.credits,
     })
     .from(users)
+    .where(eq(users.isNpc, 0))
     .orderBy(desc(users.playerValue))
     .limit(10);
 
@@ -184,10 +191,11 @@ export async function GET(
       return NextResponse.json({ error: "Invalid rank type" }, { status: 400 });
     }
 
-    // Get total player count
+    // Get total player count (exclude NPCs)
     const [countResult] = await db
       .select({ total: sql<number>`COUNT(*)` })
-      .from(users);
+      .from(users)
+      .where(eq(users.isNpc, 0));
     const totalPlayers = Number(countResult.total);
 
     let players;

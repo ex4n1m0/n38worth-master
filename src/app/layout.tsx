@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
   description: "Your network is your n38worth",
   keywords: ["trading", "game", "social", "MMO", "multiplayer"],
@@ -23,11 +24,21 @@ export const metadata: Metadata = {
     description: "Your network is your n38worth",
     siteName: "n38worth",
     type: "website",
+    url: "https://n38worth.com",
+    images: [
+      {
+        url: "/POSTER_3.PNG",
+        width: 1024,
+        height: 1024,
+        alt: "n38worth Game Cover",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "n38worth",
     description: "Your network is your n38worth",
+    images: ["/POSTER_3.PNG"],
   },
   icons: {
     icon: "/VW_Icon.png",
@@ -42,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="white">
+    <html lang="en" data-theme="blue">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

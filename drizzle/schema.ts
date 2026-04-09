@@ -1,4 +1,4 @@
-import { pgTable, index, foreignKey, serial, integer, varchar, timestamp, uniqueIndex, unique, text, real, check } from "drizzle-orm/pg-core"
+import { pgTable, index, foreignKey, serial, integer, bigint, varchar, timestamp, uniqueIndex, unique, text, doublePrecision, check } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
@@ -8,7 +8,7 @@ export const transactions = pgTable("transactions", {
 	buyerId: integer("buyer_id").notNull(),
 	targetId: integer("target_id").notNull(),
 	type: varchar({ length: 20 }).notNull(),
-	amount: integer().notNull(),
+	amount: bigint({ mode: 'number' }).notNull(),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("idx_transactions_buyer").using("btree", table.buyerId.asc().nullsLast().op("int4_ops")),
@@ -31,7 +31,7 @@ export const ownership = pgTable("ownership", {
 	ownerId: integer("owner_id").notNull(),
 	ownedId: integer("owned_id").notNull(),
 	purchasedAt: timestamp("purchased_at", { mode: 'string' }).defaultNow().notNull(),
-	purchasePrice: integer("purchase_price").notNull(),
+	purchasePrice: bigint("purchase_price", { mode: 'number' }).notNull(),
 	blockSellUntil: timestamp("block_sell_until", { mode: 'string' }),
 	blockSellBy: varchar("block_sell_by", { length: 30 }),
 }, (table) => [
@@ -55,14 +55,14 @@ export const users = pgTable("users", {
 	username: varchar({ length: 30 }).notNull(),
 	passwordHash: text("password_hash"),
 	avatarUrl: text("avatar_url"),
-	playerValue: integer("player_value").default(1).notNull(),
-	credits: real().default(10).notNull(),
+	playerValue: bigint("player_value", { mode: 'number' }).default(1).notNull(),
+	credits: doublePrecision().default(10).notNull(),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 	lastDividendAt: timestamp("last_dividend_at", { mode: 'string' }).defaultNow().notNull(),
 	lastOnlineAt: timestamp("last_online_at", { mode: 'string' }).defaultNow().notNull(),
 	isActive: integer("is_active").default(1).notNull(),
-	valueFloor: integer("value_floor").default(1).notNull(),
+	valueFloor: bigint("value_floor", { mode: 'number' }).default(1).notNull(),
 	blockSellUntil: timestamp("block_sell_until", { mode: 'string' }),
 	blockSellBy: varchar("block_sell_by", { length: 30 }),
 	estimatedDeletionAt: timestamp("estimated_deletion_at", { mode: 'string' }),
@@ -72,6 +72,7 @@ export const users = pgTable("users", {
 	wasReset: integer("was_reset").default(0).notNull(),
 	totalOnlineMinutes: integer("total_online_minutes").default(0).notNull(),
 	isNpc: integer("is_npc").default(0).notNull(),
+	ownerlessAt: timestamp("ownerless_at", { mode: 'string' }),
 	photoAuthorName: text("photo_author_name"),
 	photoAuthorUrl: text("photo_author_url"),
 	photoSourceUrl: text("photo_source_url"),
@@ -119,3 +120,26 @@ export const randomPlayerSettings = pgTable("random_player_settings", {
 	id: serial().primaryKey().notNull(),
 	lastCreatedAt: timestamp("last_created_at", { mode: 'string' }).defaultNow().notNull(),
 });
+
+export const gameHistory = pgTable("game_history", {
+	id: serial().primaryKey().notNull(),
+	eventType: varchar("event_type", { length: 30 }).notNull(),
+	actorId: integer("actor_id"),
+	targetId: integer("target_id"),
+	targetUsername: varchar("target_username", { length: 30 }),
+	details: text(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("idx_game_history_created").using("btree", table.createdAt.asc().nullsLast().op("timestamp_ops")),
+	index("idx_game_history_type").using("btree", table.eventType.asc().nullsLast().op("text_ops")),
+	index("idx_game_history_actor").using("btree", table.actorId.asc().nullsLast().op("int4_ops")),
+]);
+
+export const gameSettings = pgTable("game_settings", {
+	id: serial().primaryKey().notNull(),
+	settingKey: varchar("setting_key", { length: 50 }).notNull(),
+	settingValue: integer("setting_value").notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("game_settings_key_unique").on(table.settingKey),
+]);

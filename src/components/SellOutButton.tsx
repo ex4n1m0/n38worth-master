@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
+import { formatNumber } from "@/lib/utils";
 
 interface SellOutButtonProps {
   ownershipId: number;
@@ -26,6 +28,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
   const cost = playerValue;
 
@@ -63,6 +66,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
       <DialogTrigger asChild>
         <Button
           variant="outline"
+          onClick={() => play("buttons")}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
         >
           <LogOut className="h-7 w-7 mr-2" />
@@ -74,7 +78,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
           <DialogTitle className="text-white">{t.sellOutConfirmTitle} — {ownerUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
             Pay{" "}
-            <span className="text-red-400 font-semibold">{cost}¢</span>{" "}
+            <span className="text-red-400 font-semibold">{formatNumber(cost)}¢</span>{" "}
             (your current value) to{" "}
             <span className="text-white font-semibold">{ownerUsername}</span>{" "}
             to release yourself from their ownership.
@@ -101,7 +105,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
                 {t.sellingOut}
               </>
             ) : (
-              `${t.sellOut} ${cost}¢`
+              `${t.sellOut} ${formatNumber(cost)}¢`
             )}
           </Button>
         </DialogFooter>

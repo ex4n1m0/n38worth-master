@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, ownership } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export async function GET() {
   const session = await auth();
@@ -31,13 +31,13 @@ export async function GET() {
     }
   }
 
-  // Mark user as online, reactivate, and accumulate online time
+  // Mark user as online, reactivate, and accumulate online time (atomic increment)
   await db
     .update(users)
     .set({
       lastOnlineAt: now,
       isActive: 1,
-      totalOnlineMinutes: (currentUser?.totalOnlineMinutes ?? 0) + onlineIncrement,
+      totalOnlineMinutes: sql`${users.totalOnlineMinutes} + ${onlineIncrement}`,
     })
     .where(eq(users.id, userId));
 
@@ -59,10 +59,39 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
+  // Calculate portfolio value: player_value + sum of owned players' values
+  // Count ALL owned players, multiply each by (1 + number of players they own)
+  const [portfolioResult] = await db
+    .select({
+      ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
+    })
+    .from(ownership)
+    .innerJoin(users, eq(ownership.ownedId, users.id))
+    .where(eq(ownership.ownerId, userId));
+
+  // Get ownerCount (how many players own this player)
+  const [ownerCountResult] = await db
+    .select({
+      ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
+    })
+    .from(ownership)
+    .where(eq(ownership.ownedId, userId));
+
+  const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
+  const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
+  const portfolioValue = (user.playerValue + ownedValue) * Math.max(ownerCount, 1);
+
+  // Calculate 1% reward (this is the portfolio reward)
+  const portfolioReward = Math.floor(portfolioValue * 0.01);
+
   // wasReset flag is included in the response.
   // It is NOT auto-cleared here — the client must explicitly acknowledge it
   // via POST /api/me to avoid race conditions with multiple fetches.
-  return NextResponse.json(user);
+  return NextResponse.json({
+    ...user,
+    portfolioValue,
+    portfolioReward,
+  });
 }
 
 /**

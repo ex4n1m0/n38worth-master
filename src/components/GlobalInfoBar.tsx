@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Coins } from "lucide-react";
+import { Users, Coins, Bot, User } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 
 export function GlobalInfoBar() {
@@ -9,6 +9,8 @@ export function GlobalInfoBar() {
   const [stats, setStats] = useState<{
     totalPlayers: number;
     totalEconomy: number;
+    totalNpcs: number;
+    totalHumans: number;
   } | null>(null);
 
   useEffect(() => {
@@ -51,6 +53,26 @@ export function GlobalInfoBar() {
             <span className="font-semibold text-white">
               {stats.totalEconomy.toLocaleString()}¢
             </span>
+          </span>
+        </div>
+        <div className="w-px h-3 bg-gray-700" />
+        <div className="flex items-center gap-1.5 text-gray-400">
+          <Bot className="h-3 w-3 text-purple-400" />
+          <span>
+            <span className="font-semibold text-white">
+              {stats.totalNpcs.toLocaleString()}
+            </span>{" "}
+            <span className="hidden sm:inline">NPCs</span>
+          </span>
+        </div>
+        <div className="w-px h-3 bg-gray-700" />
+        <div className="flex items-center gap-1.5 text-gray-400">
+          <User className="h-3 w-3 text-blue-400" />
+          <span>
+            <span className="font-semibold text-white">
+              {stats.totalHumans.toLocaleString()}
+            </span>{" "}
+            <span className="hidden sm:inline">Humans</span>
           </span>
         </div>
       </div>

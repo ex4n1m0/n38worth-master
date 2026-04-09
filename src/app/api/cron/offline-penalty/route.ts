@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { users, ownership, transactions, messages, gameHistory } from "@/db/schema";
+import { sql, eq, or } from "drizzle-orm";
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -15,106 +15,84 @@ export async function GET(req: Request) {
 
   try {
     const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-
-    // Find all players who were last online more than 1 hour ago
-    // and have more than 1 credit (no need to process those already at minimum)
-    // Include both NPC without owner and human players
-    const inactivePlayers = await db
+    
+    // 24 hours in milliseconds
+    const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+    const nowMs = now.getTime();
+    
+    // Find all NPCs without owners that have been ownerless for 24+ hours
+    const inactiveNpcs = await db
       .select({
         id: users.id,
         username: users.username,
-        credits: users.credits,
-        lastOnlineAt: users.lastOnlineAt,
+        ownerlessAt: users.ownerlessAt,
         isNpc: users.isNpc,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`,
       })
       .from(users)
       .where(
-        sql`${users.lastOnlineAt} < ${oneHourAgo} AND ${users.credits} > 1`
+        sql`${users.isNpc} = 1 AND ${users.ownerlessAt} IS NOT NULL`
       );
 
-    let totalPenalized = 0;
     let totalDeleted = 0;
-    const penalties: Array<{ username: string; hoursOffline: number; oldCredits: number; newCredits: number; isNpc: boolean; deleted: boolean }> = [];
+    const deletedNpcs: Array<{ username: string; hoursOwnerless: number }> = [];
 
-    for (const player of inactivePlayers) {
-      const isNpcWithoutOwner = player.isNpc === 1 && Number(player.ownerCount) === 0;
-      const isHuman = player.isNpc === 0;
+    for (const npc of inactiveNpcs) {
+      // Skip NPCs that have an owner
+      if (Number(npc.ownerCount) > 0) {
+        // Clear ownerlessAt since NPC now has an owner
+        await db
+          .update(users)
+          .set({ ownerlessAt: null })
+          .where(eq(users.id, npc.id));
+        continue;
+      }
 
-      // Only apply penalty to: NPC without owner OR human players
-      if (!isNpcWithoutOwner && !isHuman) continue;
+      // Calculate how long NPC has been ownerless
+      const ownerlessAtMs = new Date(npc.ownerlessAt!).getTime();
+      const hoursOwnerless = (nowMs - ownerlessAtMs) / (1000 * 60 * 60);
 
-      // Calculate hours offline (round down)
-      const hoursOffline = Math.floor(
-        (now.getTime() - new Date(player.lastOnlineAt).getTime()) / (1000 * 60 * 60)
-      );
-
-      if (hoursOffline < 1) continue;
-
-      // Calculate new credits: reduce by 1% per hour offline
-      // Formula: newCredits = oldCredits * (0.99 ^ hoursOffline)
-      const decayFactor = Math.pow(0.99, hoursOffline);
-      let newCredits = player.credits * decayFactor;
-
-      // Round to 2 decimal places
-      newCredits = Math.round(newCredits * 100) / 100;
-
-      // Never go below 1 credit
-      newCredits = Math.max(newCredits, 1);
-
-      // Only update if credits actually changed
-      if (newCredits < player.credits) {
-        let deleted = false;
-
-        // NPC without owner: delete when credits reach 1
-        if (isNpcWithoutOwner && newCredits <= 1) {
-          // Delete ownership records where this NPC owns others
-          await db.delete(ownership).where(sql`${ownership.ownerId} = ${player.id}`);
-          // Delete ownership records where others own this NPC
-          await db.delete(ownership).where(sql`${ownership.ownedId} = ${player.id}`);
-          // Delete the NPC player
-          await db.delete(users).where(sql`${users.id} = ${player.id}`);
-          deleted = true;
-          totalDeleted++;
-        } else {
-          // Calculate estimated deletion time for NPC without owner
-          let estimatedDeletionAt: Date | null = null;
-          if (isNpcWithoutOwner && newCredits > 1) {
-            // Hours until credits decay to 1: ln(credits) / (-ln(0.99))
-            const hoursUntilDeletion = Math.ceil(Math.log(newCredits) / (-Math.log(0.99)));
-            estimatedDeletionAt = new Date(now.getTime() + hoursUntilDeletion * 60 * 60 * 1000);
-          }
-
-          // Update credits only (value is NEVER affected by offline penalty)
-          await db
-            .update(users)
-            .set({
-              credits: newCredits,
-              estimatedDeletionAt,
-              updatedAt: now,
-            })
-            .where(sql`${users.id} = ${player.id}`);
-        }
-
-        penalties.push({
-          username: player.username,
-          hoursOffline,
-          oldCredits: Math.round(player.credits * 100) / 100,
-          newCredits,
-          isNpc: player.isNpc === 1,
-          deleted,
+      // Delete if ownerless for 24+ hours
+      if (hoursOwnerless >= 24) {
+        // Log to game history before deletion
+        await db.insert(gameHistory).values({
+          eventType: "npc_deletion",
+          actorId: null, // System action
+          targetId: npc.id,
+          targetUsername: npc.username,
+          details: JSON.stringify({ reason: "ownerless_24h", hoursOwnerless: Math.round(hoursOwnerless * 10) / 10 }),
         });
-        totalPenalized++;
+
+        // Execute deletion operations individually
+        // Note: neon-http does not support transactions, so we execute operations individually
+        // Delete ownership records where this NPC owns others
+        await db.delete(ownership).where(eq(ownership.ownerId, npc.id));
+        // Delete ownership records where others own this NPC
+        await db.delete(ownership).where(eq(ownership.ownedId, npc.id));
+        // Delete transactions involving this NPC
+        await db.delete(transactions).where(
+          or(eq(transactions.buyerId, npc.id), eq(transactions.targetId, npc.id))
+        );
+        // Delete messages involving this NPC
+        await db.delete(messages).where(
+          or(eq(messages.senderId, npc.id), eq(messages.recipientId, npc.id))
+        );
+        // Delete the NPC player
+        await db.delete(users).where(eq(users.id, npc.id));
+        
+        deletedNpcs.push({
+          username: npc.username,
+          hoursOwnerless: Math.round(hoursOwnerless * 10) / 10,
+        });
+        totalDeleted++;
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Offline penalty applied: 1% credit decay per hour. NPC without owner deleted at 1¢. Value never affected.`,
-      totalPenalized,
+      message: `NPC cleanup: Deleted ${totalDeleted} NPC(s) without owner for 24+ hours.`,
       totalDeleted,
-      penalties,
+      deletedNpcs,
       timestamp: now.toISOString(),
     });
   } catch (error) {

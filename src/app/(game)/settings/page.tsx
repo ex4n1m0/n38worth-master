@@ -12,11 +12,13 @@ import { redirect } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/LanguageContext";
+import { useSound } from "@/hooks/useSound";
 
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const [changingPassword, setChangingPassword] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me-settings"],
@@ -34,6 +36,7 @@ export default function SettingsPage() {
 
   async function handlePasswordChange(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    play("buttons");
     setChangingPassword(true);
 
     const formData = new FormData(e.currentTarget);

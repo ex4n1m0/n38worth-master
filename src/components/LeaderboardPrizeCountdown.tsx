@@ -11,18 +11,13 @@ interface LeaderboardPrizeCountdownProps {
   accentColor?: string;
 }
 
-/** Calculate seconds remaining until the next :00 or :30 mark */
-function getSecondsToNext30() {
+/** Calculate seconds remaining until the next :10, :20, :30, :40, :50, :00 mark */
+function getSecondsToNext10() {
   const now = new Date();
   const mins = now.getMinutes();
   const secs = now.getSeconds();
-  let targetMin: number;
-  if (mins < 30) {
-    targetMin = 30;
-  } else {
-    targetMin = 60;
-  }
-  const minutesLeft = targetMin - 1 - mins;
+  const nextMark = Math.ceil((mins + 1) / 10) * 10;
+  const minutesLeft = (nextMark === 60 ? 60 : nextMark) - 1 - mins;
   const secondsLeft = 59 - secs;
   return minutesLeft * 60 + secondsLeft;
 }
@@ -30,15 +25,15 @@ function getSecondsToNext30() {
 export function LeaderboardPrizeCountdown({
   totalPlayers,
   top3,
-  title = "Leaderboard Prize (every 30 min)",
-  description = "Top 3 players receive credits every 30 minutes",
+  title = "Leaderboard Prize (every 10 min)",
+  description = "Top 3 players receive credits every 10 minutes",
   accentColor = "text-yellow-400",
 }: LeaderboardPrizeCountdownProps) {
   const [totalSeconds, setTotalSeconds] = useState(0);
 
   useEffect(() => {
     const update = () => {
-      setTotalSeconds(getSecondsToNext30());
+      setTotalSeconds(getSecondsToNext10());
     };
     update();
     const interval = setInterval(update, 1000);
@@ -101,11 +96,11 @@ export function LeaderboardPrizeCountdown({
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-[10px] text-gray-500">
-                {p.multiplier}× {totalPlayers} × 0.05
+                {p.multiplier}× {totalPlayers.toLocaleString()} × 0.05
               </span>
               <span className="text-xs text-gray-500">=</span>
               <span className={`font-mono font-bold text-sm ${p.medalColor}`}>
-                +{p.prize}¢
+                +{p.prize.toLocaleString()}¢
               </span>
             </div>
           </div>
@@ -115,7 +110,7 @@ export function LeaderboardPrizeCountdown({
       {/* Footer info */}
       <p className="text-[10px] sm:text-xs text-gray-500 text-center">
         {description} based on{" "}
-        <span className="text-gray-400 font-medium">{totalPlayers}</span> total
+        <span className="text-gray-400 font-medium">{totalPlayers.toLocaleString()}</span> total
         players
       </p>
     </div>

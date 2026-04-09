@@ -19,6 +19,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { CreateNPCButton } from "@/components/CreateNPCButton";
+import { LoginReward } from "@/components/LoginReward";
+import { formatNumber } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -85,7 +87,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
                 <span className="text-base sm:text-xl font-bold font-mono text-white">
-                  {(credits ?? 0).toFixed(0)}¢
+                  {formatNumber(credits ?? 0)}¢
                 </span>
                 <span className="text-xs text-gray-500 hidden sm:inline">credits</span>
               </div>
@@ -93,7 +95,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Users className="h-4 w-4 text-purple-400 shrink-0" />
                 <span className="text-base sm:text-xl font-bold font-mono text-white">
-                  {portfolioValue.toFixed(0)}¢
+                  {formatNumber(portfolioValue)}¢
                 </span>
                 <span className="text-xs text-gray-500 hidden sm:inline">portfolio</span>
               </div>
@@ -102,6 +104,9 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Login Reward */}
+      <LoginReward />
 
       {/* Create NPC Button */}
       <CreateNPCButton />
@@ -332,6 +337,8 @@ function BrowsePlayersSection({
               isActive?: number;
               lastOnlineAt?: string | null;
               estimatedDeletionAt?: string | null;
+              ownerName?: string | null;
+              ownerValue?: number | null;
             }) => (
               <PlayerCard key={player.id} {...player} />
             )

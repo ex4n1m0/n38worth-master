@@ -20,7 +20,6 @@ import {
   BadgeCheck,
   Shield,
   Swords,
-  Hourglass,
   Star,
   Gem,
   User,
@@ -29,17 +28,15 @@ import {
 import Link from "next/link";
 import {
   getOwnedRank,
-  getAgeRank,
-  getAgeDays,
   getCreditsRank,
   getValueRank,
   getPortfolioRank,
   getOwnedRankColor,
-  getAgeRankColor,
   getCreditsRankColor,
   getValueRankColor,
   getPortfolioRankColor,
 } from "@/lib/ranks";
+import { formatNumber, getDynamicFontSize } from "@/lib/utils";
 
 function formatLastOnline(date: string | Date | null | undefined): string {
   if (!date) return "Never";
@@ -166,39 +163,37 @@ export function OwnershipList({
                         Card
                       </span>
                     )}
-                    {item.ownedCount !== undefined && (
-                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getOwnedRankColor(item.ownedCount)}`}>
-                        <Swords className="h-2.5 w-2.5" />
-                        {getOwnedRank(item.ownedCount).title}
-                      </span>
+                    {item.playerType === "human" && (
+                      <>
+                        {item.ownedCount !== undefined && (
+                          <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getOwnedRankColor(item.ownedCount)}`}>
+                            <Swords className="h-2.5 w-2.5" />
+                            {getOwnedRank(item.ownedCount).title}
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(item.credits ?? 0)}`}>
+                          <Coins className="h-2.5 w-2.5" />
+                          {getCreditsRank(item.credits ?? 0).title}
+                        </span>
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getValueRankColor(item.playerValue)}`}>
+                          <TrendingUp className="h-2.5 w-2.5" />
+                          {getValueRank(item.playerValue).title}
+                        </span>
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getPortfolioRankColor(item.portfolioValue ?? 0)}`}>
+                          <Briefcase className="h-2.5 w-2.5" />
+                          {getPortfolioRank(item.portfolioValue ?? 0).title}
+                        </span>
+                      </>
                     )}
-                    {item.createdAt && (
-                      <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getAgeRankColor(getAgeDays(item.createdAt))}`}>
-                        <Hourglass className="h-2.5 w-2.5" />
-                        {getAgeRank(getAgeDays(item.createdAt)).title}
-                      </span>
-                    )}
-                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(item.credits ?? 0)}`}>
-                      <Coins className="h-2.5 w-2.5" />
-                      {getCreditsRank(item.credits ?? 0).title}
-                    </span>
-                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getValueRankColor(item.playerValue)}`}>
-                      <TrendingUp className="h-2.5 w-2.5" />
-                      {getValueRank(item.playerValue).title}
-                    </span>
-                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getPortfolioRankColor(item.portfolioValue ?? 0)}`}>
-                      <Briefcase className="h-2.5 w-2.5" />
-                      {getPortfolioRank(item.portfolioValue ?? 0).title}
-                    </span>
                   </div>
 
                   {/* Value badge */}
                   <div className="mt-2">
                     <Badge
                       variant="secondary"
-                      className="bg-t1-500/10 text-t1-400 border-t1-500/20 font-mono text-xs"
+                      className={`bg-t1-500/10 text-t1-400 border-t1-500/20 font-mono ${getDynamicFontSize(item.playerValue)}`}
                     >
-                      {item.playerValue}¢
+                      {formatNumber(item.playerValue)}¢
                     </Badge>
                   </div>
                 </div>
@@ -208,7 +203,9 @@ export function OwnershipList({
               <div className="flex items-center gap-3 flex-wrap text-xs text-gray-400">
                 <span className="flex items-center gap-1">
                   <TrendingUp className="h-3 w-3 text-t1-400" />
-                  {item.playerValue}¢
+                  <span className={getDynamicFontSize(item.playerValue)}>
+                    {formatNumber(item.playerValue)}¢
+                  </span>
                 </span>
                 {item.ownerCount !== undefined && (
                   <span className="flex items-center gap-1">
@@ -225,29 +222,23 @@ export function OwnershipList({
                 {item.portfolioValue !== undefined && (
                   <span className="flex items-center gap-1">
                     <Briefcase className="h-3 w-3 text-purple-400" />
-                    {Math.round(item.portfolioValue)}¢
+                    {formatNumber(Math.round(item.portfolioValue))}¢
                   </span>
                 )}
                 {item.credits !== undefined && (
                   <span className="flex items-center gap-1 text-t1-400">
                     <Coins className="h-3 w-3" />
-                    {Number(item.credits).toFixed(2)}¢
+                    {formatNumber(parseFloat((item.credits).toFixed(2)))}¢
                   </span>
                 )}
               </div>
 
-              {/* Footer: last online + deletion */}
+              {/* Footer: last online */}
               <div className="flex items-center gap-3 mt-1.5 text-[11px]">
                 <span className="flex items-center gap-1 text-gray-500">
                   <Clock className="h-3 w-3" />
                   {formatLastOnline(item.lastOnlineAt)}
                 </span>
-                {item.estimatedDeletionAt && (
-                  <span className="flex items-center gap-1 text-amber-400">
-                    <AlertTriangle className="h-3 w-3" />
-                    Deletion in {formatTimeRemaining(item.estimatedDeletionAt)}
-                  </span>
-                )}
               </div>
             </Link>
 

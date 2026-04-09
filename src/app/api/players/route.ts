@@ -47,6 +47,12 @@ export async function GET(req: Request) {
       conditions.push(eq(users.isNpc, 1));
     }
 
+    // Hide human players who haven't completed onboarding (avatar + buy 3 NPCs)
+    // NPC/card players are always visible since they don't go through onboarding
+    conditions.push(
+      sql`("users"."is_npc" = 1 OR "users"."onboarding_complete" = 1)`
+    );
+
     const whereClause = conditions.length > 0
       ? and(...conditions)
       : undefined;
@@ -54,7 +60,9 @@ export async function GET(req: Request) {
     // SQL subqueries for counts and portfolio value (avoids N+1 queries)
     const ownerCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`;
     const ownedCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`;
-    const portfolioExpr = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o3 WHERE o3.owned_id = "users"."id"), 1)`;
+    const portfolioExpr = sql<number>`LEAST(("users"."player_value"::numeric + COALESCE((SELECT SUM(u2.player_value::numeric) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o4 WHERE o4.owner_id = u2.id) > 0), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o3 WHERE o3.owned_id = "users"."id"), 1), 9007199254740991)`;
+    const ownerNameExpr = sql<string | null>`(SELECT u.username FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1)`;
+    const ownerValueExpr = sql<number | null>`(SELECT u.player_value FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1)`;
 
     // Common select fields with computed columns
     const selectFields = {
@@ -78,6 +86,8 @@ export async function GET(req: Request) {
       ownerCount: ownerCountExpr.as("owner_count"),
       ownedCount: ownedCountExpr.as("owned_count"),
       portfolioValue: portfolioExpr.as("portfolio_value"),
+      ownerName: ownerNameExpr.as("owner_name"),
+      ownerValue: ownerValueExpr.as("owner_value"),
     };
 
     let playersList;
@@ -130,9 +140,10 @@ export async function GET(req: Request) {
       // Only NPC players without an owner get deletion countdown
       let estimatedDeletionAt: Date | typeof player.estimatedDeletionAt = null;
       if (isNpcWithoutOwner && player.credits > 1 && player.lastOnlineAt) {
-        // Calculate hours until credits decay to 1: ln(credits) / (-ln(0.99))
-        const hoursUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
-        estimatedDeletionAt = new Date(Date.now() + hoursUntilDeletion * 60 * 60 * 1000);
+        // Calculate minutes until credits decay to 1: ln(credits) / (-ln(0.99))
+        // Each 1% decay happens every 1 minute
+        const minutesUntilDeletion = Math.ceil(Math.log(player.credits) / (-Math.log(0.99)));
+        estimatedDeletionAt = new Date(Date.now() + minutesUntilDeletion * 60 * 1000);
       } else if (isNpcWithoutOwner && player.credits <= 1) {
         // Already at minimum — deletion imminent
         estimatedDeletionAt = new Date();
@@ -144,6 +155,8 @@ export async function GET(req: Request) {
         ownedCount: Number(player.ownedCount),
         portfolioValue: Math.round(Number(player.portfolioValue) * 100) / 100,
         estimatedDeletionAt,
+        ownerName: player.ownerName,
+        ownerValue: player.ownerValue !== null ? Number(player.ownerValue) : null,
       };
     });
 

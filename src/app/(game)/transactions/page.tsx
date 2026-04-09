@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
+import { formatNumber } from "@/lib/utils";
 
 export default function TransactionsPage() {
   const { data: session, status } = useSession();
@@ -136,7 +137,7 @@ export default function TransactionsPage() {
                         }`}
                       >
                         {txn.type === "purchase" ? (txn.isInitiator ? "-" : "+") : (txn.isInitiator ? "+" : "")}
-                        {txn.amount}¢
+                        {formatNumber(txn.amount)}¢
                       </Badge>
                       <span className="text-xs text-gray-500 w-20 text-right">
                         {new Date(txn.createdAt).toLocaleDateString("en-US", {

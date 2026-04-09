@@ -5,6 +5,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ShoppingCart, Loader2 } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
+import { useOnboarding } from "./OnboardingContext";
+import { formatNumber } from "@/lib/utils";
 
 interface BuyButtonProps {
   targetId: number;
@@ -16,6 +19,8 @@ interface BuyButtonProps {
 export function BuyButton({ targetId, targetUsername, cost, disabled }: BuyButtonProps) {
   const queryClient = useQueryClient();
   const { t } = useLanguage();
+  const { play } = useSound();
+  const { refresh: refreshOnboarding } = useOnboarding();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -55,12 +60,16 @@ export function BuyButton({ targetId, targetUsername, cost, disabled }: BuyButto
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       ]);
+      refreshOnboarding();
     },
   });
 
   return (
     <Button
-      onClick={() => mutation.mutate()}
+      onClick={() => {
+        play("buy");
+        mutation.mutate();
+      }}
       disabled={disabled || mutation.isPending}
       size="lg"
       className="bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white font-bold shadow-lg shadow-t1-500/20 text-lg sm:text-xl px-4 sm:px-8 py-4 sm:py-6 h-auto min-h-[48px] max-w-full whitespace-nowrap"
@@ -73,7 +82,7 @@ export function BuyButton({ targetId, targetUsername, cost, disabled }: BuyButto
       ) : (
         <>
           <ShoppingCart className="h-7 w-7 mr-3" />
-          {t.buy} {cost}¢
+          {t.buy} {formatNumber(cost)}¢
         </>
       )}
     </Button>

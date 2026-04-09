@@ -1,8 +1,7 @@
 // ──────────────────────────────────────────────
 // Rank Title System
-// Five ladders, 10 titles each:
-//   Empire (Owned), Legacy (Age),
-//   Credits, Value, Portfolio
+// Four ladders, 10 titles each:
+//   Empire (Owned), Credits, Value, Portfolio
 // ──────────────────────────────────────────────
 
 export interface RankTier {
@@ -24,21 +23,7 @@ export const OWNED_RANKS: RankTier[] = [
   { threshold: 150, title: "Emperor" },
 ];
 
-// ── 2. Legacy — Days Since Creation (Account Age) ──
-export const AGE_RANKS: RankTier[] = [
-  { threshold: 0, title: "Newborn" },
-  { threshold: 1, title: "Fledgling" },
-  { threshold: 3, title: "Apprentice" },
-  { threshold: 7, title: "Journeyman" },
-  { threshold: 14, title: "Veteran" },
-  { threshold: 30, title: "Stalwart" },
-  { threshold: 90, title: "Master" },
-  { threshold: 180, title: "Sage" },
-  { threshold: 365, title: "Guardian" },
-  { threshold: 730, title: "Eternal" },
-];
-
-// ── 3. Credits — Wealth (Credits) ──
+// ── 2. Credits — Wealth (Credits) ──
 export const CREDITS_RANKS: RankTier[] = [
   { threshold: 0, title: "Broke" },
   { threshold: 100, title: "Saver" },
@@ -52,7 +37,7 @@ export const CREDITS_RANKS: RankTier[] = [
   { threshold: 1000000, title: "Tycoon" },
 ];
 
-// ── 4. Value — Player Value (Worth) ──
+// ── 3. Value — Player Value (Worth) ──
 export const VALUE_RANKS: RankTier[] = [
   { threshold: 1, title: "Nobody" },
   { threshold: 5, title: "Rookie" },
@@ -66,7 +51,7 @@ export const VALUE_RANKS: RankTier[] = [
   { threshold: 5000, title: "Legend" },
 ];
 
-// ── 5. Portfolio — Total Portfolio Value ──
+// ── 4. Portfolio — Total Portfolio Value ──
 export const PORTFOLIO_RANKS: RankTier[] = [
   { threshold: 0, title: "Empty" },
   { threshold: 100, title: "Starter" },
@@ -96,6 +81,21 @@ function getRank(value: number, ladder: RankTier[]): RankTier {
 }
 
 /**
+ * Given a value and a rank ladder, return the tier index (1-based) of the current rank.
+ */
+function getRankTierIndex(value: number, ladder: RankTier[]): number {
+  let index = 1;
+  for (let i = 0; i < ladder.length; i++) {
+    if (value >= ladder[i].threshold) {
+      index = i + 1;
+    } else {
+      break;
+    }
+  }
+  return index;
+}
+
+/**
  * Given a value and a rank ladder, return the next rank tier (if any).
  */
 function getNextRank(value: number, ladder: RankTier[]): RankTier | null {
@@ -111,10 +111,6 @@ function getNextRank(value: number, ladder: RankTier[]): RankTier | null {
 
 export function getOwnedRank(ownedCount: number) {
   return getRank(ownedCount, OWNED_RANKS);
-}
-
-export function getAgeRank(ageDays: number) {
-  return getRank(ageDays, AGE_RANKS);
 }
 
 export function getCreditsRank(credits: number) {
@@ -133,10 +129,6 @@ export function getNextOwnedRank(ownedCount: number) {
   return getNextRank(ownedCount, OWNED_RANKS);
 }
 
-export function getNextAgeRank(ageDays: number) {
-  return getNextRank(ageDays, AGE_RANKS);
-}
-
 export function getNextCreditsRank(credits: number) {
   return getNextRank(credits, CREDITS_RANKS);
 }
@@ -150,12 +142,30 @@ export function getNextPortfolioRank(portfolioValue: number) {
 }
 
 /**
+ * Get tier position (1-based) for each rank category
+ */
+export function getOwnedRankTier(ownedCount: number): number {
+  return getRankTierIndex(ownedCount, OWNED_RANKS);
+}
+
+export function getCreditsRankTier(credits: number): number {
+  return getRankTierIndex(credits, CREDITS_RANKS);
+}
+
+export function getValueRankTier(playerValue: number): number {
+  return getRankTierIndex(playerValue, VALUE_RANKS);
+}
+
+export function getPortfolioRankTier(portfolioValue: number): number {
+  return getRankTierIndex(portfolioValue, PORTFOLIO_RANKS);
+}
+
+/**
  * Get the number of ranks in each category
  */
-export function getRankCount(category: 'owned' | 'age' | 'credits' | 'value' | 'portfolio'): number {
+export function getRankCount(category: 'owned' | 'credits' | 'value' | 'portfolio'): number {
   switch (category) {
     case 'owned': return OWNED_RANKS.length;
-    case 'age': return AGE_RANKS.length;
     case 'credits': return CREDITS_RANKS.length;
     case 'value': return VALUE_RANKS.length;
     case 'portfolio': return PORTFOLIO_RANKS.length;
@@ -171,15 +181,6 @@ export function getOnlineHours(totalOnlineMinutes: number | null | undefined): n
   return Math.floor(totalOnlineMinutes / 60);
 }
 
-/**
- * Calculate account age in days from createdAt date. Used for Legacy rank.
- */
-export function getAgeDays(createdAt: string | Date | null | undefined): number {
-  if (!createdAt) return 0;
-  const d = typeof createdAt === "string" ? new Date(createdAt) : createdAt;
-  return Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
-}
-
 // ── Color helpers for badges ──
 
 export function getOwnedRankColor(ownedCount: number): string {
@@ -187,14 +188,6 @@ export function getOwnedRankColor(ownedCount: number): string {
   if (ownedCount >= 40) return "text-blue-300 bg-blue-500/15 border-blue-500/30";
   if (ownedCount >= 8) return "text-cyan-300 bg-cyan-500/15 border-cyan-500/30";
   if (ownedCount >= 3) return "text-teal-300 bg-teal-500/15 border-teal-500/30";
-  return "text-gray-400 bg-gray-500/15 border-gray-500/30";
-}
-
-export function getAgeRankColor(ageDays: number): string {
-  if (ageDays >= 365) return "text-emerald-300 bg-emerald-500/15 border-emerald-500/30";
-  if (ageDays >= 30) return "text-green-300 bg-green-500/15 border-green-500/30";
-  if (ageDays >= 7) return "text-lime-300 bg-lime-500/15 border-lime-500/30";
-  if (ageDays >= 1) return "text-sky-300 bg-sky-500/15 border-sky-500/30";
   return "text-gray-400 bg-gray-500/15 border-gray-500/30";
 }
 

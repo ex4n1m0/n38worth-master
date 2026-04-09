@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
 
 interface BlockSellButtonProps {
   ownershipId: number;
@@ -37,6 +38,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
   const [open, setOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
   const { t } = useLanguage();
+  const { play } = useSound();
 
   const isBlocked = blockSellUntil && new Date(blockSellUntil) > new Date();
   const cost = Math.max(1, Math.round(0.01 * playerValue));
@@ -77,7 +79,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {isBlocked ? (
-          <button className="flex items-center gap-3 px-6 py-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-lg font-bold min-h-[56px] cursor-pointer hover:bg-amber-500/20 transition-colors">
+          <button onClick={() => play("buttons")} className="flex items-center gap-3 px-6 py-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-lg font-bold min-h-[56px] cursor-pointer hover:bg-amber-500/20 transition-colors">
             <Handshake className="h-7 w-7" />
             <span>{t.partner}</span>
             {timeLeft && (
@@ -90,6 +92,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
         ) : (
           <Button
             variant="outline"
+            onClick={() => play("buttons")}
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
           >
             <Handshake className="h-7 w-7 mr-2" />

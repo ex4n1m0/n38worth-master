@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MyProfileCard } from "@/components/MyProfileCard";
-import { CreateNPCButton } from "@/components/CreateNPCButton";
+import { LoginReward } from "@/components/LoginReward";
 import { useCredits } from "@/hooks/useCredits";
 import { toast } from "sonner";
 import {
@@ -21,8 +22,15 @@ import {
   LayoutGrid,
   List,
   ShoppingCart,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
+import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
+import { RankBonusCountdown } from "@/components/RankBonusCountdown";
+import { RandomPlayerCountdown } from "@/components/RandomPlayerCountdown";
+import { useSound } from "@/hooks/useSound";
+import { useOnboarding } from "@/components/OnboardingContext";
+import { formatNumber } from "@/lib/utils";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
@@ -47,12 +55,14 @@ function MosaicBuyButton({
 }) {
   const queryClient = useQueryClient();
   const [isPending, setIsPending] = useState(false);
+  const { play } = useSound();
 
   const handleBuy = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (disabled || isPending) return;
+    play("buy");
 
     setIsPending(true);
     try {
@@ -83,18 +93,18 @@ function MosaicBuyButton({
     <button
       onClick={handleBuy}
       disabled={disabled || isPending}
-      className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] sm:text-xs font-semibold transition-all ${
+      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-3 rounded text-[14px] sm:text-[20px] md:text-[28px] lg:text-[36px] font-semibold transition-all ${
         disabled
           ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
           : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
       }`}
     >
       {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
+        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9 animate-spin" />
       ) : (
         <>
-          <ShoppingCart className="h-3 w-3" />
-          <span>{cost}¢</span>
+          <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9" />
+          <span>{formatNumber(cost)}¢</span>
         </>
       )}
     </button>
@@ -103,6 +113,7 @@ function MosaicBuyButton({
 
 export default function LeaderboardPage() {
   const { data: session } = useSession();
+  const { state: onboarding, loading: onboardingLoading, refresh: refreshOnboarding } = useOnboarding();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -113,16 +124,216 @@ export default function LeaderboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* My Profile Card */}
-      {session?.user?.name && <MyProfileCard />}
+      {/* Onboarding Progress Banner */}
+      {onboarding.avatarCompleted && !onboarding.onboardingComplete && (
+        <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-blue-500/40 rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Target className="h-5 w-5 text-blue-400" />
+            <p className="text-blue-200 text-lg font-bold">
+              Acquire 3 Starter NPCs to unlock the full game
+            </p>
+          </div>
+          <p className="text-blue-300 text-sm">
+            Progress: {onboarding.starterNpcOwnedCount}/3 acquired
+          </p>
+        </div>
+      )}
 
-      {/* Browse Players */}
-      <BrowsePlayersSection
-        search={search}
-        onSearch={handleSearch}
-        debouncedSearch={debouncedSearch}
-      />
+      {/* Starter NPCs Section */}
+      {onboarding.avatarCompleted &&
+        !onboarding.onboardingComplete &&
+        onboarding.starterNpcIds.length > 0 && (
+          <StarterNpcsSection
+            npcIds={onboarding.starterNpcIds}
+            ownedCount={onboarding.starterNpcOwnedCount}
+            onPurchase={refreshOnboarding}
+          />
+        )}
+
+      {/* Rest of page content - hidden until onboarding is complete (show during loading to avoid flash for existing users) */}
+      {(onboardingLoading || onboarding.onboardingComplete) && (
+        <>
+          {/* Buy Tip Message - Below Navigation */}
+          <div className="bg-gradient-to-r from-t1-900/30 to-t2-900/30 border border-t1-500/30 rounded-lg p-6 text-center">
+            <p className="text-t1-300 text-xl sm:text-2xl md:text-3xl font-bold">
+              Own the best. Earn the most.
+            </p>
+            <p className="text-t2-400/70 text-xs sm:text-sm mt-2">
+              Player Value is multiplied by the number of owned players for the portfolio reward calculation.
+            </p>
+          </div>
+
+          {/* My Profile Card */}
+          {session?.user?.name && <MyProfileCard />}
+
+          {/* Login Reward */}
+          <LoginReward />
+
+          {/* Cron Countdowns */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <PortfolioRewardCountdown />
+            <RankBonusCountdown />
+            <RandomPlayerCountdown />
+          </div>
+
+          {/* Browse Players */}
+          <BrowsePlayersSection
+            search={search}
+            onSearch={handleSearch}
+            debouncedSearch={debouncedSearch}
+          />
+        </>
+      )}
     </div>
+  );
+}
+
+// Starter NPCs Section for onboarding
+function StarterNpcsSection({
+  npcIds,
+  ownedCount,
+  onPurchase,
+}: {
+  npcIds: number[];
+  ownedCount: number;
+  onPurchase: () => void;
+}) {
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const { play } = useSound();
+
+  const { data: npcs, isLoading } = useQuery({
+    queryKey: ["starter-npcs", npcIds],
+    queryFn: async () => {
+      const results = await Promise.all(
+        npcIds.map(async (id) => {
+          const res = await fetch(`/api/players/id/${id}`);
+          if (!res.ok) return null;
+          return res.json();
+        })
+      );
+      return results.filter(Boolean);
+    },
+    staleTime: 30 * 1000,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-t1-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border border-cyan-500/30 rounded-lg p-4">
+      <h3 className="text-cyan-300 font-bold text-lg mb-3 flex items-center gap-2">
+        <Target className="h-5 w-5" />
+        Starter NPCs ({ownedCount}/3 acquired)
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {npcs?.map((npc: { id: number; username: string; avatarUrl: string | null; playerValue: number; credits?: number }) => (
+          <StarterNpcCard
+            key={npc.id}
+            npc={npc}
+            ownedCount={ownedCount}
+            onPurchase={onPurchase}
+          />
+        ))}
+      </div>
+      {npcIds.length < 3 && (
+        <p className="text-yellow-400 text-sm mt-2 text-center">
+          ⚠️ Only {npcIds.length} NPCs available under $20. Check back later!
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Individual starter NPC card
+function StarterNpcCard({
+  npc,
+  ownedCount,
+  onPurchase,
+}: {
+  npc: { id: number; username: string; avatarUrl: string | null; playerValue: number; credits?: number };
+  ownedCount: number;
+  onPurchase: () => void;
+}) {
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const { play } = useSound();
+  const [isPending, setIsPending] = useState(false);
+  const { data: credits } = useCredits();
+
+  const canAfford = (credits ?? 0) >= npc.playerValue;
+
+  const handleBuy = async () => {
+    if (!canAfford || isPending) return;
+    play("buy");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/game/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: npc.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Purchase failed");
+
+      toast.success(`You bought ${npc.username}! 🎉`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["starter-npcs"] }),
+        queryClient.invalidateQueries({ queryKey: ["onboarding"] }),
+      ]);
+      onPurchase();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Purchase failed");
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  return (
+    <Card className="border-cyan-500/30 bg-gray-900/80">
+      <CardContent className="p-3">
+        <div className="flex items-center gap-3">
+          <Avatar className="h-12 w-12 shrink-0">
+            <AvatarImage src={npc.avatarUrl || undefined} />
+            <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-sm font-bold">
+              {npc.username.slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-medium text-sm truncate">
+              {npc.username}
+            </p>
+            <p className="text-gray-400 text-xs">{formatNumber(npc.playerValue)}¢</p>
+          </div>
+          <Button
+            size="sm"
+            onClick={handleBuy}
+            disabled={!canAfford || isPending}
+            className={`shrink-0 ${
+              canAfford
+                ? "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
+          >
+            {isPending ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <>
+                <ShoppingCart className="h-3 w-3 mr-1" />
+                {formatNumber(npc.playerValue)}¢
+              </>
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -142,7 +353,8 @@ function BrowsePlayersSection({
   const [hasOwner, setHasOwner] = useState(false);
   const [hasPlayers, setHasPlayers] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
-  const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
+  const [viewMode, setViewMode] = useState<"mosaic" | "details">("details");
+  const { play } = useSound();
 
   const currentUsername = session?.user?.name;
   const limit = viewMode === "mosaic" ? 18 : 9;
@@ -209,14 +421,13 @@ function BrowsePlayersSection({
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
-        <CreateNPCButton />
         <div className="flex gap-2 flex-wrap">
           {/* View mode toggle */}
           {viewMode === "mosaic" ? (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setViewMode("details"); setPage(1); }}
+              onClick={() => { play("buttons"); setViewMode("details"); setPage(1); }}
               className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
             >
               <List className="h-4 w-4 mr-1" />
@@ -226,7 +437,7 @@ function BrowsePlayersSection({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { setViewMode("mosaic"); setPage(1); }}
+              onClick={() => { play("buttons"); setViewMode("mosaic"); setPage(1); }}
               className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
             >
               <LayoutGrid className="h-4 w-4 mr-1" />
@@ -239,6 +450,7 @@ function BrowsePlayersSection({
               variant={sort === s.key ? "default" : "outline"}
               size="sm"
               onClick={() => {
+                play("buttons");
                 setSort(s.key);
                 setPage(1);
               }}
@@ -255,6 +467,7 @@ function BrowsePlayersSection({
             variant={hasOwner ? "default" : "outline"}
             size="sm"
             onClick={() => {
+              play("buttons");
               setHasOwner(!hasOwner);
               setPage(1);
             }}
@@ -271,6 +484,7 @@ function BrowsePlayersSection({
             variant={hasPlayers ? "default" : "outline"}
             size="sm"
             onClick={() => {
+              play("buttons");
               setHasPlayers(!hasPlayers);
               setPage(1);
             }}
@@ -287,6 +501,7 @@ function BrowsePlayersSection({
             variant={playerType === "human" ? "default" : "outline"}
             size="sm"
             onClick={() => {
+              play("buttons");
               setPlayerType(playerType === "human" ? "" : "human");
               setPage(1);
             }}
@@ -303,6 +518,7 @@ function BrowsePlayersSection({
             variant={playerType === "card" ? "default" : "outline"}
             size="sm"
             onClick={() => {
+              play("buttons");
               setPlayerType(playerType === "card" ? "" : "card");
               setPage(1);
             }}
@@ -386,7 +602,7 @@ function BrowsePlayersSection({
                             <p className="text-white text-xs sm:text-sm font-medium truncate">
                               {player.username}
                             </p>
-                            <div className="flex items-center gap-2 text-gray-300 text-[10px] sm:text-xs">
+                            <div className="flex items-center gap-2 text-gray-300 text-[30px] sm:text-[36px]">
                               <span>
                                 ₡{player.playerValue?.toLocaleString()}
                               </span>
@@ -442,6 +658,8 @@ function BrowsePlayersSection({
                   isActive?: number;
                   lastOnlineAt?: string | null;
                   estimatedDeletionAt?: string | null;
+                  ownerName?: string | null;
+                  ownerValue?: number | null;
                 }) => (
                   <PlayerCard key={player.id} {...player} />
                 )
@@ -452,7 +670,7 @@ function BrowsePlayersSection({
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1 pt-2">
               <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                onClick={() => { play("buttons"); setPage((p) => Math.max(1, p - 1)); }}
                 disabled={page === 1}
                 className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >
@@ -469,7 +687,7 @@ function BrowsePlayersSection({
                 ) : (
                   <button
                     key={p}
-                    onClick={() => setPage(p)}
+                    onClick={() => { play("buttons"); setPage(p); }}
                     className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                       p === page
                         ? "border-t1-500 bg-t1-600/20 text-t1-400 font-bold"
@@ -481,7 +699,7 @@ function BrowsePlayersSection({
                 )
               )}
               <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => { play("buttons"); setPage((p) => Math.min(totalPages, p + 1)); }}
                 disabled={page === totalPages}
                 className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
               >

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/card";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
+import { useSound } from "@/hooks/useSound";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,9 +24,11 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    play("buttons");
     setError("");
     setLoading(true);
 
@@ -65,7 +68,7 @@ export default function RegisterPage() {
       if (signInResult?.error) {
         router.push("/login");
       } else {
-        router.push("/leaderboard");
+        router.push("/my-profile");
         router.refresh();
       }
     } catch {
@@ -76,22 +79,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-4 gap-6">
-      {/* Welcome Message */}
-      <div className="w-full max-w-md">
-        <div className="bg-gradient-to-br from-t1-900/30 to-t2-900/30 rounded-2xl p-6 border border-t1-500/20">
-          <div className="text-center">
-            <h2 className="text-xl font-bold text-white mb-3">{t.joinTitle}!</h2>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              Buy players. Get bought. Stay connected or get deleted.
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              Players who don&apos;t get purchased eventually run out of funds and are removed from the game.
-            </p>
-          </div>
-        </div>
-      </div>
-
+    <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 p-4 pt-16">
       <Card className="w-full max-w-md border-gray-800 bg-gray-900/80 backdrop-blur">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent">
@@ -180,8 +168,9 @@ export default function RegisterPage() {
               type="button"
               disabled={googleLoading}
               onClick={() => {
+                play("buttons");
                 setGoogleLoading(true);
-                signIn("google", { callbackUrl: "/leaderboard" }).catch(() => {
+                signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
                   setGoogleLoading(false);
                 });
               }}

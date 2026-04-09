@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
 
 interface SellButtonProps {
   otherId: number;
@@ -28,6 +29,7 @@ export function DiscardButton({ otherId, otherUsername, cost, blockSellUntil, bl
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -113,6 +115,7 @@ export function DiscardButton({ otherId, otherUsername, cost, blockSellUntil, bl
       <DialogTrigger asChild>
         <Button
           variant="outline"
+          onClick={() => play("buttons")}
           className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
         >
           <DollarSign className="h-7 w-7 mr-2" />

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BuyButton } from "@/components/BuyButton";
 import { OwnershipList } from "@/components/OwnershipList";
+import { AvatarUpload } from "@/components/AvatarUpload";
 import { useCredits } from "@/hooks/useCredits";
 import {
   TrendingUp,
@@ -24,30 +25,28 @@ import {
   AlertTriangle,
   Shield,
   Swords,
-  Hourglass,
   User,
   CreditCard,
+  Camera,
 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
+import { useOnboarding } from "@/components/OnboardingContext";
 import {
   getOwnedRank,
-  getAgeRank,
   getCreditsRank,
   getValueRank,
   getPortfolioRank,
   getOnlineHours,
-  getAgeDays,
   getNextOwnedRank,
-  getNextAgeRank,
   getNextCreditsRank,
   getNextValueRank,
   getNextPortfolioRank,
   getOwnedRankColor,
-  getAgeRankColor,
   getCreditsRankColor,
   getValueRankColor,
   getPortfolioRankColor,
 } from "@/lib/ranks";
+import { formatNumber } from "@/lib/utils";
 
 function formatLastOnline(date: string | Date | null | undefined): string {
   if (!date) return "Never";
@@ -81,6 +80,7 @@ export default function PlayerProfilePage() {
   const username = params.username as string;
   const { data: session } = useSession();
   const { t } = useLanguage();
+  const { state: onboarding } = useOnboarding();
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", username],
@@ -107,13 +107,14 @@ export default function PlayerProfilePage() {
       <div className="text-center py-20">
         <h2 className="text-2xl font-bold text-white">{t.playerNotFound}</h2>
         <p className="text-gray-400 mt-2">
-          &quot;{username}&quot;
+          "{username}"
         </p>
       </div>
     );
   }
 
   const isOwnProfile = session?.user?.name === username;
+  const showOnboardingMessage = isOwnProfile && !onboarding.avatarCompleted;
   const alreadyOwns = player.owners?.some(
     (o: { username: string }) => o.username === session?.user?.name
   );
@@ -122,28 +123,53 @@ export default function PlayerProfilePage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      {/* Onboarding Message */}
+      {showOnboardingMessage && (
+        <div className="bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border border-yellow-500/40 rounded-lg p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <Camera className="h-5 w-5 text-yellow-400" />
+            <p className="text-yellow-200 text-lg font-bold">
+              🎯 Change your avatar to unlock Market
+            </p>
+          </div>
+          <p className="text-yellow-300 text-sm">
+            Upload a custom profile picture to start your journey!
+          </p>
+        </div>
+      )}
+
       {/* Profile Header */}
       <Card className="border-gray-800 bg-gray-900/60 overflow-hidden">
         <div className="h-32 bg-gradient-to-r from-t1-600/20 via-t2-600/20 to-t1-600/20" />
         <CardContent className="relative px-6 pb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
-            <Avatar className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 ring-4 ring-gray-900 shadow-xl shrink-0">
-              <AvatarImage src={player.avatarUrl || undefined} />
-              <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-2xl font-bold">
-                {player.username.slice(0, 2).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+          <div className="flex flex-col gap-4 -mt-12">
+            <div className="flex flex-col gap-2">
+              {isOwnProfile ? (
+                <AvatarUpload
+                  currentUrl={player.avatarUrl ?? null}
+                  username={player.username}
+                  avatarCompleted={onboarding.avatarCompleted}
+                />
+              ) : (
+                <Avatar className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 ring-4 ring-gray-900 shadow-xl shrink-0">
+                  <AvatarImage src={player.avatarUrl || undefined} />
+                  <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-2xl font-bold">
+                    {player.username.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              )}
+              <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2 truncate max-w-full">
+                <span className="truncate">{player.username}</span>
+                {player.valueFloor >= 100 && (
+                  <Gem className="h-5 w-5 text-purple-400" />
+                )}
+                {player.valueFloor >= 10 && player.valueFloor < 100 && (
+                  <Star className="h-5 w-5 text-yellow-400" />
+                )}
+              </h1>
+            </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2 truncate max-w-full">
-                  <span className="truncate">{player.username}</span>
-                  {player.valueFloor >= 100 && (
-                    <Gem className="h-5 w-5 text-purple-400" />
-                  )}
-                  {player.valueFloor >= 10 && player.valueFloor < 100 && (
-                    <Star className="h-5 w-5 text-yellow-400" />
-                  )}
-                </h1>
                 <div className="flex items-center gap-1 flex-wrap">
                   {player.playerType === "human" ? (
                     <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border text-emerald-300 bg-emerald-500/15 border-emerald-500/30">
@@ -164,10 +190,6 @@ export default function PlayerProfilePage() {
                     <Swords className="h-2.5 w-2.5" />
                     {getOwnedRank(player.ownedCount).title}
                   </span>
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getAgeRankColor(getAgeDays(player.createdAt))}`}>
-                    <Hourglass className="h-2.5 w-2.5" />
-                    {getAgeRank(getAgeDays(player.createdAt)).title}
-                  </span>
                   <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(player.credits ?? 0)}`}>
                     <Coins className="h-2.5 w-2.5" />
                     {getCreditsRank(player.credits ?? 0).title}
@@ -187,7 +209,7 @@ export default function PlayerProfilePage() {
                     className="bg-purple-500/10 text-purple-400 border-purple-500/20 font-mono"
                   >
                     <Briefcase className="h-3 w-3 mr-1" />
-                    {Math.round(player.portfolioValue)}¢
+                    {formatNumber(Math.round(player.portfolioValue))}¢
                   </Badge>
                 )}
                 {isOwnProfile && (
@@ -236,28 +258,28 @@ export default function PlayerProfilePage() {
 
           {/* Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8">
-            <div className="text-center p-3 sm:p-4 rounded-lg bg-gray-800/50 overflow-hidden">
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-gray-800/50 border border-gray-700/60 overflow-hidden">
               <TrendingUp className="h-5 w-5 text-t1-400 mx-auto mb-1" />
               <p className="text-sm sm:text-2xl font-bold font-mono text-white truncate">
-                {player.playerValue}¢
+                {formatNumber(player.playerValue)}¢
               </p>
               <p className="text-[10px] sm:text-xs text-gray-400">{t.playerValue}</p>
             </div>
-            <div className="text-center p-3 sm:p-4 rounded-lg bg-gray-800/50 overflow-hidden">
+            <div className="text-center p-3 sm:p-4 rounded-lg bg-gray-800/50 border border-gray-700/60 overflow-hidden">
               <Coins className="h-5 w-5 text-t1-400 mx-auto mb-1" />
               <p className="text-sm sm:text-2xl font-bold font-mono text-white truncate">
-                {Number(player.credits ?? 0).toFixed(2)}¢
+                {formatNumber(parseFloat((player.credits ?? 0).toFixed(2)))}¢
               </p>
               <p className="text-[10px] sm:text-xs text-gray-400">{t.credits}</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-gray-800/50">
+            <div className="text-center p-4 rounded-lg bg-gray-800/50 border border-gray-700/60">
               <Crown className="h-5 w-5 text-yellow-400 mx-auto mb-1" />
               <p className="text-lg sm:text-2xl font-bold font-mono text-white">
                 {player.ownerCount}
               </p>
               <p className="text-[10px] sm:text-xs text-gray-400">{t.owners}</p>
             </div>
-            <div className="text-center p-4 rounded-lg bg-gray-800/50">
+            <div className="text-center p-4 rounded-lg bg-gray-800/50 border border-gray-700/60">
               <Users className="h-5 w-5 text-t2-400 mx-auto mb-1" />
               <p className="text-lg sm:text-2xl font-bold font-mono text-white">
                 {player.ownedCount}
@@ -304,25 +326,6 @@ export default function PlayerProfilePage() {
                 )}
               </p>
             </div>
-            {/* Age Rank */}
-            {(() => {
-              const ageDays = getAgeDays(player.createdAt);
-              return (
-                <div className={`rounded-lg border p-3 ${getAgeRankColor(ageDays)}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Hourglass className="h-4 w-4" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider opacity-70">Legacy Rank</span>
-                  </div>
-                  <p className="text-sm sm:text-base font-bold">{getAgeRank(ageDays).title}</p>
-                  <p className="text-[10px] opacity-60 mt-0.5">
-                    {ageDays} day{ageDays !== 1 ? "s" : ""} old
-                    {getNextAgeRank(ageDays) && (
-                      <> · Next: {getNextAgeRank(ageDays)!.title} at {getNextAgeRank(ageDays)!.threshold}d</>
-                    )}
-                  </p>
-                </div>
-              );
-            })()}
             {/* Credits Rank */}
             {(() => {
               const c = player.credits ?? 0;
@@ -387,15 +390,6 @@ export default function PlayerProfilePage() {
               You need {player.playerValue - (credits ?? 0)} more credits to buy this player
             </div>
           )}
-          {player.estimatedDeletionAt && (
-            <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              <span>
-                Account deletion estimated in {formatTimeRemaining(player.estimatedDeletionAt)} due to inactivity.
-                Send credits to keep this player alive!
-              </span>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -443,8 +437,8 @@ export default function PlayerProfilePage() {
                   ) ?? []
                 }
                 type="owners"
-                showSellOut={isOwnProfile}
-                showBlockSell={isOwnProfile}
+                showSellOut={false}
+                showBlockSell={false}
                 myPlayerValue={player.playerValue}
               />
             </TabsContent>

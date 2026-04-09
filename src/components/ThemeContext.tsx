@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type ThemeName = "blue" | "green" | "white";
+export type ThemeName = "blue" | "green" | "orange";
 
 interface ThemeContextType {
   theme: ThemeName;
@@ -10,7 +10,7 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: "white",
+  theme: "blue",
   setTheme: () => {},
 });
 
@@ -20,24 +20,20 @@ export function useThemeColor() {
 
 function applyTheme(theme: ThemeName) {
   document.documentElement.setAttribute("data-theme", theme);
-  if (theme === "white") {
-    document.documentElement.classList.remove("dark");
-  } else {
-    document.documentElement.classList.add("dark");
-  }
+  document.documentElement.classList.add("dark");
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>("white");
+  const [theme, setThemeState] = useState<ThemeName>("blue");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("app-theme") as ThemeName | null;
-    if (stored === "green" || stored === "blue" || stored === "white") {
+    if (stored === "green" || stored === "blue" || stored === "orange") {
       setThemeState(stored);
       applyTheme(stored);
     } else {
-      applyTheme("white");
+      applyTheme("blue");
     }
     setMounted(true);
   }, []);

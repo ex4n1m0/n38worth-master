@@ -2,6 +2,7 @@
 
 import { useCredits } from "@/hooks/useCredits";
 import { Coins, Loader2 } from "lucide-react";
+import { formatNumber } from "@/lib/utils";
 
 export function CreditBalance() {
   const { data: credits, isLoading } = useCredits();
@@ -13,7 +14,7 @@ export function CreditBalance() {
         <Loader2 className="h-3 w-3 animate-spin text-t1-400" />
       ) : (
         <span className="font-mono font-semibold text-t1-400 text-sm">
-          {(credits ?? 0).toFixed(2)}¢
+          {formatNumber(Number((credits ?? 0).toFixed(2)))}¢
         </span>
       )}
     </div>

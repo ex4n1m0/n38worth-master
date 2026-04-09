@@ -28,23 +28,15 @@ export default function Home() {
   const { theme, setTheme } = useThemeColor();
   const { t } = useLanguage();
 
-  const coverImages = [
-    "/GameCoverFFS.png",
-    "/GameCoverFFS2.png",
-    "/GameCoverFFS3.png",
-    "/GameCoverFFS4.png",
-    "/GameCoverFFS5.png",
-  ];
-  const [randomCover, setRandomCover] = useState("/GameCoverFFS.png");
+  const [randomCover, setRandomCover] = useState("/POSTER_3.PNG");
   useEffect(() => {
-    setRandomCover(coverImages[Math.floor(Math.random() * coverImages.length)]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setRandomCover("/POSTER_3.PNG");
   }, []);
 
   const themes: { value: ThemeName; label: string; dot: string }[] = [
     { value: "blue", label: "Blue", dot: "bg-blue-500" },
-    { value: "green", label: "Green", dot: "bg-emerald-500" },
-    { value: "white", label: "White", dot: "bg-gradient-to-r from-pink-500 to-orange-400" },
+    { value: "green", label: "Green", dot: "bg-green-500" },
+    { value: "orange", label: "Orange", dot: "bg-orange-500" },
   ];
 
 
@@ -119,7 +111,7 @@ export default function Home() {
       if (signInResult?.error) {
         router.push("/login");
       } else {
-        router.push("/leaderboard");
+        router.push("/my-profile");
         router.refresh();
       }
     } catch {
@@ -136,7 +128,7 @@ export default function Home() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-t1-500/5 rounded-full blur-3xl" />
 
         {/* Game Cover */}
-        <div className="relative z-10 w-full flex justify-center px-4 sm:px-6 lg:px-8 pt-0 pb-2">
+        <div className="relative z-10 w-full flex justify-center px-4 sm:px-6 lg:px-8 pt-8 pb-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={randomCover}
@@ -148,8 +140,8 @@ export default function Home() {
         {/* Sign In Button */}
         <div className="relative z-10 flex flex-col items-center px-4 sm:px-6 lg:px-8 pt-3 pb-1 gap-3 w-full">
           <Link
-            href="/login"
-            className="w-full max-w-4xl flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-400 hover:to-purple-400 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-400/35 transition-all"
+            href="https://n38worth.com/register"
+            className="w-full max-w-4xl flex items-center justify-center gap-3 px-6 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-400 hover:to-blue-500 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-400/35 transition-all"
           >
             <LogIn className="h-9 w-9" />
             <span className="text-4xl font-bold tracking-wide">Sign In</span>
@@ -180,9 +172,29 @@ export default function Home() {
         {/* Version & Last Update Info */}
         <div className="relative z-10 flex justify-center px-4 sm:px-6 lg:px-8 pt-4 pb-4">
           <div className="flex flex-col items-center gap-1 text-gray-500 text-xs">
-            <span className="font-semibold text-gray-400">Version 1.4</span>
-            <span>Last updated: March 27, 2026 — 23:05 UTC+8</span>
+            <span className="font-semibold text-gray-400">Version 1.7</span>
+            <span>Last updated: April 8, 2026</span>
           </div>
+        </div>
+
+        {/* Attribution */}
+        <div className="relative z-10 flex justify-center px-4 sm:px-6 lg:px-8 pt-2 pb-6 gap-4">
+          <a
+            href="https://en.wikipedia.org/wiki/Friends_for_Sale"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
+          >
+            A Tribute to Friends for Sale Game
+          </a>
+          <a
+            href="https://www.linkedin.com/in/igorcarlier/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-gray-500 hover:text-gray-300 text-xs transition-colors"
+          >
+            Contact Developer
+          </a>
         </div>
       </div>
     </div>

@@ -4,9 +4,11 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "sonner";
+import { useSound } from "@/hooks/useSound";
 
 export function usePlayerEvents(userId: string | undefined) {
   const queryClient = useQueryClient();
+  const { play } = useSound();
 
   useEffect(() => {
     if (!userId) return;
@@ -29,6 +31,7 @@ export function usePlayerEvents(userId: string | undefined) {
 
     channel.bind("revenue-received", (data: { amount: number; fromPlayer: string; buyer: string }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"] });
+      play("buy");
       toast.success(`You earned ${data.amount} credits! ${data.buyer} bought ${data.fromPlayer} 🎉`);
     });
 
@@ -40,9 +43,23 @@ export function usePlayerEvents(userId: string | undefined) {
       }
     });
 
+    channel.bind("portfolio-reward", (data: { amount: number; portfolioValue: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"] });
+      play("buy");
+      toast.success(`You earned ${data.amount} credits from your hourly portfolio reward! 💼`);
+    });
+
+    channel.bind("rank-bonus", (data: { amount: number; category: string; rank: string; position: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"] });
+      play("buy");
+      const positionLabels = ["1st", "2nd", "3rd"];
+      const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;
+      toast.success(`You earned ${data.amount} credits! You're ${positionLabel} in ${data.category} rank (${data.rank}) 🏆`);
+    });
+
     return () => {
       channel.unbind_all();
       pusher.unsubscribe(`player-${userId}`);
     };
-  }, [userId, queryClient]);
+  }, [userId, queryClient, play]);
 }

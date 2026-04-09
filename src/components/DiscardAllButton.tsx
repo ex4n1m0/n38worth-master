@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
+import { formatNumber } from "@/lib/utils";
 
 interface DiscardAllButtonProps {
   ownedCount: number;
@@ -25,6 +27,7 @@ export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonPro
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
+  const { play } = useSound();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -61,6 +64,7 @@ export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonPro
         <Button
           variant="outline"
           size="sm"
+          onClick={() => play("buttons")}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
@@ -74,8 +78,8 @@ export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonPro
             {t.discardAllConfirmDesc
               ? t.discardAllConfirmDesc
                   .replace("{count}", String(ownedCount))
-                  .replace("{value}", String(totalValue))
-              : `Are you sure you want to discard all ${ownedCount} owned player${ownedCount !== 1 ? "s" : ""}? You will receive approximately ${totalValue}¢ and all their values will reset. Players with active sell blocks will be skipped.`}
+                  .replace("{value}", formatNumber(totalValue))
+              : `Are you sure you want to discard all ${ownedCount} owned player${ownedCount !== 1 ? "s" : ""}? You will receive approximately ${formatNumber(totalValue)}¢ and all their values will reset. Players with active sell blocks will be skipped.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

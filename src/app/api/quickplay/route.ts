@@ -7,6 +7,41 @@ import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 
 const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
 
+const QUICKPLAY_QUERIES = [
+  // Fashion
+  "fashion model portrait",
+  "luxury fashion model",
+  "high fashion editorial",
+  // Fun
+  "fun portrait smile",
+  "happy person lifestyle",
+  "party vibes portrait",
+  // Action
+  "action portrait photography",
+  "dynamic pose model",
+  "athletic portrait",
+  // Lust
+  "seductive portrait",
+  "alluring model photo",
+  "glamour night portrait",
+  // Cyber
+  "cyberpunk portrait",
+  "neon lights person",
+  "digital aesthetic portrait",
+  // Future
+  "futuristic portrait",
+  "sci-fi inspired model",
+  "space age fashion",
+  // Techno
+  "techno club portrait",
+  "electronic music aesthetic",
+  "rave culture portrait",
+  // Dance
+  "dance portrait photography",
+  "dancer movement photo",
+  "contemporary dance model",
+];
+
 function generateRandomUsername(): string {
   const adjectives = [
     "Swift", "Bold", "Lucky", "Chill", "Epic", "Witty", "Brave", "Noble",
@@ -30,12 +65,14 @@ function generateRandomUsername(): string {
 export async function POST() {
   try {
     // Fetch a random person image from Unsplash
+    // Increased to 8 attempts for better quality with production quota (5000 calls/hour)
     let avatarUrl: string | null = null;
     try {
-      for (let photoAttempt = 0; photoAttempt < 5; photoAttempt++) {
+      for (let photoAttempt = 0; photoAttempt < 8; photoAttempt++) {
         try {
+          const query = QUICKPLAY_QUERIES[Math.floor(Math.random() * QUICKPLAY_QUERIES.length)];
           const unsplashRes = await fetch(
-            `https://api.unsplash.com/photos/random?query=person+portrait+face&orientation=squarish&content_filter=high`,
+            `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish`,
             {
               headers: {
                 Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
@@ -51,8 +88,17 @@ export async function POST() {
               break;
             }
           } else {
+            // Check rate limit headers for monitoring
+            const remaining = unsplashRes.headers.get("X-Ratelimit-Remaining");
+            if (remaining !== null && parseInt(remaining) < 100) {
+              console.warn(`Unsplash rate limit remaining: ${remaining} requests`);
+            }
             console.error(`Unsplash API error (quickplay attempt ${photoAttempt + 1}):`, unsplashRes.status);
-            continue; // Try next attempt instead of stopping
+            // Continue trying on 404/422 but break on auth/rate limit errors
+            if (unsplashRes.status === 404 || unsplashRes.status === 422) {
+              continue;
+            }
+            break; // Stop on rate limit / auth errors
           }
         } catch (fetchError) {
           console.error(`Unsplash fetch error (quickplay attempt ${photoAttempt + 1}):`, fetchError);

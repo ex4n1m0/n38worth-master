@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { capCredits } from "@/lib/safeguards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -93,11 +94,11 @@ export async function POST(req: Request) {
       })
       .where(eq(users.id, senderId));
 
-    // Add to target
+    // Add to target — cap to prevent overflow
     await db
       .update(users)
       .set({
-        credits: Math.round((target.credits + amount) * 100) / 100,
+        credits: capCredits(Math.round((target.credits + amount) * 100) / 100),
         updatedAt: new Date(),
       })
       .where(eq(users.id, targetId));

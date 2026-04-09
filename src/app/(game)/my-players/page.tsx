@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/card";
 import { OwnershipList } from "@/components/OwnershipList";
 import { MyProfileCard } from "@/components/MyProfileCard";
-import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import {
   Users,
@@ -26,12 +25,12 @@ import {
   List,
 } from "lucide-react";
 import Link from "next/link";
+import { useSound } from "@/hooks/useSound";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
   { key: "credits", label: "Credits" },
-  { key: "most-owners", label: "Most Owners" },
   { key: "most-players", label: "Most Players" },
   { key: "newest", label: "Newest" },
   { key: "name", label: "Name" },
@@ -40,10 +39,11 @@ const SORT_OPTIONS = [
 export default function MyPlayersPage() {
   const { data: session } = useSession();
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("last-online");
+  const [sort, setSort] = useState("value");
   const [search, setSearch] = useState("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
+  const { play } = useSound();
   const perPage = viewMode === "mosaic" ? 18 : 9;
 
   const { data: player, isLoading } = useQuery({
@@ -98,8 +98,6 @@ export default function MyPlayersPage() {
         return (b.playerValue ?? 0) - (a.playerValue ?? 0);
       case "credits":
         return (b.credits ?? 0) - (a.credits ?? 0);
-      case "most-owners":
-        return (b.ownerCount ?? 0) - (a.ownerCount ?? 0);
       case "most-players":
         return (b.ownedCount ?? 0) - (a.ownedCount ?? 0);
       case "newest":
@@ -151,20 +149,6 @@ export default function MyPlayersPage() {
               ({filtered.length})
             </span>
           </CardTitle>
-          <CardAction>
-            <div className="flex items-center gap-2">
-              <DiscardAllButton
-                ownedCount={items.length}
-                totalValue={
-                  items.reduce(
-                    (sum: number, p: { playerValue: number }) =>
-                      sum + p.playerValue,
-                    0
-                  ) ?? 0
-                }
-              />
-            </div>
-          </CardAction>
         </CardHeader>
         <CardContent>
           {/* Search + Sort + Filters */}
@@ -187,7 +171,7 @@ export default function MyPlayersPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setViewMode("details")}
+                  onClick={() => { play("buttons"); setViewMode("details"); }}
                   className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
                 >
                   <List className="h-4 w-4 mr-1" />
@@ -197,7 +181,7 @@ export default function MyPlayersPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setViewMode("mosaic")}
+                  onClick={() => { play("buttons"); setViewMode("mosaic"); }}
                   className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
                 >
                   <LayoutGrid className="h-4 w-4 mr-1" />
@@ -210,6 +194,7 @@ export default function MyPlayersPage() {
                   variant={sort === s.key ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
+                    play("buttons");
                     setSort(s.key);
                     setPage(1);
                   }}
@@ -226,6 +211,7 @@ export default function MyPlayersPage() {
                 variant={playerType === "human" ? "default" : "outline"}
                 size="sm"
                 onClick={() => {
+                  play("buttons");
                   setPlayerType(playerType === "human" ? "" : "human");
                   setPage(1);
                 }}
@@ -242,6 +228,7 @@ export default function MyPlayersPage() {
                 variant={playerType === "card" ? "default" : "outline"}
                 size="sm"
                 onClick={() => {
+                  play("buttons");
                   setPlayerType(playerType === "card" ? "" : "card");
                   setPage(1);
                 }}
@@ -302,7 +289,7 @@ export default function MyPlayersPage() {
                             <p className="text-white text-xs sm:text-sm font-medium truncate">
                               {p.username}
                             </p>
-                            <p className="text-gray-300 text-[10px] sm:text-xs">
+                            <p className="text-gray-300 text-[30px] sm:text-[36px]">
                               ₡{p.playerValue?.toLocaleString()}
                             </p>
                           </div>
@@ -332,7 +319,7 @@ export default function MyPlayersPage() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-1 pt-4">
                   <button
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => { play("buttons"); setPage((p) => Math.max(1, p - 1)); }}
                     disabled={currentPage === 1}
                     className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >
@@ -349,7 +336,7 @@ export default function MyPlayersPage() {
                     ) : (
                       <button
                         key={p}
-                        onClick={() => setPage(p)}
+                        onClick={() => { play("buttons"); setPage(p); }}
                         className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                           p === currentPage
                             ? "border-t1-500 bg-t1-600/20 text-t1-400 font-bold"
@@ -361,9 +348,7 @@ export default function MyPlayersPage() {
                     )
                   )}
                   <button
-                    onClick={() =>
-                      setPage((p) => Math.min(totalPages, p + 1))
-                    }
+                    onClick={() => { play("buttons"); setPage((p) => Math.min(totalPages, p + 1)); }}
                     disabled={currentPage === totalPages}
                     className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                   >

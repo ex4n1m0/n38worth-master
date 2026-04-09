@@ -6,17 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useSound } from "@/hooks/useSound";
+import { useOnboarding } from "./OnboardingContext";
 
 interface AvatarUploadProps {
   currentUrl: string | null;
   username: string;
+  avatarCompleted?: boolean;
 }
 
-export function AvatarUpload({ currentUrl, username }: AvatarUploadProps) {
+export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: AvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(currentUrl);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { play } = useSound();
+  const { refresh: refreshOnboarding } = useOnboarding();
 
   // Custom avatar = user uploaded their own (data: URL). Unsplash URLs don't count.
   const hasCustomAvatar = !!previewUrl && previewUrl.startsWith("data:");
@@ -70,6 +75,7 @@ export function AvatarUpload({ currentUrl, username }: AvatarUploadProps) {
       setPreviewUrl(data.avatarUrl);
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["credits"] });
+      refreshOnboarding();
       if (data.bonusAwarded) {
         toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
       } else {
@@ -86,7 +92,7 @@ export function AvatarUpload({ currentUrl, username }: AvatarUploadProps) {
   return (
     <div className="flex flex-row items-center gap-3 sm:gap-4">
       <div className="relative shrink-0">
-        <Avatar className="h-24 w-24 sm:h-32 sm:w-32 md:h-40 md:w-40 ring-2 ring-gray-700">
+        <Avatar className="h-32 w-32 sm:h-64 sm:w-64 md:h-[512px] md:w-[512px] max-h-[512px] max-w-[512px] ring-2 ring-gray-700">
           <AvatarImage src={previewUrl || undefined} />
           <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-lg sm:text-xl font-bold">
             {username.slice(0, 2).toUpperCase()}
@@ -99,16 +105,29 @@ export function AvatarUpload({ currentUrl, username }: AvatarUploadProps) {
         )}
       </div>
       <div className="flex flex-col items-start w-full max-w-full overflow-hidden">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          className="border-gray-700 text-gray-300 hover:bg-gray-800"
-        >
-          <Camera className="h-4 w-4 mr-2" />
-          {uploading ? "Uploading..." : "Change Avatar"}
-        </Button>
+        {!avatarCompleted ? (
+          <Button
+            variant="default"
+            size="lg"
+            onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
+            disabled={uploading}
+            className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black font-bold shadow-lg shadow-yellow-500/30 animate-pulse"
+          >
+            <Camera className="h-5 w-5 mr-2" />
+            {uploading ? "Uploading..." : "🎯 Start Here! Change Avatar"}
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
+            disabled={uploading}
+            className="border-gray-700 text-gray-300 hover:bg-gray-800"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            {uploading ? "Uploading..." : "Change Avatar"}
+          </Button>
+        )}
         <p className="text-xs text-gray-500 mt-1">
           JPEG, PNG, or WebP. Max 2MB.
         </p>

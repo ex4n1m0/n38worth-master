@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership, transactions, messages } from "@/db/schema";
+import { users, ownership, transactions, messages, gameHistory } from "@/db/schema";
 import { sql, desc, eq, or } from "drizzle-orm";
 
 export async function GET(req: Request) {
@@ -36,7 +36,8 @@ export async function GET(req: Request) {
     const allPayouts: Record<string, { username: string; prize: number; position: number }[]> = {};
 
     // ─── 1. PORTFOLIO PRIZE (top 3 by portfolio value) ───
-    const portfolioSql = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
+    // Only count owned players who themselves own other players
+    const portfolioSql = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
 
     const topPortfolio = await db
       .select({
@@ -155,6 +156,15 @@ export async function GET(req: Request) {
       );
 
     for (const u of quickPlayUsers) {
+      // Log to game history before deletion
+      await db.insert(gameHistory).values({
+        eventType: "player_deletion",
+        actorId: null, // System action
+        targetId: u.id,
+        targetUsername: null, // Username not fetched in query
+        details: JSON.stringify({ reason: "quick_play_cleanup" }),
+      });
+
       await db.delete(ownership).where(eq(ownership.ownerId, u.id));
       await db.delete(ownership).where(eq(ownership.ownedId, u.id));
       await db.delete(transactions).where(

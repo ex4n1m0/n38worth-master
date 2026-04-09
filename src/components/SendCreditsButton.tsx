@@ -6,6 +6,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useLanguage } from "./LanguageContext";
+import { useSound } from "@/hooks/useSound";
+import { formatNumber } from "@/lib/utils";
 
 interface SendCreditsButtonProps {
   targetId: number;
@@ -16,6 +18,7 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { t } = useLanguage();
+  const { play } = useSound();
   const sendAmount = credits ? (credits * 0.01) : 0;
 
   const mutation = useMutation({
@@ -31,7 +34,7 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
     },
     onSuccess: (data) => {
       toast.success(
-        `Gifted ${data.amount.toFixed(2)}¢ to ${targetUsername}! 🎁`
+        `Gifted ${formatNumber(data.amount.toFixed(2))}¢ to ${targetUsername}! 🎁`
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -48,6 +51,7 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        play("buttons");
         mutation.mutate();
       }}
       disabled={mutation.isPending}
@@ -59,7 +63,7 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
       ) : (
         <>
           <Gift className="h-7 w-7 mr-2" />
-          {t.sendCredits} {sendAmount.toFixed(2)}¢
+          {t.sendCredits} {formatNumber(parseFloat(sendAmount.toFixed(2)))}¢
         </>
       )}
     </Button>

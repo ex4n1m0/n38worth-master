@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, timestamp, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, bigint, timestamp, varchar, index } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const transactions = pgTable(
@@ -12,7 +12,7 @@ export const transactions = pgTable(
       .references(() => users.id)
       .notNull(),
     type: varchar("type", { length: 20 }).notNull(), // 'purchase' | 'discard'
-    amount: integer("amount").notNull(),
+    amount: bigint("amount", { mode: "number" }).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

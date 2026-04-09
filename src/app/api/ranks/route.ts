@@ -17,7 +17,8 @@ export async function GET() {
         lastOnlineAt: users.lastOnlineAt,
         credits: users.credits,
       })
-      .from(users);
+      .from(users)
+      .where(eq(users.isNpc, 0));
 
     const totalPlayers = allPlayers.length;
 
@@ -72,14 +73,6 @@ export async function GET() {
       .sort((a, b) => b.ownedCount - a.ownedCount || b.playerValue - a.playerValue)
       .slice(0, 10);
 
-    const topLegacy = [...enriched]
-      .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : Infinity;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : Infinity;
-        return aTime - bTime;
-      })
-      .slice(0, 10);
-
     const topPortfolio = [...enriched]
       .sort((a, b) => b.portfolioValue - a.portfolioValue)
       .slice(0, 10);
@@ -95,7 +88,6 @@ export async function GET() {
     return NextResponse.json({
       topOwners,
       topEmpire,
-      topLegacy,
       topPortfolio,
       topCredits,
       topValue,
