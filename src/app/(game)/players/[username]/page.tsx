@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BuyButton } from "@/components/BuyButton";
+import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { OwnershipList } from "@/components/OwnershipList";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { useCredits } from "@/hooks/useCredits";
@@ -388,6 +389,17 @@ export default function PlayerProfilePage() {
           {!isOwnProfile && !alreadyOwns && (credits ?? 0) < player.playerValue && (
             <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
               You need {player.playerValue - (credits ?? 0)} more credits to buy this player
+            </div>
+          )}
+
+          {/* Delete Account (own profile only) */}
+          {isOwnProfile && (
+            <div className="mt-6 pt-4 border-t border-gray-800">
+              <DeleteAccountButton
+                playerValue={player.playerValue}
+                ownerCount={player.ownerCount}
+                ownedCount={player.ownedCount}
+              />
             </div>
           )}
         </CardContent>
