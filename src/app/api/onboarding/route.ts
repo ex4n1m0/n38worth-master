@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import type { OnboardingState } from "@/types/onboarding";
 
 export async function GET() {
@@ -68,8 +68,46 @@ export async function GET() {
             .where(eq(users.id, userId));
         }
 
+        // Handle players who were reset: they may have stale onboarding NPCs from before
+        // the reset, but all ownership records were deleted. Detect this by checking if a
+        // player with real play history (totalOnlineMinutes > 0) has onboarding NPCs
+        // assigned but owns NONE of them. We use totalOnlineMinutes specifically because
+        // it's never cleared during resets and reliably distinguishes existing players from
+        // brand-new ones who just uploaded their avatar and got NPCs assigned.
+        // Note: We don't use isExistingPlayer here because hasCustomAvatar would be true
+        // for new players who just completed avatar upload (the step right before NPC purchase).
+        const hasPlayHistory = user.totalOnlineMinutes > 0;
+        if (!onboardingComplete && starterNpcIds.length > 0 && hasPlayHistory) {
+          // Check how many of the assigned onboarding NPCs this player currently owns
+          const ownedNpcsCheck = await db
+            .select({ ownedId: ownership.ownedId })
+            .from(ownership)
+            .where(eq(ownership.ownerId, userId));
+
+          const ownedIds = new Set(ownedNpcsCheck.map((o) => o.ownedId));
+          const ownedStarterCount = starterNpcIds.filter((id) => ownedIds.has(id)).length;
+
+          if (ownedStarterCount === 0) {
+            // Existing player has onboarding NPCs but owns none of them — stale state
+            // from a game reset or account fresh-start. Clear and auto-complete.
+            console.log(`Clearing stale onboarding for existing user ${userId} — owns 0/${starterNpcIds.length} starter NPCs`);
+            starterNpcIds = [];
+            onboardingComplete = true;
+            avatarCompleted = true;
+            await db
+              .update(users)
+              .set({
+                onboardingNpcs: [],
+                onboardingOwnedCount: 0,
+                onboardingComplete: 1,
+                avatarCompleted: 1,
+              })
+              .where(eq(users.id, userId));
+          }
+        }
+
         // Recalculate owned count from ownership table to ensure accuracy
-        if (starterNpcIds.length > 0) {
+        if (starterNpcIds.length > 0 && !onboardingComplete) {
           const ownedNpcs = await db
             .select({ ownedId: ownership.ownedId })
             .from(ownership)

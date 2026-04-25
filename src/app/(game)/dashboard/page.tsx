@@ -18,9 +18,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
-import { CreateNPCButton } from "@/components/CreateNPCButton";
 import { LoginReward } from "@/components/LoginReward";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, getDynamicInlineFontSize } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -84,20 +83,20 @@ export default function DashboardPage() {
 
             {/* Stats Row */}
             <div className="flex items-center gap-3 sm:gap-6 mt-3 flex-wrap">
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
-                <span className="text-base sm:text-xl font-bold font-mono text-white">
+                <span className={`${getDynamicInlineFontSize(credits ?? 0)} font-bold font-mono text-white truncate`}>
                   {formatNumber(credits ?? 0)}¢
                 </span>
-                <span className="text-xs text-gray-500 hidden sm:inline">credits</span>
+                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">credits</span>
               </div>
-              <div className="w-px h-5 bg-gray-700" />
-              <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="w-px h-5 bg-gray-700 shrink-0" />
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <Users className="h-4 w-4 text-purple-400 shrink-0" />
-                <span className="text-base sm:text-xl font-bold font-mono text-white">
+                <span className={`${getDynamicInlineFontSize(portfolioValue)} font-bold font-mono text-white truncate`}>
                   {formatNumber(portfolioValue)}¢
                 </span>
-                <span className="text-xs text-gray-500 hidden sm:inline">portfolio</span>
+                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">portfolio</span>
               </div>
             </div>
 
@@ -107,9 +106,6 @@ export default function DashboardPage() {
 
       {/* Login Reward */}
       <LoginReward />
-
-      {/* Create NPC Button */}
-      <CreateNPCButton />
 
       {/* Browse Players */}
       <BrowsePlayersSection
@@ -171,12 +167,12 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Your Owners */}
+      {/* Your Boss */}
       <Card className="border-gray-800 bg-gray-900/60">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Crown className="h-5 w-5 text-yellow-400" />
-            Your Owners
+            Your Boss
             <span className="text-sm font-normal text-gray-400">
               ({player?.owners?.length ?? 0})
             </span>
@@ -302,7 +298,7 @@ function BrowsePlayersSection({
             }
           >
             <Crown className="h-3.5 w-3.5 mr-1" />
-            Has Owner
+            Has Boss
           </Button>
         </div>
       </div>
@@ -339,6 +335,7 @@ function BrowsePlayersSection({
               estimatedDeletionAt?: string | null;
               ownerName?: string | null;
               ownerValue?: number | null;
+              purchaseCount?: number;
             }) => (
               <PlayerCard key={player.id} {...player} />
             )

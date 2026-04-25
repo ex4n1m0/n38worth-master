@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { transactions, users } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+
+// A user id is visible if the user is an NPC or a human with avatar uploaded.
+const visibleUserSql = (idCol: string) => sql.raw(
+  `EXISTS (SELECT 1 FROM users u WHERE u.id = ${idCol} AND (u.is_npc = 1 OR (u.avatar_url IS NOT NULL AND u.avatar_completed = 1)))`
+);
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -28,6 +33,7 @@ export async function GET(req: Request) {
         targetId: transactions.targetId,
       })
       .from(transactions)
+      .where(sql`${visibleUserSql('"transactions"."buyer_id"')} AND ${visibleUserSql('"transactions"."target_id"')}`)
       .orderBy(desc(transactions.createdAt))
       .limit(limit)
       .offset(offset);

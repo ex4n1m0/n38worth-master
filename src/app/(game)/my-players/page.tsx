@@ -13,7 +13,8 @@ import {
   CardAction,
 } from "@/components/ui/card";
 import { OwnershipList } from "@/components/OwnershipList";
-import { MyProfileCard } from "@/components/MyProfileCard";
+import { formatNumber, getDynamicMosaicFontSize } from "@/lib/utils";
+import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import {
   Users,
@@ -23,28 +24,36 @@ import {
   CreditCard,
   LayoutGrid,
   List,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { useSound } from "@/hooks/useSound";
+import { ChatProvider, useChat } from "@/contexts/ChatContext";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
   { key: "credits", label: "Credits" },
   { key: "most-players", label: "Most Players" },
+  { key: "most-hired", label: "Most Hired" },
   { key: "newest", label: "Newest" },
   { key: "name", label: "Name" },
 ] as const;
 
-export default function MyPlayersPage() {
+function MyPlayersContent() {
   const { data: session } = useSession();
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("value");
   const [search, setSearch] = useState("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
-  const [viewMode, setViewMode] = useState<"mosaic" | "details">("mosaic");
+  const [viewMode, setViewMode] = useState<"mosaic" | "details">("details");
   const { play } = useSound();
-  const perPage = viewMode === "mosaic" ? 18 : 9;
+  const { unreadPlayers, markAsRead } = useChat();
+  const perPage = viewMode === "mosaic" ? 18 : 6;
+
+
+  // Count total unread messages
+  const totalUnread = unreadPlayers.size;
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me"],
@@ -77,6 +86,7 @@ export default function MyPlayersPage() {
         blockSellUntil?: string | null;
         blockSellBy?: string | null;
         estimatedDeletionAt?: string | null;
+        purchaseCount?: number;
       }) => ({ ...p })
     ) ?? [];
 
@@ -100,6 +110,8 @@ export default function MyPlayersPage() {
         return (b.credits ?? 0) - (a.credits ?? 0);
       case "most-players":
         return (b.ownedCount ?? 0) - (a.ownedCount ?? 0);
+      case "most-hired":
+        return (b.purchaseCount ?? 0) - (a.purchaseCount ?? 0);
       case "newest":
         return (b.ownershipId ?? 0) - (a.ownershipId ?? 0);
       case "name":
@@ -138,9 +150,8 @@ export default function MyPlayersPage() {
 
   return (
     <div className="space-y-6">
-      <MyProfileCard />
 
-      <Card className="border-gray-800 bg-gray-900/60">
+        <Card className="border-gray-800 bg-gray-900/60">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-t1-400" />
@@ -148,7 +159,19 @@ export default function MyPlayersPage() {
             <span className="text-sm font-normal text-gray-400">
               ({filtered.length})
             </span>
+            {totalUnread > 0 && (
+              <span className="flex items-center gap-1 text-xs font-normal text-yellow-400 bg-yellow-500/20 px-2 py-0.5 rounded-full">
+                <Bell className="h-3 w-3" />
+                {totalUnread} unread
+              </span>
+            )}
           </CardTitle>
+          <CardAction>
+            <DiscardAllButton
+              ownedCount={items.length}
+              totalValue={items.reduce((sum: number, p: any) => sum + (p.playerValue ?? 0), 0)}
+            />
+          </CardAction>
         </CardHeader>
         <CardContent>
           {/* Search + Sort + Filters */}
@@ -270,6 +293,11 @@ export default function MyPlayersPage() {
                         <Link
                           key={p.ownershipId}
                           href={`/players/${p.username}`}
+                          onClick={() => {
+                            if (unreadPlayers.has(p.id)) {
+                              markAsRead(p.id);
+                            }
+                          }}
                           className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
                         >
                           {p.avatarUrl ? (
@@ -289,10 +317,14 @@ export default function MyPlayersPage() {
                             <p className="text-white text-xs sm:text-sm font-medium truncate">
                               {p.username}
                             </p>
-                            <p className="text-gray-300 text-[30px] sm:text-[36px]">
-                              ₡{p.playerValue?.toLocaleString()}
+                            <p className={`text-gray-300 ${getDynamicMosaicFontSize(p.playerValue)}`}>
+                              ₡{formatNumber(p.playerValue)}
                             </p>
                           </div>
+                          {/* Unread notification badge */}
+                          {unreadPlayers.has(p.id) && (
+                            <div className="absolute top-1 left-1 h-3 w-3 rounded-full bg-yellow-400 animate-pulse border-2 border-gray-900" />
+                          )}
                           {/* Player type badge */}
                           {p.playerType === "card" && (
                             <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
@@ -312,6 +344,8 @@ export default function MyPlayersPage() {
                   showDiscard
                   showSendCredits
                   showChat
+                  showBoost
+                  hideHire
                 />
               )}
 
@@ -361,5 +395,13 @@ export default function MyPlayersPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function MyPlayersPage() {
+  return (
+    <ChatProvider>
+      <MyPlayersContent />
+    </ChatProvider>
   );
 }

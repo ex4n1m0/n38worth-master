@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users } from "@/db/schema";
-import { eq, count } from "drizzle-orm";
+import { users, rewardHistory } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { capCredits } from "@/lib/safeguards";
 
 const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
@@ -67,12 +67,12 @@ export async function POST(req: Request) {
       }
     }
 
-    // Calculate reward as 100 × total players
-    const [totalPlayersResult] = await db
-      .select({ count: count() })
+    // Calculate reward as 1% of total economy (sum of all players' credits)
+    const [economyResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(credits), 0)` })
       .from(users);
-    const totalPlayers = totalPlayersResult?.count ?? 0;
-    const rewardAmount = 100 * totalPlayers;
+    const totalEconomy = Number(economyResult?.total ?? 0);
+    const rewardAmount = Math.round(totalEconomy * 0.01 * 100) / 100;
 
     // Award the login reward (cap to prevent overflow)
     const newCredits = capCredits(Math.round((user.credits + rewardAmount) * 100) / 100);
@@ -85,6 +85,18 @@ export async function POST(req: Request) {
         updatedAt: now,
       })
       .where(eq(users.id, userId));
+
+    // Log to reward history
+    try {
+      await db.insert(rewardHistory).values({
+        userId,
+        type: "login_reward",
+        amount: rewardAmount,
+        details: JSON.stringify({ totalEconomy }),
+      });
+    } catch (historyError) {
+      console.error("Reward history insert error (login):", historyError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -140,12 +152,12 @@ export async function GET(req: Request) {
       }
     }
 
-    // Calculate reward as 100 × total players
-    const [totalPlayersResult] = await db
-      .select({ count: count() })
+    // Calculate reward as 1% of total economy (sum of all players' credits)
+    const [economyResult] = await db
+      .select({ total: sql<number>`COALESCE(SUM(credits), 0)` })
       .from(users);
-    const totalPlayers = totalPlayersResult?.count ?? 0;
-    const rewardAmount = 100 * totalPlayers;
+    const totalEconomy = Number(economyResult?.total ?? 0);
+    const rewardAmount = Math.round(totalEconomy * 0.01 * 100) / 100;
 
     return NextResponse.json({
       canClaim,

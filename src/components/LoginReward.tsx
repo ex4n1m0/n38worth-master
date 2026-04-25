@@ -142,7 +142,7 @@ export function LoginReward() {
           {canClaim ? (
             <Button
               onClick={() => {
-                play("buy");
+                play("hire");
                 claimMutation.mutate();
               }}
               disabled={claimMutation.isPending}

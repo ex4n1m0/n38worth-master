@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, lt, and, desc, notInArray } from "drizzle-orm";
 import { compressAvatar } from "@/lib/compress-avatar";
+import { createOnboardingNpcsForUser } from "@/lib/onboarding-npc";
+
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
       // Column may not exist yet - continue
     }
 
-    // Assign onboarding NPCs only for first-time avatar uploads (optional - columns may not exist yet)
+    // Assign onboarding NPCs from pre-generated pool (avoids Unsplash rate limits)
     let assignedNpcIds: number[] = [];
     if (isFirstUpload) {
       try {
@@ -110,37 +112,51 @@ export async function POST(request: Request) {
         assignedNpcIds = existingNpcs;
 
         if (existingNpcs.length === 0) {
-          // Get all owned NPC IDs to exclude them
-          const ownedNpcs = await db
-            .select({ ownedId: ownership.ownedId })
-            .from(ownership);
-          const ownedIds = ownedNpcs.map((o) => o.ownedId);
-
-          // Query: 3 newest NPCs, price < $20, still available (ownerless)
-          const conditions = [
-            eq(users.isNpc, 1),
-            lt(users.playerValue, 20),
-          ];
-
-          // Exclude owned NPCs
-          if (ownedIds.length > 0) {
-            conditions.push(notInArray(users.id, ownedIds));
-          }
-
-          const npcs = await db
+          // Grab 3 NPCs from the pre-generated pool
+          const poolNpcs = await db
             .select({ id: users.id })
             .from(users)
-            .where(and(...conditions))
-            .orderBy(desc(users.createdAt))
+            .where(eq(users.isOnboardingPool, 1))
             .limit(3);
 
-          assignedNpcIds = npcs.map((n) => n.id);
+          if (poolNpcs.length === 3) {
+            // Claim these NPCs from the pool
+            const npcIds = poolNpcs.map((npc) => npc.id);
+            await db
+              .update(users)
+              .set({ isOnboardingPool: 0 })
+              .where(
+                sql`${users.id} IN (${npcIds.join(",")})`
+              );
 
-          // Store the NPC IDs in the user's onboarding state
-          await db
-            .update(users)
-            .set({ onboardingNpcs: assignedNpcIds })
-            .where(eq(users.id, userId));
+            assignedNpcIds = npcIds;
+
+            // Store the NPC IDs in the user's onboarding state
+            await db
+              .update(users)
+              .set({ onboardingNpcs: assignedNpcIds })
+              .where(eq(users.id, userId));
+
+            console.log(`Assigned ${npcIds.length} pool NPCs to user ${userId}`);
+          } else {
+            console.warn(`Pool has ${poolNpcs.length}/3 NPCs needed. Creating ${3 - poolNpcs.length} more on-the-fly with avatars.`);
+            // Claim whatever pool NPCs are available first
+            const claimedIds: number[] = poolNpcs.map((npc) => npc.id);
+            if (claimedIds.length > 0) {
+              await db
+                .update(users)
+                .set({ isOnboardingPool: 0 })
+                .where(sql`${users.id} IN (${claimedIds.join(",")})`);
+            }
+            // Create the remainder on-the-fly WITH avatars via Unsplash
+            const needed = 3 - claimedIds.length;
+            const freshIds = await createOnboardingNpcsForUser(needed);
+            assignedNpcIds = [...claimedIds, ...freshIds];
+            await db
+              .update(users)
+              .set({ onboardingNpcs: assignedNpcIds })
+              .where(eq(users.id, userId));
+          }
         }
       } catch (onboardingError) {
         // Onboarding columns may not exist yet - continue without them

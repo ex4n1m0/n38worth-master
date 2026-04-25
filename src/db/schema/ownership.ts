@@ -15,6 +15,7 @@ export const ownership = pgTable(
     purchasePrice: bigint("purchase_price", { mode: "number" }).notNull(),
     blockSellUntil: timestamp("block_sell_until"),
     blockSellBy: varchar("block_sell_by", { length: 30 }),
+    lastBoostAt: timestamp("last_boost_at"),
   },
   (table) => [
     index("idx_ownership_owner").on(table.ownerId),

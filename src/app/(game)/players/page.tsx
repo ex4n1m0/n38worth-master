@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, CreditCard } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
-import { CreateNPCButton } from "@/components/CreateNPCButton";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
+  { key: "most-hired", label: "Most Hired" },
   { key: "newest", label: "Newest" },
   { key: "name", label: "Name" },
 ] as const;
@@ -61,9 +61,6 @@ export default function PlayersPage() {
           {t.browsePlayers}
         </p>
       </div>
-
-      {/* Create NPC Button */}
-      <CreateNPCButton />
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -174,6 +171,7 @@ export default function PlayersPage() {
                 estimatedDeletionAt?: string | null;
                 ownerName?: string | null;
                 ownerValue?: number | null;
+                purchaseCount?: number;
               }) => (
                 <PlayerCard key={player.id} {...player} />
               )

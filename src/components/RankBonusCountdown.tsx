@@ -20,7 +20,7 @@ function getSecondsToNextRankBonus(intervalMinutes: number) {
 
 export function RankBonusCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 60; // Fixed 60-minute interval
+  const intervalMinutes = 6; // Fixed 6-minute interval
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
@@ -61,7 +61,7 @@ export function RankBonusCountdown() {
       const justReset = wasSmallRef.current && prevSeconds <= 60 && newSeconds > 100;
       
       if (justReset) {
-        play("buy");
+        play("hire");
       }
       
       // Track if we're in the "counting down from small value" state
@@ -85,7 +85,7 @@ export function RankBonusCountdown() {
 
   // Calculate portfolio reward multiplier
   const portfolioReward = userData?.portfolioReward ?? 0;
-  const multiplier = 0.10 * portfolioReward;
+  const multiplier = 0.02 * portfolioReward;
 
   // Calculate dynamic prize amounts
   const prizeAmounts = basePrizeAmounts.map(base => 
@@ -162,7 +162,7 @@ export function RankBonusCountdown() {
       )}
       
       <p className="text-xs text-gray-500 mt-2">
-        🥇3x  🥈2x  🥉  1x  (10% of Portfolio) Rewards:
+        🥇3x  🥈2x  🥉  1x  (2% of Portfolio) Rewards:
       </p>
     </div>
   );

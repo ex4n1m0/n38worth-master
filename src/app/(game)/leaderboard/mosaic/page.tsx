@@ -8,10 +8,12 @@ import { Input } from "@/components/ui/input";
 import { ArrowLeft, Loader2, User, Search, Crown, Users, CreditCard, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCredits } from "@/hooks/useCredits";
+import { useSound } from "@/hooks/useSound";
 import { toast } from "sonner";
+import { formatNumber, getDynamicMosaicFontSize, getDynamicMosaicHireFontSize } from "@/lib/utils";
 
-// Compact buy button for mosaic cards
-function MosaicBuyButton({ 
+// Compact hire button for mosaic cards
+function MosaicHireButton({
   targetId, 
   targetUsername, 
   cost,
@@ -23,14 +25,16 @@ function MosaicBuyButton({
   disabled?: boolean;
 }) {
   const queryClient = useQueryClient();
+  const { play } = useSound();
   const [isPending, setIsPending] = useState(false);
 
-  const handleBuy = async (e: React.MouseEvent) => {
+  const handleHire = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (disabled || isPending) return;
     
+    play("hire");
     setIsPending(true);
     try {
       const res = await fetch("/api/game/purchase", {
@@ -41,12 +45,20 @@ function MosaicBuyButton({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Purchase failed");
       
-      toast.success(`You bought ${targetUsername}! Their value is now ${data.newValue} 💰`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["credits"] }),
-        queryClient.invalidateQueries({ queryKey: ["players-mosaic"] }),
-        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
-      ]);
+      if (data.countdownStarted) {
+        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
+          description: "You own all 5 Goddesses! Hold them for 60 minutes to win the game!",
+          duration: 15000,
+        });
+        await queryClient.invalidateQueries();
+      } else {
+        toast.success(`You hired ! Their value is now ${data.newValue} 💰`);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["credits"] }),
+          queryClient.invalidateQueries({ queryKey: ["players-mosaic"] }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        ]);
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Purchase failed");
     } finally {
@@ -56,20 +68,20 @@ function MosaicBuyButton({
 
   return (
     <button
-      onClick={handleBuy}
+      onClick={handleHire}
       disabled={disabled || isPending}
-      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-3 rounded text-[14px] sm:text-[20px] md:text-[28px] lg:text-[36px] font-semibold transition-all ${
+      className={`flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 rounded ${getDynamicMosaicHireFontSize(cost)} font-semibold transition-all whitespace-nowrap ${
         disabled
           ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
           : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
       }`}
     >
       {isPending ? (
-        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9 animate-spin" />
+        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
       ) : (
         <>
-          <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9" />
-          <span>{cost}¢</span>
+          <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+          <span>{formatNumber(cost)}¢</span>
         </>
       )}
     </button>
@@ -226,17 +238,17 @@ export default function BrowseMosaicPage() {
                       </div>
                     )}
                   </Link>
-                  {/* Overlay with name and buy button */}
+                  {/* Overlay with name and hire button */}
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 pt-8">
                     <div className="flex items-end justify-between gap-1">
                       <Link href={`/players/${p.username}`} className="flex-1 min-w-0">
                         <p className="text-white text-xs sm:text-sm font-medium truncate">
                           {p.username}
                         </p>
-                        <div className="flex items-center gap-2 text-gray-300 text-[30px] sm:text-[36px]">
-                          <span>₡{p.playerValue?.toLocaleString()}</span>
+                        <div className={`flex items-center gap-2 text-gray-300 ${getDynamicMosaicFontSize(p.playerValue)}`}>
+                          <span className="truncate">₡{formatNumber(p.playerValue)}</span>
                           {p.ownerCount > 0 && (
-                            <span className="flex items-center gap-0.5">
+                            <span className="flex items-center gap-0.5 shrink-0">
                               <Crown className="h-2.5 w-2.5" />
                               {p.ownerCount}
                             </span>
@@ -245,7 +257,7 @@ export default function BrowseMosaicPage() {
                       </Link>
                       {/* Buy button - only show if logged in and not own profile */}
                       {session && !isOwnProfile && (
-                        <MosaicBuyButton
+                        <MosaicHireButton
                           targetId={p.id}
                           targetUsername={p.username}
                           cost={p.playerValue}

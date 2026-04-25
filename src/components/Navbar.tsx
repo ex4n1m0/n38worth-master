@@ -6,6 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { CreditBalance } from "./CreditBalance";
 import { OwnershipLimit } from "./OwnershipLimit";
+import { ChatNotificationBell } from "./ChatNotificationBell";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ import {
   Trophy,
   BookOpen,
   History,
+  Medal,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useThemeColor, type ThemeName } from "./ThemeContext";
@@ -35,17 +37,17 @@ import { useOnboarding } from "./OnboardingContext";
 
 const mainNavLinks = [
   { href: "/my-profile", label: "My Profile", icon: Users },
-  { href: "/leaderboard", label: "Market", icon: Search },
-  { href: "/my-players", label: "My Players", icon: Swords },
-  { href: "/my-owners", label: "My Owner", icon: Crown },
+  { href: "/leaderboard", label: "Network", icon: Search },
+  { href: "/my-players", label: "My Team", icon: Swords },
+  { href: "/my-owners", label: "My Boss", icon: Crown },
   { href: "/ranks", label: "Ranks", icon: Trophy },
+  { href: "/hall-of-fame", label: "Hall of Fame", icon: Medal },
   { href: "/history", label: "History", icon: History },
 ];
 
 const themes: { value: ThemeName; label: string }[] = [
   { value: "blue", label: "Blue" },
   { value: "green", label: "Green" },
-  { value: "orange", label: "Orange" },
 ];
 
 export function Navbar() {
@@ -86,7 +88,7 @@ export function Navbar() {
     const isCurrentPathAllowed = allowedPaths.some(
       (p) => pathname === p || pathname.startsWith("/players/")
     );
-    if (!isCurrentPathAllowed && !pathname.startsWith("/settings")) {
+    if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/hall-of-fame")) {
       if (!onboarding.avatarCompleted) {
         router.replace(`/players/${session.user?.name}`);
       } else {
@@ -111,13 +113,13 @@ export function Navbar() {
             {/* Logo */}
             <Link
               href="/leaderboard"
-              className="text-xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent shrink-0"
+              className="text-xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent shrink-0 mr-6"
             >
               n38worth
             </Link>
 
             {/* Desktop Nav Links */}
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-4">
               {visibleLinks.map((link) => {
                 const active = isActive(link.href);
                 const isMarketOnboarding =
@@ -127,20 +129,20 @@ export function Navbar() {
                 return (
                   <Link key={link.href} href={link.href} onClick={() => play("changepage")}>
                     {isMarketOnboarding ? (
-                      <span className="inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 text-base font-bold bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black shadow-lg shadow-yellow-500/30 animate-pulse cursor-pointer">
-                        <link.icon className="h-5 w-5 text-black" />
+                      <span className="inline-flex items-center justify-center gap-2 rounded-md px-2 py-1 text-xs font-bold bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black shadow-lg shadow-yellow-500/30 animate-pulse cursor-pointer">
+                        <link.icon className="h-3.5 w-3.5 text-black" />
                         🎯 Market
                       </span>
                     ) : (
                       <Button
                         variant="ghost"
-                        className={`font-semibold px-4 py-3 text-base h-auto transition-all ${
+                        className={`font-semibold px-2 py-1 text-xs h-auto transition-all ${
                           active
                             ? "bg-t1-600/20 text-t1-400 border border-t1-500/40"
                             : "text-gray-400 hover:text-white hover:bg-gray-800"
                         }`}
                       >
-                        <link.icon className={`h-5 w-5 mr-2 ${active ? "text-t1-400" : ""}`} />
+                        <link.icon className={`h-3.5 w-3.5 mr-2 ${active ? "text-t1-400" : ""}`} />
                         {link.label}
                       </Button>
                     )}
@@ -150,9 +152,13 @@ export function Navbar() {
             </div>
 
             {/* Right side */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-6">
+              <ChatNotificationBell />
               <OwnershipLimit />
-              <CreditBalance />
+              {/* CreditBalance - hidden on very small screens, shown in secondary bar */}
+              <div className="hidden sm:flex">
+                <CreditBalance />
+              </div>
 
               {/* Theme selector */}
               <DropdownMenu>
@@ -186,9 +192,7 @@ export function Navbar() {
                         className={`h-3 w-3 rounded-full mr-2 ${
                           t.value === "blue"
                             ? "bg-blue-500"
-                            : t.value === "green"
-                              ? "bg-green-500"
-                              : "bg-orange-500"
+                            : "bg-green-500"
                         }`}
                       />
                       {t.label}
@@ -236,6 +240,16 @@ export function Navbar() {
                     >
                       <Users className="h-4 w-4 mr-2" />
                       {t.myProfile}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href="/hall-of-fame"
+                      onClick={() => play("buttons")}
+                      className="text-yellow-400 cursor-pointer"
+                    >
+                      <Medal className="h-4 w-4 mr-2" />
+                      Hall of Fame
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
@@ -288,8 +302,8 @@ export function Navbar() {
                       : "text-gray-500 active:text-gray-300"
                 }`}
               >
-                <link.icon className={`h-5 w-5 ${isMarketOnboarding ? "text-black" : active ? "text-t1-400" : ""}`} />
-                <span className={`text-[10px] font-medium leading-tight ${isMarketOnboarding ? "text-black" : active ? "text-t1-400" : ""}`}>
+                <link.icon className={`h-4 w-4 ${isMarketOnboarding ? "text-black" : active ? "text-t1-400" : ""}`} />
+                <span className={`text-[9px] font-medium leading-tight ${isMarketOnboarding ? "text-black" : active ? "text-t1-400" : ""}`}>
                   {isMarketOnboarding ? "🎯 Market" : link.label}
                 </span>
                 {active && !isMarketOnboarding && (

@@ -11,6 +11,7 @@ export async function GET(req: Request) {
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "last-online";
   const hasOwner = searchParams.get("hasOwner") || "";
+  const noBoss = searchParams.get("noBoss") || "";
   const hasPlayers = searchParams.get("hasPlayers") || "";
   const playerType = searchParams.get("playerType") || "";
   const offset = (page - 1) * limit;
@@ -38,6 +39,9 @@ export async function GET(req: Request) {
     if (hasOwner === "true") {
       conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0`);
     }
+    if (noBoss === "true") {
+      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0`);
+    }
     if (hasPlayers === "true") {
       conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id") > 0`);
     }
@@ -47,10 +51,9 @@ export async function GET(req: Request) {
       conditions.push(eq(users.isNpc, 1));
     }
 
-    // Hide human players who haven't completed onboarding (avatar + buy 3 NPCs)
-    // NPC/card players are always visible since they don't go through onboarding
+    // Hide any player without an avatar. Humans must also have avatar_completed = 1.
     conditions.push(
-      sql`("users"."is_npc" = 1 OR "users"."onboarding_complete" = 1)`
+      sql`("users"."avatar_url" IS NOT NULL AND ("users"."is_npc" = 1 OR "users"."avatar_completed" = 1))`
     );
 
     const whereClause = conditions.length > 0
@@ -83,6 +86,7 @@ export async function GET(req: Request) {
       photoAuthorName: users.photoAuthorName,
       photoAuthorUrl: users.photoAuthorUrl,
       photoSourceUrl: users.photoSourceUrl,
+      purchaseCount: users.purchaseCount,
       ownerCount: ownerCountExpr.as("owner_count"),
       ownedCount: ownedCountExpr.as("owned_count"),
       portfolioValue: portfolioExpr.as("portfolio_value"),
@@ -111,6 +115,13 @@ export async function GET(req: Request) {
       const filtered = whereClause ? q.where(whereClause) : q;
       playersList = await filtered
         .orderBy(desc(users.lastOnlineAt), asc(users.playerValue))
+        .limit(limit)
+        .offset(offset);
+    } else if (sort === "most-hired") {
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered
+        .orderBy(desc(users.purchaseCount), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
     } else {

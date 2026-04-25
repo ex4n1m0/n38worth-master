@@ -147,12 +147,13 @@ export async function GET(req: Request) {
     }
 
     // Also clean up quick-play accounts older than 1 hour (redundancy with inflate cron)
+    // Skip protected users (e.g., goddesses)
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const quickPlayUsers = await db
       .select({ id: users.id })
       .from(users)
       .where(
-        sql`username LIKE 'Player_%' AND (created_at <= ${oneHourAgo} OR last_online_at <= ${oneHourAgo})`
+        sql`username LIKE 'Player_%' AND (created_at <= ${oneHourAgo} OR last_online_at <= ${oneHourAgo}) AND ${users.isProtected} = 0`
       );
 
     for (const u of quickPlayUsers) {

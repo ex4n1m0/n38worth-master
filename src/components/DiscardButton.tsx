@@ -96,9 +96,9 @@ export function DiscardButton({ otherId, otherUsername, cost, blockSellUntil, bl
         <Button
           variant="outline"
           disabled
-          className="border-orange-500/30 text-orange-400 cursor-not-allowed min-w-[180px] text-lg px-6 py-4 h-auto min-h-[56px] font-bold"
+          className="border-orange-500/30 text-orange-400 cursor-not-allowed min-w-[120px] text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
         >
-          <Timer className="h-6 w-6 mr-2 shrink-0" />
+          <Timer className="h-4 w-4 mr-2 shrink-0" />
           {countdown}
         </Button>
         {blockSellBy && (
@@ -116,9 +116,9 @@ export function DiscardButton({ otherId, otherUsername, cost, blockSellUntil, bl
         <Button
           variant="outline"
           onClick={() => play("buttons")}
-          className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
+          className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
         >
-          <DollarSign className="h-7 w-7 mr-2" />
+          <DollarSign className="h-4 w-4 mr-2" />
           {t.discard} {cost}¢
         </Button>
       </DialogTrigger>

@@ -4,3 +4,7 @@ export { transactions } from "./transactions";
 export { messages } from "./messages";
 export { gameHistory } from "./gameHistory";
 export { gameSettings } from "./gameSettings";
+export { ipSessions } from "./ipSessions";
+export { multiAccountIncidents } from "./multiAccountIncidents";
+export { hallOfFame } from "./hallOfFame";
+export { rewardHistory } from "./rewardHistory";

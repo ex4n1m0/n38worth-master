@@ -21,6 +21,12 @@ async function main() {
     process.exit(1);
   }
 
+  // Check if user is protected (e.g., goddesses)
+  if (user.isProtected === 1) {
+    console.error(`❌ Cannot delete "${username}" — this player is protected from deletion.`);
+    process.exit(1);
+  }
+
   console.log(`Found user: id=${user.id}, username=${user.username}`);
 
   // Log to game history before deletion

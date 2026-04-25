@@ -2,11 +2,11 @@
 
 import { useCallback } from "react";
 
-type SoundType = "changepage" | "buy" | "buttons";
+type SoundType = "changepage" | "hire" | "buttons";
 
 const soundFiles: Record<SoundType, string> = {
   changepage: "/changepage.wav",
-  buy: "/buy.wav",
+  hire: "/buy.wav",
   buttons: "/buttons.wav",
 };
 

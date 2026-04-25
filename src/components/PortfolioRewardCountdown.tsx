@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, TrendingUp, DollarSign, ChevronDown, ChevronUp, Users, Info } from "lucide-react";
 import { useSound } from "@/hooks/useSound";
+import { getDynamicFontSize } from "@/lib/utils";
 
 /** Calculate seconds remaining until the next portfolio reward interval */
 function getSecondsToNextPortfolioReward(intervalMinutes: number) {
@@ -19,7 +20,7 @@ function getSecondsToNextPortfolioReward(intervalMinutes: number) {
 
 export function PortfolioRewardCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 60; // Fixed 60-minute interval
+  const intervalMinutes = 10; // Fixed 10-minute interval
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
@@ -47,7 +48,7 @@ export function PortfolioRewardCountdown() {
       const justReset = wasSmallRef.current && prevSeconds <= 60 && newSeconds > 100;
       
       if (justReset) {
-        play("buy");
+        play("hire");
       }
       
       // Track if we're in the "counting down from small value" state
@@ -77,7 +78,7 @@ export function PortfolioRewardCountdown() {
   const basePortfolio = playerValue + ownedValue;
   const ownerCount = playerData?.ownerCount ?? 0;
   const portfolioValue = basePortfolio * Math.max(ownerCount, 1);
-  const potentialReward = Math.floor(portfolioValue * 0.01);
+  const potentialReward = Math.floor(portfolioValue * 0.002);
   
   const [showBreakdown, setShowBreakdown] = useState(false);
 
@@ -100,15 +101,15 @@ export function PortfolioRewardCountdown() {
       
       {/* Show user's portfolio value and potential reward */}
       {session?.user?.name && portfolioValue > 0 && (
-        <div className="mt-3 p-2 rounded-lg bg-t1-500/10 border border-t1-500/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-t1-400" />
-              <span className="text-xs font-semibold text-t1-300">
+        <div className="mt-3 p-2 rounded-lg bg-t1-500/10 border border-t1-500/20 overflow-hidden">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <DollarSign className="h-4 w-4 text-t1-400 shrink-0" />
+              <span className={`${getDynamicFontSize(portfolioValue)} font-semibold text-t1-300 truncate`}>
                 Your Portfolio: {portfolioValue.toLocaleString()}¢
               </span>
             </div>
-            <span className="text-xs font-bold text-t1-400">
+            <span className={`${getDynamicFontSize(potentialReward)} font-bold text-t1-400 shrink-0`}>
               +{potentialReward.toLocaleString()}¢
             </span>
           </div>
@@ -116,7 +117,7 @@ export function PortfolioRewardCountdown() {
       )}
       
       <p className="text-xs text-gray-500 mt-2">
-        Earn 1% of your portfolio value as credits every {intervalMinutes} minutes!
+        Earn 0.2% of your portfolio value as credits every {intervalMinutes} minutes!
       </p>
       
       {/* Breakdown Toggle */}
@@ -193,7 +194,7 @@ export function PortfolioRewardCountdown() {
           
           {/* Reward Calculation */}
           <div className="flex items-center justify-between text-xs bg-t1-500/10 rounded px-2 py-1">
-            <span className="text-t1-300">1% Reward</span>
+            <span className="text-t1-300">0.2% Reward</span>
             <span className="text-t1-400 font-bold">+{potentialReward.toLocaleString()}¢</span>
           </div>
         </div>

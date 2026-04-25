@@ -16,6 +16,7 @@ async function main() {
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   // Find all NPCs without owners that have been ownerless for 24+ hours
+  // Skip protected NPCs (e.g., goddesses)
   const npcs = await db
     .select({
       id: users.id,
@@ -25,7 +26,7 @@ async function main() {
     })
     .from(users)
     .where(
-      sql`${users.isNpc} = 1 AND ${users.ownerlessAt} IS NOT NULL`
+      sql`${users.isNpc} = 1 AND ${users.ownerlessAt} IS NOT NULL AND ${users.isProtected} = 0 AND ${users.isOnboardingPool} = 0`
     );
 
   const toDelete = npcs.filter(npc => {

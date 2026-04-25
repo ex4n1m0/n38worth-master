@@ -8,8 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MyProfileCard } from "@/components/MyProfileCard";
-import { LoginReward } from "@/components/LoginReward";
 import { useCredits } from "@/hooks/useCredits";
 import { toast } from "sonner";
 import {
@@ -23,26 +21,25 @@ import {
   List,
   ShoppingCart,
   Target,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
-import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
-import { RankBonusCountdown } from "@/components/RankBonusCountdown";
-import { RandomPlayerCountdown } from "@/components/RandomPlayerCountdown";
+import { GoddessCountdown } from "@/components/GoddessCountdown";
+import { CreditBalance } from "@/components/CreditBalance";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, getDynamicMosaicFontSize, getDynamicMosaicHireFontSize } from "@/lib/utils";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
   { key: "credits", label: "Credits" },
-  { key: "most-players", label: "Most Players" },
   { key: "newest", label: "Newest" },
-  { key: "name", label: "Name" },
+  { key: "most-hired", label: "Hired Times" },
 ] as const;
 
-// Compact buy button for mosaic cards
-function MosaicBuyButton({
+// Compact hire button for mosaic cards
+function MosaicHireButton({
   targetId,
   targetUsername,
   cost,
@@ -57,12 +54,12 @@ function MosaicBuyButton({
   const [isPending, setIsPending] = useState(false);
   const { play } = useSound();
 
-  const handleBuy = async (e: React.MouseEvent) => {
+  const handleHire = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (disabled || isPending) return;
-    play("buy");
+    play("hire");
 
     setIsPending(true);
     try {
@@ -74,14 +71,22 @@ function MosaicBuyButton({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Purchase failed");
 
-      toast.success(
-        `You bought ${targetUsername}! Their value is now ${data.newValue} 💰`
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["credits"] }),
-        queryClient.invalidateQueries({ queryKey: ["players"] }),
-        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
-      ]);
+      if (data.countdownStarted) {
+        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
+          description: "You own all 5 Goddesses! Hold them for 60 minutes to win the game!",
+          duration: 15000,
+        });
+        await queryClient.invalidateQueries();
+      } else {
+        toast.success(
+          `You hired ! Their value is now ${data.newValue} 💰`
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["credits"] }),
+          queryClient.invalidateQueries({ queryKey: ["players"] }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        ]);
+      }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Purchase failed");
     } finally {
@@ -91,19 +96,19 @@ function MosaicBuyButton({
 
   return (
     <button
-      onClick={handleBuy}
+      onClick={handleHire}
       disabled={disabled || isPending}
-      className={`flex items-center gap-0.5 sm:gap-1 px-2 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-3 rounded text-[14px] sm:text-[20px] md:text-[28px] lg:text-[36px] font-semibold transition-all ${
+      className={`flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 md:px-3 py-1 sm:py-1.5 md:py-2 rounded ${getDynamicMosaicHireFontSize(cost)} font-semibold transition-all whitespace-nowrap ${
         disabled
           ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
           : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
       }`}
     >
       {isPending ? (
-        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9 animate-spin" />
+        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
       ) : (
         <>
-          <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-6 md:w-6 lg:h-9 lg:w-9" />
+          <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           <span>{formatNumber(cost)}¢</span>
         </>
       )}
@@ -153,27 +158,13 @@ export default function LeaderboardPage() {
       {/* Rest of page content - hidden until onboarding is complete (show during loading to avoid flash for existing users) */}
       {(onboardingLoading || onboarding.onboardingComplete) && (
         <>
-          {/* Buy Tip Message - Below Navigation */}
-          <div className="bg-gradient-to-r from-t1-900/30 to-t2-900/30 border border-t1-500/30 rounded-lg p-6 text-center">
-            <p className="text-t1-300 text-xl sm:text-2xl md:text-3xl font-bold">
-              Own the best. Earn the most.
-            </p>
-            <p className="text-t2-400/70 text-xs sm:text-sm mt-2">
-              Player Value is multiplied by the number of owned players for the portfolio reward calculation.
-            </p>
-          </div>
 
-          {/* My Profile Card */}
-          {session?.user?.name && <MyProfileCard />}
+          {/* Goddess Countdown Banner */}
+          <GoddessCountdown />
 
-          {/* Login Reward */}
-          <LoginReward />
-
-          {/* Cron Countdowns */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <PortfolioRewardCountdown />
-            <RankBonusCountdown />
-            <RandomPlayerCountdown />
+          {/* Credit Balance - Mobile Only */}
+          <div className="sm:hidden">
+            <CreditBalance />
           </div>
 
           {/* Browse Players */}
@@ -268,9 +259,9 @@ function StarterNpcCard({
 
   const canAfford = (credits ?? 0) >= npc.playerValue;
 
-  const handleBuy = async () => {
+  const handleHire = async () => {
     if (!canAfford || isPending) return;
-    play("buy");
+    play("hire");
     setIsPending(true);
     try {
       const res = await fetch("/api/game/purchase", {
@@ -314,7 +305,7 @@ function StarterNpcCard({
           </div>
           <Button
             size="sm"
-            onClick={handleBuy}
+            onClick={handleHire}
             disabled={!canAfford || isPending}
             className={`shrink-0 ${
               canAfford
@@ -351,6 +342,7 @@ function BrowsePlayersSection({
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
   const [hasOwner, setHasOwner] = useState(false);
+  const [noBoss, setNoBoss] = useState(false);
   const [hasPlayers, setHasPlayers] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [viewMode, setViewMode] = useState<"mosaic" | "details">("details");
@@ -365,6 +357,7 @@ function BrowsePlayersSection({
       debouncedSearch,
       sort,
       hasOwner,
+      noBoss,
       hasPlayers,
       playerType,
       page,
@@ -377,6 +370,7 @@ function BrowsePlayersSection({
         sort,
         ...(debouncedSearch && { search: debouncedSearch }),
         ...(hasOwner && { hasOwner: "true" }),
+        ...(noBoss && { noBoss: "true" }),
         ...(hasPlayers && { hasPlayers: "true" }),
         ...(playerType && { playerType }),
       });
@@ -422,6 +416,7 @@ function BrowsePlayersSection({
           />
         </div>
         <div className="flex gap-2 flex-wrap">
+          <MassHireButton />
           {/* View mode toggle */}
           {viewMode === "mosaic" ? (
             <Button
@@ -478,7 +473,24 @@ function BrowsePlayersSection({
             }
           >
             <Crown className="h-3.5 w-3.5 mr-1" />
-            Has Owner
+            Have Boss
+          </Button>
+          <Button
+            variant={noBoss ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              play("buttons");
+              setNoBoss(!noBoss);
+              setPage(1);
+            }}
+            className={
+              noBoss
+                ? "bg-red-600 hover:bg-red-500 text-white"
+                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+            }
+          >
+            <Crown className="h-3.5 w-3.5 mr-1" />
+            No Boss
           </Button>
           <Button
             variant={hasPlayers ? "default" : "outline"}
@@ -592,7 +604,7 @@ function BrowsePlayersSection({
                           </div>
                         )}
                       </Link>
-                      {/* Overlay with name and buy button */}
+                      {/* Overlay with name and hire button */}
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 pt-8">
                         <div className="flex items-end justify-between gap-1">
                           <Link
@@ -602,20 +614,20 @@ function BrowsePlayersSection({
                             <p className="text-white text-xs sm:text-sm font-medium truncate">
                               {player.username}
                             </p>
-                            <div className="flex items-center gap-2 text-gray-300 text-[30px] sm:text-[36px]">
-                              <span>
+                            <div className={`flex items-center gap-2 text-gray-300 ${getDynamicMosaicFontSize(player.playerValue)}`}>
+                              <span className="truncate">
                                 ₡{player.playerValue?.toLocaleString()}
                               </span>
                               {player.ownerCount > 0 && (
-                                <span className="flex items-center gap-0.5">
+                                <span className="flex items-center gap-0.5 shrink-0">
                                   <Crown className="h-2.5 w-2.5" />
                                   {player.ownerCount}
                                 </span>
                               )}
                             </div>
                           </Link>
-                          {session && !isOwnProfile && (
-                            <MosaicBuyButton
+                      {session && !isOwnProfile && (
+                        <MosaicHireButton
                               targetId={player.id}
                               targetUsername={player.username}
                               cost={player.playerValue}
@@ -660,6 +672,7 @@ function BrowsePlayersSection({
                   estimatedDeletionAt?: string | null;
                   ownerName?: string | null;
                   ownerValue?: number | null;
+                  purchaseCount?: number;
                 }) => (
                   <PlayerCard key={player.id} {...player} />
                 )
@@ -715,3 +728,153 @@ function BrowsePlayersSection({
     </div>
   );
 }
+
+// Mass Hire button — hires as many affordable players as possible, cheapest first
+// Only shown to players who already own at least 10 players.
+function MassHireButton() {
+  const queryClient = useQueryClient();
+  const { data: credits } = useCredits();
+  const { data: session } = useSession();
+  const { play } = useSound();
+  const [isPending, setIsPending] = useState(false);
+  const [progress, setProgress] = useState<{ hired: number } | null>(null);
+
+  const { data: me } = useQuery({
+    queryKey: ["player", "me"],
+    queryFn: async () => {
+      const res = await fetch(`/api/players/${session?.user?.name}`);
+      if (!res.ok) throw new Error("Failed to fetch player");
+      return res.json();
+    },
+    enabled: !!session?.user?.name,
+    staleTime: 30 * 1000,
+  });
+
+  const ownedCount = me?.ownedPlayers?.length ?? 0;
+
+  // Hide button entirely until the player has hired at least 10 players
+  if (ownedCount < 10) return null;
+
+  const handleMassHire = async () => {
+    if (isPending) return;
+    if (!credits || credits <= 0) {
+      toast.error("You don't have enough credits");
+      return;
+    }
+
+    setIsPending(true);
+    setProgress({ hired: 0 });
+    play("buttons");
+
+    let remainingCredits = credits;
+    let hiredCount = 0;
+    let spent = 0;
+    let failedCount = 0;
+    let page = 1;
+    const limit = 100;
+
+    try {
+      while (true) {
+        // Fetch cheapest available players (API excludes self and already-owned)
+        const params = new URLSearchParams({
+          page: String(page),
+          limit: String(limit),
+          sort: "cheapest",
+        });
+        const res = await fetch(`/api/players?${params}`);
+        if (!res.ok) break;
+        const data = await res.json();
+        const players: Array<{ id: number; username: string; playerValue: number }> =
+          data.players || [];
+
+        if (players.length === 0) break;
+
+        // Ensure ascending order by value
+        players.sort((a, b) => a.playerValue - b.playerValue);
+
+        // If the very cheapest on this page is already unaffordable, stop entirely
+        if (players[0].playerValue > remainingCredits) break;
+
+        let anyHiredThisPage = false;
+        for (const p of players) {
+          if (p.playerValue > remainingCredits) {
+            // Since sorted cheapest first, remaining on this page are also unaffordable
+            break;
+          }
+          try {
+            const buyRes = await fetch("/api/game/purchase", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ targetId: p.id }),
+            });
+            const buyData = await buyRes.json();
+            if (!buyRes.ok) {
+              failedCount++;
+              continue;
+            }
+            remainingCredits -= p.playerValue;
+            spent += p.playerValue;
+            hiredCount++;
+            anyHiredThisPage = true;
+            setProgress({ hired: hiredCount });
+          } catch {
+            failedCount++;
+          }
+        }
+
+        // If nothing was hired on this page (all failed or unaffordable), stop to avoid infinite loop
+        if (!anyHiredThisPage) break;
+
+        // If we got a full page and still have credits, try next page for more cheap players
+        if (players.length < limit) break;
+        if (remainingCredits <= 0) break;
+        page++;
+        // Safety cap
+        if (page > 20) break;
+      }
+
+      if (hiredCount === 0) {
+        toast.error("No affordable players available to hire");
+      } else {
+        toast.success(
+          `Mass Hire complete! Hired ${hiredCount} player${hiredCount === 1 ? "" : "s"} for ${formatNumber(spent)}¢` +
+            (failedCount > 0 ? ` (${failedCount} failed)` : "")
+        );
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["my-players"] }),
+      ]);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Mass Hire failed");
+    } finally {
+      setIsPending(false);
+      setProgress(null);
+    }
+  };
+
+  return (
+    <Button
+      size="sm"
+      onClick={handleMassHire}
+      disabled={isPending}
+      className="bg-gradient-to-r from-amber-500 to-pink-600 hover:from-amber-400 hover:to-pink-500 text-white font-semibold shadow-md disabled:opacity-60"
+    >
+      {isPending ? (
+        <>
+          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          {progress ? `Hiring ${progress.hired}...` : "Hiring..."}
+        </>
+      ) : (
+        <>
+          <Zap className="h-4 w-4 mr-1" />
+          Mass Hire
+        </>
+      )}
+    </Button>
+  );
+}
+

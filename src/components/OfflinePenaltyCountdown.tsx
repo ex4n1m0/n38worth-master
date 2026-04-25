@@ -32,7 +32,7 @@ export function OfflinePenaltyCountdown() {
       const justReset = wasSmallRef.current && prevSeconds <= 60 && newSeconds > 60;
       
       if (justReset) {
-        play("buy");
+        play("hire");
       }
       
       // Track if we're in the "counting down from small value" state

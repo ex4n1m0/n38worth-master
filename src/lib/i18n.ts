@@ -76,8 +76,8 @@ type TranslationKeys = {
   lastSeen: string;
   owners: string;
   owns: string;
-  buy: string;
-  buying: string;
+  hire: string;
+  hiring: string;
   sellOut: string;
   sellingOut: string;
   partner: string;
@@ -212,7 +212,7 @@ const en: TranslationKeys = {
   inflating: "Inflating...",
   browsePlayers: "Browse Players",
   playersYouOwn: "Players You Own",
-  yourOwners: "Your Owners",
+  yourOwners: "Your Boss",
   search: "Search",
   searchPlayers: "Search players...",
   sortBy: "Sort by",
@@ -220,7 +220,7 @@ const en: TranslationKeys = {
   value: "Value",
   newest: "Newest",
   name: "Name",
-  hasOwner: "Has Owner",
+  hasOwner: "Has Boss",
   noPlayersFound: "No players found.",
   previous: "Previous",
   next: "Next",
@@ -230,10 +230,10 @@ const en: TranslationKeys = {
   // Player profile
   joined: "Joined",
   lastSeen: "Last seen",
-  owners: "Owners",
+  owners: "Boss",
   owns: "Owns",
-  buy: "Buy",
-  buying: "Buying...",
+  hire: "Hire",
+  hiring: "Hiring...",
   sellOut: "Sell Out",
   sellingOut: "Selling...",
   partner: "Partner",
@@ -253,7 +253,7 @@ const en: TranslationKeys = {
 
   // Sell out dialog
   sellOutConfirmTitle: "Sell Out?",
-  sellOutConfirmDesc: "Are you sure you want to sell yourself out from this owner? You will receive credits based on your current value.",
+  sellOutConfirmDesc: "Are you sure you want to sell yourself out from your boss? You will receive credits based on your current value.",
   sellOutConfirmButton: "Yes, Sell Out",
   cancel: "Cancel",
 
@@ -291,13 +291,13 @@ const en: TranslationKeys = {
   // New player guide
   guideTitle: "Welcome to n38worth! Here's how to get started:",
   guideStep1Title: "Start with Credits",
-  guideStep1Desc: "You begin with 100.00¢ to buy players.",
-  guideStep2Title: "Buy Players",
-  guideStep2Desc: "Purchase others to add them to your portfolio.",
+  guideStep1Desc: "You begin with 100.00¢ to hire players.",
+  guideStep2Title: "Hire Players",
+  guideStep2Desc: "Hire others to add them to your portfolio.",
   guideStep3Title: "Earn Revenue",
-  guideStep3Desc: "When someone buys a player you own, you get a share of the purchase price!",
-  guideStep4Title: "Get Purchased",
-  guideStep4Desc: "When someone buys you, your value increases!",
+  guideStep3Desc: "When someone hires a player you own, you get a share of the hire price!",
+  guideStep4Title: "Get Hired",
+  guideStep4Desc: "When someone hires you, your value increases!",
   guideStep5Title: "Grow Your Value",
   guideStep5Desc: "Climb the leaderboard by growing your portfolio.",
   guideStep6Title: "Compete",

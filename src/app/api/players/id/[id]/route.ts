@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+
+// Visibility predicate: NPCs are always visible; humans must have an avatar uploaded.
+const visibleSql = sql`("users"."is_npc" = 1 OR ("users"."avatar_url" IS NOT NULL AND "users"."avatar_completed" = 1))`;
 
 export async function GET(
   req: Request,
@@ -26,6 +30,7 @@ export async function GET(
         id: users.id,
         username: users.username,
         avatarUrl: users.avatarUrl,
+        avatarCompleted: users.avatarCompleted,
         playerValue: users.playerValue,
         valueFloor: users.valueFloor,
         credits: users.credits,
@@ -54,6 +59,15 @@ export async function GET(
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
     }
 
+    // Hide players without avatars unless the viewer is that player.
+    const session = await auth();
+    const viewerId = session?.user?.id ? Number(session.user.id) : null;
+    const isHidden =
+      player.isNpc === 0 && (!player.avatarUrl || player.avatarCompleted !== 1);
+    if (isHidden && viewerId !== player.id) {
+      return NextResponse.json({ error: "Player not found" }, { status: 404 });
+    }
+
     // Get owners
     const owners = await db
       .select({
@@ -68,7 +82,7 @@ export async function GET(
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownerId, users.id))
-      .where(eq(ownership.ownedId, playerId));
+      .where(and(eq(ownership.ownedId, playerId), visibleSql));
 
     // Get owned players
     const ownedPlayers = await db
@@ -84,7 +98,7 @@ export async function GET(
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
-      .where(eq(ownership.ownerId, playerId));
+      .where(and(eq(ownership.ownerId, playerId), visibleSql));
 
     return NextResponse.json({
       ...player,

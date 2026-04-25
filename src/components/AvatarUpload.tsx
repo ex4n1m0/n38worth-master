@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, Gift } from "lucide-react";
+import { Camera, Loader2, Gift, Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSound } from "@/hooks/useSound";
@@ -38,6 +38,32 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
   });
 
   const bonusAmount = stats?.totalPlayers ? stats.totalPlayers : null;
+
+  async function handleRandomAvatar() {
+    setUploading(true);
+    try {
+      const res = await fetch("/api/avatar/random", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to generate random avatar");
+      }
+
+      const data = await res.json();
+      setPreviewUrl(data.avatarUrl);
+      queryClient.invalidateQueries({ queryKey: ["player"] });
+      queryClient.invalidateQueries({ queryKey: ["credits"] });
+      refreshOnboarding();
+      toast.success("Random avatar generated!");
+    } catch (error) {
+      console.error("Random avatar error:", error);
+      toast.error("Failed to generate random avatar");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -106,27 +132,51 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
       </div>
       <div className="flex flex-col items-start w-full max-w-full overflow-hidden">
         {!avatarCompleted ? (
-          <Button
-            variant="default"
-            size="lg"
-            onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
-            disabled={uploading}
-            className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black font-bold shadow-lg shadow-yellow-500/30 animate-pulse"
-          >
-            <Camera className="h-5 w-5 mr-2" />
-            {uploading ? "Uploading..." : "🎯 Start Here! Change Avatar"}
-          </Button>
+          <div className="flex flex-col gap-2 w-full">
+            <Button
+              variant="default"
+              size="lg"
+              onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
+              disabled={uploading}
+              className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black font-bold shadow-lg shadow-yellow-500/30 animate-pulse w-full"
+            >
+              <Camera className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 shrink-0" />
+              <span className="truncate">{uploading ? "Uploading..." : "🎯 Upload Your Avatar"}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => { play("buttons"); handleRandomAvatar(); }}
+              disabled={uploading}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800 w-full"
+            >
+              <Shuffle className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 shrink-0" />
+              <span className="truncate">{uploading ? "Generating..." : "🎲 Skip & Get Random Avatar"}</span>
+            </Button>
+          </div>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
-            disabled={uploading}
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-          >
-            <Camera className="h-4 w-4 mr-2" />
-            {uploading ? "Uploading..." : "Change Avatar"}
-          </Button>
+          <div className="flex flex-col gap-2 w-full">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { play("buttons"); fileInputRef.current?.click(); }}
+              disabled={uploading}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              <Camera className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
+              <span className="truncate">{uploading ? "Uploading..." : "Change Avatar"}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { play("buttons"); handleRandomAvatar(); }}
+              disabled={uploading}
+              className="border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              <Shuffle className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
+              <span className="truncate">{uploading ? "Generating..." : "Get Random Avatar"}</span>
+            </Button>
+          </div>
         )}
         <p className="text-xs text-gray-500 mt-1">
           JPEG, PNG, or WebP. Max 2MB.

@@ -11,10 +11,17 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "compress-avatars": "npx tsx scripts/compress-avatars.ts"
+    "compress-avatars": "npx tsx scripts/compress-avatars.ts",
+    "audit:schema": "npx tsx scripts/audit-schema.ts",
+    "audit:avatars": "npx tsx scripts/avatar-storage-audit.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.3.1",
+    "@capacitor/core": "^8.3.1",
     "@neondatabase/serverless": "^1.0.2",
     "@tanstack/react-query": "^5.90.21",
     "@vercel/blob": "^2.2.0",

@@ -2,8 +2,16 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership, transactions, messages, gameHistory } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import {
+  users,
+  ownership,
+  transactions,
+  messages,
+  gameHistory,
+  rewardHistory,
+  hallOfFame,
+} from "@/db/schema";
+import { eq, or, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 /**
@@ -32,90 +40,98 @@ export async function deleteAccount() {
       return { error: "Player not found" };
     }
 
+    // Check if player is protected from deletion (e.g., goddesses)
+    if (player.isProtected === 1) {
+      return { error: "This account is protected and cannot be deleted." };
+    }
+
     const refundPerOwner = Math.floor(player.playerValue / 2);
 
-    // 2. Refund each owner half of the player's current value
-    const owners = await db
-      .select({
-        id: ownership.id,
-        ownerId: ownership.ownerId,
-      })
-      .from(ownership)
-      .where(eq(ownership.ownedId, playerId));
+    // NOTE: neon-http driver does not support transactions, so we run
+    // the statements sequentially. Order matters: clean up all FK-referencing
+    // rows before deleting the user record.
+    const tx = db;
+    {
+      // 2. Refund each owner half of the player's current value
+      const owners = await tx
+        .select({
+          id: ownership.id,
+          ownerId: ownership.ownerId,
+        })
+        .from(ownership)
+        .where(eq(ownership.ownedId, playerId));
 
-    for (const ownerRecord of owners) {
       if (refundPerOwner > 0) {
-        await db
+        for (const ownerRecord of owners) {
+          await tx
+            .update(users)
+            .set({
+              credits: sql`LEAST(credits + ${refundPerOwner}, ${sql.raw(MAX_CREDITS_SQL)})`,
+            })
+            .where(eq(users.id, ownerRecord.ownerId));
+        }
+      }
+
+      // 3. Release all players owned by this user (reset value to floor).
+      //    Mark NPCs as ownerless in the same statement.
+      const ownedPlayers = await tx
+        .select({
+          ownedId: ownership.ownedId,
+          isNpc: users.isNpc,
+        })
+        .from(ownership)
+        .innerJoin(users, eq(users.id, ownership.ownedId))
+        .where(eq(ownership.ownerId, playerId));
+
+      for (const record of ownedPlayers) {
+        await tx
           .update(users)
           .set({
-            credits: sql`LEAST(credits + ${refundPerOwner}, ${sql.raw(MAX_CREDITS_SQL)})`,
+            playerValue: sql`value_floor`,
+            updatedAt: new Date(),
+            ...(record.isNpc === 1 ? { ownerlessAt: new Date() } : {}),
           })
-          .where(eq(users.id, ownerRecord.ownerId));
-      }
-    }
-
-    // 3. Release all players owned by this user (reset their value to floor)
-    const ownedPlayers = await db
-      .select({
-        id: ownership.id,
-        ownedId: ownership.ownedId,
-      })
-      .from(ownership)
-      .where(eq(ownership.ownerId, playerId));
-
-    for (const record of ownedPlayers) {
-      // Reset the owned player's value to their floor
-      await db
-        .update(users)
-        .set({
-          playerValue: sql`value_floor`,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, record.ownedId));
-
-      // If the owned player is an NPC, set ownerlessAt
-      const [ownedPlayer] = await db
-        .select({ isNpc: users.isNpc })
-        .from(users)
-        .where(eq(users.id, record.ownedId));
-
-      if (ownedPlayer?.isNpc === 1) {
-        await db
-          .update(users)
-          .set({ ownerlessAt: new Date() })
           .where(eq(users.id, record.ownedId));
       }
+
+      // 4. Log to game history before deletion
+      await tx.insert(gameHistory).values({
+        eventType: "account_deletion",
+        actorId: playerId,
+        targetId: playerId,
+        targetUsername: player.username,
+        details: JSON.stringify({
+          reason: "self_deletion",
+          playerValue: player.playerValue,
+          refundPerOwner,
+          ownersRefunded: owners.length,
+          playersReleased: ownedPlayers.length,
+        }),
+      });
+
+      // 5. Delete all related records that reference this user.
+      //    Any table with a FK to users.id without ON DELETE CASCADE must be
+      //    cleaned up here or the final DELETE FROM users will fail.
+      await tx.delete(ownership).where(
+        or(eq(ownership.ownerId, playerId), eq(ownership.ownedId, playerId))
+      );
+      await tx.delete(transactions).where(
+        or(eq(transactions.buyerId, playerId), eq(transactions.targetId, playerId))
+      );
+      await tx.delete(messages).where(
+        or(eq(messages.senderId, playerId), eq(messages.recipientId, playerId))
+      );
+      await tx.delete(rewardHistory).where(eq(rewardHistory.userId, playerId));
+      await tx.delete(hallOfFame).where(eq(hallOfFame.userId, playerId));
+
+      // 6. Delete the user record
+      await tx.delete(users).where(eq(users.id, playerId));
     }
-
-    // 4. Log to game history before deletion
-    await db.insert(gameHistory).values({
-      eventType: "account_deletion",
-      actorId: playerId,
-      targetId: playerId,
-      targetUsername: player.username,
-      details: JSON.stringify({
-        reason: "self_deletion",
-        playerValue: player.playerValue,
-        refundPerOwner,
-        ownersRefunded: owners.length,
-        playersReleased: ownedPlayers.length,
-      }),
-    });
-
-    // 5. Delete all related records
-    await db.delete(ownership).where(eq(ownership.ownerId, playerId));
-    await db.delete(ownership).where(eq(ownership.ownedId, playerId));
-    await db.delete(transactions).where(eq(transactions.buyerId, playerId));
-    await db.delete(transactions).where(eq(transactions.targetId, playerId));
-    await db.delete(messages).where(eq(messages.senderId, playerId));
-    await db.delete(messages).where(eq(messages.recipientId, playerId));
-
-    // 6. Delete the user record
-    await db.delete(users).where(eq(users.id, playerId));
 
     return { success: true };
   } catch (error) {
-    console.error("Delete account error:", error);
-    return { error: "Account deletion failed. Please try again." };
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Delete account error:", message, error);
+    return { error: `Account deletion failed: ${message}` };
   }
 }

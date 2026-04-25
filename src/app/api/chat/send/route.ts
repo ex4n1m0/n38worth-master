@@ -40,15 +40,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Sender not found" }, { status: 404 });
     }
 
+    // Block sending from humans who haven't uploaded an avatar.
+    if (sender.isNpc === 0 && (!sender.avatarUrl || sender.avatarCompleted !== 1)) {
+      return NextResponse.json(
+        { error: "You must upload an avatar before you can chat." },
+        { status: 403 }
+      );
+    }
+
     let recipientId: number | null = null;
 
     if (isPrivate) {
       const [recipient] = await db
-        .select({ id: users.id })
+        .select({
+          id: users.id,
+          isNpc: users.isNpc,
+          avatarUrl: users.avatarUrl,
+          avatarCompleted: users.avatarCompleted,
+        })
         .from(users)
         .where(eq(users.username, recipientUsername));
 
       if (!recipient) {
+        return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
+      }
+
+      // Treat invisible humans as non-existent for messaging purposes.
+      if (recipient.isNpc === 0 && (!recipient.avatarUrl || recipient.avatarCompleted !== 1)) {
         return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
       }
 

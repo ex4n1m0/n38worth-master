@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,12 @@ import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
+import {
+  isCapacitor,
+  signInWithGoogleInBrowser,
+  setupBrowserAuthListener,
+  cleanupBrowserAuthListener,
+} from "@/lib/capacitor-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,6 +32,23 @@ export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { t } = useLanguage();
   const { play } = useSound();
+
+  // Set up browser auth listener for Capacitor
+  useEffect(() => {
+    if (isCapacitor()) {
+      setupBrowserAuthListener(() => {
+        // Refresh the page to pick up the new session
+        router.refresh();
+        router.push("/my-profile");
+      });
+    }
+
+    return () => {
+      if (isCapacitor()) {
+        cleanupBrowserAuthListener();
+      }
+    };
+  }, [router]);
 
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -126,14 +149,26 @@ export default function LoginPage() {
             <Button
               type="button"
               disabled={googleLoading}
-              onClick={() => {
+              onClick={async () => {
                 play("buttons");
                 setError("");
                 setGoogleLoading(true);
-                signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
-                  setError("Google sign-in failed. Please try again.");
-                  setGoogleLoading(false);
-                });
+                
+                if (isCapacitor()) {
+                  // Use system browser for Capacitor to avoid disallowed_useragent error
+                  try {
+                    await signInWithGoogleInBrowser("/my-profile");
+                  } catch {
+                    setError("Google sign-in failed. Please try again.");
+                    setGoogleLoading(false);
+                  }
+                } else {
+                  // Use NextAuth signIn directly for web
+                  signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
+                    setError("Google sign-in failed. Please try again.");
+                    setGoogleLoading(false);
+                  });
+                }
               }}
               className="w-full border border-gray-700 !bg-gray-800 hover:!bg-gray-700 !text-white font-semibold"
             >

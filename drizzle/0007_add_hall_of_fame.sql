@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS "hall_of_fame" (
+  "id" SERIAL PRIMARY KEY,
+  "user_id" INTEGER NOT NULL,
+  "username" VARCHAR(30) NOT NULL,
+  "won_at" TIMESTAMP DEFAULT NOW() NOT NULL
+);

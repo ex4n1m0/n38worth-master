@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type ThemeName = "blue" | "green" | "orange";
+export type ThemeName = "blue" | "green";
 
 interface ThemeContextType {
   theme: ThemeName;
@@ -29,7 +29,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("app-theme") as ThemeName | null;
-    if (stored === "green" || stored === "blue" || stored === "orange") {
+    if (stored === "green" || stored === "blue") {
       setThemeState(stored);
       applyTheme(stored);
     } else {

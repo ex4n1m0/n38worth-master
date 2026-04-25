@@ -10,6 +10,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
+import { useRouter } from "next/navigation";
 import { useCredits } from "@/hooks/useCredits";
 import {
   getOwnedRank,
@@ -75,6 +76,7 @@ interface PlayerCardProps {
   lastRankBonusAt?: string | Date | null;
   ownerName?: string | null;
   ownerValue?: number | null;
+  purchaseCount?: number;
 }
 
 function isRankBonusClaimedToday(lastRankBonusAt: string | Date | null | undefined): boolean {
@@ -110,6 +112,7 @@ export function PlayerCard({
   lastRankBonusAt,
   ownerName,
   ownerValue,
+  purchaseCount = 0,
 }: PlayerCardProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -117,6 +120,7 @@ export function PlayerCard({
   const isOwnProfile = session?.user?.name === username;
   const canAfford = (myCredits ?? 0) >= playerValue;
   const { play } = useSound();
+  const router = useRouter();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -144,82 +148,60 @@ export function PlayerCard({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(
-        `You bought ${username}! Their value is now ${data.newValue} 💰`
-      );
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["credits"] }),
-        queryClient.invalidateQueries({ queryKey: ["player"] }),
-        queryClient.invalidateQueries({ queryKey: ["players"] }),
-        queryClient.invalidateQueries({ queryKey: ["ownership"] }),
-        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
-      ]);
+      if (data.countdownStarted) {
+        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
+          description:
+            "You own all 5 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+          duration: 15000,
+        });
+        await queryClient.invalidateQueries();
+      } else {
+        toast.success(
+          `You bought ${username}! Their value is now ${data.newValue} 💰`
+        );
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["credits"] }),
+          queryClient.invalidateQueries({ queryKey: ["player"] }),
+          queryClient.invalidateQueries({ queryKey: ["players"] }),
+          queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        ]);
+      }
     },
   });
 
   const handleBuyClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    play("buy");
+    play("hire");
     mutation.mutate();
   };
 
   return (
     <Link href={`/players/${username}`}>
       <Card className="border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 hover:border-gray-700 transition-all duration-200 cursor-pointer group">
-        <CardContent className="p-4">
-          {/* TOP: Avatar + Buy button */}
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <Avatar className="h-32 w-32 sm:h-44 sm:w-44 md:h-52 md:w-52 ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all shrink-0">
-              <AvatarImage src={avatarUrl || undefined} alt={username} />
-              <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-base sm:text-lg">
+        <CardContent className="p-4 relative">
+          {/* TOP: Full-width avatar */}
+          <div className="relative mb-3">
+            <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
+              <AvatarImage src={avatarUrl || undefined} alt={username} className="object-cover" />
+              <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-4xl sm:text-5xl">
                 {username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="flex flex-col items-end gap-1.5">
-              <div className="flex items-center gap-1.5">
-                {isActive === 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-red-500/10 text-red-400 border-red-500/20 text-[10px]"
-                  >
-                    Inactive
-                  </Badge>
-                )}
-                <Badge
-                  variant="secondary"
-                  className={`bg-t1-500/10 text-t1-400 border-t1-500/20 font-mono ${getDynamicFontSize(playerValue)}`}
-                >
-                  {formatNumber(playerValue)}¢
-                </Badge>
-              </div>
-              {!isOwnProfile && (
-                <Button
-                  onClick={handleBuyClick}
-                  disabled={!canAfford || mutation.isPending}
-                  className={`text-xs sm:text-sm font-bold px-2.5 py-1.5 sm:px-4 sm:py-2 h-auto whitespace-nowrap ${
-                    canAfford
-                      ? "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg shadow-t1-500/20"
-                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                  }`}
-                >
-                  {mutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-3.5 w-3.5 mr-1" />
-                      <span className={getDynamicFontSize(playerValue)}>
-                        Buy {formatNumber(playerValue)}¢
-                      </span>
-                    </>
-                  )}
-                </Button>
-              )}
-            </div>
+            {isActive === 0 && (
+              <Badge
+                variant="secondary"
+                className="absolute top-2 left-2 bg-red-500/20 text-red-300 border-red-500/30 text-[10px] backdrop-blur-sm"
+              >
+                Inactive
+              </Badge>
+            )}
           </div>
 
           {/* BOTTOM: All text info */}
-          <div>
+          <div className={!isOwnProfile ? "pr-24 sm:pr-28" : ""}>
+
             {/* Username + badges */}
             <h3 className="font-semibold text-sm sm:text-base text-white group-hover:text-t1-400 transition-colors flex items-center gap-1.5 flex-wrap">
               {username}
@@ -278,28 +260,32 @@ export function PlayerCard({
             {/* Stats row */}
             <div className="flex items-center gap-3 flex-wrap mt-1.5 text-xs text-gray-400">
               <span className="flex items-center gap-1">
-                <Crown className="h-3 w-3 text-yellow-400" />
+                <Crown className="h-3 w-3 text-yellow-400 shrink-0" />
                 {ownerCount}
               </span>
               {ownerName && (
-                <span className="flex items-center gap-1 text-yellow-300/80">
-                  <User className="h-3 w-3" />
-                  {ownerName}{ownerValue !== null && ownerValue !== undefined ? ` (${ownerValue}$)` : ''}
+                <span className="flex items-center gap-1 text-yellow-300/80 min-w-0">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{ownerName}{ownerValue !== null && ownerValue !== undefined ? ` (${ownerValue}$)` : ''}</span>
                 </span>
               )}
               <span className="flex items-center gap-1">
-                <Users className="h-3 w-3 text-t2-400" />
+                <Users className="h-3 w-3 text-t2-400 shrink-0" />
                 {ownedCount}
               </span>
+              <span className="flex items-center gap-1 text-orange-400">
+                <ShoppingCart className="h-3 w-3 shrink-0" />
+                {purchaseCount}x
+              </span>
               {portfolioValue !== undefined && (
-                <span className="flex items-center gap-1">
-                  <Briefcase className="h-3 w-3 text-purple-400" />
+                <span className={`flex items-center gap-1 ${getDynamicFontSize(Math.round(portfolioValue))}`}>
+                  <Briefcase className="h-3 w-3 text-purple-400 shrink-0" />
                   {formatNumber(Math.round(portfolioValue))}¢
                 </span>
               )}
               {credits !== undefined && (
-                <span className="flex items-center gap-1 text-t1-400">
-                  <Coins className="h-3 w-3" />
+                <span className={`flex items-center gap-1 text-t1-400 ${getDynamicFontSize(Number(credits.toFixed(2)))}`}>
+                  <Coins className="h-3 w-3 shrink-0" />
                   {formatNumber(Number(credits.toFixed(2)))}¢
                 </span>
               )}
@@ -378,8 +364,34 @@ export function PlayerCard({
               );
             })()}
           </div>
+
+          {/* Square Hire button anchored to bottom-right corner */}
+          {!isOwnProfile && (
+            <Button
+              onClick={handleBuyClick}
+              disabled={!canAfford || mutation.isPending}
+              className={`absolute bottom-3 right-3 h-16 w-16 sm:h-20 sm:w-20 p-0 rounded-md flex flex-col items-center justify-center gap-0.5 font-bold whitespace-nowrap ${
+                canAfford
+                  ? "bg-gradient-to-br from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg shadow-t1-500/20"
+                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {mutation.isPending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="text-[10px] sm:text-xs leading-none">Hire</span>
+                  <span className={`leading-none ${getDynamicFontSize(playerValue)}`}>
+                    {formatNumber(playerValue)}¢
+                  </span>
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </Link>
   );
 }
+

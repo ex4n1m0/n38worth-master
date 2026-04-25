@@ -8,13 +8,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MyProfileCard } from "@/components/MyProfileCard";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Crown, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { formatNumber } from "@/lib/utils";
+import { ChatProvider } from "@/contexts/ChatContext";
 
-export default function MyOwnersPage() {
+function MyOwnersContent() {
   const { data: session } = useSession();
 
   const { data: player, isLoading } = useQuery({
@@ -51,18 +52,16 @@ export default function MyOwnersPage() {
       }) => ({ ...p })
     ) ?? [];
 
-  // Only one owner expected
+  // Only one boss expected
   const owner = owners.length > 0 ? owners[0] : null;
 
   return (
     <div className="space-y-6">
-      <MyProfileCard />
-
       <Card className="border-gray-800 bg-gray-900/60">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Crown className="h-5 w-5 text-yellow-400" />
-            My Owner
+            My Boss
             {owner && (
               <span className="text-sm font-normal text-gray-400">
                 — {owner.username}
@@ -78,14 +77,14 @@ export default function MyOwnersPage() {
           ) : !owner ? (
             <div className="text-center py-12 text-gray-500">
               <Crown className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-lg">You don&apos;t have an owner yet</p>
+              <p className="text-lg">You don't have a boss yet</p>
               <p className="text-sm text-gray-600 mt-1">
-                When someone buys you, they&apos;ll appear here
+                When someone buys you, they'll appear here
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Owner Info */}
+              {/* Boss Info */}
               <Link
                 href={`/players/${owner.username}`}
                 className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-t1-500 transition-all group"
@@ -103,8 +102,8 @@ export default function MyOwnersPage() {
                   <h3 className="font-semibold text-white group-hover:text-t1-400 transition-colors text-base">
                     {owner.username}
                   </h3>
-                  <p className="text-sm text-gray-400">
-                    Value: {owner.playerValue}¢
+                  <p className="text-sm text-gray-400 truncate">
+                    Value: {formatNumber(owner.playerValue)}¢
                   </p>
                 </div>
                 <Crown className="h-5 w-5 text-yellow-400 shrink-0" />
@@ -123,5 +122,13 @@ export default function MyOwnersPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function MyOwnersPage() {
+  return (
+    <ChatProvider>
+      <MyOwnersContent />
+    </ChatProvider>
   );
 }

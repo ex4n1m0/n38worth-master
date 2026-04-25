@@ -55,14 +55,14 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
         mutation.mutate();
       }}
       disabled={mutation.isPending}
-      className="border-t2-500/30 text-t2-400 hover:bg-t2-500/10 hover:text-t2-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
+      className="border-t2-500/30 text-t2-400 hover:bg-t2-500/10 hover:text-t2-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
       title={`Gift 1% of your credits to ${targetUsername}`}
     >
       {mutation.isPending ? (
-        <Loader2 className="h-7 w-7 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
-          <Gift className="h-7 w-7 mr-2" />
+          <Gift className="h-4 w-4 mr-2" />
           {t.sendCredits} {formatNumber(parseFloat(sendAmount.toFixed(2)))}¢
         </>
       )}

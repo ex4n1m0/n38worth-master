@@ -73,7 +73,9 @@ export async function sellPlayer(otherId: number) {
       .set({ credits: sql`LEAST(credits + ${playerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, otherId));
 
-    // 2. Reset the sold player's value to their floor (milestone-based minimum)
+    // 2. Reset the sold player's value to their floor (milestone-based minimum).
+    // NOTE: purchaseCount is intentionally NOT reset — it is a lifetime
+    // "times hired" counter used by profile achievements and sort options.
     await db
       .update(users)
       .set({

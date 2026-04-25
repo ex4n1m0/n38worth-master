@@ -6,7 +6,9 @@ config({ path: resolve(process.cwd(), ".env.local") });
 
 import { db } from "../src/db";
 import { users, ownership, transactions, messages } from "../src/db/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq, notInArray } from "drizzle-orm";
+
+const GODDESS_USERNAMES = ["Morríghan", "Athena", "Freyja", "Ishtar", "Inanna"];
 
 async function resetAllPlayers() {
   console.log("Starting reset of all players to initial status...");
@@ -27,8 +29,8 @@ async function resetAllPlayers() {
     await db.delete(ownership);
     console.log("✓ Ownership records deleted");
 
-    // Step 4: Reset all users to initial status
-    console.log("Resetting all users to initial status...");
+    // Step 4: Reset ALL players EXCEPT goddess NPCs to initial status
+    console.log("Resetting all players (except goddess NPCs) to initial status...");
     await db
       .update(users)
       .set({
@@ -39,9 +41,29 @@ async function resetAllPlayers() {
         blockSellUntil: null,
         blockSellBy: null,
         estimatedDeletionAt: null,
+        // Clear onboarding state so players don't get stuck in onboarding
+        // after ownership records are deleted
+        onboardingNpcs: [],
+        onboardingOwnedCount: 0,
+        onboardingComplete: 0,
+        avatarCompleted: 0,
         updatedAt: new Date(),
-      });
-    console.log("✓ All users reset to initial status");
+      })
+      .where(notInArray(users.username, GODDESS_USERNAMES));
+    console.log("✓ All non-goddess players reset to initial status (including onboarding)");
+
+    // Step 4b: Clear ownership-related fields on goddess NPCs too
+    console.log("Clearing sell blocks on goddess NPCs...");
+    await db
+      .update(users)
+      .set({
+        blockSellUntil: null,
+        blockSellBy: null,
+        estimatedDeletionAt: null,
+        updatedAt: new Date(),
+      })
+      .where(sql`${users.username} IN (${sql.join(GODDESS_USERNAMES.map(n => sql`${n}`), sql`, `)})`);
+    console.log("✓ Goddess NPCs ownership fields cleared (values preserved)");
 
     // Step 5: Verify the reset
     const userCount = await db.select({ count: sql<number>`count(*)` }).from(users);
@@ -56,8 +78,9 @@ async function resetAllPlayers() {
     console.log(`Messages: ${messageCount[0].count}`);
     console.log("\n✓ All players reset to initial status successfully!");
     console.log("- No owners (all ownership cleared)");
-    console.log("- $100 credits for each user");
-    console.log("- $1 value for each user");
+    console.log("- $100 credits for each non-NPC user");
+    console.log("- $1 value for each non-NPC user");
+    console.log("- Goddess NPCs keep their original values");
 
     process.exit(0);
   } catch (error) {

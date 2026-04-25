@@ -16,7 +16,7 @@ export default function TermsOfService() {
         <section className="space-y-3">
           <h2 className="text-xl font-semibold text-white">2. Description of Service</h2>
           <p>
-            n38worth is a social strategy game where players buy, sell, and trade virtual
+            n38worth is a social strategy game where players hire, sell, and trade virtual
             player stocks. All in-game credits and values are virtual and have no real-world
             monetary value.
           </p>

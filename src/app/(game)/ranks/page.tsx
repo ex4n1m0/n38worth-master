@@ -29,6 +29,7 @@ interface RankedPlayer {
   ownerCount: number;
   ownedCount: number;
   portfolioValue: number;
+  purchaseCount?: number;
 }
 
 interface RanksData {
@@ -36,6 +37,7 @@ interface RanksData {
   topPortfolio: RankedPlayer[];
   topCredits: RankedPlayer[];
   topValue: RankedPlayer[];
+  topHired: RankedPlayer[];
   totalPlayers: number;
 }
 
@@ -341,7 +343,91 @@ export default function RanksPage() {
 
       {/* Leaderboard Tab */}
       {activeTab === "leaderboard" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
+          {/* Featured: Most Hired */}
+          <Card className="overflow-hidden border-2 border-amber-500/60 shadow-lg shadow-amber-500/20">
+            <div className="bg-gradient-to-br from-yellow-900/40 via-amber-900/30 to-orange-900/20">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <CardTitle className="text-xl sm:text-2xl flex items-center gap-2 text-amber-300">
+                    <Trophy className="h-6 w-6 sm:h-7 sm:w-7 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                    Most Hired
+                  </CardTitle>
+                  <span className="text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full border border-amber-400/60 bg-amber-500/20 text-amber-200 uppercase tracking-wider">
+                    ★ Hall of Fame ★
+                  </span>
+                </div>
+                <p className="text-xs text-amber-200/70 mt-1">
+                  Players hired the most times across the realm
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {(data.topHired ?? []).map((player, index) => {
+                  const isTopThree = index < 3;
+                  const isFirst = index === 0;
+                  return (
+                    <Link
+                      key={player.id}
+                      href={`/players/${player.username}`}
+                      className={`flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-lg transition-all group ${
+                        isFirst
+                          ? "bg-gradient-to-r from-amber-500/20 to-yellow-500/10 hover:from-amber-500/30 hover:to-yellow-500/20 ring-1 ring-amber-400/30"
+                          : isTopThree
+                            ? "hover:bg-white/10 bg-white/5"
+                            : "hover:bg-white/5"
+                      }`}
+                    >
+                      <span
+                        className={`w-8 text-center font-bold text-base sm:text-lg ${
+                          index === 0
+                            ? "text-amber-400"
+                            : index === 1
+                              ? "text-gray-300"
+                              : index === 2
+                                ? "text-orange-400"
+                                : "text-gray-500"
+                        }`}
+                      >
+                        {index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}
+                      </span>
+                      <Avatar
+                        className={
+                          isFirst
+                            ? "h-20 w-20 sm:h-24 sm:w-24 ring-4 ring-amber-400/80 shadow-lg shadow-amber-500/40"
+                            : isTopThree
+                              ? `h-16 w-16 sm:h-18 sm:w-18 ring-2 ${
+                                  index === 1 ? "ring-gray-300/70" : "ring-orange-400/60"
+                                }`
+                              : "h-12 w-12 sm:h-14 sm:w-14 ring-1 ring-amber-400/30"
+                        }
+                      >
+                        <AvatarImage src={player.avatarUrl || undefined} />
+                        <AvatarFallback className="text-sm bg-gray-800">
+                          {player.username.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className={`font-semibold text-white truncate group-hover:text-amber-300 transition-colors ${isFirst ? "text-lg sm:text-xl" : isTopThree ? "text-base" : "text-sm"}`}>
+                          {player.username}
+                        </p>
+                        {isTopThree && (
+                          <p className="text-[11px] text-amber-300/80">
+                            Most-Hired Champion
+                          </p>
+                        )}
+                      </div>
+                      <span className={`font-bold text-amber-300 shrink-0 ${isFirst ? "text-xl sm:text-2xl" : isTopThree ? "text-lg" : "text-base"}`}>
+                        {formatNumber(player.purchaseCount ?? 0)}
+                        <span className="text-xs text-amber-400/70 ml-1 font-normal">hires</span>
+                      </span>
+                    </Link>
+                  );
+                })}
+              </CardContent>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {RANK_CATEGORIES.map((category) => {
             const players = data[category.key as keyof RanksData] as RankedPlayer[];
             return (
@@ -383,7 +469,19 @@ export default function RanksPage() {
                           >
                             {index < 3 ? ["🥇", "🥈", "🥉"][index] : index + 1}
                           </span>
-                          <Avatar className={`h-8 w-8 ${isTopThree ? "ring-1 ring-white/20" : ""}`}>
+                          <Avatar
+                            className={
+                              isTopThree
+                                ? `h-11 w-11 ring-2 ${
+                                    index === 0
+                                      ? "ring-t1-400/70"
+                                      : index === 1
+                                        ? "ring-t2-400/60"
+                                        : "ring-t1-300/50"
+                                  }`
+                                : "h-8 w-8"
+                            }
+                          >
                             <AvatarImage src={player.avatarUrl || undefined} />
                             <AvatarFallback className="text-xs bg-gray-800">
                               {player.username.slice(0, 2).toUpperCase()}
@@ -415,6 +513,7 @@ export default function RanksPage() {
               </Card>
             );
           })}
+          </div>
         </div>
       )}
 

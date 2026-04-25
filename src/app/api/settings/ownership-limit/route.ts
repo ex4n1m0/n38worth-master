@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { gameSettings, ownership, users } from "@/db/schema";
+import { ownership } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+
+// Static ownership limit — every player can own up to 500 players.
+const OWNERSHIP_LIMIT = 500;
 
 export async function GET() {
   const session = await auth();
@@ -13,14 +16,6 @@ export async function GET() {
   try {
     const userId = parseInt(session.user.id);
 
-    // Get current ownership limit
-    const [limitSetting] = await db
-      .select({ value: gameSettings.settingValue })
-      .from(gameSettings)
-      .where(eq(gameSettings.settingKey, "max_ownership_limit"));
-
-    const ownershipLimit = limitSetting?.value ?? 111;
-
     // Get user's current ownership count
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })
@@ -30,9 +25,9 @@ export async function GET() {
     const currentOwned = ownershipCount.count;
 
     return NextResponse.json({
-      limit: ownershipLimit,
+      limit: OWNERSHIP_LIMIT,
       currentOwned,
-      canBuyMore: currentOwned < ownershipLimit,
+      canBuyMore: currentOwned < OWNERSHIP_LIMIT,
     });
   } catch (error) {
     console.error("Error fetching ownership limit:", error);

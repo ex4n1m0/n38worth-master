@@ -2,17 +2,27 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import { db } from "../src/db";
-import { users, ownership, transactions, messages, gameHistory } from "../src/db/schema";
+import {
+  users,
+  ownership,
+  transactions,
+  messages,
+  gameHistory,
+  rewardHistory,
+  multiAccountIncidents,
+  ipSessions,
+} from "../src/db/schema";
 import { eq, and, inArray, or } from "drizzle-orm";
 
 async function main() {
   console.log("Finding human players who haven't changed their avatar...");
 
   // Find all human players with avatar_completed = 0
+  // Skip protected users (e.g., goddesses that might have isNpc=0 but are protected)
   const playersToDelete = await db
     .select({ id: users.id, username: users.username, avatarUrl: users.avatarUrl, createdAt: users.createdAt })
     .from(users)
-    .where(and(eq(users.isNpc, 0), eq(users.avatarCompleted, 0)));
+    .where(and(eq(users.isNpc, 0), eq(users.avatarCompleted, 0), eq(users.isProtected, 0)));
 
   console.log(`Found ${playersToDelete.length} human players without avatar change:`);
   for (const p of playersToDelete) {
@@ -44,12 +54,35 @@ async function main() {
   );
   console.log("  Messages deleted.");
 
+  console.log("Deleting reward history...");
+  await db.delete(rewardHistory).where(inArray(rewardHistory.userId, ids));
+  console.log("  Reward history deleted.");
+
+  console.log("Deleting multi-account incidents...");
+  await db.delete(multiAccountIncidents).where(
+    or(inArray(multiAccountIncidents.userId1, ids), inArray(multiAccountIncidents.userId2, ids))
+  );
+  console.log("  Multi-account incidents deleted.");
+
+  console.log("Deleting IP sessions...");
+  await db.delete(ipSessions).where(inArray(ipSessions.userId, ids));
+  console.log("  IP sessions deleted.");
+
+  console.log("Nullifying game_history references to these users...");
+  // game_history has nullable actor_id/target_id referencing users; null them out
+  // to preserve history records.
+  for (const id of ids) {
+    await db.update(gameHistory).set({ actorId: null }).where(eq(gameHistory.actorId, id));
+    await db.update(gameHistory).set({ targetId: null }).where(eq(gameHistory.targetId, id));
+  }
+  console.log("  Game history references nulled.");
+
   console.log("Logging deletion events to game history...");
   for (const p of playersToDelete) {
     await db.insert(gameHistory).values({
       eventType: "player_deletion",
       actorId: null,
-      targetId: p.id,
+      targetId: null,
       targetUsername: p.username,
       details: JSON.stringify({ reason: "no_avatar_change" }),
     });

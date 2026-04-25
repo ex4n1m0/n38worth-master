@@ -30,10 +30,14 @@ export async function GET(req: Request) {
       .from(messages)
       .innerJoin(users, eq(messages.senderId, users.id))
       .where(
-        or(
-          eq(messages.type, "public"),
-          and(eq(messages.type, "private"), eq(messages.senderId, userId)),
-          and(eq(messages.type, "private"), eq(messages.recipientId, userId))
+        and(
+          or(
+            eq(messages.type, "public"),
+            and(eq(messages.type, "private"), eq(messages.senderId, userId)),
+            and(eq(messages.type, "private"), eq(messages.recipientId, userId))
+          ),
+          // Sender must be visible (NPC, the current user, or a human with avatar uploaded)
+          sql`(${users.isNpc} = 1 OR ${users.id} = ${userId} OR (${users.avatarUrl} IS NOT NULL AND ${users.avatarCompleted} = 1))`
         )
       )
       .orderBy(desc(messages.createdAt))

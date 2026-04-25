@@ -12,23 +12,23 @@ const GUIDE_STEPS = [
   },
   {
     icon: TrendingUp,
-    title: "Buy Players",
-    description: "Purchase other players at their current value. Each purchase makes them more valuable (+1 value)."
+    title: "Hire Players",
+    description: "Hire other players at their current value. Each hire makes them more valuable (+1 value)."
   },
   {
     icon: Coins,
     title: "Earn Revenue",
-    description: "When someone buys a player you own, you get a share of the purchase price automatically!"
+    description: "When someone hires a player you own, you get a share of the hire price automatically!"
   },
   {
     icon: Handshake,
-    title: "Get Purchased",
-    description: "The key to wealth: encourage others to buy YOU! Each purchase increases your value by +1."
+    title: "Get Hired",
+    description: "The key to wealth: encourage others to hire YOU! Each hire increases your value by +1."
   },
   {
     icon: Target,
     title: "Grow Your Value",
-    description: "The more people buy you, the higher your value climbs. Reach 100 for a ⭐ Star, 3333 for a 💎 Gem!"
+    description: "The more people hire you, the higher your value climbs. Reach 100 for a ⭐ Star, 3333 for a 💎 Gem!"
   },
   {
     icon: Crown,
@@ -79,7 +79,7 @@ export function NewPlayerGuide() {
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/50">
           <div>
             <h2 className="text-lg font-bold text-white">Welcome to n38worth! 🎮</h2>
-            <p className="text-xs text-t1-300">Your goal: Build wealth by buying players and getting bought</p>
+            <p className="text-xs text-t1-300">Your goal: Build wealth by hiring players and getting hired</p>
           </div>
           <button
             onClick={handleDismiss}

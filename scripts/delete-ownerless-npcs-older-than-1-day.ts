@@ -15,6 +15,7 @@ async function main() {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   // Find all NPCs that are older than 1 day
+  // Skip protected NPCs (e.g., goddesses)
   const npcs = await db
     .select({
       id: users.id,
@@ -23,7 +24,7 @@ async function main() {
       ownerlessAt: users.ownerlessAt,
     })
     .from(users)
-    .where(eq(users.isNpc, 1));
+    .where(sql`${users.isNpc} = 1 AND ${users.isProtected} = 0 AND ${users.isOnboardingPool} = 0`);
 
   const toDelete = [];
 

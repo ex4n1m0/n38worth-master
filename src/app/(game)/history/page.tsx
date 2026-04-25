@@ -75,8 +75,8 @@ export default function GameHistoryPage() {
 
   const filters = [
     { value: null, label: "All Events" },
-    { value: "purchase", label: "Purchases" },
-    { value: "sell", label: "Sells" },
+    { value: "purchase", label: "Hires" },
+    { value: "sell", label: "Fires" },
     { value: "npc_deletion", label: "NPC Deletions" },
     { value: "player_deletion", label: "Player Deletions" },
   ];
@@ -184,8 +184,8 @@ export default function GameHistoryPage() {
                             )}
                             
                             <span className="text-sm text-gray-400 flex-shrink-0">
-                              {event.eventType === "purchase" && "purchased"}
-                              {event.eventType === "sell" && "sold"}
+                              {event.eventType === "purchase" && "hired"}
+                              {event.eventType === "sell" && "fired"}
                               {event.eventType === "npc_deletion" && "deleted NPC"}
                               {event.eventType === "player_deletion" && "deleted player"}
                             </span>

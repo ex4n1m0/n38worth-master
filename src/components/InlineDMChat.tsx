@@ -1,29 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Send, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { getPusherClient } from "@/lib/pusher-client";
-
-interface ChatMessage {
-  id: number;
-  content: string;
-  type: "public" | "private";
-  createdAt: string;
-  sender: {
-    id: number;
-    username: string;
-    avatarUrl: string | null;
-  };
-  recipientId: number | null;
-  recipientUsername: string | null;
-}
+import { useChat } from "@/contexts/ChatContext";
 
 function formatTime(date: string): string {
   const d = new Date(date);
@@ -42,65 +28,17 @@ export function InlineDMChat({
   targetAvatarUrl,
 }: InlineDMChatProps) {
   const { data: session } = useSession();
-  const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
-  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
 
-  // Fetch all messages (filter to private ones with this user)
-  const { data: fetchedMessages } = useQuery({
-    queryKey: ["chat-messages"],
-    queryFn: async () => {
-      const res = await fetch("/api/chat/messages?limit=50");
-      if (!res.ok) throw new Error("Failed to fetch messages");
-      return res.json() as Promise<ChatMessage[]>;
-    },
-    refetchInterval: 30000,
-  });
+  // Use shared chat context instead of local state
+  const { getMessagesForTarget, hasUnread, markAsRead, sendMessage } =
+    useChat();
 
-  // Filter to private messages between us and this target
-  useEffect(() => {
-    if (fetchedMessages) {
-      const filtered = fetchedMessages.filter(
-        (m) =>
-          m.type === "private" &&
-          ((m.sender.id === userId && m.recipientId === targetId) ||
-            (m.sender.id === targetId && m.recipientId === userId))
-      );
-      setLocalMessages(filtered);
-    }
-  }, [fetchedMessages, userId, targetId]);
-
-  // Subscribe to Pusher for real-time messages
-  useEffect(() => {
-    if (!userId) return;
-    const pusher = getPusherClient();
-    if (!pusher) return;
-
-    const privateChannel = pusher.subscribe(`chat-private-${userId}`);
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      if (
-        msg.type === "private" &&
-        ((msg.sender.id === userId && msg.recipientId === targetId) ||
-          (msg.sender.id === targetId && msg.recipientId === userId))
-      ) {
-        setLocalMessages((prev) => {
-          if (prev.some((m) => m.id === msg.id)) return prev;
-          return [...prev, msg];
-        });
-      }
-    };
-
-    privateChannel.bind("new-message", handleNewMessage);
-
-    return () => {
-      privateChannel.unbind("new-message", handleNewMessage);
-      pusher.unsubscribe(`chat-private-${userId}`);
-    };
-  }, [userId, targetId]);
+  const localMessages = getMessagesForTarget(targetId);
+  const hasUnreadMessages = hasUnread(targetId);
 
   // Auto-scroll when messages change
   useEffect(() => {
@@ -113,26 +51,12 @@ export function InlineDMChat({
   // Send message mutation
   const sendMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/chat/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: message.trim(),
-          recipientUsername: targetUsername,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send");
-      return data;
+      const result = await sendMessage(message.trim(), targetUsername);
+      if (!result) throw new Error("Failed to send");
+      return result;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       setMessage("");
-      if (data.message) {
-        setLocalMessages((prev) => {
-          if (prev.some((m) => m.id === data.message.id)) return prev;
-          return [...prev, data.message];
-        });
-      }
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -166,6 +90,9 @@ export function InlineDMChat({
           >
             Free
           </Badge>
+          {hasUnreadMessages && (
+            <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
+          )}
         </div>
       </div>
 
@@ -201,7 +128,9 @@ export function InlineDMChat({
                     .toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className={`max-w-[80%] ${isOwn ? "items-end" : "items-start"}`}>
+              <div
+                className={`max-w-[80%] ${isOwn ? "items-end" : "items-start"}`}
+              >
                 <span className="text-[9px] text-gray-600 block mb-0.5">
                   {formatTime(msg.createdAt)}
                 </span>

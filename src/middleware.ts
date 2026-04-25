@@ -35,9 +35,9 @@ export default auth((req) => {
   const isApiRoute = req.nextUrl.pathname.startsWith("/api");
   const pathname = req.nextUrl.pathname;
 
-  // Redirect logged-in users away from auth pages
+  // Redirect logged-in users away from auth pages to their own profile
   if (isLoggedIn && isAuthPage) {
-    return NextResponse.redirect(new URL("/leaderboard", req.url));
+    return NextResponse.redirect(new URL("/my-profile", req.url));
   }
 
   // Allow API routes and public pages

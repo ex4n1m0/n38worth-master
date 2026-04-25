@@ -12,11 +12,11 @@ async function main() {
     console.log("🔍 DRY RUN MODE - No deletions will be performed\n");
   }
 
-  // Find all NPC players
+  // Find all NPC players (skip protected NPCs like goddesses)
   const npcs = await db
     .select({ id: users.id, username: users.username })
     .from(users)
-    .where(eq(users.isNpc, 1));
+    .where(sql`${users.isNpc} = 1 AND ${users.isProtected} = 0 AND ${users.isOnboardingPool} = 0`);
 
   console.log(`Found ${npcs.length} NPC players to delete.`);
 

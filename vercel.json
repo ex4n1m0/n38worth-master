@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/portfolio-reward",
-      "schedule": "0 * * * *"
+      "schedule": "*/10 * * * *"
     },
     {
       "path": "/api/cron/random-player",
@@ -22,11 +22,19 @@
     },
     {
       "path": "/api/cron/rank-bonus",
-      "schedule": "0 * * * *"
+      "schedule": "*/6 * * * *"
     },
     {
       "path": "/api/cron/ownership-limit",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/goddess-countdown",
+      "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/refill-onboarding-pool",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

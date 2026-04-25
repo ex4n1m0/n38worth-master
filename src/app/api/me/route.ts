@@ -1,16 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+// import { extractIp, checkMultiAccount } from "@/lib/multi-account";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const userId = parseInt(session.user.id);
+
+  // Multi-account detection disabled
+  // const ipAddress = extractIp(request);
+  // if (ipAddress) {
+  //   checkMultiAccount(userId, ipAddress).catch((err) => {
+  //     console.error("Multi-account check error:", err);
+  //   });
+  // }
 
   // Get current lastOnlineAt to calculate online time delta
   const [currentUser] = await db
@@ -81,8 +90,8 @@ export async function GET() {
   const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
   const portfolioValue = (user.playerValue + ownedValue) * Math.max(ownerCount, 1);
 
-  // Calculate 1% reward (this is the portfolio reward)
-  const portfolioReward = Math.floor(portfolioValue * 0.01);
+  // Calculate 0.2% reward (this is the portfolio reward)
+  const portfolioReward = Math.floor(portfolioValue * 0.002);
 
   // wasReset flag is included in the response.
   // It is NOT auto-cleared here — the client must explicitly acknowledge it

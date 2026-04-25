@@ -15,6 +15,27 @@
       "when": 1775359549102,
       "tag": "0001_groovy_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775836907907,
+      "tag": "0002_add_is_protected_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775838877006,
+      "tag": "0003_clever_owl",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776598590672,
+      "tag": "0004_hot_zzzax",
+      "breakpoints": true
     }
   ]
 }

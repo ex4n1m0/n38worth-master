@@ -1,28 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { eq, lt, and, sql, desc, notInArray } from "drizzle-orm";
-
-// Onboarding NPC adjectives and nouns for generating unique names
-const ONBOARDING_ADJECTIVES = [
-  "Fresh", "New", "Starter", "Beginner", "Rookie", "Novice", "Basic", "Simple",
-  "Quick", "Swift", "Bright", "Smart", "Wise", "Bold", "Brave", "Kind",
-  "Happy", "Lucky", "Sunny", "Golden", "Silver", "Crystal", "Diamond", "Star"
-];
-
-const ONBOARDING_NOUNS = [
-  "Player", "Trader", "Investor", "Merchant", "Dealer", "Broker", "Agent", "Runner",
-  "Hunter", "Gatherer", "Collector", "Keeper", "Guardian", "Watcher", "Seeker", "Finder",
-  "Dreamer", "Thinker", "Worker", "Builder", "Maker", "Creator", "Explorer", "Pioneer"
-];
-
-function generateOnboardingNpcName(): string {
-  const adj = ONBOARDING_ADJECTIVES[Math.floor(Math.random() * ONBOARDING_ADJECTIVES.length)];
-  const noun = ONBOARDING_NOUNS[Math.floor(Math.random() * ONBOARDING_NOUNS.length)];
-  const num = Math.floor(Math.random() * 999) + 1;
-  return `${adj}${noun}${num}`;
-}
+import { users } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { createOnboardingNpcsForUser } from "@/lib/onboarding-npc";
 
 export async function POST() {
   const session = await auth();
@@ -50,24 +31,40 @@ export async function POST() {
       return NextResponse.json({ npcIds: existingNpcs, alreadyAssigned: true });
     }
 
-    // Create 3 fresh NPCs specifically for onboarding with $1 cost
-    const npcIds: number[] = [];
-    
-    for (let i = 0; i < 3; i++) {
-      const npcName = generateOnboardingNpcName();
-      
-      const [newNpc] = await db
-        .insert(users)
-        .values({
-          username: npcName,
-          isNpc: 1,
-          playerValue: 1, // $1 cost for onboarding NPCs
-          credits: 0,
-          isActive: 1,
-        })
-        .returning({ id: users.id });
-      
-      npcIds.push(newNpc.id);
+    // Grab 3 NPCs from the pre-generated pool (avoids Unsplash rate limits)
+    const poolNpcs = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.isOnboardingPool, 1))
+      .limit(3);
+
+    let npcIds: number[] = [];
+
+    if (poolNpcs.length === 3) {
+      // Claim these NPCs from the pool
+      npcIds = poolNpcs.map((npc) => npc.id);
+      await db
+        .update(users)
+        .set({ isOnboardingPool: 0 })
+        .where(
+          sql`${users.id} IN (${npcIds.join(",")})`
+        );
+
+      console.log(`Assigned ${npcIds.length} pool NPCs to user ${userId}`);
+    } else {
+      console.warn(`Pool has ${poolNpcs.length}/3 NPCs needed. Creating ${3 - poolNpcs.length} more on-the-fly with avatars.`);
+      // Claim whatever pool NPCs are available first
+      const claimedIds = poolNpcs.map((npc) => npc.id);
+      if (claimedIds.length > 0) {
+        await db
+          .update(users)
+          .set({ isOnboardingPool: 0 })
+          .where(sql`${users.id} IN (${claimedIds.join(",")})`);
+      }
+      // Create the remainder on-the-fly WITH avatars via Unsplash
+      const needed = 3 - claimedIds.length;
+      const freshIds = await createOnboardingNpcsForUser(needed);
+      npcIds = [...claimedIds, ...freshIds];
     }
 
     // Store the NPC IDs in the user's onboarding state
@@ -81,7 +78,9 @@ export async function POST() {
     return NextResponse.json({
       npcIds,
       assigned: true,
-      message: "Created 3 fresh starter NPCs for onboarding!",
+      message: poolNpcs.length === 3
+        ? "Assigned 3 starter NPCs from pool!"
+        : "Created 3 starter NPCs (pool was empty)!",
     });
   } catch (error) {
     console.error("NPC assignment error:", error);

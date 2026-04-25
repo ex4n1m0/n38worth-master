@@ -2,7 +2,7 @@
 
 import { useCredits } from "@/hooks/useCredits";
 import { Coins, Loader2 } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, getDynamicNavFontSize } from "@/lib/utils";
 
 export function CreditBalance() {
   const { data: credits, isLoading } = useCredits();
@@ -13,7 +13,7 @@ export function CreditBalance() {
       {isLoading ? (
         <Loader2 className="h-3 w-3 animate-spin text-t1-400" />
       ) : (
-        <span className="font-mono font-semibold text-t1-400 text-sm">
+        <span className={`font-mono font-semibold text-t1-400 ${getDynamicNavFontSize(credits ?? 0)}`}>
           {formatNumber(Number((credits ?? 0).toFixed(2)))}¢
         </span>
       )}

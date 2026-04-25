@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
+import { users, ownership, rewardHistory } from "@/db/schema";
 import { sql, eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
@@ -21,8 +21,8 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 60 minutes (1 hour)
-    const intervalMinutes = 60;
+    // Fixed interval: 10 minutes
+    const intervalMinutes = 10;
     const intervalMs = intervalMinutes * 60 * 1000;
 
     // Check if enough time has passed since last portfolio reward
@@ -79,8 +79,8 @@ export async function GET(req: Request) {
       // Use BigInt-safe portfolio calculation to avoid overflow with large player values
       const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
 
-      // Calculate 1% reward using BigInt-safe arithmetic
-      const reward = safeReward(portfolioValue, 0.01);
+      // Calculate 0.2% reward using BigInt-safe arithmetic
+      const reward = safeReward(portfolioValue, 0.002);
 
       if (reward > 0) {
         // Update player credits (cap at MAX_CREDITS to prevent overflow)
@@ -91,6 +91,18 @@ export async function GET(req: Request) {
             updatedAt: now,
           })
           .where(eq(users.id, player.id));
+
+        // Log to reward history
+        try {
+          await db.insert(rewardHistory).values({
+            userId: player.id,
+            type: "portfolio_reward",
+            amount: reward,
+            details: JSON.stringify({ portfolioValue }),
+          });
+        } catch (historyError) {
+          console.error("Reward history insert error:", historyError);
+        }
 
         // Send Pusher notification to the player
         try {

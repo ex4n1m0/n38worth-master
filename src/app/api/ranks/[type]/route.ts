@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, desc, asc } from "drizzle-orm";
+import { eq, sql, desc, asc, and, isNotNull } from "drizzle-orm";
+
+// Humans must have an avatar to appear on public rankings; NPCs are excluded here anyway.
+const visibleHumanWhere = and(
+  eq(users.isNpc, 0),
+  isNotNull(users.avatarUrl),
+  eq(users.avatarCompleted, 1)
+);
 
 const VALID_TYPES = ["portfolio", "demand", "empire", "legacy", "credits", "value"] as const;
 type RankType = (typeof VALID_TYPES)[number];
@@ -57,7 +64,7 @@ async function getPortfolioLeaderboard() {
       portfolioValue: portfolioSql.as("portfolio_value"),
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(desc(portfolioSql))
     .limit(10);
 
@@ -95,7 +102,7 @@ async function getDemandLeaderboard() {
       credits: users.credits,
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id})`),
       desc(users.playerValue)
@@ -116,7 +123,7 @@ async function getEmpireLeaderboard() {
       credits: users.credits,
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`),
       desc(users.playerValue)
@@ -137,7 +144,7 @@ async function getLegacyLeaderboard() {
       credits: users.credits,
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(asc(users.createdAt))
     .limit(10);
 
@@ -155,7 +162,7 @@ async function getCreditsLeaderboard() {
       credits: users.credits,
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(desc(users.credits))
     .limit(10);
 
@@ -173,7 +180,7 @@ async function getValueLeaderboard() {
       credits: users.credits,
     })
     .from(users)
-    .where(eq(users.isNpc, 0))
+    .where(visibleHumanWhere)
     .orderBy(desc(users.playerValue))
     .limit(10);
 
@@ -195,7 +202,7 @@ export async function GET(
     const [countResult] = await db
       .select({ total: sql<number>`COUNT(*)` })
       .from(users)
-      .where(eq(users.isNpc, 0));
+      .where(visibleHumanWhere);
     const totalPlayers = Number(countResult.total);
 
     let players;

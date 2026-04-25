@@ -2,7 +2,20 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { gameHistory, users } from "@/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql, and } from "drizzle-orm";
+
+// Hide events where the actor or the target is an invisible human (no avatar uploaded).
+// NULL actor/target ids pass (system events).
+const visibleActorsSql = sql`(
+  ("game_history"."actor_id" IS NULL OR EXISTS (
+    SELECT 1 FROM users u WHERE u.id = "game_history"."actor_id"
+      AND (u.is_npc = 1 OR (u.avatar_url IS NOT NULL AND u.avatar_completed = 1))
+  ))
+  AND ("game_history"."target_id" IS NULL OR EXISTS (
+    SELECT 1 FROM users u WHERE u.id = "game_history"."target_id"
+      AND (u.is_npc = 1 OR (u.avatar_url IS NOT NULL AND u.avatar_completed = 1))
+  ))
+)`;
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -17,8 +30,12 @@ export async function GET(req: Request) {
   const eventType = searchParams.get("type"); // Optional filter by event type
 
   try {
-    // Build query
-    let query = db
+    // Build query — always filter out events whose actor or target is a hidden human.
+    const whereClause = eventType
+      ? and(eq(gameHistory.eventType, eventType), visibleActorsSql)
+      : visibleActorsSql;
+
+    const history = await db
       .select({
         id: gameHistory.id,
         eventType: gameHistory.eventType,
@@ -29,16 +46,10 @@ export async function GET(req: Request) {
         createdAt: gameHistory.createdAt,
       })
       .from(gameHistory)
+      .where(whereClause)
       .orderBy(desc(gameHistory.createdAt))
       .limit(limit)
       .offset(offset);
-
-    // Apply type filter if provided
-    if (eventType) {
-      query = query.where(eq(gameHistory.eventType, eventType)) as typeof query;
-    }
-
-    const history = await query;
 
     // Enrich with actor usernames where available
     const enrichedHistory = await Promise.all(

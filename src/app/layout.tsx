@@ -27,9 +27,9 @@ export const metadata: Metadata = {
     url: "https://n38worth.com",
     images: [
       {
-        url: "/POSTER_3.PNG",
-        width: 1024,
-        height: 1024,
+        url: "/MayBe-og.jpg",
+        width: 1200,
+        height: 1200,
         alt: "n38worth Game Cover",
       },
     ],
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "n38worth",
     description: "Your network is your n38worth",
-    images: ["/POSTER_3.PNG"],
+    images: ["/MayBe-og.jpg"],
   },
   icons: {
     icon: "/VW_Icon.png",
@@ -53,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="blue">
+    <html lang="en" data-theme="green">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

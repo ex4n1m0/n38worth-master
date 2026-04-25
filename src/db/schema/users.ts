@@ -1,4 +1,5 @@
-import { pgTable, serial, text, integer, bigint, doublePrecision, timestamp, varchar, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, bigint, doublePrecision, timestamp, varchar, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const users = pgTable(
   "users",
@@ -28,15 +29,31 @@ export const users = pgTable(
     photoSourceUrl: text("photo_source_url"),
     lastRankBonusAt: timestamp("last_rank_bonus_at"),
     lastLoginRewardAt: timestamp("last_login_reward_at"),
+    // Multi-account detection fields
+    multiAccountWarnings: integer("multi_account_warnings").default(0).notNull(),
+    multiAccountPenalized: integer("multi_account_penalized").default(0).notNull(),
     // Onboarding fields
     avatarCompleted: integer("avatar_completed").default(0).notNull(),
     onboardingNpcs: jsonb("onboarding_npcs").default([]).notNull(),
     onboardingOwnedCount: integer("onboarding_owned_count").default(0).notNull(),
     onboardingComplete: integer("onboarding_complete").default(0).notNull(),
+    // Onboarding pool - NPCs pre-generated with avatars, waiting to be assigned
+    isOnboardingPool: integer("is_onboarding_pool").default(0).notNull(),
+    // Protection field - prevents deletion of special NPCs (e.g., goddesses)
+    isProtected: integer("is_protected").default(0).notNull(),
+    // Purchase counter - tracks how many times this player has been purchased
+    purchaseCount: integer("purchase_count").default(0).notNull(),
+    // Anchor for hourly "idle user loses 1 NPC per hour after 24h offline" decay
+    lastOwnershipDecayAt: timestamp("last_ownership_decay_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     index("idx_users_username").on(table.username),
+    // Partial unique index — enforces no two NPCs share an Unsplash photo.
+    // NULLs (humans, non-Unsplash NPCs) are excluded so this doesn't conflict.
+    uniqueIndex("idx_users_photo_source_url_unique")
+      .on(table.photoSourceUrl)
+      .where(sql`${table.photoSourceUrl} IS NOT NULL`),
   ]
 );

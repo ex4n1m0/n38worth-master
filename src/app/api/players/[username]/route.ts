@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, sql, desc, and } from "drizzle-orm";
+import { auth } from "@/lib/auth";
+
+// Visibility: NPCs always visible; humans must have avatar uploaded.
+const visibleSql = sql`("users"."is_npc" = 1 OR ("users"."avatar_url" IS NOT NULL AND "users"."avatar_completed" = 1))`;
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ username: string }> }
 ) {
   const { username } = await params;
+  // When ?lite=1 is passed, the owners/ownedPlayers lists are returned without
+  // avatar_url (base64 data URIs are stored inline on users and can total
+  // tens of MB for a single user, breaking both the Neon HTTP 10 MB response
+  // cap and Vercel's ~4.5 MB function payload cap).
+  const lite = new URL(req.url).searchParams.get("lite") === "1";
 
   try {
     // SQL subquery for portfolio value — reusable across queries
@@ -19,6 +28,8 @@ export async function GET(
         id: users.id,
         username: users.username,
         avatarUrl: users.avatarUrl,
+        avatarCompleted: users.avatarCompleted,
+        isNpc: users.isNpc,
         playerValue: users.playerValue,
         valueFloor: users.valueFloor,
         credits: users.credits,
@@ -30,6 +41,7 @@ export async function GET(
         lastOnlineAt: users.lastOnlineAt,
         isVerified: users.isVerified,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        purchaseCount: users.purchaseCount,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`.as("owner_count"),
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`.as("owned_count"),
         portfolioValue: portfolioValueExpr.as("portfolio_value"),
@@ -44,13 +56,27 @@ export async function GET(
       );
     }
 
+    // Hide players without avatars unless the viewer is that player themselves.
+    const session = await auth();
+    const viewerId = session?.user?.id ? Number(session.user.id) : null;
+    const isHidden =
+      player.isNpc === 0 && (!player.avatarUrl || player.avatarCompleted !== 1);
+    if (isHidden && viewerId !== player.id) {
+      return NextResponse.json({ error: "Player not found" }, { status: 404 });
+    }
+
+    // avatarUrl is NULL in lite mode to keep response under Neon HTTP 10 MB cap.
+    const avatarUrlSel = lite
+      ? sql<string | null>`NULL`.as("avatar_url")
+      : users.avatarUrl;
+
     // Get owners (people who own this player) — all computed in a single query
     const owners = await db
       .select({
         ownershipId: ownership.id,
         id: users.id,
         username: users.username,
-        avatarUrl: users.avatarUrl,
+        avatarUrl: avatarUrlSel,
         playerValue: users.playerValue,
         credits: users.credits,
         lastOnlineAt: users.lastOnlineAt,
@@ -61,13 +87,14 @@ export async function GET(
         blockSellBy: ownership.blockSellBy,
         isVerified: users.isVerified,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        purchaseCount: users.purchaseCount,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
         portfolioValue: portfolioValueExpr.as("portfolio_value"),
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownerId, users.id))
-      .where(eq(ownership.ownedId, player.id))
+      .where(and(eq(ownership.ownedId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt));
 
     const ownersWithMeta = owners.map((o) => ({
@@ -84,7 +111,7 @@ export async function GET(
         ownershipId: ownership.id,
         id: users.id,
         username: users.username,
-        avatarUrl: users.avatarUrl,
+        avatarUrl: avatarUrlSel,
         playerValue: users.playerValue,
         credits: users.credits,
         purchasePrice: ownership.purchasePrice,
@@ -93,15 +120,17 @@ export async function GET(
         totalOnlineMinutes: users.totalOnlineMinutes,
         blockSellUntil: ownership.blockSellUntil,
         blockSellBy: ownership.blockSellBy,
+        lastBoostAt: ownership.lastBoostAt,
         isVerified: users.isVerified,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
+        purchaseCount: users.purchaseCount,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
         portfolioValue: portfolioValueExpr.as("portfolio_value"),
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
-      .where(eq(ownership.ownerId, player.id))
+      .where(and(eq(ownership.ownerId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt));
 
     const ownedPlayers = ownedPlayersRaw.map((p) => ({

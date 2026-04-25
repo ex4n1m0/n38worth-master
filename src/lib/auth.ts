@@ -7,49 +7,73 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 
+// Build providers list dynamically so that missing OAuth env vars
+// (e.g. FACEBOOK_CLIENT_ID) do NOT crash the entire auth system with a
+// "Configuration" error. This previously caused the Android APK (which
+// loads https://n38worth.com/) to show the NextAuth server-error page.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const providers: any[] = [];
+
+if (process.env.FACEBOOK_CLIENT_ID && process.env.FACEBOOK_CLIENT_SECRET) {
+  providers.push(
+    Facebook({
+      clientId: process.env.FACEBOOK_CLIENT_ID,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET,
+    })
+  );
+} else {
+  console.warn("[auth] Facebook provider disabled — FACEBOOK_CLIENT_ID/SECRET not set");
+}
+
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    })
+  );
+} else {
+  console.warn("[auth] Google provider disabled — GOOGLE_CLIENT_ID/SECRET not set");
+}
+
+providers.push(
+  Credentials({
+    credentials: {
+      username: { label: "Username", type: "text" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.username || !credentials?.password) return null;
+
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.username, credentials.username as string));
+
+      if (!user) return null;
+
+      // OAuth-only users have no password
+      if (!user.passwordHash) return null;
+
+      const valid = await bcrypt.compare(
+        credentials.password as string,
+        user.passwordHash
+      );
+
+      if (!valid) return null;
+
+      return {
+        id: user.id.toString(),
+        name: user.username,
+      };
+    },
+  })
+);
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
-  providers: [
-    Facebook({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
-    }),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    Credentials({
-      credentials: {
-        username: { label: "Username", type: "text" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
-
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.username, credentials.username as string));
-
-        if (!user) return null;
-
-        // OAuth-only users have no password
-        if (!user.passwordHash) return null;
-
-        const valid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
-
-        if (!valid) return null;
-
-        return {
-          id: user.id.toString(),
-          name: user.username,
-        };
-      },
-    }),
-  ],
+  trustHost: true,
+  providers,
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -88,6 +112,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 isActive: 1,
                 wasReset: 1,
                 avatarUrl,
+                // Clear onboarding state so player restarts cleanly
+                onboardingNpcs: [],
+                onboardingOwnedCount: 0,
+                onboardingComplete: 0,
+                avatarCompleted: 0,
                 updatedAt: now,
               })
               .where(eq(users.id, existingFbUser.id));
@@ -177,6 +206,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 isActive: 1,
                 wasReset: 1,
                 avatarUrl,
+                // Clear onboarding state so player restarts cleanly
+                onboardingNpcs: [],
+                onboardingOwnedCount: 0,
+                onboardingComplete: 0,
+                avatarCompleted: 0,
                 updatedAt: now,
               })
               .where(eq(users.id, existingGoogleUser.id));

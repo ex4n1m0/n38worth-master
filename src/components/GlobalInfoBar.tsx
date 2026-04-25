@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, Coins, Bot, User } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
+import { getDynamicNavFontSize } from "@/lib/utils";
 
 export function GlobalInfoBar() {
   const { t } = useLanguage();
@@ -50,7 +51,7 @@ export function GlobalInfoBar() {
           <Coins className="h-3 w-3 text-yellow-400" />
           <span>
             <span className="hidden sm:inline">{t.totalEconomy} </span>
-            <span className="font-semibold text-white">
+            <span className={`font-semibold text-white ${getDynamicNavFontSize(stats.totalEconomy)}`}>
               {stats.totalEconomy.toLocaleString()}¢
             </span>
           </span>

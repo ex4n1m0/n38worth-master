@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, inArray, and, isNotNull } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +16,10 @@ export async function GET() {
         createdAt: users.createdAt,
         lastOnlineAt: users.lastOnlineAt,
         credits: users.credits,
+        purchaseCount: users.purchaseCount,
       })
       .from(users)
-      .where(eq(users.isNpc, 0));
+      .where(and(eq(users.isNpc, 0), isNotNull(users.avatarUrl), eq(users.avatarCompleted, 1)));
 
     const totalPlayers = allPlayers.length;
 
@@ -39,11 +40,11 @@ export async function GET() {
       .from(ownership)
       .groupBy(ownership.ownerId);
 
-    // ── 3. Owned player value sums for portfolio calc ──
+    // ── 3. Owned player value sums for portfolio calc (includes sub-ownership multiplier) ──
     const ownedValueSums = await db
       .select({
         ownerId: ownership.ownerId,
-        totalValue: sql<number>`COALESCE(SUM(${users.playerValue}), 0)`.as("total_value"),
+        totalValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("total_value"),
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
@@ -85,12 +86,40 @@ export async function GET() {
       .sort((a, b) => b.playerValue - a.playerValue)
       .slice(0, 10);
 
+    const topHired = [...enriched]
+      .sort((a, b) => (b.purchaseCount ?? 0) - (a.purchaseCount ?? 0) || b.playerValue - a.playerValue)
+      .slice(0, 10);
+
+    // ── 6. Fetch avatars ONLY for the players that appear in the top lists ──
+    // (We avoid selecting avatarUrl in the bulk query above because base64
+    // avatars on all 100+ players can OOM Neon — this is safe for ≤40 rows.)
+    const topIds = Array.from(
+      new Set(
+        [...topOwners, ...topEmpire, ...topPortfolio, ...topCredits, ...topValue, ...topHired].map(
+          (p) => p.id
+        )
+      )
+    );
+
+    let avatarMap = new Map<number, string | null>();
+    if (topIds.length > 0) {
+      const avatarRows = await db
+        .select({ id: users.id, avatarUrl: users.avatarUrl })
+        .from(users)
+        .where(inArray(users.id, topIds));
+      avatarMap = new Map(avatarRows.map((r) => [r.id, r.avatarUrl]));
+    }
+
+    const attachAvatar = <T extends { id: number }>(list: T[]) =>
+      list.map((p) => ({ ...p, avatarUrl: avatarMap.get(p.id) ?? null }));
+
     return NextResponse.json({
-      topOwners,
-      topEmpire,
-      topPortfolio,
-      topCredits,
-      topValue,
+      topOwners: attachAvatar(topOwners),
+      topEmpire: attachAvatar(topEmpire),
+      topPortfolio: attachAvatar(topPortfolio),
+      topCredits: attachAvatar(topCredits),
+      topValue: attachAvatar(topValue),
+      topHired: attachAvatar(topHired),
       totalPlayers,
     });
   } catch (error) {

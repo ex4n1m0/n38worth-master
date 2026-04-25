@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, transactions, ownership } from "@/db/schema";
+import { users, transactions, ownership, rewardHistory } from "@/db/schema";
 import { sql, desc, eq } from "drizzle-orm";
 import {
   OWNED_RANKS,
@@ -10,6 +10,9 @@ import {
 } from "@/lib/ranks";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
+
+// Allow up to 60 seconds for this function (Pro plan)
+export const maxDuration = 60;
 
 // Track last successful rank bonus distribution time
 let lastRankBonusTime: Date | null = null;
@@ -27,9 +30,8 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 60 minutes (1 hour)
-    const intervalMinutes = 60;
-    const intervalMs = intervalMinutes * 60 * 1000;
+    // Fixed interval: 6 minutes
+    const intervalMinutes = 6;
 
     // Check if enough time has passed since last rank bonus
     if (lastRankBonusTime) {
@@ -48,43 +50,45 @@ export async function GET(req: Request) {
 
     const allPayouts: Record<string, { username: string; bonus: number; rank: string; position: number }[]> = {};
     const baseBonusAmounts = [3, 2, 1]; // Base: $3 for 1st, $2 for 2nd, $1 for 3rd
+
+    // batchId groups all rank bonus entries from this cycle so the frontend can merge them
+    const batchId = now.toISOString();
+
+    // Collect Pusher notifications to fire in parallel at the end
+    const pusherNotifications: Array<{ channel: string; event: string; data: object }> = [];
     
-    // Helper function to calculate portfolio reward for a player
+    // Helper function to calculate portfolio reward for a player (3 queries in parallel)
     const calculatePortfolioReward = async (playerId: number): Promise<number> => {
-      // Calculate portfolio value: player_value + sum of owned players' values
-      // Count ALL owned players, multiply each by (1 + number of players they own)
-      const [portfolioResult] = await db
-        .select({
+      const [portfolioResult, ownerCountResult, playerResult] = await Promise.all([
+        db.select({
           ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
         })
         .from(ownership)
         .innerJoin(users, eq(ownership.ownedId, users.id))
-        .where(eq(ownership.ownerId, playerId));
+        .where(eq(ownership.ownerId, playerId)),
 
-      // Get ownerCount (how many players own this player)
-      const [ownerCountResult] = await db
-        .select({
+        db.select({
           ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
         })
         .from(ownership)
-        .where(eq(ownership.ownedId, playerId));
+        .where(eq(ownership.ownedId, playerId)),
 
-      const [playerResult] = await db
-        .select({
+        db.select({
           playerValue: users.playerValue,
         })
         .from(users)
-        .where(eq(users.id, playerId));
+        .where(eq(users.id, playerId)),
+      ]);
 
-      const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
-      const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
-      const playerValue = Number(playerResult?.playerValue ?? 0);
+      const ownedValue = Number(portfolioResult[0]?.ownedValue ?? 0);
+      const ownerCount = Number(ownerCountResult[0]?.ownerCount ?? 0);
+      const playerValue = Number(playerResult[0]?.playerValue ?? 0);
 
       // Use BigInt-safe portfolio calculation to avoid overflow
       const portfolioValue = safePortfolioValue(playerValue, ownedValue, ownerCount);
 
-      // Calculate 1% reward using BigInt-safe arithmetic
-      return safeReward(portfolioValue, 0.01);
+      // Calculate 0.2% reward using BigInt-safe arithmetic
+      return safeReward(portfolioValue, 0.002);
     };
 
     // Helper function to get rank tier index
@@ -111,16 +115,16 @@ export async function GET(req: Request) {
       .limit(3);
 
     allPayouts.empire = [];
+    const empireHistoryEntries: { userId: number; type: string; amount: number; details: string }[] = [];
     for (let i = 0; i < topEmpire.length; i++) {
       const player = topEmpire[i];
       const ownedCount = Number(player.ownedCount);
       const rankTier = getRankTierIndex(ownedCount, OWNED_RANKS);
       const baseBonus = baseBonusAmounts[i];
       
-      // Calculate portfolio reward and apply 10% multiplier
       const portfolioReward = await calculatePortfolioReward(player.id);
-      const multiplier = 0.10 * portfolioReward;
-      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1)); // At least 1x multiplier
+      const multiplier = 0.02 * portfolioReward;
+      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1));
 
       await db
         .update(users)
@@ -131,16 +135,18 @@ export async function GET(req: Request) {
         })
         .where(eq(users.id, player.id));
 
-      try {
-        await pusher.trigger(`player-${player.id}`, "rank-bonus", {
-          amount: bonus,
-          category: "empire",
-          rank: OWNED_RANKS[rankTier].title,
-          position: i + 1,
-        });
-      } catch (pusherError) {
-        console.error("Pusher error for rank bonus:", pusherError);
-      }
+      empireHistoryEntries.push({
+        userId: player.id,
+        type: "rank_bonus",
+        amount: bonus,
+        details: JSON.stringify({ batchId, category: "empire", rank: OWNED_RANKS[rankTier].title, position: i + 1 }),
+      });
+
+      pusherNotifications.push({
+        channel: `player-${player.id}`,
+        event: "rank-bonus",
+        data: { amount: bonus, category: "empire", rank: OWNED_RANKS[rankTier].title, position: i + 1 },
+      });
 
       allPayouts.empire.push({
         username: player.username,
@@ -148,6 +154,9 @@ export async function GET(req: Request) {
         rank: OWNED_RANKS[rankTier].title,
         position: i + 1
       });
+    }
+    if (empireHistoryEntries.length > 0) {
+      try { await db.insert(rewardHistory).values(empireHistoryEntries); } catch (e) { console.error("Empire history insert error:", e); }
     }
 
     // ─── 2. CREDITS BONUS (top 3 by credits) ───
@@ -163,16 +172,16 @@ export async function GET(req: Request) {
       .limit(3);
 
     allPayouts.credits = [];
+    const creditsHistoryEntries: { userId: number; type: string; amount: number; details: string }[] = [];
     for (let i = 0; i < topCredits.length; i++) {
       const player = topCredits[i];
       const credits = Number(player.credits);
       const rankTier = getRankTierIndex(credits, CREDITS_RANKS);
       const baseBonus = baseBonusAmounts[i];
       
-      // Calculate portfolio reward and apply 10% multiplier
       const portfolioReward = await calculatePortfolioReward(player.id);
-      const multiplier = 0.10 * portfolioReward;
-      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1)); // At least 1x multiplier
+      const multiplier = 0.02 * portfolioReward;
+      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1));
 
       await db
         .update(users)
@@ -183,16 +192,18 @@ export async function GET(req: Request) {
         })
         .where(eq(users.id, player.id));
 
-      try {
-        await pusher.trigger(`player-${player.id}`, "rank-bonus", {
-          amount: bonus,
-          category: "credits",
-          rank: CREDITS_RANKS[rankTier].title,
-          position: i + 1,
-        });
-      } catch (pusherError) {
-        console.error("Pusher error for rank bonus:", pusherError);
-      }
+      creditsHistoryEntries.push({
+        userId: player.id,
+        type: "rank_bonus",
+        amount: bonus,
+        details: JSON.stringify({ batchId, category: "credits", rank: CREDITS_RANKS[rankTier].title, position: i + 1 }),
+      });
+
+      pusherNotifications.push({
+        channel: `player-${player.id}`,
+        event: "rank-bonus",
+        data: { amount: bonus, category: "credits", rank: CREDITS_RANKS[rankTier].title, position: i + 1 },
+      });
 
       allPayouts.credits.push({
         username: player.username,
@@ -201,8 +212,11 @@ export async function GET(req: Request) {
         position: i + 1
       });
     }
+    if (creditsHistoryEntries.length > 0) {
+      try { await db.insert(rewardHistory).values(creditsHistoryEntries); } catch (e) { console.error("Credits history insert error:", e); }
+    }
 
-    // ─── 4. VALUE BONUS (top 3 by player value) ───
+    // ─── 3. VALUE BONUS (top 3 by player value) ───
     const topValue = await db
       .select({
         id: users.id,
@@ -215,16 +229,16 @@ export async function GET(req: Request) {
       .limit(3);
 
     allPayouts.value = [];
+    const valueHistoryEntries: { userId: number; type: string; amount: number; details: string }[] = [];
     for (let i = 0; i < topValue.length; i++) {
       const player = topValue[i];
       const playerValue = Number(player.playerValue);
       const rankTier = getRankTierIndex(playerValue, VALUE_RANKS);
       const baseBonus = baseBonusAmounts[i];
       
-      // Calculate portfolio reward and apply 10% multiplier
       const portfolioReward = await calculatePortfolioReward(player.id);
-      const multiplier = 0.10 * portfolioReward;
-      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1)); // At least 1x multiplier
+      const multiplier = 0.02 * portfolioReward;
+      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1));
       
       await db
         .update(users)
@@ -235,16 +249,18 @@ export async function GET(req: Request) {
         })
         .where(eq(users.id, player.id));
 
-      try {
-        await pusher.trigger(`player-${player.id}`, "rank-bonus", {
-          amount: bonus,
-          category: "value",
-          rank: VALUE_RANKS[rankTier].title,
-          position: i + 1,
-        });
-      } catch (pusherError) {
-        console.error("Pusher error for rank bonus:", pusherError);
-      }
+      valueHistoryEntries.push({
+        userId: player.id,
+        type: "rank_bonus",
+        amount: bonus,
+        details: JSON.stringify({ batchId, category: "value", rank: VALUE_RANKS[rankTier].title, position: i + 1 }),
+      });
+
+      pusherNotifications.push({
+        channel: `player-${player.id}`,
+        event: "rank-bonus",
+        data: { amount: bonus, category: "value", rank: VALUE_RANKS[rankTier].title, position: i + 1 },
+      });
       
       allPayouts.value.push({ 
         username: player.username, 
@@ -253,10 +269,12 @@ export async function GET(req: Request) {
         position: i + 1 
       });
     }
+    if (valueHistoryEntries.length > 0) {
+      try { await db.insert(rewardHistory).values(valueHistoryEntries); } catch (e) { console.error("Value history insert error:", e); }
+    }
 
-    // ─── 5. PORTFOLIO BONUS (top 3 by portfolio value) ───
-    // Only count owned players who themselves own other players
-    const portfolioSql = sql<number>`LEAST(("users"."player_value"::numeric + COALESCE((SELECT SUM(u2.player_value::numeric) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1), 9007199254740991)`;
+    // ─── 4. PORTFOLIO BONUS (top 3 by portfolio value) ───
+    const portfolioSql = sql<number>`LEAST(("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1), 9007199254740991)`;
 
     const topPortfolio = await db
       .select({
@@ -270,16 +288,16 @@ export async function GET(req: Request) {
       .limit(3);
 
     allPayouts.portfolio = [];
+    const portfolioHistoryEntries: { userId: number; type: string; amount: number; details: string }[] = [];
     for (let i = 0; i < topPortfolio.length; i++) {
       const player = topPortfolio[i];
       const portfolioValue = Number(player.portfolioValue);
       const rankTier = getRankTierIndex(portfolioValue, PORTFOLIO_RANKS);
       const baseBonus = baseBonusAmounts[i];
       
-      // Calculate portfolio reward and apply 10% multiplier
       const portfolioReward = await calculatePortfolioReward(player.id);
-      const multiplier = 0.10 * portfolioReward;
-      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1)); // At least 1x multiplier
+      const multiplier = 0.02 * portfolioReward;
+      const bonus = Math.floor(baseBonus * Math.max(multiplier, 1));
       
       await db
         .update(users)
@@ -290,16 +308,18 @@ export async function GET(req: Request) {
         })
         .where(eq(users.id, player.id));
 
-      try {
-        await pusher.trigger(`player-${player.id}`, "rank-bonus", {
-          amount: bonus,
-          category: "portfolio",
-          rank: PORTFOLIO_RANKS[rankTier].title,
-          position: i + 1,
-        });
-      } catch (pusherError) {
-        console.error("Pusher error for rank bonus:", pusherError);
-      }
+      portfolioHistoryEntries.push({
+        userId: player.id,
+        type: "rank_bonus",
+        amount: bonus,
+        details: JSON.stringify({ batchId, category: "portfolio", rank: PORTFOLIO_RANKS[rankTier].title, position: i + 1 }),
+      });
+
+      pusherNotifications.push({
+        channel: `player-${player.id}`,
+        event: "rank-bonus",
+        data: { amount: bonus, category: "portfolio", rank: PORTFOLIO_RANKS[rankTier].title, position: i + 1 },
+      });
       
       allPayouts.portfolio.push({ 
         username: player.username, 
@@ -307,6 +327,20 @@ export async function GET(req: Request) {
         rank: PORTFOLIO_RANKS[rankTier].title,
         position: i + 1 
       });
+    }
+    if (portfolioHistoryEntries.length > 0) {
+      try { await db.insert(rewardHistory).values(portfolioHistoryEntries); } catch (e) { console.error("Portfolio history insert error:", e); }
+    }
+
+    // ─── Fire all Pusher notifications in parallel ───
+    try {
+      await Promise.all(
+        pusherNotifications.map(({ channel, event, data }) =>
+          pusher.trigger(channel, event, data)
+        )
+      );
+    } catch (pusherError) {
+      console.error("Pusher error for rank bonuses:", pusherError);
     }
 
     // Update last successful bonus time
