@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
-import { createOnboardingNpcsForUser } from "@/lib/onboarding-npc";
+import { createOnboardingNpcWithAvatar } from "@/lib/onboarding-npc";
 
 const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
 
@@ -101,57 +101,43 @@ export async function POST() {
       })
       .where(eq(users.id, userId));
 
-    // Assign onboarding NPCs from pre-generated pool (avoids Unsplash rate limits)
-    const [user] = await db
-      .select({ onboardingNpcs: users.onboardingNpcs })
-      .from(users)
-      .where(eq(users.id, userId));
-
-    const existingNpcs = (user?.onboardingNpcs as number[]) || [];
-    if (existingNpcs.length === 0) {
-      // Grab 3 NPCs from the pre-generated pool
-      const poolNpcs = await db
-        .select({ id: users.id })
+    // Create 3 fresh onboarding NPCs with unique avatars for this user.
+    // This is a best-effort side task — failures must NOT fail the avatar request,
+    // since the avatar itself has already been persisted above.
+    try {
+      const [user] = await db
+        .select({ onboardingNpcs: users.onboardingNpcs })
         .from(users)
-        .where(eq(users.isOnboardingPool, 1))
-        .limit(3);
+        .where(eq(users.id, userId));
 
-      if (poolNpcs.length === 3) {
-        // Claim these NPCs from the pool
-        const npcIds = poolNpcs.map((npc) => npc.id);
-        await db
-          .update(users)
-          .set({ isOnboardingPool: 0 })
-          .where(
-            sql`${users.id} IN (${npcIds.join(",")})`
-          );
+      const existingNpcs = (user?.onboardingNpcs as number[]) || [];
+      if (existingNpcs.length === 0) {
+        // Create 3 NPCs in parallel for faster creation
+        const npcPromises = [
+          createOnboardingNpcWithAvatar(false),
+          createOnboardingNpcWithAvatar(false),
+          createOnboardingNpcWithAvatar(false),
+        ];
+        const npcIds = (await Promise.all(npcPromises)).filter((id): id is number => id !== null);
 
-        // Store the NPC IDs in the user's onboarding state
-        await db
-          .update(users)
-          .set({ onboardingNpcs: npcIds })
-          .where(eq(users.id, userId));
-
-        console.log(`Assigned ${npcIds.length} pool NPCs to user ${userId}`);
-      } else {
-        console.warn(`Pool has ${poolNpcs.length}/3 NPCs needed. Creating ${3 - poolNpcs.length} more on-the-fly with avatars.`);
-        // Claim whatever pool NPCs are available first
-        const claimedIds: number[] = poolNpcs.map((npc) => npc.id);
-        if (claimedIds.length > 0) {
+        if (npcIds.length > 0) {
+          // Store the NPC IDs in the user's onboarding state
           await db
             .update(users)
-            .set({ isOnboardingPool: 0 })
-            .where(sql`${users.id} IN (${claimedIds.join(",")})`);
+            .set({
+              onboardingNpcs: npcIds,
+              onboardingStarted: 1,
+            })
+            .where(eq(users.id, userId));
+
+          console.log(`Created ${npcIds.length} fresh NPCs for user ${userId}`);
         }
-        // Create the remainder on-the-fly WITH avatars via Unsplash
-        const needed = 3 - claimedIds.length;
-        const freshIds = await createOnboardingNpcsForUser(needed);
-        const npcIds = [...claimedIds, ...freshIds];
-        await db
-          .update(users)
-          .set({ onboardingNpcs: npcIds })
-          .where(eq(users.id, userId));
+
+        // Note: If fewer than 3 NPCs created (Unsplash failure), user can retry by generating a new random avatar
       }
+    } catch (npcErr) {
+      // Non-fatal: avatar has already been saved. Log and continue.
+      console.error("Onboarding NPC creation failed (non-fatal):", npcErr);
     }
 
     return NextResponse.json({

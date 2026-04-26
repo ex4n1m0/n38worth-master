@@ -117,6 +117,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 onboardingOwnedCount: 0,
                 onboardingComplete: 0,
                 avatarCompleted: 0,
+                onboardingStarted: 0,
                 updatedAt: now,
               })
               .where(eq(users.id, existingFbUser.id));
@@ -211,6 +212,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                 onboardingOwnedCount: 0,
                 onboardingComplete: 0,
                 avatarCompleted: 0,
+                onboardingStarted: 0,
                 updatedAt: now,
               })
               .where(eq(users.id, existingGoogleUser.id));

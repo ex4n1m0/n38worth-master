@@ -37,6 +37,7 @@ export const users = pgTable(
     onboardingNpcs: jsonb("onboarding_npcs").default([]).notNull(),
     onboardingOwnedCount: integer("onboarding_owned_count").default(0).notNull(),
     onboardingComplete: integer("onboarding_complete").default(0).notNull(),
+    onboardingStarted: integer("onboarding_started").default(0).notNull(),
     // Onboarding pool - NPCs pre-generated with avatars, waiting to be assigned
     isOnboardingPool: integer("is_onboarding_pool").default(0).notNull(),
     // Protection field - prevents deletion of special NPCs (e.g., goddesses)

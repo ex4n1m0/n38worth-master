@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { eq, sql, lt, and, desc, notInArray } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { compressAvatar } from "@/lib/compress-avatar";
-import { createOnboardingNpcsForUser } from "@/lib/onboarding-npc";
+import { createOnboardingNpcWithAvatar } from "@/lib/onboarding-npc";
 
 
 export async function POST(request: Request) {
@@ -99,68 +99,36 @@ export async function POST(request: Request) {
       // Column may not exist yet - continue
     }
 
-    // Assign onboarding NPCs from pre-generated pool (avoids Unsplash rate limits)
+    // Create 3 fresh onboarding NPCs with unique avatars for this user
     let assignedNpcIds: number[] = [];
     if (isFirstUpload) {
       try {
-        const [onboardingUser] = await db
-          .select({ onboardingNpcs: users.onboardingNpcs })
-          .from(users)
-          .where(eq(users.id, userId));
+        // Create 3 NPCs in parallel for faster creation
+        const npcPromises = [
+          createOnboardingNpcWithAvatar(false),
+          createOnboardingNpcWithAvatar(false),
+          createOnboardingNpcWithAvatar(false),
+        ];
+        const npcIds = (await Promise.all(npcPromises)).filter((id): id is number => id !== null);
+        assignedNpcIds = npcIds;
 
-        const existingNpcs = (onboardingUser?.onboardingNpcs as number[]) || [];
-        assignedNpcIds = existingNpcs;
+        if (npcIds.length > 0) {
+          // Store the NPC IDs in the user's onboarding state
+          await db
+            .update(users)
+            .set({
+              onboardingNpcs: assignedNpcIds,
+              onboardingStarted: 1,
+            })
+            .where(eq(users.id, userId));
 
-        if (existingNpcs.length === 0) {
-          // Grab 3 NPCs from the pre-generated pool
-          const poolNpcs = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(eq(users.isOnboardingPool, 1))
-            .limit(3);
-
-          if (poolNpcs.length === 3) {
-            // Claim these NPCs from the pool
-            const npcIds = poolNpcs.map((npc) => npc.id);
-            await db
-              .update(users)
-              .set({ isOnboardingPool: 0 })
-              .where(
-                sql`${users.id} IN (${npcIds.join(",")})`
-              );
-
-            assignedNpcIds = npcIds;
-
-            // Store the NPC IDs in the user's onboarding state
-            await db
-              .update(users)
-              .set({ onboardingNpcs: assignedNpcIds })
-              .where(eq(users.id, userId));
-
-            console.log(`Assigned ${npcIds.length} pool NPCs to user ${userId}`);
-          } else {
-            console.warn(`Pool has ${poolNpcs.length}/3 NPCs needed. Creating ${3 - poolNpcs.length} more on-the-fly with avatars.`);
-            // Claim whatever pool NPCs are available first
-            const claimedIds: number[] = poolNpcs.map((npc) => npc.id);
-            if (claimedIds.length > 0) {
-              await db
-                .update(users)
-                .set({ isOnboardingPool: 0 })
-                .where(sql`${users.id} IN (${claimedIds.join(",")})`);
-            }
-            // Create the remainder on-the-fly WITH avatars via Unsplash
-            const needed = 3 - claimedIds.length;
-            const freshIds = await createOnboardingNpcsForUser(needed);
-            assignedNpcIds = [...claimedIds, ...freshIds];
-            await db
-              .update(users)
-              .set({ onboardingNpcs: assignedNpcIds })
-              .where(eq(users.id, userId));
-          }
+          console.log(`Created ${npcIds.length} fresh NPCs for user ${userId}`);
         }
+
+        // Note: If fewer than 3 NPCs created (Unsplash failure), user can retry by generating a new random avatar
       } catch (onboardingError) {
-        // Onboarding columns may not exist yet - continue without them
-        console.log("Onboarding assignment skipped (columns may not exist):", onboardingError);
+        // NPC creation failed but avatar upload succeeded - log and continue
+        console.error("Failed to create onboarding NPCs (non-fatal):", onboardingError);
       }
     }
 

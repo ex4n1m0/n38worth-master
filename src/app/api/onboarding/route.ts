@@ -27,6 +27,7 @@ export async function GET() {
           onboardingNpcs: users.onboardingNpcs,
           onboardingOwnedCount: users.onboardingOwnedCount,
           onboardingComplete: users.onboardingComplete,
+          onboardingStarted: users.onboardingStarted,
           avatarUrl: users.avatarUrl,
           playerValue: users.playerValue,
           totalOnlineMinutes: users.totalOnlineMinutes,
@@ -53,13 +54,14 @@ export async function GET() {
         // For existing/current players: if they have no onboarding NPCs assigned,
         // they were created before the onboarding system existed.
         // Automatically mark onboarding as complete so they don't see the onboarding flow.
-        // New players always get NPCs assigned during their first avatar upload.
-        // We distinguish existing players from brand-new ones by checking for any activity:
-        // having a custom uploaded avatar (data: URL), a player value > 1, or any online time.
-        // Note: Unsplash avatar URLs don't count since all new players get one by default.
+        // New players have onboardingStarted=1 set during their first avatar upload.
+        // We distinguish existing players from brand-new ones using onboardingStarted flag.
+        // If onboardingStarted=0 and they have no NPCs, they're likely existing players.
+        // Additional confirmation: having custom avatar, player value > 1, or online time.
         const hasCustomAvatar = !!user.avatarUrl && user.avatarUrl.startsWith("data:");
-        const isExistingPlayer = hasCustomAvatar || user.playerValue > 1 || user.totalOnlineMinutes > 0;
-        if (!onboardingComplete && (!starterNpcIds || starterNpcIds.length === 0) && isExistingPlayer) {
+        const hasGameActivity = user.playerValue > 1 || user.totalOnlineMinutes > 0;
+        const isLikelyExistingPlayer = user.onboardingStarted === 0 && (hasCustomAvatar || hasGameActivity);
+        if (!onboardingComplete && (!starterNpcIds || starterNpcIds.length === 0) && isLikelyExistingPlayer) {
           onboardingComplete = true;
           avatarCompleted = true;
           await db
