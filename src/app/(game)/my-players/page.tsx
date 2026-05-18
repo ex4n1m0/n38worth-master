@@ -10,23 +10,17 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card";
 import { OwnershipList } from "@/components/OwnershipList";
-import { formatNumber, getDynamicMosaicFontSize } from "@/lib/utils";
-import { DiscardAllButton } from "@/components/DiscardAllButton";
-import { InlineDMChat } from "@/components/InlineDMChat";
+import { formatNumber, navbarBtnStyle } from "@/lib/utils";
 import {
   Users,
   Loader2,
   Search,
   User,
   CreditCard,
-  LayoutGrid,
-  List,
   Bell,
 } from "lucide-react";
-import Link from "next/link";
 import { useSound } from "@/hooks/useSound";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 
@@ -46,10 +40,9 @@ function MyPlayersContent() {
   const [sort, setSort] = useState("value");
   const [search, setSearch] = useState("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
-  const [viewMode, setViewMode] = useState<"mosaic" | "details">("details");
   const { play } = useSound();
   const { unreadPlayers, markAsRead } = useChat();
-  const perPage = viewMode === "mosaic" ? 18 : 6;
+  const perPage = 18;
 
 
   // Count total unread messages
@@ -85,8 +78,10 @@ function MyPlayersContent() {
         lastOnlineAt?: string | null;
         blockSellUntil?: string | null;
         blockSellBy?: string | null;
+        avatarRevealUntil?: string | null;
         estimatedDeletionAt?: string | null;
         purchaseCount?: number;
+        bio?: string | null;
       }) => ({ ...p })
     ) ?? [];
 
@@ -166,17 +161,11 @@ function MyPlayersContent() {
               </span>
             )}
           </CardTitle>
-          <CardAction>
-            <DiscardAllButton
-              ownedCount={items.length}
-              totalValue={items.reduce((sum: number, p: any) => sum + (p.playerValue ?? 0), 0)}
-            />
-          </CardAction>
         </CardHeader>
         <CardContent>
           {/* Search + Sort + Filters */}
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="relative flex-1 min-w-0">
+            <div className="relative w-full sm:max-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search players..."
@@ -185,36 +174,14 @@ function MyPlayersContent() {
                   setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500 h-9"
+                className="pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 h-9"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
-              {/* View mode toggle */}
-              {viewMode === "mosaic" ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { play("buttons"); setViewMode("details"); }}
-                  className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
-                >
-                  <List className="h-4 w-4 mr-1" />
-                  Details
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => { play("buttons"); setViewMode("mosaic"); }}
-                  className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
-                >
-                  <LayoutGrid className="h-4 w-4 mr-1" />
-                  Mosaic
-                </Button>
-              )}
               {SORT_OPTIONS.map((s) => (
                 <Button
                   key={s.key}
-                  variant={sort === s.key ? "default" : "outline"}
+                  variant="ghost"
                   size="sm"
                   onClick={() => {
                     play("buttons");
@@ -223,15 +190,16 @@ function MyPlayersContent() {
                   }}
                   className={
                     sort === s.key
-                      ? "bg-t1-600 hover:bg-t1-500 text-white"
-                      : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                      ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                      : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
                   }
+                  style={navbarBtnStyle}
                 >
                   {s.label}
                 </Button>
               ))}
               <Button
-                variant={playerType === "human" ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   play("buttons");
@@ -240,15 +208,16 @@ function MyPlayersContent() {
                 }}
                 className={
                   playerType === "human"
-                    ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                    : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                    : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
                 }
+                style={navbarBtnStyle}
               >
                 <User className="h-3.5 w-3.5 mr-1" />
                 Human
               </Button>
               <Button
-                variant={playerType === "card" ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
                 onClick={() => {
                   play("buttons");
@@ -257,9 +226,10 @@ function MyPlayersContent() {
                 }}
                 className={
                   playerType === "card"
-                    ? "bg-cyan-600 hover:bg-cyan-500 text-white"
-                    : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                    : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
                 }
+                style={navbarBtnStyle}
               >
                 <CreditCard className="h-3.5 w-3.5 mr-1" />
                 Card
@@ -271,83 +241,24 @@ function MyPlayersContent() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-t1-400" />
             </div>
+          ) : paginatedItems.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No players owned yet
+            </div>
           ) : (
             <>
-              {viewMode === "mosaic" ? (
-                /* ── Mosaic View ── */
-                paginatedItems.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    No players owned yet
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                    {paginatedItems.map(
-                      (p: {
-                        id: number;
-                        ownershipId: number;
-                        username: string;
-                        avatarUrl: string | null;
-                        playerValue: number;
-                        playerType?: string;
-                      }) => (
-                        <Link
-                          key={p.ownershipId}
-                          href={`/players/${p.username}`}
-                          onClick={() => {
-                            if (unreadPlayers.has(p.id)) {
-                              markAsRead(p.id);
-                            }
-                          }}
-                          className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
-                        >
-                          {p.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={p.avatarUrl}
-                              alt={p.username}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                              <User className="h-1/3 w-1/3 text-gray-600" />
-                            </div>
-                          )}
-                          {/* Overlay with name */}
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6">
-                            <p className="text-white text-xs sm:text-sm font-medium truncate">
-                              {p.username}
-                            </p>
-                            <p className={`text-gray-300 ${getDynamicMosaicFontSize(p.playerValue)}`}>
-                              ₡{formatNumber(p.playerValue)}
-                            </p>
-                          </div>
-                          {/* Unread notification badge */}
-                          {unreadPlayers.has(p.id) && (
-                            <div className="absolute top-1 left-1 h-3 w-3 rounded-full bg-yellow-400 animate-pulse border-2 border-gray-900" />
-                          )}
-                          {/* Player type badge */}
-                          {p.playerType === "card" && (
-                            <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
-                              NPC
-                            </div>
-                          )}
-                        </Link>
-                      )
-                    )}
-                  </div>
-                )
-              ) : (
-                /* ── Details View with Chat inside each card ── */
-                <OwnershipList
-                  items={paginatedItems}
-                  type="owned"
-                  showDiscard
-                  showSendCredits
-                  showChat
-                  showBoost
-                  hideHire
-                />
-              )}
+              {/* ── Details View with Chat inside each card ── */}
+              <OwnershipList
+                items={paginatedItems}
+                type="owned"
+                showSendCredits
+                showChat
+                showBoost
+                showBoostValue
+                showRevealAvatar
+                showLetGo
+                hideHire
+              />
 
               {/* Pagination */}
               {totalPages > 1 && (

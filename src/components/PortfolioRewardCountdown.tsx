@@ -20,7 +20,7 @@ function getSecondsToNextPortfolioReward(intervalMinutes: number) {
 
 export function PortfolioRewardCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 10; // Fixed 10-minute interval
+  const intervalMinutes = 2; // Fixed 2-minute interval
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
@@ -154,7 +154,11 @@ export function PortfolioRewardCountdown() {
           {ownedPlayers.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-gray-500 font-medium">Owned Players:</p>
-              {ownedPlayers.map((player: { username?: string; playerValue: number; ownedCount?: number }, index: number) => {
+              {[...ownedPlayers].sort((a: { playerValue: number; ownedCount?: number }, b: { playerValue: number; ownedCount?: number }) => {
+                const ca = a.playerValue * (1 + (a.ownedCount ?? 0));
+                const cb = b.playerValue * (1 + (b.ownedCount ?? 0));
+                return cb - ca;
+              }).map((player: { username?: string; playerValue: number; ownedCount?: number }, index: number) => {
                 const multiplier = 1 + (player.ownedCount ?? 0);
                 const contribution = player.playerValue * multiplier;
                 return (

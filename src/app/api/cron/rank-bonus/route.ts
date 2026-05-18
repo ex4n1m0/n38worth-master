@@ -30,8 +30,8 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 6 minutes
-    const intervalMinutes = 6;
+    // Fixed interval: 1 minute
+    const intervalMinutes = 1;
 
     // Check if enough time has passed since last rank bonus
     if (lastRankBonusTime) {

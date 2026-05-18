@@ -1,11 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, Crown, Users, Wallet, TrendingUp, DollarSign, Swords, Coins, Briefcase, ChevronDown, ChevronUp, Trophy, Star } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrc } from "@/lib/avatar-utils";
 import {
   OWNED_RANKS,
   CREDITS_RANKS,
@@ -17,6 +20,7 @@ import {
   getOwnedRank,
   type RankTier,
 } from "@/lib/ranks";
+import { navbarBtnStyle } from "@/lib/utils";
 
 interface RankedPlayer {
   id: number;
@@ -273,6 +277,9 @@ function RankLadderSection({
 }
 
 export default function RanksPage() {
+  const { data: session } = useSession();
+  const { ownedIds } = useOwnedPlayerIds();
+  const viewerUsername = session?.user?.name;
   const { data, isLoading } = useQuery<RanksData>({
     queryKey: ["ranks"],
     queryFn: async () => {
@@ -319,22 +326,24 @@ export default function RanksPage() {
       <div className="flex gap-2 p-1 rounded-xl bg-gray-900/60 border border-gray-800">
         <button
           onClick={() => setActiveTab("leaderboard")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:brightness-125 ${
             activeTab === "leaderboard"
-              ? "bg-gradient-to-r from-t1-600/30 to-t2-600/30 text-t1-400 border border-t1-500/30 shadow-sm"
-              : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+              ? "text-cyan-400 border-0 drop-shadow-lg brightness-125 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+              : "text-gray-400 brightness-50 border-0"
           }`}
+          style={navbarBtnStyle}
         >
           <Trophy className="h-4 w-4" />
           Leaderboard
         </button>
         <button
           onClick={() => setActiveTab("titles")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:brightness-125 ${
             activeTab === "titles"
-              ? "bg-gradient-to-r from-t1-600/30 to-t2-600/30 text-t1-400 border border-t1-500/30 shadow-sm"
-              : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+              ? "text-cyan-400 border-0 drop-shadow-lg brightness-125 drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+              : "text-gray-400 brightness-50 border-0"
           }`}
+          style={navbarBtnStyle}
         >
           <Star className="h-4 w-4" />
           All Rank Titles
@@ -401,7 +410,7 @@ export default function RanksPage() {
                               : "h-12 w-12 sm:h-14 sm:w-14 ring-1 ring-amber-400/30"
                         }
                       >
-                        <AvatarImage src={player.avatarUrl || undefined} />
+                        <AvatarImage src={getAvatarSrc({ avatarUrl: player.avatarUrl, playerId: player.id, playerUsername: player.username, viewerUsername, ownedIds })} />
                         <AvatarFallback className="text-sm bg-gray-800">
                           {player.username.slice(0, 2).toUpperCase()}
                         </AvatarFallback>
@@ -482,7 +491,7 @@ export default function RanksPage() {
                                 : "h-8 w-8"
                             }
                           >
-                            <AvatarImage src={player.avatarUrl || undefined} />
+                            <AvatarImage src={getAvatarSrc({ avatarUrl: player.avatarUrl, playerId: player.id, playerUsername: player.username, viewerUsername, ownedIds })} />
                             <AvatarFallback className="text-xs bg-gray-800">
                               {player.username.slice(0, 2).toUpperCase()}
                             </AvatarFallback>

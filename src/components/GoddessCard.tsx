@@ -1,17 +1,19 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Crown, User, ShoppingCart, Loader2, Sparkles, Gem } from "lucide-react";
+import { Crown, User, ShoppingCart, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatNumber } from "@/lib/utils";
+import { GODDESS_POWERS } from "@/lib/goddesses";
 
 interface GoddessCardProps {
   id: number;
@@ -28,19 +30,16 @@ interface GoddessCardProps {
 
 function getGoddessEmoji(username: string): string {
   const emojis: Record<string, string> = {
-    Morríghan: "⚔️",
-    Athena: "🦉",
-    Freyja: "🐱",
-    Ishtar: "⭐",
-    Inanna: "👑",
+    "Goddess of Wealth": "💰",
+    "Goddess of Knowledge": "📚",
+    "Goddess of Fate": "🎯",
+    "Goddess of Time": "⏳",
+    "Goddess of War": "⚔️",
+    "Goddess": "👑",
   };
   return emojis[username] || "✨";
 }
 
-function getGoddessColor(username: string): string {
-  // Use purple gradient for a mystical goddess theme
-  return "from-purple-600 to-indigo-700";
-}
 
 export function GoddessCard({
   id,
@@ -51,17 +50,24 @@ export function GoddessCard({
   ownerCount,
   ownedCount,
   ownerName,
-  ownerValue,
-  currentUserId,
 }: GoddessCardProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
+  const { ownedIds } = useOwnedPlayerIds();
   const { play } = useSound();
 
   const isOwned = ownerCount > 0;
   const canAfford = (myCredits ?? 0) >= playerValue;
   const isOwnProfile = session?.user?.name === username;
+  const goddessAvatarSrc = getAvatarSrc({
+    avatarUrl,
+    playerId: id,
+    playerUsername: username,
+    viewerUsername: session?.user?.name,
+    ownedIds,
+    isGoddess: true, // Goddesses always show real avatars
+  });
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -92,7 +98,7 @@ export function GoddessCard({
       if (data.countdownStarted) {
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
-            "You own all 5 Goddesses! Hold them for 60 minutes to win the game!",
+            "You own all 6 Goddesses! Hold them for 60 minutes to win the game!",
           duration: 15000,
         });
         await queryClient.invalidateQueries();
@@ -122,19 +128,12 @@ export function GoddessCard({
       <CardContent className="p-0">
         {/* Clean Avatar Section - No overlay */}
         <div className="aspect-square">
-          {avatarUrl ? (
-            <img 
-              src={avatarUrl} 
-              alt={username}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${getGoddessColor(username)} flex items-center justify-center`}>
-              <span className="text-white font-bold text-6xl">
-                {username.slice(0, 2).toUpperCase()}
-              </span>
-            </div>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={goddessAvatarSrc}
+            alt={username}
+            className="w-full h-full object-cover"
+          />
         </div>
         
         {/* Info Section Below Avatar */}
@@ -173,8 +172,16 @@ export function GoddessCard({
             </div>
           </div>
 
-          {/* Buy Button */}
-          {session && !isOwnProfile && (
+          {/* Power description */}
+          {GODDESS_POWERS[username] && (
+            <div className="bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5">
+              <p className="text-purple-300 text-[10px] font-semibold uppercase tracking-wider mb-1">Power</p>
+              <p className="text-gray-300 text-xs leading-snug">{GODDESS_POWERS[username]}</p>
+            </div>
+          )}
+
+          {/* Buy Button - hidden when user already owns this goddess */}
+          {session && !isOwnProfile && !ownedIds.has(id) && (
             <Button
               onClick={handleBuyClick}
               disabled={!canAfford || mutation.isPending}

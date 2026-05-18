@@ -31,11 +31,6 @@ export async function sellPlayer(otherId: number) {
       return { error: "You don't own this player" };
     }
 
-    // Check if this specific ownership has Block Sell active
-    if (ownershipRecord.blockSellUntil && new Date(ownershipRecord.blockSellUntil) > new Date()) {
-      return { error: "This player has blocked you from selling them" };
-    }
-
     // Get the other player's current value (sell price)
     const [targetPlayer] = await db
       .select()

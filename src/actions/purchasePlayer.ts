@@ -7,6 +7,7 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { PG_BIGINT_MAX, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 
 // Helper function to determine value multiplier based on current player value
@@ -18,7 +19,9 @@ function getValueMultiplier(value: number): number {
   return 1.1;                        // 10% increase
 }
 
-export async function purchasePlayer(targetId: number) {
+const BLOCK_SELL_DURATION_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+
+export async function purchasePlayer(targetId: number, blockDurationHours: number = 1) {
   const session = await auth();
   if (!session?.user?.id) {
     return { error: "Unauthorized" };
@@ -55,6 +58,7 @@ export async function purchasePlayer(targetId: number) {
         username: users.username,
         playerValue: users.playerValue,
         credits: users.credits,
+        hireSlots: users.hireSlots,
       })
       .from(users)
       .where(eq(users.id, buyerId));
@@ -63,11 +67,20 @@ export async function purchasePlayer(targetId: number) {
       return { error: "Buyer not found" };
     }
 
-    const cost = target.playerValue;
+    // Check if target is a bonus card
+    const isBonusCard = BONUS_CARD_USERNAMES.includes(target.username);
 
-    // 3. Validate buyer has enough credits
-    if (buyer.credits < cost) {
-      return { error: "Insufficient credits" };
+    // Calculate cost based on block duration (1x for 1 hour, 6x for 6 hours)
+    // Bonus cards are always free to hire
+    const costMultiplier = isBonusCard ? 0 : Math.max(1, blockDurationHours);
+    const cost = isBonusCard ? 0 : target.playerValue * costMultiplier;
+
+    // For bonus cards, force 3-hour block duration
+    const effectiveBlockHours = isBonusCard ? 3 : blockDurationHours;
+
+    // 3. Validate buyer has enough credits (skip for bonus cards)
+    if (!isBonusCard && buyer.credits < cost) {
+      return { error: `Insufficient credits. You need ${cost}¢ (${costMultiplier}x player value for ${blockDurationHours} hour${blockDurationHours > 1 ? 's' : ''})` };
     }
 
     // 4. Check buyer doesn't already own this player
@@ -82,8 +95,8 @@ export async function purchasePlayer(targetId: number) {
       return { error: "You already own this player" };
     }
 
-    // 4b. Check ownership limit (static cap of 500 owned players)
-    const ownershipLimit = 500;
+    // 4b. Check ownership limit (dynamic per-player hire_slots cap)
+    const ownershipLimit = buyer.hireSlots;
 
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })
@@ -91,7 +104,7 @@ export async function purchasePlayer(targetId: number) {
       .where(eq(ownership.ownerId, buyerId));
 
     if (ownershipCount.count >= ownershipLimit) {
-      return { error: `You've reached the maximum limit of ${ownershipLimit} owned players. Discard some players to hire more!` };
+      return { error: `You've reached your hire limit of ${ownershipLimit} players. Buy more slots to expand your team!` };
     }
 
     // 5. Get the current owner of target (single owner now)
@@ -99,6 +112,23 @@ export async function purchasePlayer(targetId: number) {
       .select()
       .from(ownership)
       .where(eq(ownership.ownedId, targetId));
+
+    // 5b. Check if the current ownership has an active partner/sell block
+    if (currentOwner?.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
+      const expiresAt = new Date(currentOwner.blockSellUntil);
+      const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
+      return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
+    }
+
+    // 5c. Count how many players the previous owner owns (for bonus calculation)
+    let prevOwnerOwnedCount = 0;
+    if (currentOwner) {
+      const [ownedResult] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ownership)
+        .where(eq(ownership.ownerId, currentOwner.ownerId));
+      prevOwnerOwnedCount = ownedResult?.count ?? 0;
+    }
 
     // Pre-compute values using tiered multiplier
     const multiplier = getValueMultiplier(target.playerValue);
@@ -110,37 +140,35 @@ export async function purchasePlayer(targetId: number) {
     const bigNewValue = bigIncreased > bigPlayerValue ? bigIncreased : bigPlayerValue + BigInt(1);
     const canIncrease = bigNewValue <= PG_BIGINT_MAX;
     const newValue = canIncrease ? Number(bigNewValue) : target.playerValue;
-    const ownerShare = Math.floor(cost * 0.75);
-    const playerShare = cost - ownerShare;
+    // Economy boost: previous owner gets 100% + 1% per owned player as bonus,
+    // purchased player receives 100%. Buyer pays `cost`, but more credits are minted
+    // into the economy based on the previous owner's portfolio size.
+    const bonusMultiplier = 1 + (prevOwnerOwnedCount * 0.01); // 100% + 1% per owned player
+    const ownerShare = Math.floor(cost * bonusMultiplier);
+    const playerShare = cost;
 
-    // Determine block sell data from current ownership
-    let blockUntil: Date | null = null;
-    let blockBy: string | null = null;
-    if (currentOwner?.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
-      blockUntil = new Date(currentOwner.blockSellUntil);
-      blockBy = currentOwner.blockSellBy ?? null;
-    } else if (target.blockSellUntil && new Date(target.blockSellUntil) > new Date()) {
-      blockUntil = new Date(target.blockSellUntil);
-      blockBy = target.blockSellBy ?? null;
+    // 6. Deduct credits from buyer (floor at 0) - skip for bonus cards
+    // Note: neon-http does not support transactions, so we execute operations individually
+    if (!isBonusCard) {
+      await db
+        .update(users)
+        .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
+        .where(eq(users.id, buyerId));
     }
 
-    // 6. Deduct credits from buyer (floor at 0)
-    // Note: neon-http does not support transactions, so we execute operations individually
-    await db
-      .update(users)
-      .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
-      .where(eq(users.id, buyerId));
+    // 7. Distribute revenue: 100% + bonus to original owner, 100% to the purchased player
+    //    (economy-boost: credits are minted on every hire, more for larger portfolios)
 
-    // 7. Distribute revenue: 75% to original owner, 25% to the purchased player
-
-    // Give 75% to the original owner (if exists) — cap to prevent overflow
-    if (currentOwner) {
+    // Give 100% + bonus to the original owner (if exists) — cap to prevent overflow
+    // Skip revenue distribution for bonus cards (they're free)
+    if (currentOwner && !isBonusCard) {
       await db
         .update(users)
         .set({ credits: sql`LEAST(credits + ${ownerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
         .where(eq(users.id, currentOwner.ownerId));
 
-      // Log purchase income for the original owner (75%)
+      // Log purchase income for the original owner (with bonus percentage)
+      const bonusPercent = Math.round((bonusMultiplier - 1) * 100);
       try {
         await db.insert(rewardHistory).values({
           userId: currentOwner.ownerId,
@@ -150,7 +178,9 @@ export async function purchasePlayer(targetId: number) {
             buyerUsername: buyer.username,
             playerUsername: target.username,
             salePrice: cost,
-            share: "75%",
+            share: `${100 + bonusPercent}%`,
+            ownedCount: prevOwnerOwnedCount,
+            bonusPercent: bonusPercent,
           }),
         });
       } catch (historyError) {
@@ -161,29 +191,36 @@ export async function purchasePlayer(targetId: number) {
       await db
         .delete(ownership)
         .where(eq(ownership.id, currentOwner.id));
+    } else if (currentOwner && isBonusCard) {
+      // For bonus cards, just remove ownership without paying the previous owner
+      await db
+        .delete(ownership)
+        .where(eq(ownership.id, currentOwner.id));
     }
 
-    // Give 25% to the purchased player — cap to prevent overflow
-    await db
-      .update(users)
-      .set({ credits: sql`LEAST(credits + ${playerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
-      .where(eq(users.id, targetId));
+    // Give 100% to the purchased player — cap to prevent overflow (skip for bonus cards)
+    if (!isBonusCard) {
+      await db
+        .update(users)
+        .set({ credits: sql`LEAST(credits + ${playerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
+        .where(eq(users.id, targetId));
 
-    // Log purchase income for the purchased player (25%)
-    try {
-      await db.insert(rewardHistory).values({
-        userId: targetId,
-        type: "purchase_income",
-        amount: playerShare,
-        details: JSON.stringify({
-          buyerUsername: buyer.username,
-          playerUsername: target.username,
-          salePrice: cost,
-          share: "25%",
-        }),
-      });
-    } catch (historyError) {
-      console.error("Reward history insert error (player share):", historyError);
+      // Log purchase income for the purchased player (100%)
+      try {
+        await db.insert(rewardHistory).values({
+          userId: targetId,
+          type: "purchase_income",
+          amount: playerShare,
+          details: JSON.stringify({
+            buyerUsername: buyer.username,
+            playerUsername: target.username,
+            salePrice: cost,
+            share: "100%",
+          }),
+        });
+      } catch (historyError) {
+        console.error("Reward history insert error (player share):", historyError);
+      }
     }
 
     // 8. Update the target's player value after purchase (tiered increase based on current value, or keep it if at the cap)
@@ -197,13 +234,16 @@ export async function purchasePlayer(targetId: number) {
       })
       .where(eq(users.id, targetId));
 
-    // 9. Create ownership record — inherit any active sell block from the target player
+    // 9. Create ownership record — set block sell based on requested duration
+    // Calculate new block expiry from now + requested hours (3 hours for bonus cards)
+    const blockExpiry = new Date(Date.now() + effectiveBlockHours * BLOCK_SELL_DURATION_MS);
+    
     await db.insert(ownership).values({
       ownerId: buyerId,
       ownedId: targetId,
       purchasePrice: cost,
-      blockSellUntil: blockUntil,
-      blockSellBy: blockBy,
+      blockSellUntil: blockExpiry,
+      blockSellBy: buyer.username,
     });
 
     // 10. Log transaction
@@ -220,7 +260,7 @@ export async function purchasePlayer(targetId: number) {
       actorId: buyerId,
       targetId,
       targetUsername: target.username,
-      details: JSON.stringify({ amount: cost, newValue }),
+      details: JSON.stringify({ amount: cost, newValue, ...(currentOwner ? { previousOwnerId: currentOwner.ownerId } : {}) }),
     });
 
     // 11. Track onboarding NPC purchase (optional - columns may not exist yet)
@@ -281,8 +321,8 @@ export async function purchasePlayer(targetId: number) {
         // Snapshot whatever countdown is currently active (if any)
         const existingCountdown = await getCountdownState();
 
-        // Case A: buyer now owns all 5 goddesses → buyer should hold the countdown
-        if (Number(goddessOwnershipCount.count) >= 5) {
+        // Case A: buyer now owns all 6 goddesses → buyer should hold the countdown
+        if (Number(goddessOwnershipCount.count) >= 6) {
           if (existingCountdown.active && existingCountdown.userId === buyerId) {
             // Already counting down for this buyer — nothing to do
           } else {
@@ -321,7 +361,7 @@ export async function purchasePlayer(targetId: number) {
             }
           }
         } else {
-          // Case B: buyer does NOT own all 5. If this purchase stole a goddess away
+          // Case B: buyer does NOT own all 6. If this purchase stole a goddess away
           // from the current countdown holder, cancel their countdown — but record
           // a grace window so that if they reacquire the goddess within ~2 minutes,
           // their original countdown resumes instead of restarting from zero.

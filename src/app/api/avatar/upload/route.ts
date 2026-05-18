@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Compress avatar image to 50–100 KB for fast browsing
+    // Compress avatar image to ≤300 KB WebP for good quality + fast browsing
     const bytes = await file.arrayBuffer();
     const rawBuffer = Buffer.from(bytes);
     const { buffer: compressedBuffer, mimeType } = await compressAvatar(rawBuffer, file.type);

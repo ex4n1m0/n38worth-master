@@ -8,6 +8,7 @@ import {
   messages,
   gameHistory,
   gameSettings,
+  rewardHistory,
 } from "@/db/schema";
 import { sql, eq, or, and, isNull, lte } from "drizzle-orm";
 
@@ -118,6 +119,7 @@ async function cleanupOwnerlessNpcs(now: Date): Promise<number> {
         .where(
           or(eq(messages.senderId, npc.id), eq(messages.recipientId, npc.id))
         );
+      await db.delete(rewardHistory).where(eq(rewardHistory.userId, npc.id));
       await db.delete(users).where(eq(users.id, npc.id));
 
       deletedCount++;
@@ -155,23 +157,6 @@ export async function GET(req: Request) {
     // current number of active in-play NPCs.
     const npcCount = await countActiveNpcs();
     const intervalMinutes = getCreationIntervalMinutes(npcCount);
-
-    // Hard population cap — once we hit 600 active NPCs we stop creating
-    // new ones until cleanup brings us back under the cap. Onboarding NPC
-    // provisioning is NOT affected by this cap (separate code path).
-    if (intervalMinutes === null) {
-      return NextResponse.json({
-        success: true,
-        skipped: true,
-        capped: true,
-        reason: `Population cap reached (${npcCount} NPCs). No new random players will be created.`,
-        npcCount,
-        intervalMinutes: null,
-        nextCreationTime: null,
-        deletedOwnerlessNpcs: deletedCount,
-        timestamp: now.toISOString(),
-      });
-    }
 
     const intervalMs = intervalMinutes * 60 * 1000;
 

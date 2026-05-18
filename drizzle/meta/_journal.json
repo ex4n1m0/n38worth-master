@@ -36,6 +36,20 @@
       "when": 1776598590672,
       "tag": "0004_hot_zzzax",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777469909441,
+      "tag": "0005_silent_jigsaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778421681065,
+      "tag": "0006_loud_miracleman",
+      "breakpoints": true
     }
   ]
 }

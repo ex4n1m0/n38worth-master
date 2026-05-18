@@ -44,8 +44,13 @@ export const users = pgTable(
     isProtected: integer("is_protected").default(0).notNull(),
     // Purchase counter - tracks how many times this player has been purchased
     purchaseCount: integer("purchase_count").default(0).notNull(),
+    // Short bio / description set by the player (or their boss for NPCs)
+    bio: text("bio"),
+    // Hire slots — max number of players this user can own; starts at 20, purchasable in +10 increments
+    hireSlots: integer("hire_slots").default(20).notNull(),
     // Anchor for hourly "idle user loses 1 NPC per hour after 24h offline" decay
     lastOwnershipDecayAt: timestamp("last_ownership_decay_at"),
+    lastCreateNpcAt: timestamp("last_create_npc_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

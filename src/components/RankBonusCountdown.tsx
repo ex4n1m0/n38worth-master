@@ -20,7 +20,7 @@ function getSecondsToNextRankBonus(intervalMinutes: number) {
 
 export function RankBonusCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 6; // Fixed 6-minute interval
+  const intervalMinutes = 1; // Fixed 1-minute interval
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();

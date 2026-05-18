@@ -15,7 +15,7 @@ interface NpcDefinition {
 }
 
 const NPCS: NpcDefinition[] = [
-  { filename: "SamplePlayer5.png", username: "Morríghan", playerValue: 1_000_000 },
+  { filename: "SamplePlayer5.png", username: "Morríghan", playerValue: 100_000_000 },
   { filename: "SamplePlayer4.png", username: "Athena", playerValue: 1_000_000 },
   { filename: "SamplePlayer3.png", username: "Freyja", playerValue: 100_000 },
   { filename: "SamplePlayer2.png", username: "Ishtar", playerValue: 10_000 },

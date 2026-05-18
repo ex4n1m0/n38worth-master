@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, Gift, Shuffle } from "lucide-react";
+import { Camera, Loader2, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSound } from "@/hooks/useSound";
@@ -13,6 +12,12 @@ interface SquareAvatarUploadProps {
   currentUrl: string | null;
   username: string;
   avatarCompleted?: boolean;
+  /**
+   * "full"    — (default) image button + action buttons + bonus note (original behaviour)
+   * "banner"  — only the full-width clickable image, no action buttons below
+   * "actions" — only the Upload/Random buttons + bonus note + hint, no image
+   */
+  variant?: "full" | "banner" | "actions";
 }
 
 /**
@@ -23,6 +28,7 @@ export function SquareAvatarUpload({
   currentUrl,
   username,
   avatarCompleted = true,
+  variant = "full",
 }: SquareAvatarUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(currentUrl);
@@ -45,28 +51,6 @@ export function SquareAvatarUpload({
   });
 
   const bonusAmount = stats?.totalPlayers ? stats.totalPlayers : null;
-
-  async function handleRandomAvatar() {
-    setUploading(true);
-    try {
-      const res = await fetch("/api/avatar/random", { method: "POST" });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to generate random avatar");
-      }
-      const data = await res.json();
-      setPreviewUrl(data.avatarUrl);
-      queryClient.invalidateQueries({ queryKey: ["player"] });
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-      refreshOnboarding();
-      toast.success("Random avatar generated! ✨");
-    } catch (error) {
-      console.error("Random avatar error:", error);
-      toast.error("Failed to generate random avatar");
-    } finally {
-      setUploading(false);
-    }
-  }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -111,52 +95,59 @@ export function SquareAvatarUpload({
     }
   }
 
-  return (
-    <div className="w-full space-y-3">
-      {/* Square card-style avatar with click-to-upload */}
-      <button
-        type="button"
-        onClick={() => {
-          play("buttons");
-          fileInputRef.current?.click();
-        }}
-        disabled={uploading}
-        className="group relative block w-full overflow-hidden rounded-2xl ring-2 ring-white/10 hover:ring-pink-400/60 transition-all duration-300 shadow-xl shadow-black/40"
-        aria-label="Change avatar"
-      >
-        <Avatar className="w-full h-auto aspect-square rounded-2xl">
-          <AvatarImage
-            src={previewUrl || undefined}
-            className="object-cover"
-          />
-          <AvatarFallback className="rounded-2xl bg-gradient-to-br from-orange-500 via-pink-500 to-purple-600 text-white font-bold text-5xl sm:text-7xl">
+  const imageButton = (
+    <button
+      type="button"
+      onClick={() => {
+        play("buttons");
+        fileInputRef.current?.click();
+      }}
+      disabled={uploading}
+      className="group relative block w-full overflow-hidden"
+      aria-label="Change avatar"
+      style={{ display: "block" }}
+    >
+      {previewUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={previewUrl}
+          alt={username}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-500 via-pink-500 to-purple-600">
+          <span className="text-white font-black text-[15vw] sm:text-[10vw] select-none opacity-60">
             {username.slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center p-4">
-          <div className="flex items-center gap-2 text-white font-semibold">
-            <Camera className="h-5 w-5" />
-            <span>Change Avatar</span>
-          </div>
+          </span>
         </div>
+      )}
 
-        {uploading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-2xl">
-            <Loader2 className="h-10 w-10 animate-spin text-white" />
-          </div>
-        )}
+      {/* Hover overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center p-4">
+        <div className="flex items-center gap-2 text-white font-semibold">
+          <Camera className="h-5 w-5" />
+          <span>Change Avatar</span>
+        </div>
+      </div>
 
-        {/* Onboarding pulse */}
-        {!avatarCompleted && (
-          <div className="absolute top-3 right-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full shadow-lg animate-pulse">
-            🎯 Upload to unlock
-          </div>
-        )}
-      </button>
+      {uploading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <Loader2 className="h-10 w-10 animate-spin text-white" />
+        </div>
+      )}
 
-      {/* Action buttons */}
+      {/* Onboarding pulse */}
+      {!avatarCompleted && (
+        <div className="absolute top-3 right-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full shadow-lg animate-pulse">
+          🎯 Upload to unlock
+        </div>
+      )}
+
+    </button>
+  );
+
+  const actionButtons = (
+    <div className="space-y-3">
       <div className="flex gap-2 flex-wrap">
         <Button
           variant="outline"
@@ -170,19 +161,6 @@ export function SquareAvatarUpload({
         >
           <Camera className="h-4 w-4 mr-1.5 shrink-0" />
           {uploading ? "Uploading..." : "Upload Photo"}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            play("buttons");
-            handleRandomAvatar();
-          }}
-          disabled={uploading}
-          className="flex-1 border-purple-500/30 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20 hover:text-white"
-        >
-          <Shuffle className="h-4 w-4 mr-1.5 shrink-0" />
-          {uploading ? "Generating..." : "Random"}
         </Button>
       </div>
 
@@ -205,6 +183,35 @@ export function SquareAvatarUpload({
         className="hidden"
         aria-label="Upload avatar image"
       />
+    </div>
+  );
+
+  if (variant === "banner") {
+    return (
+      <>
+        {imageButton}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleUpload}
+          className="hidden"
+          aria-label="Upload avatar image"
+        />
+      </>
+    );
+  }
+
+  if (variant === "actions") {
+    return actionButtons;
+  }
+
+  return (
+    <div className="w-full space-y-3">
+      <div className="relative overflow-hidden rounded-2xl ring-2 ring-white/10 hover:ring-pink-400/60 transition-all duration-300 shadow-xl shadow-black/40 aspect-square">
+        {imageButton}
+      </div>
+      {actionButtons}
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
   const { play } = useSound();
 
   const isBlocked = blockSellUntil && new Date(blockSellUntil) > new Date();
-  const cost = Math.max(1, Math.round(0.01 * playerValue));
+  const cost = Math.max(1, Math.round(1.0 * playerValue));
 
   useEffect(() => {
     if (!blockSellUntil) return;
@@ -115,7 +115,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
                 <br /><br />
                 This will cost{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (1% of your value), paid directly to {ownerUsername}.
+                (100% of your value), paid directly to {ownerUsername}.
               </>
             ) : (
               <>
@@ -126,7 +126,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
                 <br /><br />
                 This will cost{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (1% of your value), paid directly to {ownerUsername}.
+                (100% of your value), paid directly to {ownerUsername}.
                 <br /><br />
                 You can press Partner multiple times to add more hours.
               </>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
+import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
+import { pusher } from "@/lib/pusher-server";
 import { capCredits } from "@/lib/safeguards";
 
 export async function POST(req: Request) {
@@ -34,21 +35,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You don't own this player" }, { status: 403 });
     }
 
-    // 60s cooldown per ownership
-    const COOLDOWN_MS = 60_000;
-    if (ownershipRecord.lastBoostAt) {
-      const elapsed = Date.now() - ownershipRecord.lastBoostAt.getTime();
-      if (elapsed < COOLDOWN_MS) {
-        const retryAfterMs = COOLDOWN_MS - elapsed;
-        return NextResponse.json(
-          {
-            error: `Boost cooling down. Try again in ${Math.ceil(retryAfterMs / 1000)}s`,
-            retryAfterMs,
-          },
-          { status: 429 }
-        );
-      }
+    // 6-hour hard cap on sell block
+    const MAX_BLOCK_MS = 6 * 60 * 60 * 1000;
+    const existingBlockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;
+    const remainingBlockMs = Math.max(0, existingBlockEnd - Date.now());
+    if (remainingBlockMs >= MAX_BLOCK_MS) {
+      return NextResponse.json(
+        { error: "Sell block is already at the 6-hour maximum. Wait for it to decrease before adding more." },
+        { status: 400 }
+      );
     }
+
+    // 1-hour sell block per press (flat)
+    const SELL_BLOCK_MS = 60 * 60 * 1000;
 
     // Load target
     const [target] = await db
@@ -66,16 +65,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Target player not found" }, { status: 404 });
     }
 
-    if (target.isNpc !== 1) {
-      return NextResponse.json(
-        { error: "Only hired card players can be boosted" },
-        { status: 400 }
-      );
-    }
-
     // Load sender
     const [sender] = await db
-      .select({ credits: users.credits })
+      .select({ credits: users.credits, username: users.username, avatarUrl: users.avatarUrl })
       .from(users)
       .where(eq(users.id, senderId));
 
@@ -84,8 +76,8 @@ export async function POST(req: Request) {
     }
 
     const currentValue = target.playerValue;
-    const cost = Math.round(currentValue * 0.20 * 100) / 100;
-    const creditsToPlayer = Math.round(currentValue * 0.10 * 100) / 100;
+    const cost = Math.round(currentValue * 1.0 * 100) / 100;
+    const creditsToPlayer = Math.round(cost * 0.90 * 100) / 100;
     const newValue = Math.min(
       Math.round(currentValue * 1.10),
       Number.MAX_SAFE_INTEGER
@@ -124,12 +116,65 @@ export async function POST(req: Request) {
       })
       .where(eq(users.id, targetId));
 
-    // Stamp cooldown
+    // Add 1-hour sell block (accumulative)
     const now = new Date();
+    const currentBlockEnd = ownershipRecord.blockSellUntil && new Date(ownershipRecord.blockSellUntil) > now
+      ? new Date(ownershipRecord.blockSellUntil).getTime()
+      : now.getTime();
+    const newBlockExpiry = new Date(currentBlockEnd + SELL_BLOCK_MS);
+    
     await db
       .update(ownership)
-      .set({ lastBoostAt: now })
+      .set({ 
+        lastBoostAt: now,
+        blockSellUntil: newBlockExpiry,
+        blockSellBy: sender.username,
+      })
       .where(eq(ownership.id, ownershipRecord.id));
+
+    // Create a boost notification message in the DM chat
+    const timestamp = now.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    const boostContent = `�️ Sell Block on ${target.username} for 1h! Value → ${newValue}¢ (+${creditsToPlayer.toFixed(2)}¢ gifted) — ${timestamp}`;
+
+    const [boostMessage] = await db
+      .insert(messages)
+      .values({
+        senderId,
+        recipientId: targetId,
+        content: boostContent,
+        type: "private",
+      })
+      .returning();
+
+    const messagePayload = {
+      id: boostMessage.id,
+      content: boostMessage.content,
+      type: boostMessage.type,
+      createdAt: boostMessage.createdAt.toISOString(),
+      sender: {
+        id: senderId,
+        username: sender.username,
+        avatarUrl: sender.avatarUrl || null,
+      },
+      recipientId: targetId,
+      recipientUsername: target.username,
+    };
+
+    try {
+      await Promise.all([
+        pusher.trigger(`chat-private-${senderId}`, "new-message", messagePayload),
+        pusher.trigger(`chat-private-${targetId}`, "new-message", messagePayload),
+      ]);
+    } catch (pusherError) {
+      console.error("Pusher error for boost message:", pusherError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -138,8 +183,6 @@ export async function POST(req: Request) {
       newValue,
       previousValue: currentValue,
       targetUsername: target.username,
-      lastBoostAt: now.toISOString(),
-      cooldownMs: COOLDOWN_MS,
     });
   } catch (error) {
     console.error("Boost card error:", error);

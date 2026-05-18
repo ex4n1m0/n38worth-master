@@ -113,9 +113,9 @@ export function LoginReward() {
     >
       <CardContent className="p-4">
         <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <div
-              className={`p-2 rounded-full ${
+              className={`p-2 rounded-full shrink-0 ${
                 canClaim
                   ? "bg-green-500/20 text-green-400"
                   : "bg-gray-700/50 text-gray-400"
@@ -127,11 +127,11 @@ export function LoginReward() {
                 <Clock className="h-5 w-5" />
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="font-semibold text-white text-sm">
                 Daily Login Reward
               </h3>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-gray-400 break-words">
                 {canClaim
                   ? `Claim your ${(rewardStatus?.rewardAmount ?? 0).toLocaleString()}¢ reward!`
                   : `Next reward in ${countdown}`}

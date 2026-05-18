@@ -66,19 +66,6 @@ export async function GET(req: Request) {
     const npcCount = await countActiveNpcs();
     const intervalMinutes = getCreationIntervalMinutes(npcCount);
 
-    // Population cap reached — no creation until cleanup brings us back under.
-    if (intervalMinutes === null) {
-      return NextResponse.json({
-        canCreate: false,
-        capped: true,
-        reason: `Population cap reached (${npcCount} NPCs). No new random players will be created.`,
-        npcCount,
-        intervalMinutes: null,
-        nextCreationTime: null,
-        timestamp: now.toISOString(),
-      });
-    }
-
     const intervalMs = intervalMinutes * 60 * 1000;
     const lastCronTime = await getLastCronTime();
 

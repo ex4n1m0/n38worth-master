@@ -2,25 +2,22 @@
 
 import { useSession } from "next-auth/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { SellOutButton } from "@/components/SellOutButton";
-import { DiscardButton } from "@/components/DiscardButton";
 import { SendCreditsButton } from "@/components/SendCreditsButton";
 import { BoostCardButton } from "@/components/BoostCardButton";
-import { BlockSellButton } from "@/components/BlockSellButton";
+import { BoostValueButton } from "@/components/BoostValueButton";
+import { RevealAvatarButton } from "@/components/RevealAvatarButton";
+import { LetGoButton } from "@/components/LetGoButton";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import {
   Clock,
   Briefcase,
   Coins,
-  AlertTriangle,
   Crown,
   Users,
   TrendingUp,
   BadgeCheck,
-  Shield,
   Swords,
   Star,
   Gem,
@@ -30,10 +27,13 @@ import {
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrc } from "@/lib/avatar-utils";
 import {
   getOwnedRank,
   getCreditsRank,
@@ -44,7 +44,8 @@ import {
   getValueRankColor,
   getPortfolioRankColor,
 } from "@/lib/ranks";
-import { formatNumber, getDynamicFontSize } from "@/lib/utils";
+import { formatNumber, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 function formatLastOnline(date: string | Date | null | undefined): string {
   if (!date) return "Never";
@@ -66,11 +67,12 @@ function formatTimeRemaining(date: string | Date | null | undefined): string | n
   if (!date) return null;
   const d = typeof date === "string" ? new Date(date) : date;
   const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
-  if (seconds <= 0) return "Now";
+  if (seconds <= 0) return null;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
-  return `${hours}h`;
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
 interface OwnershipItem {
@@ -90,11 +92,13 @@ interface OwnershipItem {
   blockSellUntil?: string | null;
   blockSellBy?: string | null;
   lastBoostAt?: string | null;
+  avatarRevealUntil?: string | null;
   estimatedDeletionAt?: string | null;
   isVerified?: number;
   valueFloor?: number;
   purchaseCount?: number;
   hasUnreadDM?: boolean;
+  bio?: string | null;
 }
 
 interface OwnershipListProps {
@@ -107,7 +111,38 @@ interface OwnershipListProps {
   showChat?: boolean;
   hideHire?: boolean;
   showBoost?: boolean;
+  showBoostValue?: boolean;
+  showRevealAvatar?: boolean;
+  showLetGo?: boolean;
   myPlayerValue?: number;
+}
+
+function useSellBlockCountdown(blockSellUntil?: string | null): string | null {
+  const [timeLeft, setTimeLeft] = useState<string | null>(() => formatTimeRemaining(blockSellUntil));
+
+  useEffect(() => {
+    if (!blockSellUntil) { setTimeLeft(null); return; }
+    const update = () => setTimeLeft(formatTimeRemaining(blockSellUntil));
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, [blockSellUntil]);
+
+  return timeLeft;
+}
+
+function useRevealCountdown(avatarRevealUntil?: string | null): string | null {
+  const [timeLeft, setTimeLeft] = useState<string | null>(() => formatTimeRemaining(avatarRevealUntil));
+
+  useEffect(() => {
+    if (!avatarRevealUntil) { setTimeLeft(null); return; }
+    const update = () => setTimeLeft(formatTimeRemaining(avatarRevealUntil));
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, [avatarRevealUntil]);
+
+  return timeLeft;
 }
 
 function OwnershipCard({
@@ -119,6 +154,9 @@ function OwnershipCard({
   showChat,
   hideHire,
   showBoost,
+  showBoostValue,
+  showRevealAvatar,
+  showLetGo,
 }: {
   item: OwnershipItem;
   showSellOut?: boolean;
@@ -128,14 +166,27 @@ function OwnershipCard({
   showChat?: boolean;
   hideHire?: boolean;
   showBoost?: boolean;
+  showBoostValue?: boolean;
+  showRevealAvatar?: boolean;
+  showLetGo?: boolean;
 }) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
+  const { ownedIds } = useOwnedPlayerIds();
   const { play } = useSound();
 
   const isOwnCard = session?.user?.name === item.username;
   const canAfford = (myCredits ?? 0) >= item.playerValue;
+  const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
+  const revealTime = useRevealCountdown(item.avatarRevealUntil);
+  const cardAvatarSrc = getAvatarSrc({
+    avatarUrl: item.avatarUrl,
+    playerId: item.id,
+    playerUsername: item.username,
+    viewerUsername: session?.user?.name,
+    ownedIds,
+  });
 
   const buyMutation = useMutation({
     mutationFn: async () => {
@@ -165,7 +216,7 @@ function OwnershipCard({
     onSuccess: async (data) => {
       if (data.countdownStarted) {
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description: "You own all 5 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+          description: "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
           duration: 15000,
         });
         await queryClient.invalidateQueries();
@@ -193,13 +244,13 @@ function OwnershipCard({
 
   return (
     <Card className="border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 hover:border-gray-700 transition-all duration-200 group">
-      <CardContent className="p-4 relative">
+      <CardContent className="p-2 relative">
         <Link href={`/players/${item.username}`} className="block">
           {/* TOP: Full-width avatar with overlayed square Hire button */}
-          <div className="relative mb-3">
+          <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-              <AvatarImage src={item.avatarUrl || undefined} alt={item.username} className="object-cover" />
-              <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-4xl sm:text-5xl">
+              <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-cover" />
+              <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                 {item.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
@@ -207,18 +258,19 @@ function OwnershipCard({
               <Button
                 onClick={handleBuyClick}
                 disabled={!canAfford || buyMutation.isPending}
-                className={`absolute bottom-2 right-2 h-16 w-16 sm:h-20 sm:w-20 p-0 rounded-md flex flex-col items-center justify-center gap-0.5 font-bold whitespace-nowrap z-10 ${
+                className={`absolute bottom-1 right-1 h-12 w-12 sm:h-14 sm:w-14 p-0 rounded-md flex flex-col items-center justify-center gap-0.5 font-bold whitespace-nowrap z-10 ${
                   canAfford
-                    ? "bg-gradient-to-br from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg shadow-t1-500/20"
+                    ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                     : "bg-gray-700 text-gray-400 cursor-not-allowed"
                 }`}
+                style={canAfford ? navbarBtnStyle : undefined}
               >
                 {buyMutation.isPending ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                    <span className="text-[10px] sm:text-xs leading-none">Hire</span>
+                    <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="text-[9px] sm:text-[10px] leading-none">Hire</span>
                     <span className={`leading-none ${getDynamicFontSize(item.playerValue)}`}>
                       {formatNumber(item.playerValue)}¢
                     </span>
@@ -231,21 +283,26 @@ function OwnershipCard({
           <div>
 
             {/* Username + badges */}
-            <h3 className="font-semibold text-sm sm:text-base text-white group-hover:text-t1-400 transition-colors flex items-center gap-1.5 flex-wrap">
-              {item.username}
-              {item.isVerified === 1 && (
-                <BadgeCheck className="h-4 w-4 text-blue-400 shrink-0" />
-              )}
-              {(item.valueFloor ?? 0) >= 100 && (
-                <Gem className="h-4 w-4 text-purple-400 shrink-0" />
-              )}
-              {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (
-                <Star className="h-4 w-4 text-yellow-400 shrink-0" />
-              )}
-            </h3>
+            <div className="w-full mb-12">
+              <h3
+                className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
+                style={{ fontSize: "clamp(1.1rem, 3.5vw, 1.875rem)" }}
+              >
+                {item.username}
+                {item.isVerified === 1 && (
+                  <BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />
+                )}
+                {(item.valueFloor ?? 0) >= 100 && (
+                  <Gem className="h-5 w-5 text-purple-400 shrink-0" />
+                )}
+                {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (
+                  <Star className="h-5 w-5 text-yellow-400 shrink-0" />
+                )}
+              </h3>
+            </div>
 
             {/* Player type + Rank badges */}
-            <div className="flex items-center gap-1 flex-wrap mt-1.5">
+            <div className="flex items-center gap-1 flex-wrap mt-1">
               {item.playerType === "human" ? (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border text-emerald-300 bg-emerald-500/15 border-emerald-500/30">
                   <User className="h-2.5 w-2.5" />
@@ -282,7 +339,7 @@ function OwnershipCard({
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-3 flex-wrap text-xs text-gray-400 mt-1.5">
+            <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-gray-400 mt-1">
               {item.ownerCount !== undefined && (
                 <span className="flex items-center gap-1">
                   <Crown className="h-3 w-3 text-yellow-400 shrink-0" />
@@ -313,6 +370,13 @@ function OwnershipCard({
               )}
             </div>
 
+            {/* Bio */}
+            {item.bio && (
+              <p className="mt-1.5 text-[11px] text-gray-400 italic line-clamp-2 leading-snug">
+                &ldquo;{item.bio}&rdquo;
+              </p>
+            )}
+
             {/* Footer: last online */}
             <div className="flex items-center gap-3 mt-1.5 text-[11px]">
               <span className="flex items-center gap-1 text-gray-500">
@@ -325,50 +389,46 @@ function OwnershipCard({
 
         {/* Action buttons */}
 
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-800/60 flex-wrap">
-          {showBlockSell && item.blockSellUntil && (
-
-            <div className="text-[10px] text-amber-400 flex items-center gap-1">
-              <Shield className="h-3 w-3" />
-              Blocked
-            </div>
-          )}
-          {showBlockSell && !item.blockSellUntil && (
-            <BlockSellButton
-              ownershipId={item.ownershipId}
-              ownerUsername={item.username}
-              playerValue={item.playerValue}
-              blockSellUntil={item.blockSellUntil ?? null}
-            />
-          )}
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-800/60">
           {showSendCredits && (
             <SendCreditsButton
               targetId={item.id}
               targetUsername={item.username}
+              className="w-full"
             />
           )}
-          {showBoost && item.playerType === "card" && !isOwnCard && (
+          {showBoost && !isOwnCard && (
             <BoostCardButton
               targetId={item.id}
               targetUsername={item.username}
               playerValue={item.playerValue}
-              lastBoostAt={item.lastBoostAt ?? null}
+              countdown={sellBlockTime}
+              className="w-full"
             />
           )}
-          {showDiscard && (
-            <DiscardButton
-              otherId={item.id}
-              otherUsername={item.username}
-              cost={item.purchasePrice}
-              blockSellUntil={item.blockSellUntil}
-              blockSellBy={item.blockSellBy}
-            />
-          )}
-          {showSellOut && (
-            <SellOutButton
-              ownershipId={item.ownershipId}
-              ownerUsername={item.username}
+          {showBoostValue && !GODDESS_USERNAMES.includes(item.username) && (
+            <BoostValueButton
+              targetId={item.id}
+              targetUsername={item.username}
               playerValue={item.playerValue}
+              className="w-full"
+            />
+          )}
+          {showRevealAvatar && !isOwnCard && !GODDESS_USERNAMES.includes(item.username) && (
+            <RevealAvatarButton
+              targetId={item.id}
+              targetUsername={item.username}
+              playerValue={item.playerValue}
+              countdown={revealTime}
+              className="w-full"
+            />
+          )}
+          {showLetGo && (
+            <LetGoButton
+              targetId={item.id}
+              targetUsername={item.username}
+              playerValue={item.playerValue}
+              className="w-full"
             />
           )}
         </div>
@@ -379,7 +439,7 @@ function OwnershipCard({
             <InlineDMChat
               targetId={item.id}
               targetUsername={item.username}
-              targetAvatarUrl={item.avatarUrl}
+              targetAvatarUrl={cardAvatarSrc}
             />
           </div>
         )}
@@ -398,6 +458,9 @@ export function OwnershipList({
   showChat,
   hideHire,
   showBoost,
+  showBoostValue,
+  showRevealAvatar,
+  showLetGo,
   myPlayerValue,
 }: OwnershipListProps) {
   if (!items || items.length === 0) {
@@ -409,7 +472,7 @@ export function OwnershipList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
       {items.map((item) => (
         <OwnershipCard
           key={item.ownershipId}
@@ -421,6 +484,9 @@ export function OwnershipList({
           showChat={showChat}
           hideHire={hideHire}
           showBoost={showBoost}
+          showBoostValue={showBoostValue}
+          showRevealAvatar={showRevealAvatar}
+          showLetGo={showLetGo}
         />
       ))}
     </div>

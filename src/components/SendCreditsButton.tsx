@@ -7,14 +7,15 @@ import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, navbarBtnStyle } from "@/lib/utils";
 
 interface SendCreditsButtonProps {
   targetId: number;
   targetUsername: string;
+  className?: string;
 }
 
-export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButtonProps) {
+export function SendCreditsButton({ targetId, targetUsername, className }: SendCreditsButtonProps) {
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { t } = useLanguage();
@@ -55,7 +56,8 @@ export function SendCreditsButton({ targetId, targetUsername }: SendCreditsButto
         mutation.mutate();
       }}
       disabled={mutation.isPending}
-      className="border-t2-500/30 text-t2-400 hover:bg-t2-500/10 hover:text-t2-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
+      className={`text-white text-sm px-3 py-2 h-auto min-h-[36px] font-bold drop-shadow-lg border-0 bg-transparent hover:brightness-125 hover:bg-transparent disabled:opacity-60 ${className ?? ""}`}
+      style={navbarBtnStyle}
       title={`Gift 1% of your credits to ${targetUsername}`}
     >
       {mutation.isPending ? (

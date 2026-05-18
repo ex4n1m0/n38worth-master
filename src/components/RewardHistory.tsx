@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   History,
   ChevronDown,
@@ -13,11 +14,14 @@ import {
   ShoppingCart,
   ChevronRight,
   Loader2,
+  Crown,
+  Clock,
+  Trash2,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type RewardType = "portfolio_reward" | "rank_bonus" | "login_reward" | "purchase_income";
+type RewardType = "portfolio_reward" | "rank_bonus" | "login_reward" | "purchase_income" | "boss_portfolio_tax" | "boss_no_income_tax";
 
 interface RewardEntry {
   id: number;
@@ -27,9 +31,15 @@ interface RewardEntry {
   createdAt: string;
 }
 
+interface TypeTotal {
+  count: number;
+  total: number;
+}
+
 interface RewardPage {
   rewards: RewardEntry[];
   nextCursor: number | null;
+  totalsByType?: Record<string, TypeTotal>;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -61,6 +71,18 @@ const TYPE_CONFIG: Record<
     icon: <ShoppingCart className="h-3.5 w-3.5" />,
     color: "text-violet-400",
     bgColor: "bg-violet-500/10 border-violet-500/20",
+  },
+  boss_portfolio_tax: {
+    label: "Boss Tax (Portfolio)",
+    icon: <Crown className="h-3.5 w-3.5" />,
+    color: "text-amber-400",
+    bgColor: "bg-amber-500/10 border-amber-500/20",
+  },
+  boss_no_income_tax: {
+    label: "Boss Tax (Hourly)",
+    icon: <Clock className="h-3.5 w-3.5" />,
+    color: "text-orange-400",
+    bgColor: "bg-orange-500/10 border-orange-500/20",
   },
 };
 
@@ -290,21 +312,33 @@ function RewardRow({ display }: { display: DisplayEntry }) {
 
 // ─── Summary Bar ──────────────────────────────────────────────────────────────
 
-function SummaryBar({ rewards }: { rewards: RewardEntry[] }) {
-  // Sum earnings by type from the loaded rewards
-  const totals = rewards.reduce(
-    (acc, r) => {
-      acc[r.type] = (acc[r.type] ?? 0) + r.amount;
-      return acc;
-    },
-    {} as Record<RewardType, number>
-  );
+function SummaryBar({
+  rewards,
+  totalsByType,
+}: {
+  rewards: RewardEntry[];
+  totalsByType?: Record<string, TypeTotal>;
+}) {
+  // Prefer server-side aggregated totals (covers ALL history) when available;
+  // fall back to summing only loaded rewards.
+  const totals: Record<string, number> = {};
+  if (totalsByType) {
+    for (const [type, data] of Object.entries(totalsByType)) {
+      totals[type] = data.total;
+    }
+  } else {
+    for (const r of rewards) {
+      totals[r.type] = (totals[r.type] ?? 0) + r.amount;
+    }
+  }
 
   const types: RewardType[] = [
     "portfolio_reward",
     "rank_bonus",
     "login_reward",
     "purchase_income",
+    "boss_portfolio_tax",
+    "boss_no_income_tax",
   ];
 
   return (
@@ -336,6 +370,25 @@ function SummaryBar({ rewards }: { rewards: RewardEntry[] }) {
 export function RewardHistory() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const queryClient = useQueryClient();
+
+  const clearMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/me/reward-history", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear history");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["reward-history"] });
+      toast.success(`Cleared ${data.deletedCount?.toLocaleString() ?? 0} entries`);
+      setConfirmClear(false);
+    },
+    onError: () => {
+      toast.error("Failed to clear income history");
+      setConfirmClear(false);
+    },
+  });
 
   const {
     data,
@@ -362,7 +415,11 @@ export function RewardHistory() {
   if (!session?.user?.name) return null;
 
   const allRewards = data?.pages.flatMap((p) => p.rewards) ?? [];
-  const totalEarned = allRewards.reduce((s, r) => s + r.amount, 0);
+  // Use server-side totals from the first page (covers ALL history)
+  const totalsByType = data?.pages[0]?.totalsByType;
+  const totalEarned = totalsByType
+    ? Object.values(totalsByType).reduce((s, t) => s + t.total, 0)
+    : allRewards.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="rounded-xl bg-gradient-to-br from-gray-900/40 to-gray-800/20 border border-gray-700/40 p-4">
@@ -378,7 +435,7 @@ export function RewardHistory() {
           </h3>
           {totalEarned > 0 && (
             <span className="text-xs text-gray-500">
-              — {totalEarned.toLocaleString()}¢ loaded
+              — {totalEarned.toLocaleString()}¢ total
             </span>
           )}
         </div>
@@ -398,7 +455,9 @@ export function RewardHistory() {
       {isOpen && (
         <div className="mt-4 space-y-3">
           {/* Summary totals */}
-          {allRewards.length > 0 && <SummaryBar rewards={allRewards} />}
+          {allRewards.length > 0 && (
+            <SummaryBar rewards={allRewards} totalsByType={totalsByType} />
+          )}
 
           {/* Entries list */}
           {isLoading ? (
@@ -439,6 +498,38 @@ export function RewardHistory() {
                 </>
               )}
             </button>
+          )}
+
+          {/* Clear history */}
+          {allRewards.length > 0 && (
+            <div className="pt-2 border-t border-white/5 flex items-center justify-end gap-2">
+              {confirmClear ? (
+                <>
+                  <span className="text-xs text-red-400">Clear all history?</span>
+                  <button
+                    onClick={() => clearMutation.mutate()}
+                    disabled={clearMutation.isPending}
+                    className="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    {clearMutation.isPending ? "Clearing…" : "Yes, clear"}
+                  </button>
+                  <button
+                    onClick={() => setConfirmClear(false)}
+                    className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirmClear(true)}
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Clear History
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

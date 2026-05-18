@@ -19,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { LoginReward } from "@/components/LoginReward";
-import { formatNumber, getDynamicInlineFontSize } from "@/lib/utils";
+import { formatNumber, getDynamicInlineFontSize, navbarBtnStyle } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -133,6 +133,7 @@ export default function DashboardPage() {
                   0
                 ) ?? 0
               }
+              credits={credits ?? 0}
             />
           </CardAction>
         </CardHeader>
@@ -275,27 +276,29 @@ function BrowsePlayersSection({
           {SORT_OPTIONS.map((s) => (
             <Button
               key={s.key}
-              variant={sort === s.key ? "default" : "outline"}
+              variant="ghost"
               size="sm"
               onClick={() => setSort(s.key)}
               className={
                 sort === s.key
-                  ? "bg-t1-600 hover:bg-t1-500 text-white"
-                  : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                  ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                  : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
               }
+              style={navbarBtnStyle}
             >
               {s.label}
             </Button>
           ))}
           <Button
-            variant={hasOwner ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             onClick={() => setHasOwner(!hasOwner)}
             className={
               hasOwner
-                ? "bg-amber-600 hover:bg-amber-500 text-white"
-                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
             }
+            style={navbarBtnStyle}
           >
             <Crown className="h-3.5 w-3.5 mr-1" />
             Has Boss
@@ -336,6 +339,7 @@ function BrowsePlayersSection({
               ownerName?: string | null;
               ownerValue?: number | null;
               purchaseCount?: number;
+              bio?: string | null;
             }) => (
               <PlayerCard key={player.id} {...player} />
             )

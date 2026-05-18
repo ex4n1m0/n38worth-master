@@ -13,7 +13,7 @@ import { pusher } from "@/lib/pusher-server";
 
 /**
  * Cron job that runs every minute to check the goddess countdown.
- * If the countdown has expired and the user still owns all 5 goddesses,
+ * If the countdown has expired and the user still owns all 6 goddesses,
  * triggers the game reset and records the winner.
  *
  * The reset is idempotent via a `last_processed_start` marker in game_settings,
@@ -54,7 +54,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ status: "already_processed" });
     }
 
-    // Verify the user STILL owns all 5 goddesses
+    // Verify the user STILL owns all 6 goddesses
     const goddesses = await db
       .select({ id: users.id })
       .from(users)
@@ -72,7 +72,7 @@ export async function GET(req: Request) {
         )
       );
 
-    if (Number(goddessOwnershipCount.count) < 5) {
+    if (Number(goddessOwnershipCount.count) < 6) {
       // User lost a goddess but countdown wasn't cancelled (edge case)
       console.warn(
         `Countdown expired but user ${state.userId} only owns ${goddessOwnershipCount.count} goddesses. Cancelling.`

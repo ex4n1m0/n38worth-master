@@ -1,14 +1,14 @@
 import sharp from "sharp";
 
-const TARGET_MAX_BYTES = 100 * 1024; // 100 KB
-const MAX_DIMENSION = 512;
+const TARGET_MAX_BYTES = 300 * 1024; // 300 KB
+const MAX_DIMENSION = 1024;
 
 /**
- * Compress an avatar image buffer to ≤ 100 KB using WebP.
- * Strategy: maximize image quality while staying under 100 KB.
- *   1. Resize to 512×512 max, convert to WebP
- *   2. Binary-search for the highest quality that stays ≤ 100 KB
- *   3. If quality=1 is still over 100 KB, progressively shrink dimensions
+ * Compress an avatar image buffer to ≤ 300 KB using WebP.
+ * Strategy: maximize image quality while staying under 300 KB.
+ *   1. Resize to 1024×1024 max, convert to WebP
+ *   2. Binary-search for the highest quality that stays ≤ 300 KB
+ *   3. If quality=1 is still over 300 KB, progressively shrink dimensions
  *
  * Images already ≤ 100 KB are returned as-is (already lightweight).
  *
@@ -32,23 +32,23 @@ export async function compressAvatar(
   const result = await compressAtDimension(input, MAX_DIMENSION);
   if (result) return result;
 
-  // If still over 100 KB at quality=1 and 512px, progressively shrink
-  for (const dim of [384, 256, 192, 128]) {
+  // If still over 300 KB at quality=1 and 1024px, progressively shrink
+  for (const dim of [768, 512, 384, 256]) {
     const smaller = await compressAtDimension(input, dim);
     if (smaller) return smaller;
   }
 
   // Final fallback — smallest possible
   const fallback = await sharp(input)
-    .resize(128, 128, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 1 })
+    .resize(256, 256, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 20 })
     .toBuffer();
 
   return { buffer: fallback, mimeType: "image/webp" };
 }
 
 /**
- * Binary-search for the highest WebP quality that stays ≤ 100 KB
+ * Binary-search for the highest WebP quality that stays ≤ 300 KB
  * at the given max dimension. Returns null if even quality=1 exceeds the limit.
  */
 async function compressAtDimension(
@@ -72,7 +72,7 @@ async function compressAtDimension(
     return null; // need smaller dimensions
   }
 
-  // Binary search: find highest quality where size ≤ 100 KB
+  // Binary search: find highest quality where size ≤ 300 KB
   let lo = 1;
   let hi = 94;
   let bestBuffer: Buffer = minQ;

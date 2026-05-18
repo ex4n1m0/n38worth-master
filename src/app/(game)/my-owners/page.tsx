@@ -14,9 +14,14 @@ import { Crown, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { formatNumber } from "@/lib/utils";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { ResignButton } from "@/components/ResignButton";
+import { BlockSellButton } from "@/components/BlockSellButton";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrc } from "@/lib/avatar-utils";
 
 function MyOwnersContent() {
   const { data: session } = useSession();
+  const { ownedIds } = useOwnedPlayerIds();
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me"],
@@ -91,7 +96,13 @@ function MyOwnersContent() {
               >
                 <Avatar className="h-14 w-14 ring-2 ring-yellow-500/30 group-hover:ring-yellow-500/60 transition-all shrink-0">
                   <AvatarImage
-                    src={owner.avatarUrl || undefined}
+                    src={getAvatarSrc({
+                      avatarUrl: owner.avatarUrl,
+                      playerId: owner.id,
+                      playerUsername: owner.username,
+                      viewerUsername: session?.user?.name,
+                      ownedIds,
+                    })}
                     alt={owner.username}
                   />
                   <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-sm">
@@ -109,12 +120,33 @@ function MyOwnersContent() {
                 <Crown className="h-5 w-5 text-yellow-400 shrink-0" />
               </Link>
 
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-2 flex-wrap">
+                <BlockSellButton
+                  ownershipId={owner.ownershipId}
+                  ownerUsername={owner.username}
+                  playerValue={player?.playerValue ?? 0}
+                  blockSellUntil={owner.blockSellUntil ?? null}
+                />
+                <ResignButton
+                  ownershipId={owner.ownershipId}
+                  ownerUsername={owner.username}
+                  userCredits={player?.credits ?? 0}
+                />
+              </div>
+
               {/* Full-size Chat Box */}
               <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "calc(100vh - 420px)" }}>
                 <InlineDMChat
                   targetId={owner.id}
                   targetUsername={owner.username}
-                  targetAvatarUrl={owner.avatarUrl}
+                  targetAvatarUrl={getAvatarSrc({
+                    avatarUrl: owner.avatarUrl,
+                    playerId: owner.id,
+                    playerUsername: owner.username,
+                    viewerUsername: session?.user?.name,
+                    ownedIds,
+                  })}
                 />
               </div>
             </div>

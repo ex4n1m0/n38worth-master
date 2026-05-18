@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, Crown, Calendar, Star, Sparkles, Loader2 } from "lucide-react";
+import { Crown, Calendar, Star, Sparkles, Loader2 } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
 
 interface HallOfFameEntry {
@@ -47,48 +47,15 @@ export default function HallOfFamePage() {
   });
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 pb-24 md:pb-8">
-      {/* Header */}
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500/20 to-amber-500/20 border border-yellow-500/30 mb-4">
-          <Trophy className="h-8 w-8 text-yellow-400" />
-        </div>
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 bg-clip-text text-transparent mb-2">
-          Hall of Fame
-        </h1>
-        <p className="text-gray-400 text-sm max-w-md mx-auto">
-          Legends who collected all 5 Goddesses and conquered the game. Each victory resets the world for a new era.
-        </p>
-      </div>
-
-      {/* Game Goal Explanation */}
-      <div className="mb-8 rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/5 to-amber-500/5 p-5">
-        <div className="flex items-start gap-3">
-          <Sparkles className="h-5 w-5 text-yellow-400 mt-0.5 shrink-0" />
-          <div>
-            <h3 className="text-sm font-semibold text-yellow-400 mb-1">🎯 The Game Goal</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Be the first player to hire and own all <strong className="text-yellow-300">5 Goddesses</strong> — 
-              <span className="text-yellow-300"> Morríghan</span>, 
-              <span className="text-yellow-300"> Athena</span>, 
-              <span className="text-yellow-300"> Freyja</span>, 
-              <span className="text-yellow-300"> Ishtar</span>, and 
-              <span className="text-yellow-300"> Inanna</span>. 
-              Once you own all 5, a <strong className="text-yellow-300">60-minute countdown</strong> begins. 
-              Hold them all for the full hour and your name is immortalized here — the entire game resets for everyone!
-            </p>
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-6 pb-24 md:pb-8">
       {/* Goddesses Section */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
           <Sparkles className="h-5 w-5 text-purple-400" />
-          <h2 className="text-xl font-bold text-white">The 5 Goddesses</h2>
+          <h2 className="text-xl font-bold text-white">The 6 Goddesses</h2>
         </div>
         <p className="text-gray-400 text-sm mb-4">
-          Collect all 5 to win! See who owns each goddess and hire them directly from here.
+          Collect all 6 to win! See who owns each goddess and hire them directly from here.
         </p>
         
         {goddessLoading ? (
@@ -127,7 +94,7 @@ export default function HallOfFamePage() {
           <Crown className="h-12 w-12 text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-400 mb-2">No Champions Yet</h3>
           <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            The throne awaits. Be the first to collect all 5 Goddesses and etch your name in history!
+            The throne awaits. Be the first to collect all 6 Goddesses and etch your name in history!
           </p>
         </div>
       ) : (

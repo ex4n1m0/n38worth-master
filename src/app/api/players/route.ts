@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, sql, ilike, desc, asc, and, ne } from "drizzle-orm";
+import { eq, sql, ilike, desc, asc, and, ne, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -14,6 +16,8 @@ export async function GET(req: Request) {
   const noBoss = searchParams.get("noBoss") || "";
   const hasPlayers = searchParams.get("hasPlayers") || "";
   const playerType = searchParams.get("playerType") || "";
+  const hasRevealedAvatar = searchParams.get("hasRevealedAvatar") || "";
+  const noPartner = searchParams.get("noPartner") || "";
   const offset = (page - 1) * limit;
 
   try {
@@ -50,11 +54,30 @@ export async function GET(req: Request) {
     } else if (playerType === "card") {
       conditions.push(eq(users.isNpc, 1));
     }
+    if (noPartner === "true") {
+      conditions.push(
+        sql`NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW())`
+      );
+    }
+    if (hasRevealedAvatar === "true") {
+      // Show players with an active avatar reveal from either source
+      conditions.push(
+        sql`(
+          (SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id" AND o.avatar_reveal_until > NOW()) > 0
+          OR
+          (SELECT COUNT(*) FROM avatar_reveals ar WHERE ar.target_id = "users"."id" AND ar.reveal_until > NOW()) > 0
+        )`
+      );
+    }
 
     // Hide any player without an avatar. Humans must also have avatar_completed = 1.
     conditions.push(
       sql`("users"."avatar_url" IS NOT NULL AND ("users"."is_npc" = 1 OR "users"."avatar_completed" = 1))`
     );
+
+    // Exclude goddesses and bonus cards from the network page
+    conditions.push(notInArray(users.username, GODDESS_USERNAMES));
+    conditions.push(notInArray(users.username, BONUS_CARD_USERNAMES));
 
     const whereClause = conditions.length > 0
       ? and(...conditions)
@@ -75,7 +98,7 @@ export async function GET(req: Request) {
       playerValue: users.playerValue,
       valueFloor: users.valueFloor,
       credits: users.credits,
-      blockSellUntil: users.blockSellUntil,
+      blockSellUntil: sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.block_sell_until DESC LIMIT 1)`.as("block_sell_until"),
       estimatedDeletionAt: users.estimatedDeletionAt,
       isActive: users.isActive,
       createdAt: users.createdAt,
@@ -87,16 +110,33 @@ export async function GET(req: Request) {
       photoAuthorUrl: users.photoAuthorUrl,
       photoSourceUrl: users.photoSourceUrl,
       purchaseCount: users.purchaseCount,
+      bio: users.bio,
       ownerCount: ownerCountExpr.as("owner_count"),
       ownedCount: ownedCountExpr.as("owned_count"),
       portfolioValue: portfolioExpr.as("portfolio_value"),
       ownerName: ownerNameExpr.as("owner_name"),
       ownerValue: ownerValueExpr.as("owner_value"),
+      avatarRevealUntil: sql<string | null>`GREATEST(
+        (SELECT to_char(o.avatar_reveal_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.avatar_reveal_until > NOW() ORDER BY o.avatar_reveal_until DESC LIMIT 1),
+        (SELECT to_char(ar.reveal_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM avatar_reveals ar WHERE ar.target_id = "users"."id" AND ar.reveal_until > NOW() ORDER BY ar.reveal_until DESC LIMIT 1)
+      )`.as("avatar_reveal_until"),
     };
 
     let playersList;
 
-    if (sort === "most-owned") {
+    // When "Have Boss" filter is active, sort by boss (owner) name ascending.
+    // This overrides the currently selected sort so players are grouped/ordered by their boss.
+    if (hasOwner === "true") {
+      const q = db.select(selectFields).from(users);
+      const filtered = whereClause ? q.where(whereClause) : q;
+      playersList = await filtered
+        .orderBy(
+          asc(sql`LOWER((SELECT u.username FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1))`),
+          desc(users.playerValue)
+        )
+        .limit(limit)
+        .offset(offset);
+    } else if (sort === "most-owned") {
       const q = db.select(selectFields).from(users);
       const filtered = whereClause ? q.where(whereClause) : q;
       playersList = await filtered

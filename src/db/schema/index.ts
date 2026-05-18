@@ -8,3 +8,4 @@ export { ipSessions } from "./ipSessions";
 export { multiAccountIncidents } from "./multiAccountIncidents";
 export { hallOfFame } from "./hallOfFame";
 export { rewardHistory } from "./rewardHistory";
+export { avatarReveals } from "./avatarReveals";

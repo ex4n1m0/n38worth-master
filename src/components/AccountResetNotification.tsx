@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
  * 
  * Handles two types of resets:
  * - wasReset = 1: Account ran out of credits (system gave fresh start)
- * - wasReset = 2: Game win reset (someone collected all 5 goddesses)
+ * - wasReset = 2: Game win reset (someone collected all 6 goddesses)
  * 
  * Fetches /api/me on mount. If `wasReset` is truthy, shows a rich toast
  * and then calls POST /api/me to acknowledge and clear the flag.
@@ -29,10 +29,10 @@ export function AccountResetNotification() {
         const data = await res.json();
 
         if (data.wasReset === 2) {
-          // Game win reset — someone collected all 5 goddesses
+          // Game win reset — someone collected all 6 goddesses
           toast.success("🏆 Game Won — World Reset!", {
             description:
-              "A player has collected all 5 Goddesses and won the game! " +
+              "A player has collected all 6 Goddesses and won the game! " +
               "The world has been reset. Everyone starts fresh with 100¢. " +
               "Check the Hall of Fame to see the champion!",
             duration: 20000,

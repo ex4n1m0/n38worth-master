@@ -11,7 +11,7 @@ import { MAX_CREDITS_SQL } from "@/lib/safeguards";
  * Sell Out: A player pays their current value to release themselves from an owner.
  * - The player pays their own playerValue in credits to the owner.
  * - The ownership record is removed.
- * - The player's value resets to their floor value.
+ * - The player's value is NOT reset (preserved as-is).
  */
 export async function sellOut(ownershipId: number) {
   const session = await auth();
@@ -47,11 +47,11 @@ export async function sellOut(ownershipId: number) {
       return { error: "Player not found" };
     }
 
-    const cost = player.playerValue;
+    const cost = Math.floor(player.credits * 0.9);
 
     // Check if player has enough credits
     if (player.credits < cost) {
-      return { error: `Not enough credits. You need ${cost}¢ (your current value) to sell out.` };
+      return { error: `Not enough credits. You need ${cost}¢ (90% of your credits) to sell out.` };
     }
 
     // Get owner info
@@ -82,21 +82,12 @@ export async function sellOut(ownershipId: number) {
       .set({ credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})` })
       .where(eq(users.id, record.ownerId));
 
-    // 3. Reset the player's value to their floor
-    await db
-      .update(users)
-      .set({
-        playerValue: sql`value_floor`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, playerId));
-
-    // 4. Remove the ownership record
+    // 3. Remove the ownership record
     await db
       .delete(ownership)
       .where(eq(ownership.id, ownershipId));
 
-    // 4a. If the owner is an NPC (card), also remove the reverse ownership (player -> NPC)
+    // 3a. If the owner is an NPC (card), also remove the reverse ownership (player -> NPC)
     if (owner.isNpc === 1) {
       await db
         .delete(ownership)
@@ -105,7 +96,7 @@ export async function sellOut(ownershipId: number) {
         );
     }
 
-    // 5. Log transaction
+    // 4. Log transaction
     await db.insert(transactions).values({
       buyerId: playerId,
       targetId: record.ownerId,
@@ -113,7 +104,7 @@ export async function sellOut(ownershipId: number) {
       amount: cost,
     });
 
-    // 6. Trigger real-time updates
+    // 5. Trigger real-time updates
     try {
       await Promise.all([
         pusher.trigger(`player-${playerId}`, "credits-updated", {

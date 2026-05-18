@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { ownership } from "@/db/schema";
+import { ownership, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-
-// Static ownership limit — every player can own up to 500 players.
-const OWNERSHIP_LIMIT = 500;
 
 export async function GET() {
   const session = await auth();
@@ -16,18 +13,27 @@ export async function GET() {
   try {
     const userId = parseInt(session.user.id);
 
-    // Get user's current ownership count
+    // Get user's hire slot limit and current ownership count
+    const [user] = await db
+      .select({ hireSlots: users.hireSlots })
+      .from(users)
+      .where(eq(users.id, userId));
+
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(ownership)
       .where(eq(ownership.ownerId, userId));
 
+    const limit = user?.hireSlots ?? 20;
     const currentOwned = ownershipCount.count;
+    const tier = Math.max(0, Math.floor(limit / 10) - 2);
+    const nextSlotCost = Math.round(1000 * Math.pow(1.3, tier));
 
     return NextResponse.json({
-      limit: OWNERSHIP_LIMIT,
+      limit,
       currentOwned,
-      canBuyMore: currentOwned < OWNERSHIP_LIMIT,
+      canBuyMore: currentOwned < limit,
+      nextSlotCost,
     });
   } catch (error) {
     console.error("Error fetching ownership limit:", error);

@@ -7,7 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
-const BLOCK_SELL_COST_PERCENT = 0.01; // 1% of self cost per hour
+const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of self value per hour
 const BLOCK_SELL_DURATION_MS = 1 * 60 * 60 * 1000; // 1 hour per press
 
 export async function blockSell(ownershipId: number) {
@@ -54,12 +54,12 @@ export async function blockSell(ownershipId: number) {
       return { error: "Owner not found" };
     }
 
-    // Calculate cost: 1% of player value per hour
+    // Calculate cost: 100% of player value per hour
     const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * player.playerValue));
 
     // Check if player has enough credits
     if (player.credits < cost) {
-      return { error: `Not enough credits. You need ${cost}¢ (1% of your value of ${player.playerValue}¢)` };
+      return { error: `Not enough credits. You need ${cost}¢ (100% of your value of ${player.playerValue}¢)` };
     }
 
     // Execute all database operations in a transaction

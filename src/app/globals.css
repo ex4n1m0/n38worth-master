@@ -805,3 +805,29 @@
 [data-theme="lightblue"] [class*="bg-gradient-to-br"][class*="from-t1"] {
   color: white !important;
 }
+
+/* Slow pulse animation for login button */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+.animate-pulse-slower {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-pulse-medium {
+  animation: pulse-slow 2.5s ease-in-out infinite;
+}
+
+.animate-pulse-fast {
+  animation: pulse-slow 1.5s ease-in-out infinite;
+}

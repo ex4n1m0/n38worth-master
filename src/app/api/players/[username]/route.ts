@@ -33,7 +33,6 @@ export async function GET(
         playerValue: users.playerValue,
         valueFloor: users.valueFloor,
         credits: users.credits,
-        blockSellUntil: users.blockSellUntil,
         estimatedDeletionAt: users.estimatedDeletionAt,
         isActive: users.isActive,
         createdAt: users.createdAt,
@@ -42,9 +41,11 @@ export async function GET(
         isVerified: users.isVerified,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
         purchaseCount: users.purchaseCount,
+        bio: users.bio,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`.as("owner_count"),
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`.as("owned_count"),
         portfolioValue: portfolioValueExpr.as("portfolio_value"),
+        blockSellUntil: sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.block_sell_until DESC LIMIT 1)`.as("block_sell_until"),
       })
       .from(users)
       .where(eq(users.username, username));
@@ -121,9 +122,11 @@ export async function GET(
         blockSellUntil: ownership.blockSellUntil,
         blockSellBy: ownership.blockSellBy,
         lastBoostAt: ownership.lastBoostAt,
+        avatarRevealUntil: ownership.avatarRevealUntil,
         isVerified: users.isVerified,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
         purchaseCount: users.purchaseCount,
+        bio: users.bio,
         ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
         portfolioValue: portfolioValueExpr.as("portfolio_value"),

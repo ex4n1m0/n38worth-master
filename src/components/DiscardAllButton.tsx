@@ -21,9 +21,10 @@ import { formatNumber } from "@/lib/utils";
 interface DiscardAllButtonProps {
   ownedCount: number;
   totalValue: number;
+  credits: number;
 }
 
-export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonProps) {
+export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAllButtonProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { t } = useLanguage();
@@ -56,6 +57,8 @@ export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonPro
     },
   });
 
+  const canAfford = credits >= totalValue;
+
   if (ownedCount === 0) return null;
 
   return (
@@ -65,21 +68,22 @@ export function DiscardAllButton({ ownedCount, totalValue }: DiscardAllButtonPro
           variant="outline"
           size="sm"
           onClick={() => play("buttons")}
-          className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          disabled={!canAfford}
+          title={!canAfford ? `You need ${formatNumber(totalValue)}¢ to discard all` : undefined}
+          className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
           {t.discardAll ?? "Discard All"}
+          <span className="ml-1.5 font-mono text-xs opacity-80">
+            −{formatNumber(totalValue)}¢
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
           <DialogTitle className="text-white">{t.discardAllConfirmTitle ?? "Discard All Players?"}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            {t.discardAllConfirmDesc
-              ? t.discardAllConfirmDesc
-                  .replace("{count}", String(ownedCount))
-                  .replace("{value}", formatNumber(totalValue))
-              : `Are you sure you want to discard all ${ownedCount} owned player${ownedCount !== 1 ? "s" : ""}? You will receive approximately ${formatNumber(totalValue)}¢ and all their values will reset. Players with active sell blocks will be skipped.`}
+            {`Discarding all ${ownedCount} player${ownedCount !== 1 ? "s" : ""} costs ${formatNumber(totalValue)}¢ upfront. You'll receive back ~${formatNumber(Math.floor(totalValue / 2))}¢ (50%), and each discarded player receives their 50%. Players with active sell blocks will be skipped.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

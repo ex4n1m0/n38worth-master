@@ -9,6 +9,7 @@ import {
   hallOfFame,
   gameHistory,
   rewardHistory,
+  avatarReveals,
 } from "@/db/schema";
 import { sql, notInArray, desc, eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
@@ -21,15 +22,17 @@ import {
 } from "@/lib/goddess-countdown";
 
 /**
- * Triggered when a player owns all 5 goddesses AND the countdown has expired.
+ * Triggered when a player owns all 6 goddesses AND the countdown has expired.
  * Records the winner in the Hall of Fame, then resets the entire game.
  *
  * Reset semantics (per game spec):
  *   - All ownership rows are deleted
- *   - All transactions & messages are deleted
+ *   - All transactions, messages, and avatar reveals are deleted
  *   - ALL non-goddess NPCs are HARD DELETED (the NPC population is wiped so
  *     the random-player cron can repopulate from scratch)
  *   - All remaining humans are reset to credits=100, playerValue=1, valueFloor=1
+ *     with rank-bonus / login-reward timestamps cleared (derived ranks drop
+ *     back to the lowest tier automatically)
  *   - Goddesses are reset to their original floor values (and marked isProtected)
  *   - Winner is recorded in hall_of_fame with wasReset=0 (so they do not see
  *     the "world has been reset" toast meant for the rest of the world)
@@ -92,7 +95,7 @@ export async function triggerGameReset(
       targetId: winnerId,
       targetUsername: winnerUsername,
       details: JSON.stringify({
-        message: `${winnerUsername} collected all 5 goddesses and won the game!`,
+        message: `${winnerUsername} collected all 6 goddesses and won the game!`,
       }),
     });
 
@@ -104,6 +107,13 @@ export async function triggerGameReset(
 
     // 5. Delete all messages
     await db.delete(messages);
+
+    // 5b. Delete all avatar reveals.
+    // avatar_reveals.viewer_id / target_id are FKs to users.id with no
+    // ON DELETE clause (default NO ACTION), so any reveal row pointing at
+    // an NPC would block the NPC hard-delete below. Reveals are meaningless
+    // after a game reset anyway (all ownership is gone), so wipe the table.
+    await db.delete(avatarReveals);
 
     // 6. Hard-delete ALL non-goddess NPCs.
     // Ownership is already cleared (step 3) so we only need to remove the
@@ -150,12 +160,21 @@ export async function triggerGameReset(
       });
     }
 
-    // 7. Reset ALL remaining players EXCEPT goddess NPCs (i.e., humans).
+    // 7. Clear reward_history for all non-goddess players (humans + winner).
+    // This resets Income History and Boss Income displays to zero.
+    await db
+      .delete(rewardHistory)
+      .where(
+        sql`${rewardHistory.userId} IN (SELECT id FROM users WHERE username != ALL(ARRAY[${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)}]))`
+      );
+
+    // 7b. Reset ALL remaining players EXCEPT goddess NPCs (i.e., humans).
     // Keep onboardingComplete / avatar fields intact.
     // Set wasReset = 2 to indicate GAME reset (not account reset).
-    // NOTE: purchaseCount is intentionally NOT reset — it is a lifetime
-    // "times hired" counter used by profile achievements and the "most-hired"
-    // sort, and must persist across game-win resets.
+    // Clear rank-bonus / login-reward timestamps so those UIs start clean,
+    // and bump lastDividendAt to now so the next portfolio-reward cron tick
+    // doesn't retroactively pay for time before the reset.
+    const resetNow = new Date();
     await db
       .update(users)
       .set({
@@ -168,7 +187,12 @@ export async function triggerGameReset(
         estimatedDeletionAt: null,
         ownerlessAt: null,
         lastOwnershipDecayAt: null,
-        updatedAt: new Date(),
+        lastRankBonusAt: null,
+        lastLoginRewardAt: null,
+        lastDividendAt: resetNow,
+        hireSlots: 20,
+        purchaseCount: 0,
+        updatedAt: resetNow,
       })
       .where(notInArray(users.username, GODDESS_USERNAMES));
 
@@ -193,6 +217,7 @@ export async function triggerGameReset(
           estimatedDeletionAt: null,
           ownerlessAt: null,
           isProtected: 1, // Ensure goddesses are always protected
+          purchaseCount: 0,
           updatedAt: new Date(),
         })
         .where(sql`${users.username} = ${username}`);
@@ -227,7 +252,7 @@ export async function triggerGameReset(
       await pusher.trigger("game-global", "game-won", {
         winnerUsername,
         winnerId,
-        message: `🏆 ${winnerUsername} has collected all 5 Goddesses and WON THE GAME! The world has been reset!`,
+        message: `🏆 ${winnerUsername} has collected all 6 Goddesses and WON THE GAME! The world has been reset!`,
       });
     } catch (pusherError) {
       console.error("Pusher error during game reset broadcast:", pusherError);
@@ -238,7 +263,22 @@ export async function triggerGameReset(
       deletedNpcCount: nonGoddessNpcs.length,
     };
   } catch (error) {
+    const message =
+      error instanceof Error ? `${error.name}: ${error.message}` : String(error);
     console.error("Game reset error:", error);
-    return { error: "Failed to reset the game" };
+
+    // Tell any clients that were showing a "resetting the world" overlay to
+    // stop waiting. The cron will retry on its next tick.
+    try {
+      await pusher.trigger("game-global", "game-reset-aborted", {
+        winnerId,
+        winnerUsername,
+        reason: message,
+      });
+    } catch (pusherError) {
+      console.error("Pusher error during game-reset-aborted broadcast:", pusherError);
+    }
+
+    return { error: "Failed to reset the game", detail: message };
   }
 }

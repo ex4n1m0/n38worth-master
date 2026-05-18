@@ -5,6 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const navbarBtnStyle = {
+  backgroundImage: "url('/navbar.png')",
+  backgroundSize: "100% 100%",
+  backgroundRepeat: "no-repeat",
+} as const;
+
 /**
  * Format a number with comma-separated thousands (e.g., 1000 -> "1,000")
  */

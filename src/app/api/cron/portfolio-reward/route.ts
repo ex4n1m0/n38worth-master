@@ -4,6 +4,7 @@ import { users, ownership, rewardHistory } from "@/db/schema";
 import { sql, eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { getGoddessPowers } from "@/lib/goddess-powers";
 
 // Track last successful portfolio reward distribution time
 let lastPortfolioRewardTime: Date | null = null;
@@ -21,22 +22,15 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 10 minutes
-    const intervalMinutes = 10;
-    const intervalMs = intervalMinutes * 60 * 1000;
+    // Fixed interval: 2 minutes
+    const intervalMinutes = 2;
 
     // Check if enough time has passed since last portfolio reward
+    let globalIntervalSkip = false;
     if (lastPortfolioRewardTime) {
       const minutesSinceLastReward = (now.getTime() - lastPortfolioRewardTime.getTime()) / (1000 * 60);
-      
       if (minutesSinceLastReward < intervalMinutes) {
-        return NextResponse.json({
-          success: true,
-          skipped: true,
-          reason: `Not enough time passed. Need ${intervalMinutes} min, only ${minutesSinceLastReward.toFixed(2)} min since last reward.`,
-          intervalMinutes,
-          timestamp: now.toISOString(),
-        });
+        globalIntervalSkip = true;
       }
     }
 
@@ -51,10 +45,100 @@ export async function GET(req: Request) {
       .from(users)
       .where(sql`${users.isActive} = 1 AND ${users.isNpc} = 0`);
 
-    const payouts: { username: string; portfolioValue: number; reward: number }[] = [];
+    // When the global interval hasn't elapsed, only process Time/Creation holders
+    // (they receive rewards every cron tick = 2x frequency). Everyone else is skipped
+    // and we return early — preserving the original behaviour for normal players.
+    if (globalIntervalSkip) {
+      const timePusher: Array<{ channel: string; event: string; data: object }> = [];
+      const timeHistory: { userId: number; type: string; amount: number; details: string }[] = [];
+
+      for (const player of allPlayers) {
+        const playerPowers = await getGoddessPowers(player.id);
+        if (!playerPowers.hasTime) continue;
+
+        const [portfolioResult] = await db
+          .select({
+            ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
+          })
+          .from(ownership)
+          .innerJoin(users, eq(ownership.ownedId, users.id))
+          .where(eq(ownership.ownerId, player.id));
+
+        const [ownerCountResult] = await db
+          .select({ ownerCount: sql<number>`COUNT(*)`.as("owner_count") })
+          .from(ownership)
+          .where(eq(ownership.ownedId, player.id));
+
+        const [bossResult] = await db
+          .select({ bossId: ownership.ownerId, bossUsername: users.username })
+          .from(ownership)
+          .innerJoin(users, eq(ownership.ownerId, users.id))
+          .where(eq(ownership.ownedId, player.id))
+          .limit(1);
+
+        const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
+        const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
+        const bossId = bossResult?.bossId;
+        const bossUsername = bossResult?.bossUsername;
+        const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
+        const grossReward = safeReward(portfolioValue, 0.002);
+
+        if (grossReward > 0) {
+          const bossTax = bossId ? Math.floor(grossReward * 0.1) : 0;
+          const baseNetReward = grossReward - bossTax;
+          const playerNetReward = playerPowers.hasWealth ? baseNetReward * 2 : baseNetReward;
+
+          let effectiveBossTax = bossTax;
+          if (bossId) {
+            const bossPowers = await getGoddessPowers(bossId);
+            if (bossPowers.hasWealth) effectiveBossTax = bossTax * 2;
+          }
+
+          await db
+            .update(users)
+            .set({ credits: sql`LEAST(credits + ${playerNetReward}, ${sql.raw(MAX_CREDITS_SQL)})`, updatedAt: now })
+            .where(eq(users.id, player.id));
+
+          timeHistory.push({ userId: player.id, type: "portfolio_reward", amount: playerNetReward, details: JSON.stringify({ portfolioValue, grossReward, bossTax, hasBoss: !!bossId }) });
+          timePusher.push({ channel: `player-${player.id}`, event: "portfolio-reward", data: { amount: playerNetReward, portfolioValue, bossTax, bossUsername } });
+
+          if (bossId && effectiveBossTax > 0) {
+            await db
+              .update(users)
+              .set({ credits: sql`LEAST(credits + ${effectiveBossTax}, ${sql.raw(MAX_CREDITS_SQL)})`, updatedAt: now })
+              .where(eq(users.id, bossId));
+            timeHistory.push({ userId: bossId, type: "boss_portfolio_tax", amount: effectiveBossTax, details: JSON.stringify({ fromPlayerId: player.id, fromPlayer: player.username, portfolioValue }) });
+            timePusher.push({ channel: `player-${bossId}`, event: "boss-tax", data: { amount: effectiveBossTax, fromPlayer: player.username, type: "portfolio" } });
+          }
+        }
+      }
+
+      if (timeHistory.length > 0) {
+        try { await db.insert(rewardHistory).values(timeHistory); } catch (e) { console.error("Time reward history error:", e); }
+      }
+      if (timePusher.length > 0) {
+        try { await Promise.all(timePusher.map(({ channel, event, data }) => pusher.trigger(channel, event, data))); } catch (e) { console.error("Time pusher error:", e); }
+      }
+
+      return NextResponse.json({
+        success: true,
+        skipped: true,
+        reason: `Interval not elapsed — processed Time/Creation holders only (${timeHistory.length} entries).`,
+        intervalMinutes,
+        timestamp: now.toISOString(),
+      });
+    }
+
+    // --- Full run: interval has elapsed, process ALL players ---
+    const payouts: { username: string; portfolioValue: number; reward: number; bossTax: number; bossUsername?: string }[] = [];
+    const bossTaxes: { bossUsername: string; fromPlayer: string; amount: number }[] = [];
     let totalRewardsDistributed = 0;
+    let totalBossTaxesCollected = 0;
+    const pusherNotifications: Array<{ channel: string; event: string; data: object }> = [];
+    const historyEntries: { userId: number; type: string; amount: number; details: string }[] = [];
 
     for (const player of allPlayers) {
+      const playerPowers = await getGoddessPowers(player.id);
       // Calculate portfolio value: player_value + sum of owned players' values
       // Count ALL owned players, multiply each by (1 + number of players they own)
       const [portfolioResult] = await db
@@ -73,73 +157,155 @@ export async function GET(req: Request) {
         .from(ownership)
         .where(eq(ownership.ownedId, player.id));
 
+      // Get player's boss (the one who owns them)
+      const [bossResult] = await db
+        .select({
+          bossId: ownership.ownerId,
+          bossUsername: users.username,
+        })
+        .from(ownership)
+        .innerJoin(users, eq(ownership.ownerId, users.id))
+        .where(eq(ownership.ownedId, player.id))
+        .limit(1);
+
       const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
       const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
+      const bossId = bossResult?.bossId;
+      const bossUsername = bossResult?.bossUsername;
 
       // Use BigInt-safe portfolio calculation to avoid overflow with large player values
       const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
 
       // Calculate 0.2% reward using BigInt-safe arithmetic
-      const reward = safeReward(portfolioValue, 0.002);
+      const grossReward = safeReward(portfolioValue, 0.002);
 
-      if (reward > 0) {
-        // Update player credits (cap at MAX_CREDITS to prevent overflow)
+      if (grossReward > 0) {
+        // Calculate boss tax: 10% goes to boss, player keeps 90%
+        const bossTax = bossId ? Math.floor(grossReward * 0.1) : 0;
+        const baseNetReward = grossReward - bossTax;
+        // Wealth / Creation power: 2x portfolio reward for the holder
+        const playerNetReward = playerPowers.hasWealth ? baseNetReward * 2 : baseNetReward;
+
+        // If player's boss holds Wealth / Creation, their boss income is also doubled
+        let effectiveBossTax = bossTax;
+        if (bossId) {
+          const bossPowers = await getGoddessPowers(bossId);
+          if (bossPowers.hasWealth) effectiveBossTax = bossTax * 2;
+        }
+
+        // Update player credits (net reward after boss tax)
         await db
           .update(users)
           .set({
-            credits: sql`LEAST(credits + ${reward}, ${sql.raw(MAX_CREDITS_SQL)})`,
+            credits: sql`LEAST(credits + ${playerNetReward}, ${sql.raw(MAX_CREDITS_SQL)})`,
             updatedAt: now,
           })
           .where(eq(users.id, player.id));
 
-        // Log to reward history
-        try {
-          await db.insert(rewardHistory).values({
-            userId: player.id,
-            type: "portfolio_reward",
-            amount: reward,
-            details: JSON.stringify({ portfolioValue }),
-          });
-        } catch (historyError) {
-          console.error("Reward history insert error:", historyError);
-        }
+        // Player's portfolio reward history entry
+        historyEntries.push({
+          userId: player.id,
+          type: "portfolio_reward",
+          amount: playerNetReward,
+          details: JSON.stringify({ portfolioValue, grossReward, bossTax, hasBoss: !!bossId }),
+        });
 
-        // Send Pusher notification to the player
-        try {
-          await pusher.trigger(`player-${player.id}`, "portfolio-reward", {
-            amount: reward,
-            portfolioValue,
+        // Pusher notification for player
+        pusherNotifications.push({
+          channel: `player-${player.id}`,
+          event: "portfolio-reward",
+          data: { amount: playerNetReward, portfolioValue, bossTax, bossUsername },
+        });
+
+        // If player has a boss, transfer the tax (effectiveBossTax is doubled for Wealth/Creation holders)
+        if (bossId && effectiveBossTax > 0) {
+          await db
+            .update(users)
+            .set({
+              credits: sql`LEAST(credits + ${effectiveBossTax}, ${sql.raw(MAX_CREDITS_SQL)})`,
+              updatedAt: now,
+            })
+            .where(eq(users.id, bossId));
+
+          // Boss tax history entry
+          historyEntries.push({
+            userId: bossId,
+            type: "boss_portfolio_tax",
+            amount: effectiveBossTax,
+            details: JSON.stringify({ fromPlayerId: player.id, fromPlayer: player.username, portfolioValue }),
           });
-        } catch (pusherError) {
-          console.error("Pusher error for portfolio reward:", pusherError);
+
+          // Pusher notification for boss
+          pusherNotifications.push({
+            channel: `player-${bossId}`,
+            event: "boss-tax",
+            data: { amount: effectiveBossTax, fromPlayer: player.username, type: "portfolio" },
+          });
+
+          bossTaxes.push({
+            bossUsername,
+            fromPlayer: player.username,
+            amount: effectiveBossTax,
+          });
+
+          totalBossTaxesCollected += effectiveBossTax;
         }
 
         payouts.push({
           username: player.username,
           portfolioValue,
-          reward,
+          reward: playerNetReward,
+          bossTax,
+          bossUsername,
         });
 
-        totalRewardsDistributed += reward;
+        totalRewardsDistributed += playerNetReward;
       }
     }
 
-    // Update last successful reward time
-    lastPortfolioRewardTime = now;
+    // Batch insert all history entries
+    if (historyEntries.length > 0) {
+      try {
+        await db.insert(rewardHistory).values(historyEntries);
+      } catch (historyError) {
+        console.error("Reward history batch insert error:", historyError);
+      }
+    }
+
+    // Fire all Pusher notifications in parallel
+    if (pusherNotifications.length > 0) {
+      try {
+        await Promise.all(
+          pusherNotifications.map(({ channel, event, data }) =>
+            pusher.trigger(channel, event, data)
+          )
+        );
+      } catch (pusherError) {
+        console.error("Pusher batch error for portfolio rewards:", pusherError);
+      }
+    }
+
+    // Update last successful reward time (only on full runs, not Time-power-only ticks)
+    if (!globalIntervalSkip) {
+      lastPortfolioRewardTime = now;
+    }
 
     return NextResponse.json({
       success: true,
       skipped: false,
       message: `Portfolio rewards distributed to ${payouts.length} players`,
       totalRewardsDistributed,
+      totalBossTaxesCollected,
       intervalMinutes,
       payouts: payouts.slice(0, 10),
+      bossTaxes: bossTaxes.slice(0, 10),
       timestamp: now.toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Cron portfolio reward error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return NextResponse.json(
-      { error: "Failed to distribute portfolio rewards", details: error?.message },
+      { error: "Failed to distribute portfolio rewards", details: errorMessage },
       { status: 500 }
     );
   }

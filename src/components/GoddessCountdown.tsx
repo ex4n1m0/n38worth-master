@@ -62,7 +62,7 @@ export function GoddessCountdown() {
     const channel = pusher.subscribe("game-global");
 
     channel.bind("countdown-started", (data: { username: string; userId: number; durationMinutes: number }) => {
-      toast.info(`⏱️ ${data.username} owns all 5 Goddesses!`, {
+      toast.info(`⏱️ ${data.username} owns all 6 Goddesses!`, {
         description: `They must hold them for ${data.durationMinutes} minutes to win. Hire a Goddess to stop them!`,
         duration: 15000,
       });
@@ -80,7 +80,7 @@ export function GoddessCountdown() {
 
     channel.bind("game-won", (data: { winnerUsername: string }) => {
       toast.success(`🏆 ${data.winnerUsername} WON THE GAME! 🏆`, {
-        description: "They held all 5 Goddesses for the full countdown! The world has been reset!",
+        description: "They held all 6 Goddesses for the full countdown! The world has been reset!",
         duration: 30000,
       });
       setLocalRemaining(null);
@@ -122,7 +122,7 @@ export function GoddessCountdown() {
                 Goddess Challenge Active!
               </h3>
               <p className="text-xs text-yellow-300/70">
-                <span className="font-semibold text-yellow-300">{countdown.username}</span> owns all 5 Goddesses
+                <span className="font-semibold text-yellow-300">{countdown.username}</span> owns all 6 Goddesses
               </p>
             </div>
           </div>

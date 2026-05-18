@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, CreditCard } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
+import { navbarBtnStyle } from "@/lib/utils";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Latest Online" },
@@ -83,54 +84,58 @@ export default function PlayersPage() {
             return (
               <Button
                 key={s.key}
-                variant={sort === s.key ? "default" : "outline"}
+                variant="ghost"
                 size="sm"
                 onClick={() => { setSort(s.key); setPage(1); }}
                 className={
                   sort === s.key
-                    ? "bg-t1-600 hover:bg-t1-500 text-white"
-                    : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                    ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                    : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
                 }
+                style={navbarBtnStyle}
               >
                 {labelMap[s.key] || s.label}
               </Button>
             );
           })}
           <Button
-            variant={hasOwner ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             onClick={() => { setHasOwner(!hasOwner); setPage(1); }}
             className={
               hasOwner
-                ? "bg-amber-600 hover:bg-amber-500 text-white"
-                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
             }
+            style={navbarBtnStyle}
           >
             <Crown className="h-3.5 w-3.5 mr-1" />
             {t.hasOwner}
           </Button>
           <Button
-            variant={playerType === "human" ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}
             className={
               playerType === "human"
-                ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
             }
+            style={navbarBtnStyle}
           >
             <User className="h-3.5 w-3.5 mr-1" />
             Human
           </Button>
           <Button
-            variant={playerType === "card" ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}
             className={
               playerType === "card"
-                ? "bg-cyan-600 hover:bg-cyan-500 text-white"
-                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
             }
+            style={navbarBtnStyle}
           >
             <CreditCard className="h-3.5 w-3.5 mr-1" />
             Card
@@ -172,6 +177,7 @@ export default function PlayersPage() {
                 ownerName?: string | null;
                 ownerValue?: number | null;
                 purchaseCount?: number;
+                bio?: string | null;
               }) => (
                 <PlayerCard key={player.id} {...player} />
               )

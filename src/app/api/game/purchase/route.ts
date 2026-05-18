@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const purchaseResult = await purchasePlayer(result.data.targetId);
+    const purchaseResult = await purchasePlayer(result.data.targetId, result.data.blockDurationHours);
 
     if (purchaseResult.error) {
       return NextResponse.json(

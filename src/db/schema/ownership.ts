@@ -16,6 +16,11 @@ export const ownership = pgTable(
     blockSellUntil: timestamp("block_sell_until"),
     blockSellBy: varchar("block_sell_by", { length: 30 }),
     lastBoostAt: timestamp("last_boost_at"),
+    avatarRevealUntil: timestamp("avatar_reveal_until"),
+    boostPressCount: integer("boost_press_count").default(0),
+    lastBoostPressAt: timestamp("last_boost_press_at"),
+    revealPressCount: integer("reveal_press_count").default(0),
+    lastRevealPressAt: timestamp("last_reveal_press_at"),
   },
   (table) => [
     index("idx_ownership_owner").on(table.ownerId),

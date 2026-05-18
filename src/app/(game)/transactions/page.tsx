@@ -15,10 +15,14 @@ import {
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
 import { formatNumber } from "@/lib/utils";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrcByUsername } from "@/lib/avatar-utils";
 
 export default function TransactionsPage() {
   const { data: session, status } = useSession();
   const { t } = useLanguage();
+  const { ownedUsernames } = useOwnedPlayerIds();
+  const viewerUsername = session?.user?.name;
 
   const { data, isLoading } = useQuery({
     queryKey: ["transactions"],
@@ -102,7 +106,12 @@ export default function TransactionsPage() {
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <Avatar className="h-40 w-40">
                         <AvatarImage
-                          src={txn.buyer.avatarUrl || undefined}
+                          src={getAvatarSrcByUsername({
+                            avatarUrl: txn.buyer.avatarUrl,
+                            playerUsername: txn.buyer.username,
+                            viewerUsername,
+                            ownedUsernames,
+                          })}
                         />
                         <AvatarFallback className="bg-gray-700 text-white text-xs">
                           {txn.buyer.username.slice(0, 2).toUpperCase()}
@@ -114,7 +123,12 @@ export default function TransactionsPage() {
                       <ArrowRight className="h-3 w-3 text-gray-600 flex-shrink-0" />
                       <Avatar className="h-40 w-40">
                         <AvatarImage
-                          src={txn.target.avatarUrl || undefined}
+                          src={getAvatarSrcByUsername({
+                            avatarUrl: txn.target.avatarUrl,
+                            playerUsername: txn.target.username,
+                            viewerUsername,
+                            ownedUsernames,
+                          })}
                         />
                         <AvatarFallback className="bg-gray-700 text-white text-xs">
                           {txn.target.username.slice(0, 2).toUpperCase()}

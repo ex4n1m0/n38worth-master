@@ -95,9 +95,8 @@ export function RandomPlayerCountdown() {
     return () => clearInterval(interval);
   }, [statusData, play, queryClient]);
 
-  // Hide entirely when the 600-NPC cap is reached or the server is
-  // misconfigured — no useful information to show regular players.
-  if (statusData?.capped || statusData?.misconfigured) {
+  // Hide entirely when the server is misconfigured — no useful information to show.
+  if (statusData?.misconfigured) {
     return null;
   }
 
@@ -109,7 +108,7 @@ export function RandomPlayerCountdown() {
         <div className="flex items-center gap-2">
           <UserPlus className="h-5 w-5 text-t1-400" />
           <h3 className="text-sm font-semibold text-t1-400">
-            Next Random Player
+            Next Random Player{statusData?.intervalMinutes && statusData.intervalMinutes >= 60 * 24 ? " — Every 24h" : ""}
           </h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-t1-500/20">

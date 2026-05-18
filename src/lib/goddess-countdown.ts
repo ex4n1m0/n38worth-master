@@ -22,8 +22,8 @@ const COUNTDOWN_DURATION_SNAPSHOT_KEY = "goddess_countdown_duration_snapshot";
 const COUNTDOWN_LAST_PROCESSED_KEY = "goddess_countdown_last_processed_start";
 // Grace-window keys — allow a user whose countdown was just cancelled (because
 // someone briefly stole a goddess from them) to RESUME that same countdown
-// if they reacquire all 5 goddesses within GRACE_SECONDS. Without this, every
-// brief NPC/human trade of a cheap goddess (Inanna is $1k) resets the timer.
+// if they reacquire all 6 goddesses within GRACE_SECONDS. Without this, every
+// brief NPC/human trade of a cheap goddess (Goddess of War is $1B) resets the timer.
 const COUNTDOWN_GRACE_USER_KEY = "goddess_countdown_grace_user_id";
 const COUNTDOWN_GRACE_PREV_START_KEY = "goddess_countdown_grace_prev_start";
 const COUNTDOWN_GRACE_PREV_DURATION_KEY = "goddess_countdown_grace_prev_duration";

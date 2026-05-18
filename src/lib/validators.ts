@@ -19,6 +19,7 @@ export const loginSchema = z.object({
 
 export const purchaseSchema = z.object({
   targetId: z.number().int().positive(),
+  blockDurationHours: z.number().int().min(1).max(6).optional().default(1),
 });
 
 export const discardSchema = z.object({

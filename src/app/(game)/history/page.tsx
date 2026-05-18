@@ -18,7 +18,7 @@ import {
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
 import { useState } from "react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, navbarBtnStyle } from "@/lib/utils";
 
 const eventTypeConfig = {
   purchase: {
@@ -98,14 +98,15 @@ export default function GameHistoryPage() {
         {filters.map((f) => (
           <Button
             key={f.value ?? "all"}
-            variant={filter === f.value ? "default" : "outline"}
+            variant="ghost"
             size="sm"
             onClick={() => setFilter(f.value)}
             className={
               filter === f.value
-                ? "bg-t1-600 hover:bg-t1-700"
-                : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
             }
+            style={navbarBtnStyle}
           >
             <Filter className="h-3 w-3 mr-1" />
             {f.label}

@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { useSound } from "@/hooks/useSound";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { getAvatarSrc } from "@/lib/avatar-utils";
 
 interface ChatMessage {
   id: number;
@@ -48,6 +50,7 @@ export function ChatRoom() {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
   const { play } = useSound();
+  const { ownedIds } = useOwnedPlayerIds();
 
   // Fetch messages
   const { data: fetchedMessages, isLoading } = useQuery({
@@ -168,7 +171,13 @@ export function ChatRoom() {
               >
                 <Link href={`/players/${msg.sender.username}`}>
                   <Avatar className="h-7 w-7 shrink-0">
-                    <AvatarImage src={msg.sender.avatarUrl || undefined} />
+                    <AvatarImage src={getAvatarSrc({
+                      avatarUrl: msg.sender.avatarUrl,
+                      playerId: msg.sender.id,
+                      playerUsername: msg.sender.username,
+                      viewerUsername: session?.user?.name,
+                      ownedIds,
+                    })} />
                     <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-[10px] font-bold">
                       {msg.sender.username.slice(0, 2).toUpperCase()}
                     </AvatarFallback>

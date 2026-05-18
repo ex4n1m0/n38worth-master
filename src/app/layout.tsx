@@ -17,28 +17,21 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
-  description: "Your network is your n38worth",
+  description: "Massive Multiplayer Online Game",
   keywords: ["trading", "game", "social", "MMO", "multiplayer"],
   openGraph: {
     title: "n38worth",
-    description: "Your network is your n38worth",
+    description: "Massive Multiplayer Online Game",
     siteName: "n38worth",
     type: "website",
     url: "https://n38worth.com",
-    images: [
-      {
-        url: "/MayBe-og.jpg",
-        width: 1200,
-        height: 1200,
-        alt: "n38worth Game Cover",
-      },
-    ],
+    // images generated dynamically by src/app/opengraph-image.tsx
   },
   twitter: {
     card: "summary_large_image",
     title: "n38worth",
-    description: "Your network is your n38worth",
-    images: ["/MayBe-og.jpg"],
+    description: "Massive Multiplayer Online Game",
+    // images generated dynamically by src/app/twitter-image.tsx
   },
   icons: {
     icon: "/VW_Icon.png",

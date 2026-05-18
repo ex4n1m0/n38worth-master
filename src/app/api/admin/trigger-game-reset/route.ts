@@ -89,10 +89,10 @@ export async function POST(req: Request) {
         )
       );
 
-    if (Number(ownedCount.count) < 5) {
+    if (Number(ownedCount.count) < 6) {
       return NextResponse.json(
         {
-          error: `User only owns ${ownedCount.count}/5 goddesses. Pass force=true to override.`,
+          error: `User only owns ${ownedCount.count}/6 goddesses. Pass force=true to override.`,
           ownedCount: Number(ownedCount.count),
         },
         { status: 409 }

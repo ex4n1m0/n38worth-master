@@ -92,29 +92,14 @@ function generateRandomUsername(): string {
  * Returns the minimum interval (in minutes) that should elapse between
  * scheduled random-player creations, based on the current NPC population.
  *
- * Tiered throttle (NPC population → cadence):
- *   <100    : every 10 minutes
- *   100-199 : every 20 minutes
- *   200-299 : every 30 minutes
- *   300-399 : every 40 minutes
- *   400-499 : every 50 minutes
- *   500-599 : every 60 minutes
- *   >=600   : null (hard cap — stop creating)
- *
- * Note: the 500-599 tier is narrow (the cap kicks in at 600) but intentional —
- * we want a slow, trickling 1-hour cadence as we approach the cap so ownerless
- * cleanup can keep us under it.
+ *   0-599   : every 10 minutes
+ *   >=600   : every 24 hours (1 per day to replace deleted ownerless NPCs)
  *
  * Onboarding NPC provisioning does NOT go through this path — onboarding
  * always gets its 3 starter NPCs regardless of the cap.
  */
-export function getCreationIntervalMinutes(npcCount: number): number | null {
-  if (npcCount >= 600) return null;
-  if (npcCount >= 500) return 60;
-  if (npcCount >= 400) return 50;
-  if (npcCount >= 300) return 40;
-  if (npcCount >= 200) return 30;
-  if (npcCount >= 100) return 20;
+export function getCreationIntervalMinutes(npcCount: number): number {
+  if (npcCount >= 600) return 24 * 60;
   return 10;
 }
 

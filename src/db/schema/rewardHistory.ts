@@ -8,7 +8,7 @@ export const rewardHistory = pgTable(
     userId: integer("user_id")
       .references(() => users.id)
       .notNull(),
-    type: text("type").notNull(), // 'portfolio_reward' | 'rank_bonus' | 'login_reward' | 'purchase_income'
+    type: text("type").notNull(), // 'portfolio_reward' | 'rank_bonus' | 'login_reward' | 'purchase_income' | 'boss_portfolio_tax' | 'boss_no_income_tax'
     amount: doublePrecision("amount").notNull(),
     details: text("details"), // JSON string with extra context
     createdAt: timestamp("created_at").defaultNow().notNull(),
