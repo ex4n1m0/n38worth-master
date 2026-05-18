@@ -46,6 +46,8 @@ import {
 } from "@/lib/ranks";
 import { formatNumber, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { BONUS_CARD_USERNAMES, BONUS_CARD_POWERS } from "@/lib/bonus-cards";
+import { Shield, Sparkles } from "lucide-react";
 
 function formatLastOnline(date: string | Date | null | undefined): string {
   if (!date) return "Never";
@@ -177,6 +179,7 @@ function OwnershipCard({
   const { play } = useSound();
 
   const isOwnCard = session?.user?.name === item.username;
+  const isBonus = BONUS_CARD_USERNAMES.includes(item.username);
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
   const revealTime = useRevealCountdown(item.avatarRevealUntil);
@@ -186,6 +189,7 @@ function OwnershipCard({
     playerUsername: item.username,
     viewerUsername: session?.user?.name,
     ownedIds,
+    isBonus,
   });
 
   const buyMutation = useMutation({
@@ -387,54 +391,71 @@ function OwnershipCard({
           </div>
         </Link>
 
-        {/* Action buttons */}
+        {/* Action buttons — bonus cards are locked: no actions, only a read-only countdown */}
+        {isBonus ? (
+          <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-purple-500/30">
+            <div className="rounded-md border border-purple-500/40 bg-purple-950/40 px-3 py-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-purple-300">
+                <Shield className="h-4 w-4 shrink-0" />
+                <span className="text-xs font-semibold">Unbreakable 3h Block</span>
+              </div>
+              <span className="text-xs font-bold text-purple-200 tabular-nums">
+                {sellBlockTime ?? "Expired"}
+              </span>
+            </div>
+            <p className="text-[11px] text-purple-300/80 flex items-start gap-1 leading-snug">
+              <Sparkles className="h-3 w-3 shrink-0 mt-0.5" />
+              <span>{BONUS_CARD_POWERS[item.username]}</span>
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-800/60">
+            {showSendCredits && (
+              <SendCreditsButton
+                targetId={item.id}
+                targetUsername={item.username}
+                className="w-full"
+              />
+            )}
+            {showBoost && !isOwnCard && (
+              <BoostCardButton
+                targetId={item.id}
+                targetUsername={item.username}
+                playerValue={item.playerValue}
+                countdown={sellBlockTime}
+                className="w-full"
+              />
+            )}
+            {showBoostValue && !GODDESS_USERNAMES.includes(item.username) && (
+              <BoostValueButton
+                targetId={item.id}
+                targetUsername={item.username}
+                playerValue={item.playerValue}
+                className="w-full"
+              />
+            )}
+            {showRevealAvatar && !isOwnCard && !GODDESS_USERNAMES.includes(item.username) && (
+              <RevealAvatarButton
+                targetId={item.id}
+                targetUsername={item.username}
+                playerValue={item.playerValue}
+                countdown={revealTime}
+                className="w-full"
+              />
+            )}
+            {showLetGo && (
+              <LetGoButton
+                targetId={item.id}
+                targetUsername={item.username}
+                playerValue={item.playerValue}
+                className="w-full"
+              />
+            )}
+          </div>
+        )}
 
-        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-800/60">
-          {showSendCredits && (
-            <SendCreditsButton
-              targetId={item.id}
-              targetUsername={item.username}
-              className="w-full"
-            />
-          )}
-          {showBoost && !isOwnCard && (
-            <BoostCardButton
-              targetId={item.id}
-              targetUsername={item.username}
-              playerValue={item.playerValue}
-              countdown={sellBlockTime}
-              className="w-full"
-            />
-          )}
-          {showBoostValue && !GODDESS_USERNAMES.includes(item.username) && (
-            <BoostValueButton
-              targetId={item.id}
-              targetUsername={item.username}
-              playerValue={item.playerValue}
-              className="w-full"
-            />
-          )}
-          {showRevealAvatar && !isOwnCard && !GODDESS_USERNAMES.includes(item.username) && (
-            <RevealAvatarButton
-              targetId={item.id}
-              targetUsername={item.username}
-              playerValue={item.playerValue}
-              countdown={revealTime}
-              className="w-full"
-            />
-          )}
-          {showLetGo && (
-            <LetGoButton
-              targetId={item.id}
-              targetUsername={item.username}
-              playerValue={item.playerValue}
-              className="w-full"
-            />
-          )}
-        </div>
-
-        {/* Inline Chat */}
-        {showChat && (
+        {/* Inline Chat — hidden for bonus cards (they have no chat) */}
+        {showChat && !isBonus && (
           <div className="mt-4 pt-4 border-t border-gray-800/60">
             <InlineDMChat
               targetId={item.id}

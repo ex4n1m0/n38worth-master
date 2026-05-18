@@ -7,6 +7,7 @@ import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { sql } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -43,6 +44,14 @@ export async function POST(req: Request) {
     // Goddesses cannot be value-boosted
     if (GODDESS_USERNAMES.includes(target.username)) {
       return NextResponse.json({ error: "Cannot boost a goddess" }, { status: 400 });
+    }
+
+    // Bonus cards cannot be value-boosted
+    if (BONUS_CARD_USERNAMES.includes(target.username)) {
+      return NextResponse.json(
+        { error: "Bonus cards cannot be value-boosted" },
+        { status: 403 }
+      );
     }
 
     // Only the player themselves OR their current owner can trigger this

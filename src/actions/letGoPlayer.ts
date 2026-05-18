@@ -6,6 +6,7 @@ import { users, ownership, transactions, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function letGoPlayer(otherId: number) {
   const session = await auth();
@@ -39,6 +40,10 @@ export async function letGoPlayer(otherId: number) {
 
     if (!targetPlayer) {
       return { error: "Player not found" };
+    }
+
+    if (BONUS_CARD_USERNAMES.includes(targetPlayer.username)) {
+      return { error: "Bonus cards cannot be let go — wait for the 3h block to expire" };
     }
 
     const letGoCost = targetPlayer.playerValue;

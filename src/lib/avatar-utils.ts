@@ -20,12 +20,13 @@ export function getAvatarSrc(params: {
   viewerUsername: string | null | undefined;
   ownedIds: Set<number>;
   isGoddess?: boolean;
+  isBonus?: boolean;
   isAvatarRevealed?: boolean;
 }): string {
-  const { avatarUrl, playerId, playerUsername, viewerUsername, ownedIds, isGoddess, isAvatarRevealed } = params;
+  const { avatarUrl, playerId, playerUsername, viewerUsername, ownedIds, isGoddess, isBonus, isAvatarRevealed } = params;
   const isSelf = !!viewerUsername && viewerUsername === playerUsername;
   const isHired = ownedIds.has(playerId);
-  if (isSelf || isHired || isGoddess || isAvatarRevealed) {
+  if (isSelf || isHired || isGoddess || isBonus || isAvatarRevealed) {
     return avatarUrl || UNHIRED_AVATAR_SRC;
   }
   return UNHIRED_AVATAR_SRC;

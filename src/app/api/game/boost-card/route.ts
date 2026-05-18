@@ -5,6 +5,7 @@ import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { capCredits } from "@/lib/safeguards";
+import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -63,6 +64,13 @@ export async function POST(req: Request) {
 
     if (!target) {
       return NextResponse.json({ error: "Target player not found" }, { status: 404 });
+    }
+
+    if (BONUS_CARD_USERNAMES.includes(target.username)) {
+      return NextResponse.json(
+        { error: "Bonus cards cannot be boosted — the 3h block is fixed and unbreakable" },
+        { status: 403 }
+      );
     }
 
     // Load sender
