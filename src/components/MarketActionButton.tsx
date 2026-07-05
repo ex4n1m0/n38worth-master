@@ -1,0 +1,173 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Loader2, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { BlockCountdownBar } from "@/components/BlockCountdownBar";
+import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { useCredits } from "@/hooks/useCredits";
+import { useSound } from "@/hooks/useSound";
+import { formatCompact } from "@/lib/utils";
+
+interface MarketActionButtonProps {
+  id: number;
+  username: string;
+  playerValue: number;
+  blockSellUntil?: string | Date | null;
+  /** Hide entirely when viewing your own profile (can't hire yourself). */
+  isSelf?: boolean;
+  className?: string;
+}
+
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/**
+ * The market GET / PUMP action, reusable outside the card grid (e.g. a player's
+ * profile header). Shows GET when unowned, PUMP once acquired, and a sell-block
+ * countdown + progress bar when the player is currently blocked — mirroring the
+ * marketplace card.
+ */
+export function MarketActionButton({
+  id,
+  username,
+  playerValue,
+  blockSellUntil,
+  isSelf = false,
+  className = "",
+}: MarketActionButtonProps) {
+  const queryClient = useQueryClient();
+  const { ownedIds } = useOwnedPlayerIds();
+  const { data: myCredits } = useCredits();
+  const { play } = useSound();
+
+  const isOwned = ownedIds.has(id);
+  const isBlocked = blockSellUntil ? new Date(blockSellUntil) > new Date() : false;
+  const canAfford = (myCredits ?? 0) >= playerValue;
+
+  const [remaining, setRemaining] = useState<number>(0);
+  useEffect(() => {
+    if (!isBlocked || !blockSellUntil) return;
+    const end = new Date(blockSellUntil).getTime();
+    const tick = () => setRemaining(Math.max(0, end - Date.now()));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [isBlocked, blockSellUntil]);
+
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["credits"] }),
+      queryClient.invalidateQueries({ queryKey: ["player"] }),
+      queryClient.invalidateQueries({ queryKey: ["players"] }),
+      queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+    ]);
+
+  const buyMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      return data;
+    },
+    onError: (err: Error) => toast.error(err.message),
+    onSuccess: async (data) => {
+      toast.success(`You got ${username}! Their value is now ${formatCompact(data.newValue)}¢ 💰`);
+      await refresh();
+    },
+  });
+
+  const pumpMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/pump", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Pump failed");
+      return data;
+    },
+    onError: (err: Error) => toast.error(err.message),
+    onSuccess: async (data) => {
+      toast.success(`🚀 Pumped ${username}! Value → ${formatCompact(data.newValue)}¢`);
+      await refresh();
+    },
+  });
+
+  if (isSelf) return null;
+
+  return (
+    <div className={`flex flex-col items-stretch gap-1.5 ${className}`}>
+      {isOwned ? (
+        <Button
+          onClick={() => {
+            play("hire");
+            pumpMutation.mutate();
+          }}
+          disabled={!canAfford || pumpMutation.isPending}
+          className={`rounded-md flex flex-col items-center justify-center gap-0.5 font-bold py-2 h-auto min-h-[2.75rem] ${
+            canAfford
+              ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
+              : "bg-gray-700 text-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {pumpMutation.isPending ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <>
+              <span className="text-base leading-none">PUMP</span>
+              <span className="text-xs">{formatCompact(playerValue)}¢</span>
+            </>
+          )}
+        </Button>
+      ) : !isBlocked ? (
+        <Button
+          onClick={() => {
+            play("hire");
+            buyMutation.mutate();
+          }}
+          disabled={!canAfford || buyMutation.isPending}
+          className={`rounded-md flex flex-col items-center justify-center gap-0.5 font-bold py-2 h-auto min-h-[2.75rem] ${
+            canAfford
+              ? "text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-900/30"
+              : "bg-gray-700 text-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {buyMutation.isPending ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <>
+              <span className="text-base leading-none">GET</span>
+              <span className="text-xs">{formatCompact(playerValue)}¢</span>
+            </>
+          )}
+        </Button>
+      ) : null}
+
+      {/* Sell/hire block countdown — mirrors the marketplace card. */}
+      {isBlocked && blockSellUntil && (
+        <div className="flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
+          <span className="flex items-center gap-1 text-xs font-bold text-amber-400 leading-none tabular-nums">
+            <Shield className="h-3.5 w-3.5" />
+            {formatCountdown(remaining)}
+          </span>
+          <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[85%]" />
+        </div>
+      )}
+    </div>
+  );
+}

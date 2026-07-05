@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerCard } from "@/components/PlayerCard";
+import { MarketActionButton } from "@/components/MarketActionButton";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { GlobalChatPage } from "@/components/GlobalChatPage";
@@ -346,8 +347,21 @@ export default function PlayerProfilePage() {
           </div>
           )}
 
-          {!isOwnProfile && alreadyOwns && (<div className="flex items-center gap-2 text-sm text-emerald-300"><span className="w-2 h-2 rounded-full bg-emerald-400" />You own this player</div>)}
-          {!isOwnProfile && !alreadyOwns && (credits ?? 0) < player.playerValue && (<div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>)}
+          {!isOwnProfile && !inOnboarding && (
+            <div className="flex flex-col gap-2 sm:max-w-xs">
+              {/* Same GET / PUMP action as the marketplace, incl. block bar. */}
+              <MarketActionButton
+                id={player.id}
+                username={player.username}
+                playerValue={player.playerValue}
+                blockSellUntil={player.blockSellUntil}
+                isSelf={isOwnProfile}
+              />
+              {!alreadyOwns && (credits ?? 0) < player.playerValue && (
+                <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>
+              )}
+            </div>
+          )}
 
           {!inOnboarding && (
           <div>
