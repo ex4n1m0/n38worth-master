@@ -46,6 +46,7 @@ import {
   Crown,
   Coins,
   ShoppingCart,
+  MessageCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
@@ -395,6 +396,32 @@ export default function PlayerProfilePage() {
           )}
         </div>
       </Card>
+
+      {/* Direct-message chat with this player (other profiles only) — same
+          look & feel as the "chat with your leader" box on your own profile. */}
+      {!isOwnProfile && !inOnboarding && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <MessageCircle className="h-5 w-5 text-t1-400" />
+            Message {player.username}
+          </h2>
+          <ChatProvider>
+            <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}>
+              <InlineDMChat
+                targetId={player.id}
+                targetUsername={player.username}
+                targetAvatarUrl={getAvatarSrc({
+                  avatarUrl: player.avatarUrl,
+                  playerId: player.id,
+                  playerUsername: player.username,
+                  viewerUsername: session?.user?.name,
+                  ownedIds,
+                })}
+              />
+            </div>
+          </ChatProvider>
+        </div>
+      )}
 
       {isOwnProfile && !inOnboarding && (
         <>
