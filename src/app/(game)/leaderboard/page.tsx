@@ -135,7 +135,7 @@ function BrowsePlayersSection({
   comboBar?: ReactNode;
 }) {
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("score");
+  const [sort, setSort] = useState("last-online");
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
@@ -315,7 +315,7 @@ function BrowsePlayersSection({
             size="sm"
             onClick={() => {
               play("buttons");
-              setSort(sort === "profession" ? "score" : "profession");
+              setSort(sort === "profession" ? "last-online" : "profession");
               setPage(1);
             }}
             className={
