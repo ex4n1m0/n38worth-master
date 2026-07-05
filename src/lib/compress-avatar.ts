@@ -125,8 +125,18 @@ export async function downloadAndCompressAvatar(
   imageUrl: string
 ): Promise<string | null> {
   try {
-    const response = await fetch(imageUrl);
-    if (!response.ok) return null;
+    // Add timeout to prevent hanging on slow CDN responses in serverless functions
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(imageUrl, { signal: controller.signal });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      console.warn(`downloadAndCompressAvatar: HTTP ${response.status} for ${imageUrl.slice(0, 80)}...`);
+      return null;
+    }
 
     const arrayBuffer = await response.arrayBuffer();
     const inputBuffer = Buffer.from(arrayBuffer);
@@ -135,7 +145,8 @@ export async function downloadAndCompressAvatar(
     const base64 = compressed.toString("base64");
     return `data:${mimeType};base64,${base64}`;
   } catch (error) {
-    console.error("Failed to download/compress avatar:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`downloadAndCompressAvatar failed: ${message}`);
     return null;
   }
 }

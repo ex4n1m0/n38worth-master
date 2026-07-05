@@ -1,8 +1,19 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Crown, Calendar, Star, Sparkles, Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { Crown, Calendar, Star, Sparkles, Loader2, Wallet, Gift, ChevronDown } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
+import { BonusCardMarket } from "@/components/BonusCardMarket";
+import { EmpireRankStrip } from "@/components/EmpireRankStrip";
+import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
+import { RankBonusCountdown } from "@/components/RankBonusCountdown";
+import { LoginReward } from "@/components/LoginReward";
+import { RandomPlayerCountdown } from "@/components/RandomPlayerCountdown";
+import { RewardHistory } from "@/components/RewardHistory";
+import { BossIncomeCard } from "@/components/BossIncomeCard";
+import { MissionProgress } from "@/components/MissionProgress";
 
 interface HallOfFameEntry {
   id: number;
@@ -23,7 +34,76 @@ interface GoddessData {
   ownerValue?: number | null;
 }
 
+
+
+function BonusCardsMarketSection({ currentUserId }: { currentUserId: number | null }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["bonus-cards"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/bonus-cards");
+        if (!res.ok) throw new Error("Failed to fetch bonus cards");
+        return res.json();
+      } catch (error) {
+        console.error("Bonus cards fetch error:", error);
+        throw error;
+      }
+    },
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+
+  // Single-use action cards shown first, then the passive "others". The
+  // 10-Min Knowledge card is excluded so there are exactly 6 bonus cards
+  // (mirroring the 6 goddesses).
+  const SINGLE_USE = new Set(["Mass Hire", "Create NPC", "+10 Player Slots"]);
+  const bonusCards = ((data?.bonusCards ?? []) as Array<{
+    id: number;
+    username: string;
+    avatarUrl: string | null;
+    playerValue: number;
+    originalValue: number;
+    ownerCount: number;
+    ownedCount: number;
+    ownerName?: string | null;
+    ownerValue?: number | null;
+  }>)
+    .filter((card) => card.username !== "10-Min Knowledge")
+    .sort(
+      (a, b) =>
+        (SINGLE_USE.has(a.username) ? 0 : 1) - (SINGLE_USE.has(b.username) ? 0 : 1)
+    );
+
+  return (
+    <div className="space-y-4 mb-8">
+      <div className="flex items-center gap-2">
+        <Gift className="h-5 w-5 text-purple-400" />
+        <h2 className="text-xl font-bold text-white">Bonus Cards</h2>
+      </div>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {bonusCards.map((card) => (
+            <BonusCardMarket
+              key={card.id}
+              {...card}
+              currentUserId={currentUserId}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HallOfFamePage() {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id ? Number(session.user.id) : null;
+  const [showRewards, setShowRewards] = useState(false);
+
   const { data: winners = [], isLoading } = useQuery<HallOfFameEntry[]>({
     queryKey: ["hall-of-fame"],
     queryFn: async () => {
@@ -43,19 +123,34 @@ export default function HallOfFamePage() {
       if (!res.ok) return { goddesses: [], currentUserId: null };
       return res.json();
     },
-    refetchInterval: 10 * 1000, // Refresh every 10 seconds
+    refetchInterval: 10 * 1000,
   });
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
+      {/* Game Goal — one-line win condition */}
+      <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-900/25 via-gray-900/60 to-amber-900/10 p-5 sm:p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Crown className="h-6 w-6 text-yellow-400" />
+          <h1 className="text-xl sm:text-2xl font-black text-white">How to Win</h1>
+        </div>
+        <p className="text-sm sm:text-lg text-gray-200 leading-relaxed">
+          <span className="font-bold text-yellow-300">Own all 6 Goddesses and hold them for one full hour.</span>{" "}
+          The world then resets and your name is carved into the Hall of Fame forever.
+        </p>
+      </div>
+
+      {/* Mission Progress */}
+      <MissionProgress />
+
       {/* Goddesses Section */}
       <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
+        <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-5 w-5 text-purple-400" />
           <h2 className="text-xl font-bold text-white">The 6 Goddesses</h2>
         </div>
-        <p className="text-gray-400 text-sm mb-4">
-          Collect all 6 to win! See who owns each goddess and hire them directly from here.
+        <p className="text-sm sm:text-base text-amber-300/90 font-medium mb-4">
+          Claim all six Goddesses and wield their power—hold them for one hour to seize ultimate victory.
         </p>
         
         {goddessLoading ? (
@@ -63,7 +158,7 @@ export default function HallOfFamePage() {
             <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
           </div>
         ) : goddessData?.goddesses && goddessData.goddesses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {goddessData.goddesses.map((goddess) => (
               <GoddessCard
                 key={goddess.id}
@@ -76,6 +171,63 @@ export default function HallOfFamePage() {
           <div className="text-center py-8 rounded-2xl border border-gray-800 bg-gray-900/40">
             <p className="text-gray-500">No goddess data available</p>
           </div>
+        )}
+      </div>
+
+      {/* Bonus Cards market — moved here from the Market page, just below the Goddesses. */}
+      <BonusCardsMarketSection currentUserId={currentUserId} />
+
+      {/* Rewards & Income — collapsible, collapsed by default to keep the focus
+          on the win condition. */}
+      {currentUserId && (
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+          <button
+            onClick={() => setShowRewards((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
+          >
+            <span className="flex items-center gap-2 font-bold text-white">
+              <Wallet className="h-5 w-5 text-t1-400" />
+              Your Rewards &amp; Income
+            </span>
+            <ChevronDown
+              className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
+            />
+          </button>
+          {showRewards && (
+            <div className="p-4 pt-0 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <PortfolioRewardCountdown />
+                <RankBonusCountdown />
+                <BossIncomeCard userId={currentUserId} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <RandomPlayerCountdown />
+                <LoginReward />
+              </div>
+              <RewardHistory />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rank category strips */}
+      <EmpireRankStrip />
+
+      {/* Hall of Champions — on desktop this lives in the rank-strip dropdown
+          above; the full list below is shown on mobile only (the strip is
+          hidden on small screens). */}
+      <div className="md:hidden space-y-6">
+      {/* Champions header */}
+      <div className="pt-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <Crown className="h-6 w-6 text-yellow-400" />
+          Hall of Champions
+        </h2>
+        {winners.length > 0 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
+            <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+            {winners.length} game{winners.length !== 1 ? "s" : ""} won · Latest: {winners[0]?.username}
+          </span>
         )}
       </div>
 
@@ -185,14 +337,8 @@ export default function HallOfFamePage() {
           })}
         </div>
       )}
+      </div>
 
-      {/* Stats Footer */}
-      {winners.length > 0 && (
-        <div className="mt-8 text-center text-xs text-gray-600">
-          {winners.length} game{winners.length !== 1 ? "s" : ""} completed • 
-          Latest champion: <span className="text-yellow-500">{winners[0]?.username}</span>
-        </div>
-      )}
     </div>
   );
 }

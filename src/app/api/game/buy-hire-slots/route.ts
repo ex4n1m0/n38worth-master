@@ -6,12 +6,13 @@ import { eq, sql } from "drizzle-orm";
 
 const SLOTS_PER_PURCHASE = 10;
 
-/** Cost to buy the next +10 slots — 1.3× per tier.
- *  tier = floor(slots / 10) - 2, clamped to 0 minimum.
- *  Examples: 20 slots → 1,000¢ | 30 → 1,300¢ | 50 → 2,197¢ | 100 → ~37,972¢
+/** Cost to buy the next +10 slots — 1.3× per tier, capped at tier 50.
+ *  tier = floor(slots / 10) - 2, clamped to [0, 50].
+ *  Examples: 20 slots → 1,000¢ | 30 → 1,300¢ | 50 → 2,197¢ | 100 → ~37,972¢ | 520+ → ~497,929¢ (cap)
  */
+const MAX_SLOT_TIER = 50;
 function getSlotCost(currentSlots: number): number {
-  const tier = Math.max(0, Math.floor(currentSlots / 10) - 2);
+  const tier = Math.min(MAX_SLOT_TIER, Math.max(0, Math.floor(currentSlots / 10) - 2));
   return Math.round(1000 * Math.pow(1.3, tier));
 }
 

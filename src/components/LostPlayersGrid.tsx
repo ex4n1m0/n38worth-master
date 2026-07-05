@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
-import { useCredits } from "@/hooks/useCredits";
-import { formatNumber, getDynamicMosaicFontSize, getDynamicMosaicHireFontSize } from "@/lib/utils";
-import { Swords, ChevronLeft, ChevronRight, Crown, Loader2, ShoppingCart } from "lucide-react";
+import { Swords, ChevronLeft, ChevronRight } from "lucide-react";
 import { RestoreAllButton } from "@/components/RestoreAllButton";
-import { toast } from "sonner";
+import { PlayerCard } from "@/components/PlayerCard";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -17,6 +14,9 @@ interface LostPlayer {
   username: string;
   avatarUrl: string | null;
   playerValue: number;
+  valueFloor?: number;
+  profession?: string | null;
+  isVerified?: number;
   currentOwnerUsername: string | null;
   lostAt: string;
 }
@@ -33,81 +33,10 @@ interface LostPlayersGridProps {
   profileUsername: string;
 }
 
-function MosaicHireButton({
-  targetId,
-  targetUsername,
-  cost,
-  disabled,
-}: {
-  targetId: number;
-  targetUsername: string;
-  cost: number;
-  disabled?: boolean;
-}) {
-  const queryClient = useQueryClient();
-  const [isPending, setIsPending] = useState(false);
-
-  const handleHire = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (disabled || isPending) return;
-    setIsPending(true);
-    try {
-      const res = await fetch("/api/game/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
-      if (data.countdownStarted) {
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description: "You own all 6 Goddesses! Hold them for 60 minutes to win the game!",
-          duration: 15000,
-        });
-        await queryClient.invalidateQueries();
-      } else {
-        toast.success(`You hired ${targetUsername}! Their value is now ${data.newValue} 💰`);
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["credits"] }),
-          queryClient.invalidateQueries({ queryKey: ["players"] }),
-          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
-          queryClient.invalidateQueries({ queryKey: ["lost-players"] }),
-        ]);
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Purchase failed");
-    } finally {
-      setIsPending(false);
-    }
-  };
-
-  return (
-    <button
-      onClick={handleHire}
-      disabled={disabled || isPending}
-      className={`flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded ${getDynamicMosaicHireFontSize(cost)} font-semibold transition-all whitespace-nowrap ${
-        disabled
-          ? "bg-gray-700/50 text-gray-500 cursor-not-allowed"
-          : "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-sm"
-      }`}
-    >
-      {isPending ? (
-        <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-      ) : (
-        <>
-          <ShoppingCart className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-          <span>{formatNumber(cost)}¢</span>
-        </>
-      )}
-    </button>
-  );
-}
-
 export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
   const { data: session } = useSession();
-  const { data: credits } = useCredits();
   const [page, setPage] = useState(1);
+  const [now] = useState(() => Date.now());
 
   const { data, isLoading } = useQuery<LostPlayersResponse>({
     queryKey: ["lost-players", profileUsername, page],
@@ -121,11 +50,10 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
   });
 
   const lostPlayers = useMemo(() => {
-    const now = Date.now();
     return (data?.lostPlayers ?? []).filter(
       (p) => now - new Date(p.lostAt).getTime() <= TWENTY_FOUR_HOURS_MS
     );
-  }, [data?.lostPlayers]);
+  }, [data?.lostPlayers, now]);
   const total = lostPlayers.length;
   const pageSize = data?.pageSize ?? 21;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -169,64 +97,21 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-1 sm:gap-2">
-        {lostPlayers.map((player) => {
-          const isOwnProfile = session?.user?.name === player.username;
-          const canHire = (credits ?? 0) >= player.playerValue;
-
-          return (
-            <div
-              key={player.id}
-              className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
-            >
-              <Link
-                href={`/players/${player.username}`}
-                className="block w-full h-full"
-              >
-                {/* Lost players are not on viewer's team — always show UNHIRED2.png */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/UNHIRED2.png"
-                  alt={player.username}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </Link>
-
-              {/* Overlay with name, value, owner, and hire button */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2 pt-8">
-                <div className="flex items-end justify-between gap-1">
-                  <Link
-                    href={`/players/${player.username}`}
-                    className="flex-1 min-w-0"
-                  >
-                    <p className="text-white text-base sm:text-lg font-medium truncate">
-                      {player.username}
-                    </p>
-                    <div className={`flex items-center gap-2 text-gray-300 ${getDynamicMosaicFontSize(player.playerValue)}`}>
-                      <span className="truncate">
-                        ₡{player.playerValue?.toLocaleString()}
-                      </span>
-                      {player.currentOwnerUsername && (
-                        <span className="flex items-center gap-0.5 shrink-0 text-amber-400/80">
-                          <Crown className="h-2.5 w-2.5" />
-                          <span className="truncate max-w-[60px]">{player.currentOwnerUsername}</span>
-                        </span>
-                      )}
-                    </div>
-                  </Link>
-                  {session && !isOwnProfile && (
-                    <MosaicHireButton
-                      targetId={player.id}
-                      targetUsername={player.username}
-                      cost={player.playerValue}
-                      disabled={!canHire}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        {lostPlayers.map((player) => (
+          <PlayerCard
+            key={player.id}
+            id={player.id}
+            username={player.username}
+            avatarUrl={player.avatarUrl}
+            playerValue={player.playerValue}
+            valueFloor={player.valueFloor ?? 1}
+            profession={player.profession ?? null}
+            isVerified={player.isVerified}
+            ownerName={player.currentOwnerUsername}
+            leaderboardMode
+          />
+        ))}
       </div>
 
       {/* Pagination */}

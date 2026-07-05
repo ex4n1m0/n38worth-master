@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface SellOutButtonProps {
   ownershipId: number;
@@ -78,7 +78,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
           <DialogTitle className="text-white">{t.sellOutConfirmTitle} — {ownerUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
             Pay{" "}
-            <span className="text-red-400 font-semibold">{formatNumber(cost)}¢</span>{" "}
+            <span className="text-red-400 font-semibold">{formatCompact(cost)}¢</span>{" "}
             (your current value) to{" "}
             <span className="text-white font-semibold">{ownerUsername}</span>{" "}
             to release yourself from their ownership.
@@ -105,7 +105,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
                 {t.sellingOut}
               </>
             ) : (
-              `${t.sellOut} ${formatNumber(cost)}¢`
+              `${t.sellOut} ${formatCompact(cost)}¢`
             )}
           </Button>
         </DialogFooter>

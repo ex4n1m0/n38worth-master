@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, Clock, Check, Loader2 } from "lucide-react";
+import { Gift, Clock, Check, Loader2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
 
@@ -12,6 +13,9 @@ export function LoginReward() {
   const queryClient = useQueryClient();
   const [countdown, setCountdown] = useState<string>("");
   const { play } = useSound();
+  const { data: session } = useSession();
+  const isDemoPlayer = session?.user?.name?.startsWith("Demo Player") ?? false;
+  const autoClaimedRef = useRef(false);
 
   const { data: rewardStatus, isLoading } = useQuery({
     queryKey: ["login-reward-status"],
@@ -83,11 +87,44 @@ export function LoginReward() {
       } else {
         toast.info(data.message || "Reward already claimed");
       }
+      // After claiming, send the player straight to the market to start
+      // spending. Hard navigation guarantees the jump regardless of where the
+      // reward card is shown (e.g. the profile page). Short delay lets the
+      // reward toast flash first.
+      setTimeout(() => {
+        window.location.href = "/leaderboard";
+      }, 700);
     },
     onError: () => {
+      // For demo players the claim runs automatically. A failure here is almost
+      // always a stale demo session (the previous demo account was purged after
+      // 1 hour), so don't strand them with a scary error — quietly forward them
+      // into the market and let the journey continue.
+      if (isDemoPlayer) {
+        setTimeout(() => {
+          window.location.href = "/leaderboard";
+        }, 300);
+        return;
+      }
       toast.error("Failed to claim login reward");
     },
   });
+
+  // Demo players auto-claim their daily reward the moment it's available. The
+  // claim's onSuccess then forwards them into the market. Guarded so it only
+  // fires once per mount.
+  useEffect(() => {
+    if (
+      isDemoPlayer &&
+      rewardStatus?.canClaim &&
+      !claimMutation.isPending &&
+      !autoClaimedRef.current
+    ) {
+      autoClaimedRef.current = true;
+      play("hire");
+      claimMutation.mutate();
+    }
+  }, [isDemoPlayer, rewardStatus?.canClaim, claimMutation, play]);
 
   if (isLoading) {
     return (
@@ -101,14 +138,17 @@ export function LoginReward() {
     );
   }
 
+  const isLeader = rewardStatus?.isLeader;
   const canClaim = rewardStatus?.canClaim;
 
   return (
     <Card
       className={`border-gray-800 overflow-hidden transition-all duration-300 ${
-        canClaim
-          ? "bg-gradient-to-br from-green-900/40 to-emerald-900/30 border-green-700/50 shadow-lg shadow-green-900/20"
-          : "bg-gradient-to-br from-gray-900/80 to-gray-950/80"
+        isLeader
+          ? "bg-gradient-to-br from-amber-900/30 to-yellow-900/20 border-amber-700/40"
+          : canClaim
+            ? "bg-gradient-to-br from-green-900/40 to-emerald-900/30 border-green-700/50 shadow-lg shadow-green-900/20"
+            : "bg-gradient-to-br from-gray-900/80 to-gray-950/80"
       }`}
     >
       <CardContent className="p-4">
@@ -116,12 +156,16 @@ export function LoginReward() {
           <div className="flex items-center gap-3 min-w-0">
             <div
               className={`p-2 rounded-full shrink-0 ${
-                canClaim
-                  ? "bg-green-500/20 text-green-400"
-                  : "bg-gray-700/50 text-gray-400"
+                isLeader
+                  ? "bg-amber-500/20 text-amber-400"
+                  : canClaim
+                    ? "bg-green-500/20 text-green-400"
+                    : "bg-gray-700/50 text-gray-400"
               }`}
             >
-              {canClaim ? (
+              {isLeader ? (
+                <Crown className="h-5 w-5" />
+              ) : canClaim ? (
                 <Gift className="h-5 w-5" />
               ) : (
                 <Clock className="h-5 w-5" />
@@ -132,14 +176,21 @@ export function LoginReward() {
                 Daily Login Reward
               </h3>
               <p className="text-xs text-gray-400 break-words">
-                {canClaim
-                  ? `Claim your ${(rewardStatus?.rewardAmount ?? 0).toLocaleString()}¢ reward!`
-                  : `Next reward in ${countdown}`}
+                {isLeader
+                  ? "You're #1 — top players earn no reward. Others catch up!"
+                  : canClaim
+                    ? `Claim your ${(rewardStatus?.rewardAmount ?? 0).toLocaleString()}¢ reward!`
+                    : `Next reward in ${countdown}`}
               </p>
             </div>
           </div>
 
-          {canClaim ? (
+          {isLeader ? (
+            <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold shrink-0">
+              <Crown className="h-3.5 w-3.5" />
+              <span>Leading</span>
+            </div>
+          ) : canClaim ? (
             <Button
               onClick={() => {
                 play("hire");
@@ -167,7 +218,7 @@ export function LoginReward() {
         </div>
 
         {/* Progress bar for time remaining */}
-        {!canClaim && rewardStatus?.lastClaimedAt && (
+        {!canClaim && !isLeader && rewardStatus?.lastClaimedAt && (
           <div className="mt-3">
             <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
               <div
@@ -175,7 +226,8 @@ export function LoginReward() {
                 style={{
                   width: `${
                     100 -
-                    ((rewardStatus.timeRemaining || 0) / (24 * 60 * 60 * 1000)) *
+                    ((rewardStatus.timeRemaining || 0) /
+                      (rewardStatus.rewardIntervalMs || 24 * 60 * 60 * 1000)) *
                       100
                   }%`,
                 }}

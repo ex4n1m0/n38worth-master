@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { X, Wallet, TrendingUp, Coins, Crown, Handshake, Target } from "lucide-react";
 
 const STORAGE_KEY = "n38worth_new_player_guide_dismissed";
@@ -38,26 +38,16 @@ const GUIDE_STEPS = [
 ];
 
 export function NewPlayerGuide() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-
-  useEffect(() => {
-    // Check if user has dismissed the guide before
+  const [isVisible, setIsVisible] = useState(() => {
+    if (typeof window === "undefined") return false;
     const dismissed = localStorage.getItem(STORAGE_KEY);
-    if (dismissed) {
-      // Check if 24 hours have passed
-      const expiry = parseInt(dismissed, 10);
-      if (Date.now() > expiry) {
-        // 24 hours passed, show the guide again
-        localStorage.removeItem(STORAGE_KEY);
-        setIsVisible(true);
-      }
-      // Otherwise, don't show (user dismissed within last 24 hours)
-    } else {
-      // No dismissal record, show the guide
-      setIsVisible(true);
-    }
-  }, []);
+    if (!dismissed) return true;
+    const expiry = parseInt(dismissed, 10);
+    if (Date.now() <= expiry) return false;
+    localStorage.removeItem(STORAGE_KEY);
+    return true;
+  });
+  const [isClosing, setIsClosing] = useState(false);
 
   const handleDismiss = () => {
     setIsClosing(true);

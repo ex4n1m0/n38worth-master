@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const { t } = useLanguage();
   const { play } = useSound();
 
@@ -38,7 +39,7 @@ export default function RegisterPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/my-profile");
+        router.push("/leaderboard");
       });
     }
 
@@ -48,6 +49,45 @@ export default function RegisterPage() {
       }
     };
   }, [router]);
+
+  async function handleDemoPlay() {
+    play("buttons");
+    setError("");
+    setDemoLoading(true);
+    // Clear the one-shot guard so this fresh demo session auto-fires Mass Hire.
+    if (typeof window !== "undefined") sessionStorage.removeItem("demo-mass-hired");
+
+    try {
+      const res = await fetch("/api/demo-register", { method: "POST" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Demo registration failed");
+        setDemoLoading(false);
+        return;
+      }
+
+      const result = await signIn("credentials", {
+        username: data.username,
+        password: data.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Failed to sign in as demo player");
+        setDemoLoading(false);
+      } else {
+        // Hard navigation so the freshly-created demo session is fully picked
+        // up before the profile loads. A soft router.push here raced with the
+        // session refresh. Demo players start on their own profile, where the
+        // daily reward auto-claims and forwards them into the market.
+        window.location.href = `/players/${encodeURIComponent(data.username)}`;
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setDemoLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -91,7 +131,7 @@ export default function RegisterPage() {
       if (signInResult?.error) {
         router.push("/login");
       } else {
-        router.push("/my-profile");
+        router.push("/leaderboard");
         router.refresh();
       }
     } catch {
@@ -175,6 +215,29 @@ export default function RegisterPage() {
             >
               {loading ? t.creatingAccount : t.createAccount}
             </Button>
+
+            <div className="relative w-full">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-700" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-gray-900 px-2 text-gray-500">
+                  DEMO PLAY
+                </span>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              disabled={demoLoading}
+              onClick={handleDemoPlay}
+              className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white font-semibold"
+            >
+              {demoLoading ? "Creating..." : "DEMO PLAY"}
+            </Button>
+            <p className="text-xs text-amber-400 text-center">
+              Demo players are automatically deleted after 1 hour
+            </p>
 
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center">

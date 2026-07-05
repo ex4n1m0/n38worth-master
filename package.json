@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "compress-avatars": "npx tsx scripts/compress-avatars.ts",
+    "backfill:photo-scores": "npx tsx scripts/backfill-photo-scores.ts",
     "audit:schema": "npx tsx scripts/audit-schema.ts",
     "audit:avatars": "npx tsx scripts/avatar-storage-audit.ts"
   },

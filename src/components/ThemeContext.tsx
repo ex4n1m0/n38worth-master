@@ -24,34 +24,21 @@ function applyTheme(theme: ThemeName) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeName>("blue");
-  const [mounted, setMounted] = useState(false);
+  const [theme, setThemeState] = useState<ThemeName>(() => {
+    if (typeof window === "undefined") return "blue";
+    const stored = localStorage.getItem("app-theme") as ThemeName | null;
+    return stored === "green" || stored === "blue" ? stored : "blue";
+  });
 
   useEffect(() => {
-    const stored = localStorage.getItem("app-theme") as ThemeName | null;
-    if (stored === "green" || stored === "blue") {
-      setThemeState(stored);
-      applyTheme(stored);
-    } else {
-      applyTheme("blue");
-    }
-    setMounted(true);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   const setTheme = (newTheme: ThemeName) => {
     setThemeState(newTheme);
     localStorage.setItem("app-theme", newTheme);
     applyTheme(newTheme);
   };
-
-  // Set initial data-theme via SSR-safe approach
-  if (!mounted) {
-    return (
-      <ThemeContext.Provider value={{ theme, setTheme }}>
-        {children}
-      </ThemeContext.Provider>
-    );
-  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

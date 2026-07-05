@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 
 interface BoostCardButtonProps {
   targetId: number;
@@ -14,6 +14,7 @@ interface BoostCardButtonProps {
   playerValue: number;
   countdown?: string | null;
   className?: string;
+  square?: boolean;
 }
 
 export function BoostCardButton({
@@ -22,6 +23,7 @@ export function BoostCardButton({
   playerValue,
   countdown,
   className,
+  square,
 }: BoostCardButtonProps) {
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
@@ -45,7 +47,7 @@ export function BoostCardButton({
     },
     onSuccess: (data) => {
       toast.success(
-        `Sell Block on ${targetUsername}! +1h block (cost ${formatNumber(data.cost)}¢). Value → ${formatNumber(data.newValue)}¢ (+${formatNumber(
+        `Sell Block on ${targetUsername}! +1h block (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
           data.creditsToPlayer
         )}¢ gifted) 🛡️`
       );
@@ -64,7 +66,7 @@ export function BoostCardButton({
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
-      toast.error(`Not enough credits. Need ${formatNumber(cost)}¢`);
+      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
       return;
     }
     play("hire");
@@ -72,6 +74,32 @@ export function BoostCardButton({
   };
 
   const disabled = mutation.isPending || !canAfford;
+
+  if (square) {
+    return (
+      <Button
+        variant="outline"
+        onClick={handleClick}
+        disabled={disabled}
+        className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg ${
+          canAfford
+            ? "text-white border-0 bg-transparent hover:brightness-125 hover:bg-transparent"
+            : "border-gray-700 text-gray-500 cursor-not-allowed"
+        } ${className ?? ""}`}
+        style={canAfford ? navbarBtnStyle : undefined}
+        title={`Apply 1-hour Sell Block to ${targetUsername} for ${formatCompact(cost)}¢`}
+      >
+        {mutation.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <Shield className="h-4 w-4" />
+            <span className="text-[7px] leading-none mt-0.5">Block</span>
+          </>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -84,14 +112,14 @@ export function BoostCardButton({
           : "border-gray-700 text-gray-500 cursor-not-allowed"
       } ${className ?? ""}`}
       style={canAfford ? navbarBtnStyle : undefined}
-      title={`Apply 1-hour Sell Block to ${targetUsername} for ${formatNumber(cost)}¢`}
+      title={`Apply 1-hour Sell Block to ${targetUsername} for ${formatCompact(cost)}¢`}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
           <Shield className="h-4 w-4 mr-2" />
-          Sell Block ({formatNumber(cost)}¢)
+          Sell Block ({formatCompact(cost)}¢)
           {countdown && <span className="ml-2 text-amber-300/70">· {countdown}</span>}
         </>
       )}

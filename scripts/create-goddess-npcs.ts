@@ -15,11 +15,12 @@ interface NpcDefinition {
 }
 
 const NPCS: NpcDefinition[] = [
-  { filename: "SamplePlayer5.png", username: "Morríghan", playerValue: 100_000_000 },
-  { filename: "SamplePlayer4.png", username: "Athena", playerValue: 1_000_000 },
-  { filename: "SamplePlayer3.png", username: "Freyja", playerValue: 100_000 },
-  { filename: "SamplePlayer2.png", username: "Ishtar", playerValue: 10_000 },
-  { filename: "SamplePlayer1.png", username: "Inanna", playerValue: 1_000_000_000 },
+  { filename: "GODOFWEALTH.png", username: "Goddess of Wealth", playerValue: 100_000 },
+  { filename: "GODOFKNOW.png", username: "Goddess of Knowledge", playerValue: 1_000_000 },
+  { filename: "GODOFFATE.png", username: "Goddess of Fate", playerValue: 10_000_000 },
+  { filename: "GODOFTIME.png", username: "Goddess of Time", playerValue: 100_000_000 },
+  { filename: "GODOFWAR.png", username: "Goddess of War", playerValue: 1_000_000_000 },
+  { filename: "GODDESS.png", username: "Goddess", playerValue: 10_000_000_000 },
 ];
 
 async function main() {

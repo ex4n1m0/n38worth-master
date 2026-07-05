@@ -1,31 +1,60 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Crown, User, ShoppingCart, Loader2 } from "lucide-react";
+import { Crown, User, ShoppingCart, Loader2, Shield, Lock, Clock } from "lucide-react";
 import Link from "next/link";
+import { BlockCountdownBar } from "./BlockCountdownBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { getAvatarSrc } from "@/lib/avatar-utils";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 import { GODDESS_POWERS } from "@/lib/goddesses";
+import {
+  isLockablePurchaseCard,
+  isPurchaseUnlockedAtLevel,
+  purchaseUnlockThreshold,
+} from "@/lib/missions-data";
 
 interface GoddessCardProps {
   id: number;
   username: string;
   avatarUrl: string | null;
   playerValue: number;
+  hireCost?: number;
   originalValue: number;
   ownerCount: number;
   ownedCount: number;
   ownerName?: string | null;
   ownerValue?: number | null;
+  blockSellUntil?: string | null;
   currentUserId: number | null;
+}
+
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/** Live partnership countdown — ticks down to the block end every second. */
+function PartnershipCountdown({ blockSellUntil }: { blockSellUntil: string | Date }) {
+  const endMs = new Date(blockSellUntil).getTime();
+  const [remaining, setRemaining] = useState(() => Math.max(0, endMs - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setRemaining(Math.max(0, endMs - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, [endMs]);
+  return <>{formatCountdown(remaining)}</>;
 }
 
 function getGoddessEmoji(username: string): string {
@@ -47,18 +76,30 @@ export function GoddessCard({
   avatarUrl,
   playerValue,
   originalValue,
+  hireCost,
   ownerCount,
   ownedCount,
   ownerName,
+  blockSellUntil,
 }: GoddessCardProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
   const { ownedIds } = useOwnedPlayerIds();
   const { play } = useSound();
+  const missionLevel = useMissionLevel();
 
-  const isOwned = ownerCount > 0;
-  const canAfford = (myCredits ?? 0) >= playerValue;
+  // Locked until the player has obtained this goddess from its mission once.
+  const locked =
+    isLockablePurchaseCard(username) &&
+    !isPurchaseUnlockedAtLevel(username, missionLevel);
+  const unlockThreshold = purchaseUnlockThreshold(username);
+
+  // The most expensive goddess is priced as a share of the total economy
+  // (provided via `hireCost`); all others cost their stored player value.
+  const effectiveCost = hireCost ?? playerValue;
+  const isOwned = ownerCount > 0 && !!ownerName;
+  const canAfford = (myCredits ?? 0) >= effectiveCost;
   const isOwnProfile = session?.user?.name === username;
   const goddessAvatarSrc = getAvatarSrc({
     avatarUrl,
@@ -84,7 +125,7 @@ export function GoddessCard({
       await queryClient.cancelQueries({ queryKey: ["credits"] });
       const previousCredits = queryClient.getQueryData<number>(["credits"]);
       queryClient.setQueryData(["credits"], (old: number | undefined) =>
-        old !== undefined ? old - playerValue : undefined
+        old !== undefined ? old - effectiveCost : undefined
       );
       return { previousCredits };
     },
@@ -123,6 +164,45 @@ export function GoddessCard({
     mutation.mutate();
   };
 
+  // Owners can extend their partnership by +10 min. Cost = the goddess's
+  // current value, which is burned from the economy (not paid to anyone).
+  // Ownership is derived authoritatively from the goddess's current owner name
+  // (the `ownedIds` hook doesn't include goddesses, which made owners wrongly
+  // see the hire button and hit "You already own this player").
+  const isViewerOwner =
+    !!session?.user?.name && !!ownerName && session.user.name === ownerName;
+  const canAffordExtend = (myCredits ?? 0) >= effectiveCost;
+
+  const extendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/extend-partnership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to extend partnership");
+      return data;
+    },
+    onSuccess: async (data) => {
+      toast.success(`+10 min partnership on ${username}! (-${formatCompact(data.cost)}¢)`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["goddesses"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+      ]);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleExtendClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    play("hire");
+    extendMutation.mutate();
+  };
+
   return (
     <Card className={`border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 transition-all duration-200 group overflow-hidden`}>
       <CardContent className="p-0">
@@ -137,26 +217,17 @@ export function GoddessCard({
         </div>
         
         {/* Info Section Below Avatar */}
-        <div className="p-4 space-y-3">
+        <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
           {/* Goddess Name with Emoji */}
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{getGoddessEmoji(username)}</span>
-            <h3 className="font-bold text-white text-lg truncate">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base sm:text-lg lg:text-xl shrink-0">{getGoddessEmoji(username)}</span>
+            <h3 className="font-bold text-white text-xs sm:text-base lg:text-lg leading-tight break-words min-w-0">
               {username}
             </h3>
           </div>
           
-          {/* Value Badge */}
-          <Badge className="bg-white/20 text-white border-white/30 font-mono text-sm">
-            {formatNumber(playerValue)}¢
-          </Badge>
-          
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-gray-800/50 rounded-lg p-2">
-              <p className="text-gray-400 text-xs">Original</p>
-              <p className="text-white font-semibold text-sm truncate">{formatNumber(originalValue)}¢</p>
-            </div>
+          <div className="grid grid-cols-1 gap-2">
             <div className="bg-gray-800/50 rounded-lg p-2">
               <p className="text-gray-400 text-xs">Owner</p>
               {isOwned ? (
@@ -167,7 +238,7 @@ export function GoddessCard({
                   {ownerName}
                 </Link>
               ) : (
-                <p className="text-green-400 font-semibold text-sm">Available</p>
+                <p className="text-green-400 font-semibold text-[10px] sm:text-sm">Available</p>
               )}
             </div>
           </div>
@@ -180,25 +251,72 @@ export function GoddessCard({
             </div>
           )}
 
-          {/* Buy Button - hidden when user already owns this goddess */}
-          {session && !isOwnProfile && !ownedIds.has(id) && (
+          {/* Buy Button - hidden when user already owns this goddess.
+              Locked until the awarding mission is completed. */}
+          {session && !isOwnProfile && !isViewerOwner && (
+            locked ? (
+              <div className="w-full flex flex-col items-center gap-1 rounded-md bg-gray-800/70 border border-gray-700 py-2 px-2 min-h-[2.5rem] justify-center">
+                <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-gray-300 leading-none">
+                  <Lock className="h-3 w-3" />
+                  Locked
+                </span>
+                {unlockThreshold !== null && (
+                  <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
+                    Collect {formatCompact(unlockThreshold)} cards to unlock
+                  </span>
+                )}
+              </div>
+            ) : (
+              <Button
+                onClick={handleBuyClick}
+                disabled={!canAfford || mutation.isPending}
+                className={`w-full font-bold py-2 text-[10px] sm:text-sm leading-tight h-auto min-h-[2.5rem] ${
+                  canAfford
+                    ? "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg"
+                    : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                }`}
+              >
+                {mutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <>
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    {formatCompact(effectiveCost)}¢
+                  </>
+                )}
+              </Button>
+            )
+          )}
+
+          {/* Sell-block countdown bar */}
+          {blockSellUntil && new Date(blockSellUntil) > new Date() && (
+            <div className="flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
+                <Shield className="h-3 w-3" />
+                <PartnershipCountdown blockSellUntil={blockSellUntil} />
+              </span>
+              <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[70%]" />
+            </div>
+          )}
+
+          {/* Extend partnership (+10 min) — owner only. Cost = current value,
+              burned from the economy. */}
+          {isViewerOwner && (
             <Button
-              onClick={handleBuyClick}
-              disabled={!canAfford || mutation.isPending}
-              className={`w-full font-bold py-2 text-sm whitespace-nowrap ${
-                canAfford
-                  ? "bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white shadow-lg"
+              onClick={handleExtendClick}
+              disabled={!canAffordExtend || extendMutation.isPending}
+              className={`w-full font-bold py-2 px-2 text-[9px] sm:text-[11px] leading-tight h-auto min-h-[2.5rem] ${
+                canAffordExtend
+                  ? "bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
             >
-              {mutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              {extendMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 shrink-0" />
               ) : (
-                <>
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Hire for {formatNumber(playerValue)}¢
-                </>
+                <Clock className="h-3 w-3 mr-1 shrink-0" />
               )}
+              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatCompact(effectiveCost)}¢</span>
             </Button>
           )}
 

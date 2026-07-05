@@ -23,7 +23,7 @@ import {
   getOwnedRankColor,
   getValueRankColor,
 } from "@/lib/ranks";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 /**
  * Compact "My Profile" card shown on the leaderboard.
@@ -129,13 +129,13 @@ export function MyProfileCard() {
               <MiniStat
                 icon={<TrendingUp className="h-3 w-3" />}
                 label="Value"
-                value={`${formatNumber(player.playerValue)}¢`}
+                value={`${formatCompact(player.playerValue)}¢`}
                 color="text-orange-300"
               />
               <MiniStat
                 icon={<Coins className="h-3 w-3" />}
                 label="Credits"
-                value={`${formatNumber(
+                value={`${formatCompact(
                   parseFloat((player.credits ?? 0).toFixed(2))
                 )}¢`}
                 color="text-yellow-300"

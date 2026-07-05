@@ -3,7 +3,13 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
+import {
+  GODDESS_USERNAMES,
+  GODDESS_VALUES,
+  MOST_EXPENSIVE_GODDESS,
+  MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
+  MOST_EXPENSIVE_GODDESS_MIN_VALUE,
+} from "@/lib/goddesses";
 
 export async function GET() {
   try {
@@ -26,7 +32,7 @@ export async function GET() {
         playerValue: users.playerValue,
         valueFloor: users.valueFloor,
         credits: users.credits,
-        blockSellUntil: users.blockSellUntil,
+        blockSellUntil: sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.purchased_at DESC LIMIT 1)`.as("block_sell_until"),
         estimatedDeletionAt: users.estimatedDeletionAt,
         isActive: users.isActive,
         createdAt: users.createdAt,
@@ -47,12 +53,29 @@ export async function GET() {
       .from(users)
       .where(inArray(users.username, GODDESS_USERNAMES));
 
+    // Total economy = sum of non-NPC players' credits. Used to price the most
+    // expensive goddess as a share of the economy (see purchasePlayer.ts).
+    const [econ] = await db
+      .select({
+        total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
+      })
+      .from(users);
+    const totalEconomy = Number(econ.total);
+    const mostExpensiveGoddessCost = Math.max(
+      MOST_EXPENSIVE_GODDESS_MIN_VALUE,
+      Math.floor(totalEconomy * MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE)
+    );
+
     // Sort goddesses by their original values (descending)
     const sortedGoddesses = goddesses
       .map((goddess) => {
         const ownerCount = Number(goddess.ownerCount);
         const originalValue = GODDESS_VALUES[goddess.username] || 0;
-        
+        const hireCost =
+          goddess.username === MOST_EXPENSIVE_GODDESS
+            ? mostExpensiveGoddessCost
+            : Number(goddess.playerValue);
+
         return {
           ...goddess,
           ownerCount,
@@ -61,6 +84,7 @@ export async function GET() {
           ownerName: goddess.ownerName,
           ownerValue: goddess.ownerValue !== null ? Number(goddess.ownerValue) : null,
           originalValue,
+          hireCost,
         };
       })
       .sort((a, b) => b.originalValue - a.originalValue);

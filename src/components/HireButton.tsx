@@ -7,21 +7,9 @@ import { ShoppingCart, Loader2, Shield } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
-import { formatNumber, navbarBtnStyle } from "@/lib/utils";
+import { BlockCountdownBar } from "./BlockCountdownBar";
+import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-
-function formatTimeRemaining(date: string | Date | null | undefined): string | null {
-  if (!date) return null;
-  const d = typeof date === "string" ? new Date(date) : date;
-  const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
-  if (seconds <= 0) return null;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
 
 interface HireButtonProps {
   targetId: number;
@@ -40,14 +28,6 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
   const router = useRouter();
 
   const isBlocked = blockSellUntil ? new Date(blockSellUntil) > new Date() : false;
-  const [blockCountdown, setBlockCountdown] = useState<string>("");
-  useEffect(() => {
-    if (!isBlocked || !blockSellUntil) return;
-    const update = () => setBlockCountdown(formatTimeRemaining(blockSellUntil) ?? "");
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, [blockSellUntil, isBlocked]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -96,6 +76,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
           queryClient.invalidateQueries({ queryKey: ["ownership"] }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
           queryClient.invalidateQueries({ queryKey: ["lost-players"] }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
         ]);
         refreshOnboarding();
       }
@@ -104,17 +85,20 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
 
   if (isBlocked) {
     return (
-      <Button
-        disabled
-        size={compact ? "sm" : "lg"}
-        className={compact
-          ? "w-full bg-amber-950/60 border border-amber-500/40 text-amber-400 font-bold text-[10px] sm:text-xs px-1.5 py-1.5 h-auto rounded-md whitespace-nowrap"
-          : "bg-amber-950/60 border border-amber-500/40 text-amber-400 font-bold text-base sm:text-lg px-3 sm:px-4 py-3 sm:py-4 h-auto rounded-md whitespace-nowrap"
-        }
-      >
-        <Shield className={compact ? "h-3 w-3 mr-1" : "h-5 w-5 mr-2"} />
-        Partnered {blockCountdown && <span className="ml-1 tabular-nums opacity-80">{blockCountdown}</span>}
-      </Button>
+      <div className={compact ? "w-full flex flex-col gap-1" : "flex flex-col gap-1.5"}>
+        <Button
+          disabled
+          size={compact ? "sm" : "lg"}
+          className={compact
+            ? "w-full bg-amber-950/60 border border-amber-500/40 text-amber-400 font-bold text-[10px] sm:text-xs px-1.5 py-1.5 h-auto rounded-md whitespace-nowrap"
+            : "bg-amber-950/60 border border-amber-500/40 text-amber-400 font-bold text-base sm:text-lg px-3 sm:px-4 py-3 sm:py-4 h-auto rounded-md whitespace-nowrap"
+          }
+        >
+          <Shield className={compact ? "h-3 w-3 mr-1" : "h-5 w-5 mr-2"} />
+          Partnered
+        </Button>
+        <BlockCountdownBar blockSellUntil={blockSellUntil} />
+      </div>
     );
   }
 
@@ -140,7 +124,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
       ) : (
         <>
           <ShoppingCart className={compact ? "h-3 w-3 mr-1" : "h-5 w-5 mr-2"} />
-          {compact ? `${formatNumber(cost)}¢` : `${t.hire} ${formatNumber(cost)}¢`}
+          {compact ? `${formatCompact(cost)}¢` : `${t.hire} ${formatCompact(cost)}¢`}
         </>
       )}
     </Button>

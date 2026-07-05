@@ -6,7 +6,11 @@ import { App } from "@capacitor/app";
  */
 export function isCapacitor(): boolean {
   if (typeof window === "undefined") return false;
-  const w = window as any;
+  const w = window as Window & {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+    };
+  };
   if (w.Capacitor?.isNativePlatform?.()) return true;
   // Fallback: the app loads a remote URL (https://n38worth.com) so the
   // Capacitor JS bridge is not always injected. We tag the Android WebView

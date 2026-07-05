@@ -1,0 +1,85 @@
+import { auth } from "@/lib/auth";
+import { NextResponse } from "next/server";
+
+// Protected game routes that require authentication
+const PROTECTED_ROUTES = [
+  "/dashboard",
+  "/players",
+  "/leaderboard",
+  "/settings",
+  "/my-profile",
+  "/my-players",
+  "/my-owners",
+  "/ranks",
+  "/history",
+  "/chat",
+  "/transactions",
+];
+
+// Routes that require a completed avatar (profile photo uploaded)
+const AVATAR_REQUIRED_ROUTES = [
+  "/leaderboard",
+  "/players",
+  "/my-players",
+  "/my-owners",
+  "/ranks",
+  "/history",
+  "/transactions",
+  "/hall-of-fame",
+];
+
+export default auth((req) => {
+  const isLoggedIn = !!req.auth?.user?.id;
+  const isAuthPage =
+    req.nextUrl.pathname.startsWith("/login") ||
+    req.nextUrl.pathname.startsWith("/register");
+  const isApiRoute = req.nextUrl.pathname.startsWith("/api");
+  const pathname = req.nextUrl.pathname;
+
+  // Redirect logged-in users away from auth pages to the market
+  if (isLoggedIn && isAuthPage) {
+    return NextResponse.redirect(new URL("/leaderboard", req.url));
+  }
+
+  // Allow API routes and public pages
+  if (isApiRoute || pathname === "/" || pathname.startsWith("/privacy") || pathname.startsWith("/terms")) {
+    return NextResponse.next();
+  }
+
+  // Protect game pages - redirect to login if not authenticated
+  const isProtectedRoute = PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
+
+  if (isProtectedRoute && !isLoggedIn) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // Enforce avatar requirement — redirect to profile setup if no avatar
+  if (isLoggedIn) {
+    const avatarCompleted = req.auth?.user?.avatarCompleted === true;
+    const ownUsername = req.auth?.user?.name;
+
+    const isAvatarRequiredRoute = AVATAR_REQUIRED_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(route + "/")
+    );
+
+    // Always allow a user to reach their OWN /players/<username> profile —
+    // that's where the avatar upload lives, so blocking it would create an
+    // infinite redirect loop with /my-profile (which redirects there).
+    const isOwnProfile =
+      !!ownUsername && pathname === `/players/${ownUsername}`;
+
+    if (isAvatarRequiredRoute && !avatarCompleted && !isOwnProfile) {
+      return NextResponse.redirect(new URL("/my-profile", req.url));
+    }
+  }
+
+  return NextResponse.next();
+});
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
+};

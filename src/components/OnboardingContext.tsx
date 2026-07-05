@@ -17,6 +17,7 @@ const defaultState: OnboardingState = {
   starterNpcIds: [],
   starterNpcOwnedCount: 0,
   onboardingComplete: false,
+  professionSelected: false,
 };
 
 interface OnboardingContextValue {

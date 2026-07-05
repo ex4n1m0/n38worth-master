@@ -14,8 +14,36 @@ export const navbarBtnStyle = {
 /**
  * Format a number with comma-separated thousands (e.g., 1000 -> "1,000")
  */
-export function formatNumber(num: number): string {
+export function formatNumber(num: number | undefined | null): string {
+  if (num === undefined || num === null || isNaN(num)) return "0";
   return num.toLocaleString('en-US');
+}
+
+/**
+ * Format a number compactly using the standard k/m/b/t/q scale
+ * with 3 significant figures. Examples:
+ *   12,340 -> "12.3k", 987,000,000 -> "987m", 2.558e15 -> "2.56q".
+ * Numbers below 1000 are shown as-is (no suffix).
+ */
+export function formatCompact(num: number | undefined | null): string {
+  if (num === undefined || num === null || isNaN(num)) return "0";
+  const abs = Math.abs(num);
+  if (abs < 1000) {
+    return Number.isInteger(num) ? String(num) : num.toLocaleString("en-US");
+  }
+  const tiers = [
+    { v: 1e15, s: "q" },
+    { v: 1e12, s: "t" },
+    { v: 1e9, s: "b" },
+    { v: 1e6, s: "m" },
+    { v: 1e3, s: "k" },
+  ];
+  const tier = tiers.find((t) => abs >= t.v)!;
+  const scaled = num / tier.v;
+  const mag = Math.abs(scaled);
+  const decimals = mag >= 100 ? 0 : mag >= 10 ? 1 : 2;
+  const str = scaled.toFixed(decimals).replace(/\.?0+$/, "");
+  return str + tier.s;
 }
 
 /**

@@ -111,6 +111,7 @@ export async function GET(req: Request) {
           isVerified: users.isVerified,
           playerType: playerTypeSql,
           purchaseCount: users.purchaseCount,
+          photoScore: users.photoScore,
           portfolioValue: portfolioSql.as("portfolio_value"),
           ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o5 WHERE o5.owned_id = "users"."id")`.as("owner_count"),
           ownerName: ownerNameSql,
@@ -144,6 +145,7 @@ export async function GET(req: Request) {
           isVerified: users.isVerified,
           playerType: playerTypeSql,
           purchaseCount: users.purchaseCount,
+          photoScore: users.photoScore,
           portfolioValue:
             sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as(
               "portfolio_value"
@@ -184,6 +186,7 @@ export async function GET(req: Request) {
           isVerified: users.isVerified,
           playerType: playerTypeSql,
           purchaseCount: users.purchaseCount,
+          photoScore: users.photoScore,
           ownerCount: sql<number>`count(${ownership.id})`.as("owner_count"),
           portfolioValue: sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as("portfolio_value"),
           ownerName: ownerNameSql,

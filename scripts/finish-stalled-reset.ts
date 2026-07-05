@@ -178,6 +178,7 @@ async function main() {
           estimatedDeletionAt: null,
           ownerlessAt: null,
           isProtected: 1,
+          profession: null, // Goddesses are not combo-eligible — never a profession
           purchaseCount: 0,
           updatedAt: new Date(),
         })

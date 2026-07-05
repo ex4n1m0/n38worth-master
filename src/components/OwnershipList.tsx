@@ -6,23 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SendCreditsButton } from "@/components/SendCreditsButton";
 import { BoostCardButton } from "@/components/BoostCardButton";
-import { BoostValueButton } from "@/components/BoostValueButton";
 import { RevealAvatarButton } from "@/components/RevealAvatarButton";
 import { LetGoButton } from "@/components/LetGoButton";
 import { InlineDMChat } from "@/components/InlineDMChat";
+import { CardProfileMeta } from "@/components/CardProfileMeta";
+import { PhotoAttribution } from "@/components/PhotoAttribution";
 import {
-  Clock,
-  Briefcase,
   Coins,
-  Crown,
-  Users,
-  TrendingUp,
   BadgeCheck,
-  Swords,
   Star,
   Gem,
-  User,
-  CreditCard,
   ShoppingCart,
   Loader2,
 } from "lucide-react";
@@ -33,37 +26,14 @@ import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc } from "@/lib/avatar-utils";
-import {
-  getOwnedRank,
-  getCreditsRank,
-  getValueRank,
-  getPortfolioRank,
-  getOwnedRankColor,
-  getCreditsRankColor,
-  getValueRankColor,
-  getPortfolioRankColor,
-} from "@/lib/ranks";
-import { formatNumber, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
+import { getProfessionImage } from "@/lib/professions";
+import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { BONUS_CARD_USERNAMES, BONUS_CARD_POWERS } from "@/lib/bonus-cards";
-import { Shield, Sparkles } from "lucide-react";
-
-function formatLastOnline(date: string | Date | null | undefined): string {
-  if (!date) return "Never";
-  const d = typeof date === "string" ? new Date(date) : date;
-  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
-}
+import { Shield, Sparkles, MessageSquare } from "lucide-react";
+import { BlockSellButton } from "@/components/BlockSellButton";
 
 function formatTimeRemaining(date: string | Date | null | undefined): string | null {
   if (!date) return null;
@@ -101,6 +71,10 @@ interface OwnershipItem {
   purchaseCount?: number;
   hasUnreadDM?: boolean;
   bio?: string | null;
+  profession?: string | null;
+  photoAuthorName?: string | null;
+  photoAuthorUrl?: string | null;
+  photoSourceUrl?: string | null;
 }
 
 interface OwnershipListProps {
@@ -113,10 +87,21 @@ interface OwnershipListProps {
   showChat?: boolean;
   hideHire?: boolean;
   showBoost?: boolean;
-  showBoostValue?: boolean;
   showRevealAvatar?: boolean;
   showLetGo?: boolean;
   myPlayerValue?: number;
+  ownedMode?: boolean;
+  comboSelection?: {
+    isSelected: (playerId: number) => boolean;
+    onToggle: (player: {
+      playerId: number;
+      username: string;
+      playerValue: number;
+      avatarUrl: string | null;
+      isNpc: number;
+      valueFloor: number;
+    }, profession: string) => boolean;
+  };
 }
 
 function useSellBlockCountdown(blockSellUntil?: string | null): string | null {
@@ -147,6 +132,39 @@ function useRevealCountdown(avatarRevealUntil?: string | null): string | null {
   return timeLeft;
 }
 
+function usePumpBlockCountdown(blockSellUntil?: string | null): string | null {
+  const [timeLeft, setTimeLeft] = useState<string | null>(() => {
+    if (!blockSellUntil) return null;
+    const d = new Date(blockSellUntil);
+    const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
+    if (seconds <= 0) return null;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  });
+
+  useEffect(() => {
+    if (!blockSellUntil) { setTimeLeft(null); return; }
+    const update = () => {
+      const d = new Date(blockSellUntil);
+      const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
+      if (seconds <= 0) { setTimeLeft(null); return; }
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) { setTimeLeft(`${minutes}m`); return; }
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      setTimeLeft(remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`);
+    };
+    update();
+    const id = setInterval(update, 10000);
+    return () => clearInterval(id);
+  }, [blockSellUntil]);
+
+  return timeLeft;
+}
+
 function OwnershipCard({
   item,
   showSellOut,
@@ -156,9 +174,11 @@ function OwnershipCard({
   showChat,
   hideHire,
   showBoost,
-  showBoostValue,
   showRevealAvatar,
   showLetGo,
+  alwaysReveal,
+  ownedMode,
+  comboSelection,
 }: {
   item: OwnershipItem;
   showSellOut?: boolean;
@@ -168,21 +188,30 @@ function OwnershipCard({
   showChat?: boolean;
   hideHire?: boolean;
   showBoost?: boolean;
-  showBoostValue?: boolean;
   showRevealAvatar?: boolean;
   showLetGo?: boolean;
+  alwaysReveal?: boolean;
+  ownedMode?: boolean;
+  comboSelection?: OwnershipListProps["comboSelection"];
 }) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
   const { ownedIds } = useOwnedPlayerIds();
+  const { hasKnowledge } = useKnowledgePower();
   const { play } = useSound();
 
   const isOwnCard = session?.user?.name === item.username;
   const isBonus = BONUS_CARD_USERNAMES.includes(item.username);
+  const isGoddess = GODDESS_USERNAMES.includes(item.username);
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
   const revealTime = useRevealCountdown(item.avatarRevealUntil);
+  // Goddess and bonus cards never have a profession
+  const effectiveProfession = isBonus || isGoddess ? null : item.profession;
+  const professionImage = getProfessionImage(effectiveProfession);
+  const [chatOpen, setChatOpen] = useState(false);
+
   const cardAvatarSrc = getAvatarSrc({
     avatarUrl: item.avatarUrl,
     playerId: item.id,
@@ -190,6 +219,8 @@ function OwnershipCard({
     viewerUsername: session?.user?.name,
     ownedIds,
     isBonus,
+    isAvatarRevealed: alwaysReveal,
+    viewerHasKnowledge: hasKnowledge,
   });
 
   const buyMutation = useMutation({
@@ -246,10 +277,205 @@ function OwnershipCard({
     buyMutation.mutate();
   };
 
+  const pumpBlockCountdown = usePumpBlockCountdown(item.blockSellUntil);
+  const pumpCost = item.playerValue;
+  const canAffordPump = (myCredits ?? 0) >= pumpCost;
+
+  const pumpMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/pump", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownershipId: item.ownershipId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Pump failed");
+      return data;
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old - pumpCost : undefined
+      );
+      return { previousCredits };
+    },
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
+      toast.error(err.message);
+    },
+    onSuccess: async (data) => {
+      toast.success(`🚀 PUMPED ${item.username}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to player)`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["player"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+      ]);
+    },
+  });
+
+  const handlePumpClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    play("hire");
+    pumpMutation.mutate();
+  };
+
+  const isComboSelected = comboSelection?.isSelected(item.id) ?? false;
+  const hasProfession = !!item.profession;
+
+  const handleComboToggle = (e: React.MouseEvent) => {
+    if (!comboSelection || !hasProfession || !item.profession) return;
+    e.preventDefault();
+    e.stopPropagation();
+    comboSelection.onToggle(
+      {
+        playerId: item.id,
+        username: item.username,
+        playerValue: item.playerValue,
+        avatarUrl: item.avatarUrl,
+        isNpc: item.playerType === "card" ? 1 : 0,
+        valueFloor: item.valueFloor ?? 1,
+      },
+      item.profession
+    );
+  };
+
+  if (ownedMode) {
+    const isComboSelected = comboSelection?.isSelected(item.id) ?? false;
+    const hasProfession = !!item.profession;
+
+    const handleComboToggle = (e: React.MouseEvent) => {
+      if (!comboSelection || !hasProfession || !item.profession) return;
+      e.preventDefault();
+      e.stopPropagation();
+      comboSelection.onToggle(
+        {
+          playerId: item.id,
+          username: item.username,
+          playerValue: item.playerValue,
+          avatarUrl: item.avatarUrl,
+          isNpc: item.playerType === "card" ? 1 : 0,
+          valueFloor: item.valueFloor ?? 1,
+        },
+        item.profession
+      );
+    };
+
+    return (
+      <Card
+        className={`border-gray-800 bg-gray-900/60 transition-all duration-200 group relative ${
+          isComboSelected
+            ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20"
+            : "hover:bg-gray-900/90 hover:border-gray-700"
+        }`}
+        onClick={comboSelection && hasProfession ? handleComboToggle : undefined}
+        style={comboSelection && hasProfession ? { cursor: "pointer" } : undefined}
+      >
+        {isComboSelected && (
+          <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+          </div>
+        )}
+        <CardContent className="p-2 flex flex-col items-center gap-1.5">
+          <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
+            <div className="relative w-full">
+              <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
+                <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-contain bg-black/30" />
+                <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
+                  {item.username.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="text-center mt-1.5">
+              <h3
+                className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words flex items-center justify-center gap-1.5 flex-wrap"
+                style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
+              >
+                {item.username}
+                {item.isVerified === 1 && (<BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />)}
+                {(item.valueFloor ?? 0) >= 100 && (<Gem className="h-5 w-5 text-purple-400 shrink-0" />)}
+                {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (<Star className="h-5 w-5 text-yellow-400 shrink-0" />)}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {item.profession || "Hidden"}
+              </p>
+              <div className={`flex items-center justify-center gap-1 mt-0.5 ${getDynamicFontSize(item.playerValue)}`}>
+                <Coins className="h-3 w-3 text-t1-400 shrink-0" />
+                <span className="text-t1-400 font-bold">{formatCompact(item.playerValue)}¢</span>
+              </div>
+              {pumpBlockCountdown && (
+                <div className="flex items-center justify-center gap-1 mt-1 text-amber-400 text-xs font-semibold">
+                  <Shield className="h-3 w-3" />
+                  <span className="tabular-nums">{pumpBlockCountdown}</span>
+                </div>
+              )}
+            </div>
+          </Link>
+
+          <CardProfileMeta username={item.username} ownedCount={item.ownedCount} className="w-[80%]" />
+
+          <PhotoAttribution
+            authorName={item.photoAuthorName}
+            authorUrl={item.photoAuthorUrl}
+            sourceUrl={item.photoSourceUrl}
+            className="w-[80%]"
+          />
+
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              handlePumpClick(e);
+            }}
+            disabled={!canAffordPump || pumpMutation.isPending}
+            className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+              canAffordPump
+                ? "text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-900/30"
+                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+            }`}
+            style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+          >
+            {pumpMutation.isPending ? (
+              <Loader2 className="h-6 w-6 animate-spin" />
+            ) : (
+              <>
+                <span className="text-sm sm:text-lg leading-none">PUMP</span>
+                <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                  {formatCompact(pumpCost)}¢
+                </span>
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 hover:border-gray-700 transition-all duration-200 group">
+    <Card
+      className={`border-gray-800 bg-gray-900/60 transition-all duration-200 group relative ${
+        isComboSelected
+          ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20"
+          : "hover:bg-gray-900/90 hover:border-gray-700"
+      }`}
+      onClick={comboSelection && hasProfession ? handleComboToggle : undefined}
+      style={comboSelection && hasProfession ? { cursor: "pointer" } : undefined}
+    >
+      {isComboSelected && (
+        <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+        </div>
+      )}
       <CardContent className="p-2 relative">
-        <Link href={`/players/${item.username}`} className="block">
+        <Link href={`/players/${item.username}`} className="block" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
           {/* TOP: Full-width avatar with overlayed square Hire button */}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
@@ -258,7 +484,7 @@ function OwnershipCard({
                 {item.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            {!isOwnCard && !hideHire && (
+            {!isOwnCard && !hideHire && !ownedMode && (
               <Button
                 onClick={handleBuyClick}
                 disabled={!canAfford || buyMutation.isPending}
@@ -276,7 +502,7 @@ function OwnershipCard({
                     <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
                     <span className="text-[9px] sm:text-[10px] leading-none">Hire</span>
                     <span className={`leading-none ${getDynamicFontSize(item.playerValue)}`}>
-                      {formatNumber(item.playerValue)}¢
+                      {formatCompact(item.playerValue)}¢
                     </span>
                   </>
                 )}
@@ -285,184 +511,88 @@ function OwnershipCard({
           </div>
 
           <div>
+            {/* Username — capped smaller to prevent overflow on wide cards */}
+            <h3
+              className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
+              style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
+            >
+              {item.username}
+              {item.isVerified === 1 && (
+                <BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />
+              )}
+              {(item.valueFloor ?? 0) >= 100 && (
+                <Gem className="h-5 w-5 text-purple-400 shrink-0" />
+              )}
+              {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (
+                <Star className="h-5 w-5 text-yellow-400 shrink-0" />
+              )}
+            </h3>
 
-            {/* Username + badges */}
-            <div className="w-full mb-12">
-              <h3
-                className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
-                style={{ fontSize: "clamp(1.1rem, 3.5vw, 1.875rem)" }}
-              >
-                {item.username}
-                {item.isVerified === 1 && (
-                  <BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />
-                )}
-                {(item.valueFloor ?? 0) >= 100 && (
-                  <Gem className="h-5 w-5 text-purple-400 shrink-0" />
-                )}
-                {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (
-                  <Star className="h-5 w-5 text-yellow-400 shrink-0" />
-                )}
-              </h3>
-            </div>
-
-            {/* Player type + Rank badges */}
-            <div className="flex items-center gap-1 flex-wrap mt-1">
-              {item.playerType === "human" ? (
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border text-emerald-300 bg-emerald-500/15 border-emerald-500/30">
-                  <User className="h-2.5 w-2.5" />
-                  Human
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border text-cyan-300 bg-cyan-500/15 border-cyan-500/30">
-                  <CreditCard className="h-2.5 w-2.5" />
-                  Card
+            <div className="flex items-center gap-1.5 mt-1">
+              {effectiveProfession && professionImage && (
+                <span className="h-5 w-5 rounded overflow-hidden ring-1 ring-amber-500/40 ring-inset bg-black/50 shrink-0">
+                  <img src={professionImage} alt={effectiveProfession} className="w-full h-full object-contain p-px" />
                 </span>
               )}
-              {item.playerType === "human" && (
-                <>
-                  {item.ownedCount !== undefined && (
-                    <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getOwnedRankColor(item.ownedCount)}`}>
-                      <Swords className="h-2.5 w-2.5" />
-                      {getOwnedRank(item.ownedCount).title}
-                    </span>
-                  )}
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getCreditsRankColor(item.credits ?? 0)}`}>
-                    <Coins className="h-2.5 w-2.5" />
-                    {getCreditsRank(item.credits ?? 0).title}
-                  </span>
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getValueRankColor(item.playerValue)}`}>
-                    <TrendingUp className="h-2.5 w-2.5" />
-                    {getValueRank(item.playerValue).title}
-                  </span>
-                  <span className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1 py-0.5 rounded border ${getPortfolioRankColor(item.portfolioValue ?? 0)}`}>
-                    <Briefcase className="h-2.5 w-2.5" />
-                    {getPortfolioRank(item.portfolioValue ?? 0).title}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Stats row */}
-            <div className="flex items-center gap-2 flex-wrap text-[10px] sm:text-xs text-gray-400 mt-1">
-              {item.ownerCount !== undefined && (
-                <span className="flex items-center gap-1">
-                  <Crown className="h-3 w-3 text-yellow-400 shrink-0" />
-                  {item.ownerCount}
-                </span>
-              )}
-              {item.ownedCount !== undefined && (
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3 text-t2-400 shrink-0" />
-                  {item.ownedCount}
-                </span>
-              )}
-              <span className="flex items-center gap-1 text-orange-400">
-                <ShoppingCart className="h-3 w-3 shrink-0" />
-                {item.purchaseCount ?? 0}x
-              </span>
-              {item.portfolioValue !== undefined && (
-                <span className={`flex items-center gap-1 ${getDynamicFontSize(Math.round(item.portfolioValue))}`}>
-                  <Briefcase className="h-3 w-3 text-purple-400 shrink-0" />
-                  {formatNumber(Math.round(item.portfolioValue))}¢
-                </span>
-              )}
-              {item.credits !== undefined && (
-                <span className={`flex items-center gap-1 text-t1-400 ${getDynamicFontSize(parseFloat((item.credits).toFixed(2)))}`}>
-                  <Coins className="h-3 w-3 shrink-0" />
-                  {formatNumber(parseFloat((item.credits).toFixed(2)))}¢
-                </span>
-              )}
-            </div>
-
-            {/* Bio */}
-            {item.bio && (
-              <p className="mt-1.5 text-[11px] text-gray-400 italic line-clamp-2 leading-snug">
-                &ldquo;{item.bio}&rdquo;
-              </p>
-            )}
-
-            {/* Footer: last online */}
-            <div className="flex items-center gap-3 mt-1.5 text-[11px]">
-              <span className="flex items-center gap-1 text-gray-500">
-                <Clock className="h-3 w-3" />
-                {formatLastOnline(item.lastOnlineAt)}
+              <span className={`text-sm font-semibold truncate ${effectiveProfession ? 'text-amber-400/80' : 'text-gray-400'}`}>
+                {effectiveProfession || "Hidden"}
               </span>
             </div>
+
+            <div className={`flex items-center gap-1 mt-1 ${getDynamicFontSize(item.playerValue)}`}>
+              <Coins className="h-3 w-3 text-t1-400 shrink-0" />
+              <span className="text-t1-400 font-bold">{formatCompact(item.playerValue)}¢</span>
+            </div>
+
+            <CardProfileMeta username={item.username} ownedCount={item.ownedCount} className="mt-1.5" />
+
+            <PhotoAttribution
+              authorName={item.photoAuthorName}
+              authorUrl={item.photoAuthorUrl}
+              sourceUrl={item.photoSourceUrl}
+              className="mt-1"
+            />
           </div>
         </Link>
 
-        {/* Action buttons — bonus cards are locked: no actions, only a read-only countdown */}
-        {isBonus ? (
+        {/* Action buttons */}
+        {!ownedMode && isBonus && (
           <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-purple-500/30">
-            <div className="rounded-md border border-purple-500/40 bg-purple-950/40 px-3 py-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-purple-300">
-                <Shield className="h-4 w-4 shrink-0" />
-                <span className="text-xs font-semibold">Unbreakable 3h Block</span>
+            {sellBlockTime && (
+              <div className="rounded-md border border-purple-500/40 bg-purple-950/40 px-3 py-2 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-purple-300"><Shield className="h-4 w-4 shrink-0" /><span className="text-xs font-semibold">1h Block</span></div>
+                <span className="text-xs font-bold text-purple-200 tabular-nums">{sellBlockTime}</span>
               </div>
-              <span className="text-xs font-bold text-purple-200 tabular-nums">
-                {sellBlockTime ?? "Expired"}
-              </span>
-            </div>
-            <p className="text-[11px] text-purple-300/80 flex items-start gap-1 leading-snug">
-              <Sparkles className="h-3 w-3 shrink-0 mt-0.5" />
-              <span>{BONUS_CARD_POWERS[item.username]}</span>
-            </p>
+            )}
+            <p className="text-[11px] text-purple-300/80 flex items-start gap-1 leading-snug"><Sparkles className="h-3 w-3 shrink-0 mt-0.5" /><span>{BONUS_CARD_POWERS[item.username]}</span></p>
           </div>
-        ) : (
-          <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-gray-800/60">
-            {showSendCredits && (
-              <SendCreditsButton
-                targetId={item.id}
-                targetUsername={item.username}
-                className="w-full"
-              />
-            )}
-            {showBoost && !isOwnCard && (
-              <BoostCardButton
-                targetId={item.id}
-                targetUsername={item.username}
-                playerValue={item.playerValue}
-                countdown={sellBlockTime}
-                className="w-full"
-              />
-            )}
-            {showBoostValue && !GODDESS_USERNAMES.includes(item.username) && (
-              <BoostValueButton
-                targetId={item.id}
-                targetUsername={item.username}
-                playerValue={item.playerValue}
-                className="w-full"
-              />
-            )}
-            {showRevealAvatar && !isOwnCard && !GODDESS_USERNAMES.includes(item.username) && (
-              <RevealAvatarButton
-                targetId={item.id}
-                targetUsername={item.username}
-                playerValue={item.playerValue}
-                countdown={revealTime}
-                className="w-full"
-              />
-            )}
-            {showLetGo && (
-              <LetGoButton
-                targetId={item.id}
-                targetUsername={item.username}
-                playerValue={item.playerValue}
-                className="w-full"
-              />
+        )}
+        {!ownedMode && !isBonus && (
+          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-800/60">
+            {showSendCredits && (<SendCreditsButton targetId={item.id} targetUsername={item.username} square />)}
+            {showBoost && !isOwnCard && (<BoostCardButton targetId={item.id} targetUsername={item.username} playerValue={item.playerValue} countdown={sellBlockTime} square />)}
+            {showRevealAvatar && !isOwnCard && !GODDESS_USERNAMES.includes(item.username) && !hasKnowledge && (<RevealAvatarButton targetId={item.id} targetUsername={item.username} playerValue={item.playerValue} countdown={revealTime} square />)}
+            {showBlockSell && (<BlockSellButton ownershipId={item.ownershipId} ownedUsername={item.username} playerValue={item.playerValue} blockSellUntil={item.blockSellUntil ?? null} square />)}
+            {showLetGo && (<LetGoButton targetId={item.id} targetUsername={item.username} playerValue={item.playerValue} square />)}
+            {showChat && (
+              <button
+                onClick={() => setChatOpen((v) => !v)}
+                title={`Message ${item.username}`}
+                className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg border transition-colors ${
+                  chatOpen
+                    ? "border-t1-500/60 text-t1-300 bg-t1-500/10"
+                    : "border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-500"
+                } ${item.hasUnreadDM ? "ring-2 ring-t1-400/60" : ""}`}
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span className="text-[7px] leading-none mt-0.5">Chat</span>
+              </button>
             )}
           </div>
         )}
 
-        {/* Inline Chat — hidden for bonus cards (they have no chat) */}
-        {showChat && !isBonus && (
-          <div className="mt-4 pt-4 border-t border-gray-800/60">
-            <InlineDMChat
-              targetId={item.id}
-              targetUsername={item.username}
-              targetAvatarUrl={cardAvatarSrc}
-            />
-          </div>
+        {!ownedMode && showChat && !isBonus && chatOpen && (
+          <div className="mt-3 pt-3 border-t border-gray-800/60"><InlineDMChat targetId={item.id} targetUsername={item.username} targetAvatarUrl={cardAvatarSrc} /></div>
         )}
       </CardContent>
     </Card>
@@ -479,10 +609,11 @@ export function OwnershipList({
   showChat,
   hideHire,
   showBoost,
-  showBoostValue,
   showRevealAvatar,
   showLetGo,
   myPlayerValue,
+  ownedMode,
+  comboSelection,
 }: OwnershipListProps) {
   if (!items || items.length === 0) {
     return (
@@ -493,22 +624,9 @@ export function OwnershipList({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
       {items.map((item) => (
-        <OwnershipCard
-          key={item.ownershipId}
-          item={item}
-          showSellOut={showSellOut}
-          showDiscard={showDiscard}
-          showBlockSell={showBlockSell}
-          showSendCredits={showSendCredits}
-          showChat={showChat}
-          hideHire={hideHire}
-          showBoost={showBoost}
-          showBoostValue={showBoostValue}
-          showRevealAvatar={showRevealAvatar}
-          showLetGo={showLetGo}
-        />
+        <OwnershipCard key={item.ownershipId} item={item} showSellOut={showSellOut} showDiscard={showDiscard} showBlockSell={showBlockSell} showSendCredits={showSendCredits} showChat={showChat} hideHire={hideHire} showBoost={showBoost} showRevealAvatar={showRevealAvatar} showLetGo={showLetGo} alwaysReveal={type === "owned"} ownedMode={ownedMode} comboSelection={comboSelection} />
       ))}
     </div>
   );

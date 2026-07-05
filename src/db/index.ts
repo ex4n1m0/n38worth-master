@@ -20,6 +20,6 @@ export const db = new Proxy({} as ReturnType<typeof createDb>, {
     if (!_db) {
       _db = createDb();
     }
-    return (_db as any)[prop];
+    return _db[prop as keyof typeof _db];
   },
 });

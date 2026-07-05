@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
+import { usePoachStore } from "@/hooks/usePoachEffect";
 
 export function usePlayerEvents(userId: string | undefined) {
   const queryClient = useQueryClient();
@@ -16,24 +17,71 @@ export function usePlayerEvents(userId: string | undefined) {
     const pusher = getPusherClient();
     if (!pusher) return; // Pusher not configured, skip real-time events
 
-    const channel = pusher.subscribe(`player-${userId}`);
-
-    channel.bind("purchased", (data: { buyerUsername: string; newValue: number }) => {
-      queryClient.invalidateQueries({ queryKey: ["player"] });
-      queryClient.invalidateQueries({ queryKey: ["players"] });
-      toast.success(`${data.buyerUsername} bought you! Your value is now ${data.newValue} 💰`);
+    const channelName = `player-${userId}`;
+    console.log(`[poach] subscribing to ${channelName} (pusher state: ${pusher.connection.state})`);
+    const channel = pusher.subscribe(channelName);
+    channel.bind("pusher:subscription_succeeded", () => {
+      console.log(`[poach] subscribed to ${channelName}`);
     });
+    channel.bind("pusher:subscription_error", (status: unknown) => {
+      console.error(`[poach] subscription error on ${channelName}:`, status);
+    });
+
+    channel.bind(
+      "purchased",
+      (data: {
+        buyerUsername: string;
+        newValue: number;
+        amount?: number;
+        buyerAvatar?: string | null;
+      }) => {
+        queryClient.invalidateQueries({ queryKey: ["player"] });
+        queryClient.invalidateQueries({ queryKey: ["players"] });
+        queryClient.invalidateQueries({ queryKey: ["credits"] });
+        play("hire");
+        // You were hired by someone — flash the same effect that fires when one
+        // of your owned cards is poached, so being bought is just as visible.
+        if (data.amount && data.amount > 0) {
+          usePoachStore.getState().trigger({
+            amount: data.amount,
+            player: "you",
+            playerAvatar: data.buyerAvatar ?? null,
+            buyer: data.buyerUsername,
+          });
+        }
+        toast.success(`${data.buyerUsername} bought you! Your value is now ${data.newValue} 💰`);
+      }
+    );
 
     channel.bind("credits-updated", () => {
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
     });
 
-    channel.bind("revenue-received", (data: { amount: number; fromPlayer: string; buyer: string }) => {
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-      play("hire");
-      toast.success(`You earned ${data.amount} credits! ${data.buyer} hired ${data.fromPlayer} 🎉`);
-    });
+    channel.bind(
+      "revenue-received",
+      (data: {
+        amount: number;
+        fromPlayer: string;
+        fromPlayerAvatar?: string | null;
+        buyer: string;
+      }) => {
+        console.log("[poach] revenue-received", data);
+        queryClient.invalidateQueries({ queryKey: ["credits"] });
+        play("hire");
+        // Eye-catching "POACHED!" flash + navbar credits bump.
+        usePoachStore.getState().trigger({
+          amount: data.amount,
+          player: data.fromPlayer,
+          playerAvatar: data.fromPlayerAvatar ?? null,
+          buyer: data.buyer,
+        });
+        // Persistent confirmation in case the flash is missed.
+        toast.success(`${data.buyer} hired ${data.fromPlayer} — you earned +${data.amount}¢ 💰`, {
+          duration: 6000,
+        });
+      }
+    );
 
     channel.bind("ownership-changed", (data: { type: string; initiator: string }) => {
       queryClient.invalidateQueries({ queryKey: ["player"] });

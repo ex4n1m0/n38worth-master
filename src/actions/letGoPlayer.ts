@@ -6,7 +6,6 @@ import { users, ownership, transactions, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function letGoPlayer(otherId: number) {
   const session = await auth();
@@ -42,8 +41,11 @@ export async function letGoPlayer(otherId: number) {
       return { error: "Player not found" };
     }
 
-    if (BONUS_CARD_USERNAMES.includes(targetPlayer.username)) {
-      return { error: "Bonus cards cannot be let go — wait for the 3h block to expire" };
+    // Check if the ownership has an active sell block
+    if (ownershipRecord.blockSellUntil && new Date(ownershipRecord.blockSellUntil) > new Date()) {
+      const expiresAt = new Date(ownershipRecord.blockSellUntil);
+      const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
+      return { error: `${targetPlayer.username} is blocked and cannot be let go for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }
 
     const letGoCost = targetPlayer.playerValue;

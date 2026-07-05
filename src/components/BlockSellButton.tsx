@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Handshake, Loader2, Clock } from "lucide-react";
+import { Shield, Loader2, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +19,10 @@ import { useSound } from "@/hooks/useSound";
 
 interface BlockSellButtonProps {
   ownershipId: number;
-  ownerUsername: string;
+  ownedUsername: string;
   playerValue: number;
   blockSellUntil: string | null;
+  square?: boolean;
 }
 
 function formatTimeRemaining(until: string): string {
@@ -33,7 +34,7 @@ function formatTimeRemaining(until: string): string {
   return `${hours}h ${minutes}m ${seconds}s`;
 }
 
-export function BlockSellButton({ ownershipId, ownerUsername, playerValue, blockSellUntil }: BlockSellButtonProps) {
+export function BlockSellButton({ ownershipId, ownedUsername, playerValue, blockSellUntil, square }: BlockSellButtonProps) {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
@@ -64,10 +65,11 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
     },
     onSuccess: (data) => {
       toast.success(
-        `Partnered with ${ownerUsername}! Paid ${data.cost}¢ (+1h, ${data.totalHours}h total). 🤝`
+        `Blocked ${ownedUsername} from being sold! Paid ${data.cost}¢ (+1h, ${data.totalHours}h total). 🔒`
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
+      queryClient.invalidateQueries({ queryKey: ["ownership"] });
       setOpen(false);
     },
     onError: (err: Error) => {
@@ -78,10 +80,24 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {isBlocked ? (
+        {square ? (
+          <Button
+            variant="outline"
+            onClick={() => play("buttons")}
+            className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg ${
+              isBlocked
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
+                : "border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
+            }`}
+            title={isBlocked ? `Block Sell ${ownedUsername}${timeLeft ? ` · ${timeLeft}` : ""}` : `Block Sell ${ownedUsername} (${cost}¢)`}
+          >
+            <Shield className="h-4 w-4" />
+            <span className="text-[7px] leading-none mt-0.5">Block</span>
+          </Button>
+        ) : isBlocked ? (
           <button onClick={() => play("buttons")} className="flex items-center gap-3 px-6 py-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-lg font-bold min-h-[56px] cursor-pointer hover:bg-amber-500/20 transition-colors">
-            <Handshake className="h-7 w-7" />
-            <span>{t.partner}</span>
+            <Shield className="h-7 w-7" />
+            <span>Block Sell</span>
             {timeLeft && (
               <span className="flex items-center gap-1 text-amber-500/70">
                 <Clock className="h-5 w-5" />
@@ -95,40 +111,40 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
             onClick={() => play("buttons")}
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
           >
-            <Handshake className="h-7 w-7 mr-2" />
-            {t.partner}
+            <Shield className="h-7 w-7 mr-2" />
+            Block Sell
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white">{t.partner} — {ownerUsername}</DialogTitle>
+          <DialogTitle className="text-white">Block Sell — {ownedUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
             {isBlocked ? (
               <>
                 Add <span className="text-white font-semibold">+1 hour</span> to
-                your partnership with{" "}
-                <span className="text-white font-semibold">{ownerUsername}</span>.
+                the sell block on{" "}
+                <span className="text-white font-semibold">{ownedUsername}</span>.
                 <br /><br />
-                Currently protected for{" "}
+                Currently blocked for{" "}
                 <span className="text-white font-semibold">{timeLeft}</span>.
                 <br /><br />
                 This will cost{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (100% of your value), paid directly to {ownerUsername}.
+                (100% of {ownedUsername}&apos;s value), paid directly to them.
               </>
             ) : (
               <>
-                Partner with{" "}
-                <span className="text-white font-semibold">{ownerUsername}</span>{" "}
-                to prevent them from discarding you for{" "}
+                Block{" "}
+                <span className="text-white font-semibold">{ownedUsername}</span>{" "}
+                from being sold for{" "}
                 <span className="text-white font-semibold">1 hour</span>.
                 <br /><br />
                 This will cost{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (100% of your value), paid directly to {ownerUsername}.
+                (100% of {ownedUsername}&apos;s value), paid directly to them.
                 <br /><br />
-                You can press Partner multiple times to add more hours.
+                You can press Block multiple times to add more hours.
               </>
             )}
           </DialogDescription>
@@ -149,7 +165,7 @@ export function BlockSellButton({ ownershipId, ownerUsername, playerValue, block
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {t.partnering}
+                Blocking...
               </>
             ) : (
               `+1h ${cost}¢`

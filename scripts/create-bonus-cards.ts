@@ -7,7 +7,7 @@ import { db } from "../src/db";
 import { users } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 import { compressAvatar } from "../src/lib/compress-avatar";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_IMAGES } from "../src/lib/bonus-cards";
+import { BONUS_CARD_USERNAMES, BONUS_CARD_IMAGES, BONUS_CARD_VALUES } from "../src/lib/bonus-cards";
 
 async function main() {
   console.log("Creating bonus card NPCs...\n");
@@ -45,7 +45,7 @@ async function main() {
         username,
         passwordHash: null,
         avatarUrl,
-        playerValue: 0,
+        playerValue: BONUS_CARD_VALUES[username] ?? 1000,
         valueFloor: 0,
         credits: 0,
         isActive: 1,

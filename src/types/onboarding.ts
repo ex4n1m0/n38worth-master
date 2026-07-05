@@ -4,4 +4,6 @@ export interface OnboardingState {
   starterNpcIds: number[];
   starterNpcOwnedCount: number;
   onboardingComplete: boolean;
+  profession?: string | null;
+  professionSelected: boolean;
 }

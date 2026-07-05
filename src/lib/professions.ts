@@ -1,0 +1,82 @@
+/**
+ * Professions system - players can choose a profession during onboarding,
+ * and NPCs randomly acquire one with weighted probabilities.
+ */
+
+export interface Profession {
+  name: string;
+  imagePath: string;
+  probability: number; // 0-100, used only for NPC random assignment
+}
+
+export const PROFESSIONS: Profession[] = [
+  {
+    name: "Rift Binder",
+    imagePath: "/Rift Binder.png",
+    probability: 5,
+  },
+  {
+    name: "Hexblade Courier",
+    imagePath: "/Hexblade Courier.png",
+    probability: 6,
+  },
+  {
+    name: "Scrap Alchemist",
+    imagePath: "/Scrap Alchemist.png",
+    probability: 7,
+  },
+  {
+    name: "Spirit Archivist",
+    imagePath: "/Spirit Archivist.png",
+    probability: 8,
+  },
+  {
+    name: "Iron Choir Marshal",
+    imagePath: "/Choir Marshal.png",
+    probability: 9,
+  },
+  {
+    name: "Plague Cartographer",
+    imagePath: "/Plague Cartographer.png",
+    probability: 10,
+  },
+];
+
+/** Total probability of receiving any profession (sum of all 6). */
+const TOTAL_PROFESSION_PROBABILITY = 45;
+
+/**
+ * Rolls a random profession for an NPC based on weighted probabilities.
+ * Returns the profession name, or null if the NPC gets no profession (hidden card).
+ *
+ * Probabilities:
+ *   Rift Binder: 5%
+ *   Hexblade Courier: 6%
+ *   Scrap Alchemist: 7%
+ *   Spirit Archivist: 8%
+ *   Iron Choir Marshal: 9%
+ *   Plague Cartographer: 10%
+ *   Hidden Card (null): 55%
+ */
+export function rollProfession(): string | null {
+  const roll = Math.random() * 100;
+  let cumulative = 0;
+
+  for (const profession of PROFESSIONS) {
+    cumulative += profession.probability;
+    if (roll < cumulative) {
+      return profession.name;
+    }
+  }
+
+  return null; // Hidden card (55%)
+}
+
+/**
+ * Returns the image path for a given profession name.
+ */
+export function getProfessionImage(professionName: string | null | undefined): string | null {
+  if (!professionName) return null;
+  const profession = PROFESSIONS.find((p) => p.name === professionName);
+  return profession?.imagePath ?? null;
+}

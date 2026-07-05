@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/random-player",
-      "schedule": "*/3 * * * *"
+      "schedule": "*/1 * * * *"
     },
     {
       "path": "/api/cron/random-player-status",
@@ -39,6 +39,22 @@
     {
       "path": "/api/cron/boss-tax",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/bonus-cards",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/delete-demo-players",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/agent",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/default-avatar",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

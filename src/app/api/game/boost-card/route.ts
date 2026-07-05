@@ -5,7 +5,6 @@ import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { capCredits } from "@/lib/safeguards";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -36,13 +35,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You don't own this player" }, { status: 403 });
     }
 
-    // 6-hour hard cap on sell block
-    const MAX_BLOCK_MS = 6 * 60 * 60 * 1000;
+    // 12-hour hard cap on sell block
+    const MAX_BLOCK_MS = 12 * 60 * 60 * 1000;
     const existingBlockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;
     const remainingBlockMs = Math.max(0, existingBlockEnd - Date.now());
     if (remainingBlockMs >= MAX_BLOCK_MS) {
       return NextResponse.json(
-        { error: "Sell block is already at the 6-hour maximum. Wait for it to decrease before adding more." },
+        { error: "Sell block is already at the 12-hour maximum. Wait for it to decrease before adding more." },
         { status: 400 }
       );
     }
@@ -64,13 +63,6 @@ export async function POST(req: Request) {
 
     if (!target) {
       return NextResponse.json({ error: "Target player not found" }, { status: 404 });
-    }
-
-    if (BONUS_CARD_USERNAMES.includes(target.username)) {
-      return NextResponse.json(
-        { error: "Bonus cards cannot be boosted — the 3h block is fixed and unbreakable" },
-        { status: 403 }
-      );
     }
 
     // Load sender

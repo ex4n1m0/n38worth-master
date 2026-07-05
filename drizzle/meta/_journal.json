@@ -50,6 +50,27 @@
       "when": 1778421681065,
       "tag": "0006_loud_miracleman",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1779461700000,
+      "tag": "0007_add_onboarding_created_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780236219305,
+      "tag": "0008_ancient_zarek",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781347696028,
+      "tag": "0009_dashing_kabuki",
+      "breakpoints": true
     }
   ]
 }

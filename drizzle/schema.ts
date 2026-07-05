@@ -76,8 +76,10 @@ export const users = pgTable("users", {
 	photoAuthorName: text("photo_author_name"),
 	photoAuthorUrl: text("photo_author_url"),
 	photoSourceUrl: text("photo_source_url"),
+	photoScore: integer("photo_score").default(0).notNull(),
 	isProtected: integer("is_protected").default(0).notNull(),
 	purchaseCount: integer("purchase_count").default(0).notNull(),
+	profession: varchar("profession", { length: 30 }),
 }, (table) => [
 	index("idx_users_username").using("btree", table.username.asc().nullsLast().op("text_ops")),
 	unique("users_username_unique").on(table.username),

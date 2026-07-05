@@ -9,6 +9,7 @@ import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of self value per hour
 const BLOCK_SELL_DURATION_MS = 1 * 60 * 60 * 1000; // 1 hour per press
+const MAX_BLOCK_MS = 12 * 60 * 60 * 1000; // 12-hour hard cap on total sell block
 
 export async function blockSell(ownershipId: number) {
   const session = await auth();
@@ -16,87 +17,96 @@ export async function blockSell(ownershipId: number) {
     return { error: "Unauthorized" };
   }
 
-  const playerId = parseInt(session.user.id);
+  const ownerId = parseInt(session.user.id);
 
   try {
-    // Get the ownership record — must be an ownership where the current player is the owned one
+    // Get the ownership record — the caller must be the owner
     const [record] = await db
       .select()
       .from(ownership)
       .where(
         and(
           eq(ownership.id, ownershipId),
-          eq(ownership.ownedId, playerId)
+          eq(ownership.ownerId, ownerId)
         )
       );
 
     if (!record) {
-      return { error: "Ownership record not found" };
-    }
-
-    // Get player info
-    const [player] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, playerId));
-
-    if (!player) {
-      return { error: "Player not found" };
+      return { error: "Ownership record not found. You must be the owner." };
     }
 
     // Get owner info
     const [owner] = await db
       .select()
       .from(users)
-      .where(eq(users.id, record.ownerId));
+      .where(eq(users.id, ownerId));
 
     if (!owner) {
       return { error: "Owner not found" };
     }
 
-    // Calculate cost: 100% of player value per hour
-    const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * player.playerValue));
+    // Get owned player info
+    const [ownedPlayer] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, record.ownedId));
 
-    // Check if player has enough credits
-    if (player.credits < cost) {
-      return { error: `Not enough credits. You need ${cost}¢ (100% of your value of ${player.playerValue}¢)` };
+    if (!ownedPlayer) {
+      return { error: "Player not found" };
     }
 
-    // Execute all database operations in a transaction
+    // Calculate cost: 100% of owned player's value per hour
+    const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * ownedPlayer.playerValue));
+    const newValue = Math.round(ownedPlayer.playerValue * 1.10);
+    const creditsToPlayer = Math.round(cost * 0.90);
+
+    // Check if owner has enough credits
+    if (owner.credits < cost) {
+      return { error: `Not enough credits. You need ${cost}¢ (100% of ${ownedPlayer.username}'s value of ${ownedPlayer.playerValue}¢)` };
+    }
+
     // Calculate new expiry: if already blocked, extend from current expiry; otherwise from now
     const currentBlockEnd = record.blockSellUntil && new Date(record.blockSellUntil) > new Date()
       ? new Date(record.blockSellUntil).getTime()
       : Date.now();
+
+    // 12-hour hard cap on total sell block
+    const remainingBlockMs = Math.max(0, currentBlockEnd - Date.now());
+    if (remainingBlockMs >= MAX_BLOCK_MS) {
+      return { error: "Sell block is already at the 12-hour maximum. Wait for it to decrease before adding more." };
+    }
+
     const newExpiresAt = new Date(currentBlockEnd + BLOCK_SELL_DURATION_MS);
     const totalHoursRemaining = Math.ceil((newExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
-    
-    // Note: neon-http does not support transactions, so we execute operations individually
 
-    // Deduct credits from the player (floor at 0, never go negative)
+    // Deduct credits from the owner
     await db
       .update(users)
       .set({
         credits: sql`credits - ${cost}`,
         updatedAt: new Date(),
       })
-      .where(eq(users.id, playerId));
+      .where(eq(users.id, ownerId));
 
-    // Pay the owner — cap to prevent overflow
+    // Pay the owned player + bump value — cap to prevent overflow
     await db
       .update(users)
-      .set({ credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})` })
-      .where(eq(users.id, record.ownerId));
+      .set({
+        credits: sql`LEAST(credits + ${creditsToPlayer}, ${sql.raw(MAX_CREDITS_SQL)})`,
+        playerValue: newValue,
+      })
+      .where(eq(users.id, record.ownedId));
 
     // Set block on the ownership record
     await db
       .update(ownership)
       .set({
         blockSellUntil: newExpiresAt,
-        blockSellBy: player.username,
+        blockSellBy: owner.username,
       })
       .where(eq(ownership.id, ownershipId));
 
-    // Send a DM chat message to the owner about the partnership
+    // Send a DM chat message to the owned player about the block
     const now = new Date();
     const timestamp = now.toLocaleString("en-US", {
       month: "short",
@@ -107,42 +117,42 @@ export async function blockSell(ownershipId: number) {
       hour12: true,
     });
 
-    const partnerContent = `🤝 ${player.username} partnered with you for ${cost}¢ (+1h, ${totalHoursRemaining}h total) — ${timestamp}`;
+    const blockContent = `🔒 ${owner.username} blocked you from being sold! +1h, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
 
-    const [partnerMessage] = await db
+    const [blockMessage] = await db
       .insert(messages)
       .values({
-        senderId: playerId,
-        recipientId: record.ownerId,
-        content: partnerContent,
+        senderId: ownerId,
+        recipientId: record.ownedId,
+        content: blockContent,
         type: "private",
       })
       .returning();
 
     // Push real-time DM notification to both parties
     const messagePayload = {
-      id: partnerMessage.id,
-      content: partnerMessage.content,
-      type: partnerMessage.type,
-      createdAt: partnerMessage.createdAt,
+      id: blockMessage.id,
+      content: blockMessage.content,
+      type: blockMessage.type,
+      createdAt: blockMessage.createdAt,
       sender: {
-        id: playerId,
-        username: player.username,
-        avatarUrl: player.avatarUrl,
+        id: ownerId,
+        username: owner.username,
+        avatarUrl: owner.avatarUrl,
       },
-      recipientId: record.ownerId,
-      recipientUsername: owner.username,
+      recipientId: record.ownedId,
+      recipientUsername: ownedPlayer.username,
     };
 
     try {
       await Promise.all([
-        pusher.trigger(`chat-private-${playerId}`, "new-message", messagePayload),
-        pusher.trigger(`chat-private-${record.ownerId}`, "new-message", messagePayload),
-        pusher.trigger(`player-${record.ownerId}`, "credits-updated", {
-          message: `${player.username} partnered with you! You received ${cost}¢`,
+        pusher.trigger(`chat-private-${ownerId}`, "new-message", messagePayload),
+        pusher.trigger(`chat-private-${record.ownedId}`, "new-message", messagePayload),
+        pusher.trigger(`player-${record.ownedId}`, "credits-updated", {
+          message: `${owner.username} blocked you from being sold! You received ${cost}¢`,
         }),
-        pusher.trigger(`player-${playerId}`, "credits-updated", {
-          newCredits: player.credits - cost,
+        pusher.trigger(`player-${ownerId}`, "credits-updated", {
+          newCredits: owner.credits - cost,
         }),
       ]);
     } catch (e) {
@@ -152,7 +162,7 @@ export async function blockSell(ownershipId: number) {
     return {
       success: true,
       cost,
-      ownerUsername: owner.username,
+      ownedUsername: ownedPlayer.username,
       expiresAt: newExpiresAt.toISOString(),
       totalHours: totalHoursRemaining,
     };

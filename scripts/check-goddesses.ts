@@ -16,7 +16,7 @@ async function main() {
     })
     .from(users)
     .where(
-      inArray(users.username, ["Morríghan", "Athena", "Freyja", "Ishtar", "Inanna"])
+      inArray(users.username, ["Goddess of Wealth", "Goddess of Knowledge", "Goddess of Fate", "Goddess of Time", "Goddess of War", "Goddess"])
     );
 
   console.log("\n🛡️  Goddess Protection Status:\n");
@@ -24,7 +24,7 @@ async function main() {
     const status = g.isProtected === 1 ? "✅ PROTECTED" : "❌ NOT PROTECTED";
     console.log(`  ${g.username} (ID: ${g.id}) - ${status} - Value: $${g.playerValue.toLocaleString()}`);
   }
-  console.log(`\nTotal: ${goddesses.length}/5 goddesses found\n`);
+  console.log(`\nTotal: ${goddesses.length}/6 goddesses found\n`);
   process.exit(0);
 }
 

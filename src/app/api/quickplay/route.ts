@@ -5,7 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 
-const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
 const QUICKPLAY_QUERIES = [
   // Fashion
@@ -64,6 +64,14 @@ function generateRandomUsername(): string {
 
 export async function POST() {
   try {
+    if (!UNSPLASH_ACCESS_KEY) {
+      console.error("UNSPLASH_ACCESS_KEY is not configured");
+      return NextResponse.json(
+        { error: "Server misconfiguration: UNSPLASH_ACCESS_KEY is not set" },
+        { status: 500 }
+      );
+    }
+
     // Fetch a random person image from Unsplash
     // Increased to 8 attempts for better quality with production quota (5000 calls/hour)
     let avatarUrl: string | null = null;

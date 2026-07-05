@@ -18,7 +18,7 @@ import {
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
 import { useState } from "react";
-import { formatNumber, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 
 const eventTypeConfig = {
   purchase: {
@@ -204,7 +204,7 @@ export default function GameHistoryPage() {
                                 variant="secondary"
                                 className={`font-mono text-xs ${config.bgColor} ${config.color} ${config.borderColor}`}
                               >
-                                {formatNumber(event.details.amount)}¢
+                                {formatCompact(event.details.amount)}¢
                               </Badge>
                             )}
                             <Badge

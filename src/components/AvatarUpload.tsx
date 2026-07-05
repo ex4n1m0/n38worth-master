@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Gift, Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
 
@@ -22,6 +23,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
   const queryClient = useQueryClient();
   const { play } = useSound();
   const { refresh: refreshOnboarding } = useOnboarding();
+  const { update: updateSession } = useSession();
 
   // Custom avatar = user uploaded their own (data: URL). Unsplash URLs don't count.
   const hasCustomAvatar = !!previewUrl && previewUrl.startsWith("data:");
@@ -55,6 +57,12 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
       setPreviewUrl(data.avatarUrl);
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["credits"] });
+      // Refresh JWT so middleware sees avatarCompleted=true immediately.
+      try {
+        await updateSession({ avatarCompleted: true });
+      } catch (sessionErr) {
+        console.error("Failed to refresh session after random avatar:", sessionErr);
+      }
       refreshOnboarding();
       toast.success("Random avatar generated!");
     } catch (error) {
@@ -101,6 +109,12 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
       setPreviewUrl(data.avatarUrl);
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["credits"] });
+      // Refresh JWT so middleware sees avatarCompleted=true immediately.
+      try {
+        await updateSession({ avatarCompleted: true });
+      } catch (sessionErr) {
+        console.error("Failed to refresh session after avatar upload:", sessionErr);
+      }
       refreshOnboarding();
       if (data.bonusAwarded) {
         toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);

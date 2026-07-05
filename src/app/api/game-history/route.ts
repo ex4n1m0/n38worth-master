@@ -4,16 +4,14 @@ import { db } from "@/db";
 import { gameHistory, users } from "@/db/schema";
 import { desc, eq, sql, and } from "drizzle-orm";
 
-// Hide events where the actor or the target is an invisible human (no avatar uploaded).
+// Only filter out events where the actor or target is a deleted user.
 // NULL actor/target ids pass (system events).
 const visibleActorsSql = sql`(
   ("game_history"."actor_id" IS NULL OR EXISTS (
     SELECT 1 FROM users u WHERE u.id = "game_history"."actor_id"
-      AND (u.is_npc = 1 OR (u.avatar_url IS NOT NULL AND u.avatar_completed = 1))
   ))
   AND ("game_history"."target_id" IS NULL OR EXISTS (
     SELECT 1 FROM users u WHERE u.id = "game_history"."target_id"
-      AND (u.is_npc = 1 OR (u.avatar_url IS NOT NULL AND u.avatar_completed = 1))
   ))
 )`;
 

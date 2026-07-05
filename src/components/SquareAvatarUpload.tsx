@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
 
@@ -36,6 +37,7 @@ export function SquareAvatarUpload({
   const queryClient = useQueryClient();
   const { play } = useSound();
   const { refresh: refreshOnboarding } = useOnboarding();
+  const { update: updateSession } = useSession();
 
   const hasCustomAvatar = !!previewUrl && previewUrl.startsWith("data:");
 
@@ -81,7 +83,16 @@ export function SquareAvatarUpload({
       setPreviewUrl(data.avatarUrl);
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["credits"] });
-      refreshOnboarding();
+      // Force NextAuth to re-issue the JWT with avatarCompleted=true so the
+      // server-side middleware lets the user into /leaderboard immediately
+      // (otherwise the stale JWT would bounce them back to /my-profile for up
+      // to 60 seconds — the JWT verify-interval).
+      try {
+        await updateSession({ avatarCompleted: true });
+      } catch (sessionErr) {
+        console.error("Failed to refresh session after avatar upload:", sessionErr);
+      }
+      await refreshOnboarding();
       if (data.bonusAwarded) {
         toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
       } else {
@@ -203,7 +214,7 @@ export function SquareAvatarUpload({
   }
 
   if (variant === "actions") {
-    return actionButtons;
+    return <>{actionButtons}</>;
   }
 
   return (

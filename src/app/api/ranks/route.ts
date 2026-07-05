@@ -86,16 +86,12 @@ export async function GET() {
       .sort((a, b) => b.playerValue - a.playerValue)
       .slice(0, 10);
 
-    const topHired = [...enriched]
-      .sort((a, b) => (b.purchaseCount ?? 0) - (a.purchaseCount ?? 0) || b.playerValue - a.playerValue)
-      .slice(0, 10);
-
     // ── 6. Fetch avatars ONLY for the players that appear in the top lists ──
     // (We avoid selecting avatarUrl in the bulk query above because base64
     // avatars on all 100+ players can OOM Neon — this is safe for ≤40 rows.)
     const topIds = Array.from(
       new Set(
-        [...topOwners, ...topEmpire, ...topPortfolio, ...topCredits, ...topValue, ...topHired].map(
+        [...topOwners, ...topEmpire, ...topPortfolio, ...topCredits, ...topValue].map(
           (p) => p.id
         )
       )
@@ -119,7 +115,6 @@ export async function GET() {
       topPortfolio: attachAvatar(topPortfolio),
       topCredits: attachAvatar(topCredits),
       topValue: attachAvatar(topValue),
-      topHired: attachAvatar(topHired),
       totalPlayers,
     });
   } catch (error) {

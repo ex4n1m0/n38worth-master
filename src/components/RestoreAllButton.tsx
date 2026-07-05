@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 
 const RESTORE_FEE = 1000;
@@ -70,7 +70,7 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
           <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
           Restore
           <span className="ml-1.5 font-mono text-xs opacity-80">
-            −₡{formatNumber(RESTORE_FEE)}+
+            −₡{formatCompact(RESTORE_FEE)}+
           </span>
         </Button>
       </DialogTrigger>
@@ -83,7 +83,7 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
             <span className="text-gray-300">
               Up to {eligibleCount} player{eligibleCount !== 1 ? "s" : ""} available
               <br />
-              Restore fee: <span className="font-mono text-white">₡{formatNumber(RESTORE_FEE)}</span>
+              Restore fee: <span className="font-mono text-white">₡{formatCompact(RESTORE_FEE)}</span>
               <br />
               <span className="text-gray-400 text-sm">
                 (Actual cost depends on which players you can afford)

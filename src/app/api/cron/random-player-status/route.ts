@@ -2,10 +2,14 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { gameSettings, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { getCreationIntervalMinutes } from "@/lib/random-player";
+import {
+  getCreationContext,
+  MIN_GAP_ON_WAKE_MINUTES,
+} from "@/lib/random-player";
 
-// Must match the key used by src/app/api/cron/random-player/route.ts
+// Must match the keys used by src/app/api/cron/random-player/route.ts
 const LAST_CRON_KEY = "random_player_last_cron_at";
+const LAST_MODE_KEY = "random_player_last_mode";
 
 async function getLastCronTime(): Promise<Date | null> {
   const [row] = await db
@@ -15,6 +19,15 @@ async function getLastCronTime(): Promise<Date | null> {
     .limit(1);
   if (!row || !row.settingValue) return null;
   return new Date(row.settingValue * 1000);
+}
+
+async function getLastMode(): Promise<"online" | "idle"> {
+  const [row] = await db
+    .select({ settingValue: gameSettings.settingValue })
+    .from(gameSettings)
+    .where(eq(gameSettings.settingKey, LAST_MODE_KEY))
+    .limit(1);
+  return row?.settingValue === 1 ? "online" : "idle";
 }
 
 /**
@@ -32,7 +45,7 @@ async function countActiveNpcs(): Promise<number> {
 /**
  * GET endpoint to check the status of random player creation timing.
  * Returns the actual next creation time based on server logic, including
- * the tiered interval and the 600-NPC population cap.
+ * the dynamic online/idle interval and the idle→online wake path.
  */
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -64,10 +77,37 @@ export async function GET(req: Request) {
     }
 
     const npcCount = await countActiveNpcs();
-    const intervalMinutes = getCreationIntervalMinutes(npcCount);
+    const { onlineHumans, intervalMinutes, mode } = await getCreationContext();
 
     const intervalMs = intervalMinutes * 60 * 1000;
     const lastCronTime = await getLastCronTime();
+    const lastMode = await getLastMode();
+
+    // Idle → online wake: matches the cron's wake-path so the UI countdown
+    // collapses to ~0 as soon as a player comes online after an idle period.
+    if (lastMode === "idle" && mode === "online") {
+      const minutesSinceLastCron = lastCronTime
+        ? (now.getTime() - lastCronTime.getTime()) / (1000 * 60)
+        : Infinity;
+      if (minutesSinceLastCron >= MIN_GAP_ON_WAKE_MINUTES) {
+        return NextResponse.json({
+          canCreate: true,
+          capped: false,
+          wake: true,
+          mode,
+          onlineHumans,
+          reason: "Idle→online wake. Next cron tick will create a player.",
+          npcCount,
+          intervalMinutes,
+          minutesSinceLastCron:
+            minutesSinceLastCron === Infinity
+              ? null
+              : Math.round(minutesSinceLastCron * 100) / 100,
+          nextCreationTime: now.toISOString(),
+          timestamp: now.toISOString(),
+        });
+      }
+    }
 
     if (lastCronTime) {
       const minutesSinceLastCron =
@@ -78,6 +118,9 @@ export async function GET(req: Request) {
         return NextResponse.json({
           canCreate: false,
           capped: false,
+          wake: false,
+          mode,
+          onlineHumans,
           reason: `Waiting for interval. ${minutesSinceLastCron.toFixed(2)}/${intervalMinutes} minutes elapsed.`,
           npcCount,
           intervalMinutes,
@@ -90,6 +133,9 @@ export async function GET(req: Request) {
       return NextResponse.json({
         canCreate: true,
         capped: false,
+        wake: false,
+        mode,
+        onlineHumans,
         reason: `Enough time has passed. Ready to create new player.`,
         npcCount,
         intervalMinutes,
@@ -103,6 +149,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
       canCreate: true,
       capped: false,
+      wake: false,
+      mode,
+      onlineHumans,
       reason: "No cron run recorded yet. Ready to create first player.",
       npcCount,
       intervalMinutes,

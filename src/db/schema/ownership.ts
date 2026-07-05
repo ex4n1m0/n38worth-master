@@ -15,6 +15,7 @@ export const ownership = pgTable(
     purchasePrice: bigint("purchase_price", { mode: "number" }).notNull(),
     blockSellUntil: timestamp("block_sell_until"),
     blockSellBy: varchar("block_sell_by", { length: 30 }),
+    blockUnbreakableUntil: timestamp("block_unbreakable_until"),
     lastBoostAt: timestamp("last_boost_at"),
     avatarRevealUntil: timestamp("avatar_reveal_until"),
     boostPressCount: integer("boost_press_count").default(0),

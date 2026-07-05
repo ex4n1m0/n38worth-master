@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { pusher } from "@/lib/pusher-server";
-import { capCredits } from "@/lib/safeguards";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
@@ -36,13 +36,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You don't own this player" }, { status: 403 });
     }
 
-    // 6-hour hard cap on reveal
-    const MAX_REVEAL_MS = 6 * 60 * 60 * 1000;
+    // 12-hour hard cap on reveal
+    const MAX_REVEAL_MS = 12 * 60 * 60 * 1000;
     const existingRevealEnd = ownershipRecord.avatarRevealUntil ? new Date(ownershipRecord.avatarRevealUntil).getTime() : 0;
     const remainingRevealMs = Math.max(0, existingRevealEnd - Date.now());
     if (remainingRevealMs >= MAX_REVEAL_MS) {
       return NextResponse.json(
-        { error: "Avatar reveal is already at the 6-hour maximum. Wait for it to decrease before adding more." },
+        { error: "Avatar reveal is already at the 12-hour maximum. Wait for it to decrease before adding more." },
         { status: 400 }
       );
     }
@@ -105,11 +105,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Deduct from sender
+    // Deduct from sender (atomic SQL to avoid race conditions)
     await db
       .update(users)
       .set({
-        credits: Math.max(Math.round((sender.credits - cost) * 100) / 100, 0),
+        credits: sql`credits - ${cost}`,
         updatedAt: new Date(),
       })
       .where(eq(users.id, senderId));
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
     await db
       .update(users)
       .set({
-        credits: capCredits(Math.round((target.credits + creditsToPlayer) * 100) / 100),
+        credits: sql`LEAST(credits + ${creditsToPlayer}, ${sql.raw(MAX_CREDITS_SQL)})`,
         playerValue: newValue,
         updatedAt: new Date(),
       })

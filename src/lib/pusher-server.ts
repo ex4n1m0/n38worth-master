@@ -13,6 +13,6 @@ export const pusher = new Proxy({} as Pusher, {
         useTLS: true,
       });
     }
-    return (_pusher as any)[prop];
+    return _pusher[prop as keyof Pusher];
   },
 });

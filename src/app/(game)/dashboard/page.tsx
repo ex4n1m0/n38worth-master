@@ -6,8 +6,10 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { OwnershipList } from "@/components/OwnershipList";
 import { PlayerCard } from "@/components/PlayerCard";
+import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { Input } from "@/components/ui/input";
 import { useCredits } from "@/hooks/useCredits";
+import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import {
   Coins,
@@ -19,12 +21,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { LoginReward } from "@/components/LoginReward";
-import { formatNumber, getDynamicInlineFontSize, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact, getDynamicInlineFontSize, navbarBtnStyle } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const combo = useProfessionComboSelection();
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -86,7 +90,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
                 <span className={`${getDynamicInlineFontSize(credits ?? 0)} font-bold font-mono text-white truncate`}>
-                  {formatNumber(credits ?? 0)}¢
+                  {formatCompact(credits ?? 0)}¢
                 </span>
                 <span className="text-xs text-gray-500 hidden sm:inline shrink-0">credits</span>
               </div>
@@ -94,7 +98,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <Users className="h-4 w-4 text-purple-400 shrink-0" />
                 <span className={`${getDynamicInlineFontSize(portfolioValue)} font-bold font-mono text-white truncate`}>
-                  {formatNumber(portfolioValue)}¢
+                  {formatCompact(portfolioValue)}¢
                 </span>
                 <span className="text-xs text-gray-500 hidden sm:inline shrink-0">portfolio</span>
               </div>
@@ -107,11 +111,18 @@ export default function DashboardPage() {
       {/* Login Reward */}
       <LoginReward />
 
+      {/* Profession Combo Bar */}
+      <ProfessionComboBar combo={combo} />
+
       {/* Browse Players */}
       <BrowsePlayersSection
         search={search}
         onSearch={handleSearch}
         debouncedSearch={debouncedSearch}
+        comboSelection={{
+          isSelected: combo.isSelected,
+          onToggle: combo.toggleSelection,
+        }}
       />
 
       {/* Players You Own */}
@@ -156,6 +167,9 @@ export default function DashboardPage() {
                   blockSellUntil?: string | null;
                   blockSellBy?: string | null;
                   estimatedDeletionAt?: string | null;
+                  profession?: string | null;
+                  playerType?: string;
+                  valueFloor?: number;
                 }) => ({
                   ...p,
                 })
@@ -164,6 +178,11 @@ export default function DashboardPage() {
             type="owned"
             showDiscard
             showSendCredits
+            ownedMode
+            comboSelection={{
+              isSelected: combo.isSelected,
+              onToggle: combo.toggleSelection,
+            }}
           />
         </CardContent>
       </Card>
@@ -225,10 +244,15 @@ function BrowsePlayersSection({
   search,
   onSearch,
   debouncedSearch,
+  comboSelection,
 }: {
   search: string;
   onSearch: (value: string) => void;
   debouncedSearch: string;
+  comboSelection?: {
+    isSelected: (playerId: number) => boolean;
+    onToggle: (player: { playerId: number; username: string; playerValue: number; avatarUrl: string | null; isNpc: number; valueFloor: number }, profession: string) => boolean;
+  };
 }) {
   const [sort, setSort] = useState("last-online");
   const [hasOwner, setHasOwner] = useState(false);
@@ -238,7 +262,7 @@ function BrowsePlayersSection({
     queryFn: async () => {
       const params = new URLSearchParams({
         page: "1",
-        limit: "12",
+        limit: "20",
         sort,
         ...(debouncedSearch && { search: debouncedSearch }),
         ...(hasOwner && { hasOwner: "true" }),
@@ -321,7 +345,7 @@ function BrowsePlayersSection({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {data?.players?.map(
             (player: {
               id: number;
@@ -339,9 +363,11 @@ function BrowsePlayersSection({
               ownerName?: string | null;
               ownerValue?: number | null;
               purchaseCount?: number;
+              photoScore?: number;
               bio?: string | null;
+              profession?: string | null;
             }) => (
-              <PlayerCard key={player.id} {...player} />
+              <PlayerCard key={player.id} {...player} comboSelection={comboSelection} />
             )
           )}
         </div>

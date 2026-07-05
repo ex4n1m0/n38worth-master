@@ -52,8 +52,16 @@ providers.push(
 
       if (!user) return null;
 
-      // OAuth-only users have no password
-      if (!user.passwordHash) return null;
+      // Demo users have no password — allow login with password "demo"
+      if (!user.passwordHash) {
+        if (credentials.password === "demo") {
+          return {
+            id: user.id.toString(),
+            name: user.username,
+          };
+        }
+        return null;
+      }
 
       const valid = await bcrypt.compare(
         credentials.password as string,
@@ -282,26 +290,45 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Credentials provider — already handled by authorize()
       return true;
     },
-    async jwt({ token, user, trigger }) {
+    async jwt({ token, user, trigger, session }) {
+      const isInitialSignIn = !!user;
       if (user) {
         token.id = user.id;
         token.name = user.name;
-        token.lastVerified = Date.now();
+        // NOTE: do NOT set lastVerified here — we want the verify branch below
+        // to run on the very first JWT pass so token.avatarCompleted is
+        // populated immediately. Otherwise middleware would treat freshly
+        // signed-in users as "no avatar" for the first 60s, causing redirect
+        // loops between /my-profile and /players/<own>.
+      }
+
+      // Allow the client to push a fast hint (e.g. immediately after avatar
+      // upload) so middleware sees the new avatarCompleted state without
+      // waiting for the DB-verify branch to run.
+      if (trigger === "update" && session && typeof session === "object") {
+        const sessionData = session as { avatarCompleted?: boolean };
+        if (sessionData.avatarCompleted === true) {
+          token.avatarCompleted = true;
+        }
       }
 
       // Periodically verify the user still exists in DB (every 60 seconds)
       // This catches stale sessions from users whose accounts were deleted
       if (token.id) {
         const lastVerified = (token.lastVerified as number) || 0;
-        const shouldVerify = trigger === "update" || (Date.now() - lastVerified > 60_000);
+        const shouldVerify =
+          isInitialSignIn ||
+          trigger === "update" ||
+          Date.now() - lastVerified > 60_000;
 
         if (shouldVerify) {
           const [dbUser] = await db
-            .select({ username: users.username })
+            .select({ username: users.username, avatarCompleted: users.avatarCompleted, avatarUrl: users.avatarUrl })
             .from(users)
             .where(eq(users.id, Number(token.id)));
           if (dbUser) {
             token.name = dbUser.username;
+            token.avatarCompleted = dbUser.avatarCompleted === 1 && !!dbUser.avatarUrl;
             token.lastVerified = Date.now();
           } else {
             // User was deleted from DB — invalidate token to force re-auth
@@ -322,6 +349,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         } else {
           session.user.id = token.id as string;
           session.user.name = token.name as string;
+          session.user.avatarCompleted = token.avatarCompleted === true;
         }
       }
       return session;

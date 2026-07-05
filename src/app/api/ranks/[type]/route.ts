@@ -194,7 +194,8 @@ export async function GET(
   try {
     const { type } = await params;
 
-    if (!VALID_TYPES.includes(type as RankType)) {
+    // Validate that type exists and is valid
+    if (!type || !VALID_TYPES.includes(type as RankType)) {
       return NextResponse.json({ error: "Invalid rank type" }, { status: 400 });
     }
 

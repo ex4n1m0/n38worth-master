@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, avatarReveals, messages, ownership } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { capCredits } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 
 export async function POST(req: Request) {
@@ -94,11 +94,12 @@ export async function POST(req: Request) {
     }
 
     // Deduct from sender (skipped for Knowledge/Creation holders)
+    // Use atomic SQL to avoid race conditions
     if (!isFree) {
       await db
         .update(users)
         .set({
-          credits: Math.max(Math.round((sender.credits - cost) * 100) / 100, 0),
+          credits: sql`credits - ${cost}`,
           updatedAt: new Date(),
         })
         .where(eq(users.id, senderId));
@@ -107,7 +108,7 @@ export async function POST(req: Request) {
       await db
         .update(users)
         .set({
-          credits: capCredits(Math.round((target.credits + creditsToPlayer) * 100) / 100),
+          credits: sql`LEAST(credits + ${creditsToPlayer}, ${sql.raw(MAX_CREDITS_SQL)})`,
           updatedAt: new Date(),
         })
         .where(eq(users.id, targetId));

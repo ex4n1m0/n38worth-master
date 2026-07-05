@@ -5,9 +5,7 @@
  * NPC per additional hour of offline time, starting with the oldest purchase.
  *
  * - Only NPC-owned rows are affected (human ownerships are left alone).
- * - Goddesses (isProtected=1) are RELEASED (ownership row removed and goddess
- *   marked ownerless) but the goddess user itself is never deleted.
- * - Regular NPCs are HARD DELETED via deleteNpcCascade.
+ * - All NPCs (protected or not) are RELEASED (ownership row removed, NPC kept).
  * - `lastOwnershipDecayAt` on the idle user advances by `hoursToDecay * 1h`
  *   from the anchor, so fractional hours carry over to the next run.
  * - Silent: no Pusher events, no toasts. One `game_history` row per user.
@@ -16,7 +14,6 @@
 import { db } from "@/db";
 import { users, ownership, gameHistory } from "@/db/schema";
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
-import { deleteNpcCascade } from "@/lib/deleteNpc";
 
 export interface DecayPerUser {
   userId: number;
@@ -112,22 +109,16 @@ export async function runOwnershipDecay(dryRun = false): Promise<DecayRunResult>
 
     if (!dryRun) {
       for (const row of toReleaseRows) {
+        // Release ownership — keep all NPCs alive regardless of protected status.
+        await db.delete(ownership).where(eq(ownership.id, row.ownershipId));
+        await db
+          .update(users)
+          .set({ ownerlessAt: now })
+          .where(eq(users.id, row.ownedId));
         if (row.isProtected === 1) {
-          // Release only — keep the goddess NPC alive.
-          await db.delete(ownership).where(eq(ownership.id, row.ownershipId));
-          await db
-            .update(users)
-            .set({ ownerlessAt: now })
-            .where(eq(users.id, row.ownedId));
           releasedGoddessUsernames.push(row.ownedUsername);
           totalReleasedGoddesses++;
         } else {
-          // Hard-delete non-protected NPC (deleteNpcCascade removes ownership too).
-          await deleteNpcCascade(row.ownedId, row.ownedUsername, "idle_owner_decay", {
-            idleOwnerId: user.id,
-            idleOwnerUsername: user.username,
-            hoursOffline: Math.round(hoursOffline * 10) / 10,
-          });
           deletedNpcUsernames.push(row.ownedUsername);
           totalDeleted++;
         }

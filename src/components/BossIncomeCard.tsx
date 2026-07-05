@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Crown, TrendingUp, Clock, Users } from "lucide-react";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface BossIncomeEstimate {
   estimatedPerHour: number;
@@ -47,7 +47,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
         ) : (
           <div className="flex items-baseline gap-2">
             <span className={`text-2xl font-bold ${hasIncome ? "text-amber-400" : "text-gray-500"}`}>
-              ~{formatNumber(data?.estimatedPerHour ?? 0)}¢
+              ~{formatCompact(data?.estimatedPerHour ?? 0)}¢
             </span>
             <span className="text-xs text-gray-500">/ hour</span>
           </div>
@@ -64,7 +64,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
               <span className="text-gray-400">Portfolio Tax (10%)</span>
             </div>
             <span className="text-emerald-400 font-medium">
-              ~{formatNumber(data?.portfolioTaxPerHour ?? 0)}¢/h
+              ~{formatCompact(data?.portfolioTaxPerHour ?? 0)}¢/h
             </span>
           </div>
 
@@ -76,7 +76,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
                 <span className="text-gray-400">Hourly Tax (1%)</span>
               </div>
               <span className="text-orange-400 font-medium">
-                ~{formatNumber(data?.hourlyTaxPerHour ?? 0)}¢/h
+                ~{formatCompact(data?.hourlyTaxPerHour ?? 0)}¢/h
               </span>
             </div>
           )}

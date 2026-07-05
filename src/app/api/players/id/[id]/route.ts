@@ -42,6 +42,7 @@ export async function GET(
         estimatedDeletionAt: users.estimatedDeletionAt,
         isVerified: users.isVerified,
         totalOnlineMinutes: users.totalOnlineMinutes,
+        onboardingCreatedBy: users.onboardingCreatedBy,
         playerType: sql<string>`CASE WHEN "users"."is_npc" = 1 THEN 'card' ELSE 'human' END`,
         photoAuthorName: users.photoAuthorName,
         photoAuthorUrl: users.photoAuthorUrl,
@@ -66,6 +67,23 @@ export async function GET(
       player.isNpc === 0 && (!player.avatarUrl || player.avatarCompleted !== 1);
     if (isHidden && viewerId !== player.id) {
       return NextResponse.json({ error: "Player not found" }, { status: 404 });
+    }
+
+    // Hide onboarding NPCs from other players until the creator completes onboarding.
+    // Onboarding NPCs have onboardingCreatedBy set. They're only visible to:
+    // 1. The creator (onboardingCreatedBy === viewerId)
+    // 2. Everyone, once the creator has completed onboarding (creator.onboardingComplete = 1)
+    // 3. Everyone, if the creator no longer exists (deleted account) — orphans become public
+    if (player.onboardingCreatedBy && player.onboardingCreatedBy !== viewerId) {
+      const [creator] = await db
+        .select({ onboardingComplete: users.onboardingComplete })
+        .from(users)
+        .where(eq(users.id, player.onboardingCreatedBy));
+      // Only hide if creator EXISTS and hasn't completed onboarding.
+      // If creator no longer exists (deleted account), the NPC is visible to everyone.
+      if (creator && creator.onboardingComplete !== 1) {
+        return NextResponse.json({ error: "Player not found" }, { status: 404 });
+      }
     }
 
     // Get owners

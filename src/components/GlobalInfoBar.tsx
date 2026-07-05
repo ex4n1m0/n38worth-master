@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, Coins, Bot, User } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
-import { getDynamicNavFontSize } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 export function GlobalInfoBar() {
   const { t } = useLanguage();
@@ -35,47 +35,37 @@ export function GlobalInfoBar() {
   if (!stats) return null;
 
   return (
-    <div className="w-full bg-gray-900/80 border-b border-gray-800/50 backdrop-blur-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-3 sm:gap-6 h-8 text-xs">
-        <div className="flex items-center gap-1.5 text-gray-400">
-          <Users className="h-3 w-3 text-t1-400" />
-          <span>
-            <span className="font-semibold text-white">
-              {stats.totalPlayers.toLocaleString()}
-            </span>{" "}
-            <span className="hidden sm:inline">{t.totalPlayers}</span>
-          </span>
-        </div>
-        <div className="w-px h-3 bg-gray-700" />
-        <div className="flex items-center gap-1.5 text-gray-400">
-          <Coins className="h-3 w-3 text-yellow-400" />
-          <span>
-            <span className="hidden sm:inline">{t.totalEconomy} </span>
-            <span className={`font-semibold text-white ${getDynamicNavFontSize(stats.totalEconomy)}`}>
-              {stats.totalEconomy.toLocaleString()}¢
-            </span>
-          </span>
-        </div>
-        <div className="w-px h-3 bg-gray-700" />
-        <div className="flex items-center gap-1.5 text-gray-400">
-          <Bot className="h-3 w-3 text-purple-400" />
-          <span>
-            <span className="font-semibold text-white">
-              {stats.totalNpcs.toLocaleString()}
-            </span>{" "}
-            <span className="hidden sm:inline">NPCs</span>
-          </span>
-        </div>
-        <div className="w-px h-3 bg-gray-700" />
-        <div className="flex items-center gap-1.5 text-gray-400">
-          <User className="h-3 w-3 text-blue-400" />
-          <span>
-            <span className="font-semibold text-white">
-              {stats.totalHumans.toLocaleString()}
-            </span>{" "}
-            <span className="hidden sm:inline">Humans</span>
-          </span>
-        </div>
+    <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap sm:ml-auto sm:justify-end text-sm sm:text-base font-bold">
+      <div className="flex items-center gap-1.5">
+        <Users className="h-4 w-4 sm:h-5 sm:w-5 text-t1-400 shrink-0" />
+        <span className="text-gray-500">Cards</span>
+        <span className="text-white">
+          {formatCompact(stats.totalPlayers)}
+        </span>
+      </div>
+      <div className="hidden sm:block w-px h-3 bg-gray-700" />
+      <div className="flex items-center gap-1.5">
+        <Coins className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 shrink-0" />
+        <span className="text-gray-500">{t.totalEconomy}</span>
+        <span className="text-white">
+          {formatCompact(stats.totalEconomy)}¢
+        </span>
+      </div>
+      <div className="hidden sm:block w-px h-3 bg-gray-700" />
+      <div className="flex items-center gap-1.5">
+        <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400 shrink-0" />
+        <span className="text-gray-500">NPCs</span>
+        <span className="text-white">
+          {formatCompact(stats.totalNpcs)}
+        </span>
+      </div>
+      <div className="hidden sm:block w-px h-3 bg-gray-700" />
+      <div className="flex items-center gap-1.5">
+        <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 shrink-0" />
+        <span className="text-gray-500">Humans</span>
+        <span className="text-white">
+          {formatCompact(stats.totalHumans)}
+        </span>
       </div>
     </div>
   );

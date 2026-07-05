@@ -28,11 +28,12 @@ import {
  * Reset semantics (per game spec):
  *   - All ownership rows are deleted
  *   - All transactions, messages, and avatar reveals are deleted
- *   - ALL non-goddess NPCs are HARD DELETED (the NPC population is wiped so
- *     the random-player cron can repopulate from scratch)
- *   - All remaining humans are reset to credits=100, playerValue=1, valueFloor=1
- *     with rank-bonus / login-reward timestamps cleared (derived ranks drop
- *     back to the lowest tier automatically)
+ *   - NOTHING is deleted from the users table: every human, every NPC, and the
+ *     Agent are KEPT and reset to the fresh-start baseline (the world persists,
+ *     only its state is wiped). Goddess cards are kept and reset to floor values.
+ *   - All non-goddess accounts are reset to credits=100, playerValue=1,
+ *     valueFloor=1 with rank-bonus / login-reward timestamps cleared (derived
+ *     ranks drop back to the lowest tier automatically)
  *   - Goddesses are reset to their original floor values (and marked isProtected)
  *   - Winner is recorded in hall_of_fame with wasReset=0 (so they do not see
  *     the "world has been reset" toast meant for the rest of the world)
@@ -108,68 +109,45 @@ export async function triggerGameReset(
     // 5. Delete all messages
     await db.delete(messages);
 
-    // 5b. Delete all avatar reveals.
-    // avatar_reveals.viewer_id / target_id are FKs to users.id with no
-    // ON DELETE clause (default NO ACTION), so any reveal row pointing at
-    // an NPC would block the NPC hard-delete below. Reveals are meaningless
-    // after a game reset anyway (all ownership is gone), so wipe the table.
+    // 5b. Delete all avatar reveals. Reveals are meaningless after a game reset
+    // (all ownership is gone), so wipe the table to reset reveal state.
     await db.delete(avatarReveals);
 
-    // 6. Hard-delete ALL non-goddess NPCs.
-    // Ownership is already cleared (step 3) so we only need to remove the
-    // NPC users themselves plus their reward_history rows. Goddesses are
-    // excluded by isProtected=1.
-    const nonGoddessNpcs = await db
-      .select({ id: users.id, username: users.username })
-      .from(users)
-      .where(and(eq(users.isNpc, 1), eq(users.isProtected, 0)));
+    // 6. No purge. Every account is KEPT — all humans, all NPCs, the Agent, and
+    // the goddess cards. Nothing is deleted; only world state (ownership,
+    // economy, missions, blocks) is wiped and every account is reset to the
+    // fresh-start baseline below. The winner was recorded in hall_of_fame above.
 
-    if (nonGoddessNpcs.length > 0) {
-      const npcIds = nonGoddessNpcs.map((n) => n.id);
-
-      // Bulk-clean reward_history for these NPCs (FK to users.id).
-      try {
-        await db
-          .delete(rewardHistory)
-          .where(sql`${rewardHistory.userId} IN (${sql.join(npcIds, sql`, `)})`);
-      } catch (rhErr) {
-        console.error("Failed to bulk-delete rewardHistory for NPCs:", rhErr);
-      }
-
-      // Delete the NPC users. ownership/transactions/messages were already
-      // wiped, so there are no remaining FK references.
-      await db
-        .delete(users)
-        .where(
-          sql`${users.id} IN (${sql.join(npcIds, sql`, `)})`
-        );
-
-      // Single audit row summarizing the mass deletion.
-      await db.insert(gameHistory).values({
-        eventType: "npc_mass_deletion",
-        actorId: winnerId,
-        targetId: null,
-        targetUsername: null,
-        details: JSON.stringify({
-          reason: "game_win_reset",
-          winnerId,
-          winnerUsername,
-          deletedCount: nonGoddessNpcs.length,
-          deletedUsernames: nonGoddessNpcs.map((n) => n.username),
-        }),
-      });
-    }
-
-    // 7. Clear reward_history for all non-goddess players (humans + winner).
-    // This resets Income History and Boss Income displays to zero.
+    // 7. Clear reward_history for every non-goddess player (the whole world).
     await db
       .delete(rewardHistory)
       .where(
         sql`${rewardHistory.userId} IN (SELECT id FROM users WHERE username != ALL(ARRAY[${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)}]))`
       );
 
-    // 7b. Reset ALL remaining players EXCEPT goddess NPCs (i.e., humans).
-    // Keep onboardingComplete / avatar fields intact.
+    // 7a. Count the accounts being reset (everything except the goddess cards),
+    // for the audit log. No deletion happens — the world persists.
+    const [{ count: keptCount }] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(notInArray(users.username, GODDESS_USERNAMES));
+
+    await db.insert(gameHistory).values({
+      eventType: "world_reset",
+      actorId: winnerId,
+      targetId: null,
+      targetUsername: null,
+      details: JSON.stringify({
+        reason: "game_win_reset",
+        winnerId,
+        winnerUsername,
+        keptCount: Number(keptCount),
+      }),
+    });
+
+    // 7b. Reset ALL non-goddess accounts (every human + every NPC + the Agent)
+    // to the same fresh-start baseline and leave them ownerless. Keep
+    // onboardingComplete / avatar fields intact.
     // Set wasReset = 2 to indicate GAME reset (not account reset).
     // Clear rank-bonus / login-reward timestamps so those UIs start clean,
     // and bump lastDividendAt to now so the next portfolio-reward cron tick
@@ -192,9 +170,26 @@ export async function triggerGameReset(
         lastDividendAt: resetNow,
         hireSlots: 20,
         purchaseCount: 0,
+        missionLevel: 0,
+        // Clear onboarding NPC references — ownership is wiped, so any mid-
+        // onboarding player gets fresh NPCs reassigned by /api/onboarding on
+        // their next visit. Don't touch onboardingComplete/onboardingStarted
+        // so finished players stay finished.
+        onboardingNpcs: [],
+        onboardingOwnedCount: 0,
         updatedAt: resetNow,
       })
       .where(notInArray(users.username, GODDESS_USERNAMES));
+
+    // 7a-bis. Reset the HUMAN card "Score" (photo_score = times purchased/pumped)
+    // so each new game starts everyone at 0, mirroring purchaseCount. NPC
+    // photo_score is their intrinsic Unsplash-likes score and is left intact.
+    await db
+      .update(users)
+      .set({ photoScore: 0, updatedAt: resetNow })
+      .where(
+        and(eq(users.isNpc, 0), notInArray(users.username, GODDESS_USERNAMES))
+      );
 
     // 7b. Winner should not receive the "world reset" toast intended for everyone else —
     // they just saw the game-won broadcast. Clear their wasReset flag.
@@ -217,6 +212,7 @@ export async function triggerGameReset(
           estimatedDeletionAt: null,
           ownerlessAt: null,
           isProtected: 1, // Ensure goddesses are always protected
+          profession: null, // Goddesses are not combo-eligible — never a profession
           purchaseCount: 0,
           updatedAt: new Date(),
         })
@@ -260,7 +256,7 @@ export async function triggerGameReset(
 
     return {
       success: true,
-      deletedNpcCount: nonGoddessNpcs.length,
+      keptCount: Number(keptCount),
     };
   } catch (error) {
     const message =

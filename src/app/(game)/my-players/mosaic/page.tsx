@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, User } from "lucide-react";
 import Link from "next/link";
-import { formatNumber, getDynamicMosaicFontSize } from "@/lib/utils";
+import { formatCompact, getDynamicMosaicFontSize } from "@/lib/utils";
 
 const PER_PAGE = 18;
 
@@ -115,7 +115,7 @@ export default function MosaicPage() {
                     {p.username}
                   </p>
                   <p className={`text-gray-300 ${getDynamicMosaicFontSize(p.playerValue)}`}>
-                    ₡{formatNumber(p.playerValue)}
+                    ₡{formatCompact(p.playerValue)}
                   </p>
                 </div>
                 {/* Player type badge */}

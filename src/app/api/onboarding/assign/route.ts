@@ -45,7 +45,10 @@ export async function POST() {
       npcIds = poolNpcs.map((npc) => npc.id);
       await db
         .update(users)
-        .set({ isOnboardingPool: 0 })
+        .set({
+          isOnboardingPool: 0,
+          onboardingCreatedBy: userId,
+        })
         .where(
           sql`${users.id} IN (${npcIds.join(",")})`
         );
@@ -58,12 +61,15 @@ export async function POST() {
       if (claimedIds.length > 0) {
         await db
           .update(users)
-          .set({ isOnboardingPool: 0 })
+          .set({
+            isOnboardingPool: 0,
+            onboardingCreatedBy: userId,
+          })
           .where(sql`${users.id} IN (${claimedIds.join(",")})`);
       }
       // Create the remainder on-the-fly WITH avatars via Unsplash
       const needed = 3 - claimedIds.length;
-      const freshIds = await createOnboardingNpcsForUser(needed);
+      const freshIds = await createOnboardingNpcsForUser(needed, userId);
       npcIds = [...claimedIds, ...freshIds];
     }
 

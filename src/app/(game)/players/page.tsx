@@ -9,8 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, CreditCard } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { navbarBtnStyle } from "@/lib/utils";
+import { PROFESSIONS } from "@/lib/professions";
 
 const SORT_OPTIONS = [
+  { key: "most-owned", label: "Most Owned" },
   { key: "last-online", label: "Latest Online" },
   { key: "value", label: "Value" },
   { key: "most-hired", label: "Most Hired" },
@@ -22,9 +24,10 @@ export default function PlayersPage() {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("last-online");
+  const [sort, setSort] = useState("most-owned");
   const [hasOwner, setHasOwner] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
+  const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const handleSearch = (value: string) => {
@@ -34,7 +37,7 @@ export default function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["players", debouncedSearch, page, sort, hasOwner, playerType],
+    queryKey: ["players", debouncedSearch, page, sort, hasOwner, playerType, profession],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -43,6 +46,7 @@ export default function PlayersPage() {
         ...(debouncedSearch && { search: debouncedSearch }),
         ...(hasOwner && { hasOwner: "true" }),
         ...(playerType && { playerType }),
+        ...(profession && { profession }),
       });
       const res = await fetch(`/api/players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
@@ -138,9 +142,30 @@ export default function PlayersPage() {
             style={navbarBtnStyle}
           >
             <CreditCard className="h-3.5 w-3.5 mr-1" />
-            Card
+            NPC
           </Button>
         </div>
+      </div>
+
+      <div className="flex gap-2 flex-wrap items-center">
+        <span className="text-xs text-gray-500 mr-1">Profession:</span>
+        {PROFESSIONS.map((p) => (
+          <Button
+            key={p.name}
+            variant="ghost"
+            size="sm"
+            onClick={() => { setProfession(profession === p.name ? "" : p.name); setPage(1); }}
+            className={
+              profession === p.name
+                ? "text-amber-300 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
+            }
+            style={navbarBtnStyle}
+          >
+            <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
+            {p.name}
+          </Button>
+        ))}
       </div>
 
       {isLoading ? (

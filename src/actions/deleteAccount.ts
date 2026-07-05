@@ -10,6 +10,7 @@ import {
   gameHistory,
   rewardHistory,
   hallOfFame,
+  avatarReveals,
 } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
@@ -112,6 +113,16 @@ export async function deleteAccount() {
       // 5. Delete all related records that reference this user.
       //    Any table with a FK to users.id without ON DELETE CASCADE must be
       //    cleaned up here or the final DELETE FROM users will fail.
+
+      // 5a. NULL out onboarding_created_by on NPCs created by this user.
+      //     Without this, those NPCs would be permanently invisible (creator
+      //     no longer exists, can never complete onboarding). Setting NULL
+      //     makes the orphaned NPCs visible to everyone.
+      await tx
+        .update(users)
+        .set({ onboardingCreatedBy: null })
+        .where(eq(users.onboardingCreatedBy, playerId));
+
       await tx.delete(ownership).where(
         or(eq(ownership.ownerId, playerId), eq(ownership.ownedId, playerId))
       );
@@ -123,6 +134,9 @@ export async function deleteAccount() {
       );
       await tx.delete(rewardHistory).where(eq(rewardHistory.userId, playerId));
       await tx.delete(hallOfFame).where(eq(hallOfFame.userId, playerId));
+      await tx.delete(avatarReveals).where(
+        or(eq(avatarReveals.viewerId, playerId), eq(avatarReveals.targetId, playerId))
+      );
 
       // 6. Delete the user record
       await tx.delete(users).where(eq(users.id, playerId));

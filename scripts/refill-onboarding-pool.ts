@@ -6,7 +6,7 @@ import { users } from "../src/db/schema";
 import { eq, sql, or } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "../src/lib/compress-avatar";
 
-const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
 const POOL_SIZE = 3; // Keep 3 NPCs ready in the pool
 
@@ -172,6 +172,9 @@ async function createPoolNpc(): Promise<boolean> {
 }
 
 async function main() {
+  if (!UNSPLASH_ACCESS_KEY) {
+    throw new Error("UNSPLASH_ACCESS_KEY is not set (add it to .env.local)");
+  }
   console.log("Checking onboarding NPC pool...\n");
 
   // Count current pool NPCs

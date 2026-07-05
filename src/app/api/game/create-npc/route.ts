@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { eq, count } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { createRandomPlayer } from "@/lib/random-player";
-import { getGoddessPowers } from "@/lib/goddess-powers";
+import { getBonusCardPrice, doubleBonusCardPrice } from "@/lib/bonus-card-price";
 
-const COST = 1000;
 const COOLDOWN_MS = 10_000;
-const MIN_OWNED = 10;
 
 export async function POST() {
   const session = await auth();
@@ -31,18 +29,6 @@ export async function POST() {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const [{ ownedCount }] = await db
-      .select({ ownedCount: count(ownership.id) })
-      .from(ownership)
-      .where(eq(ownership.ownerId, callerId));
-
-    if (ownedCount < MIN_OWNED) {
-      return NextResponse.json(
-        { error: `You need to own at least ${MIN_OWNED} players to create an NPC` },
-        { status: 403 }
-      );
-    }
-
     if (caller.lastCreateNpcAt) {
       const elapsed = Date.now() - new Date(caller.lastCreateNpcAt).getTime();
       if (elapsed < COOLDOWN_MS) {
@@ -57,24 +43,21 @@ export async function POST() {
       }
     }
 
-    const powers = await getGoddessPowers(callerId);
-    const isFree = powers.hasFate;
-    const effectiveCost = isFree ? 0 : COST;
+    // Current global Create NPC price — doubles on each successful use.
+    const card = await getBonusCardPrice("Create NPC");
+    const cost = card?.price ?? 1000;
 
-    if (!isFree && caller.credits < COST) {
+    if (caller.credits < cost) {
       return NextResponse.json(
-        { error: `Not enough credits. Need ${COST}¢` },
+        { error: `Not enough credits. Need ${cost}¢` },
         { status: 400 }
       );
     }
 
-    // Deduct cost (0 for Fate/Creation holders)
     await db
       .update(users)
       .set({
-        credits: isFree
-          ? caller.credits
-          : Math.max(Math.round((caller.credits - COST) * 100) / 100, 0),
+        credits: Math.max(Math.round((caller.credits - cost) * 100) / 100, 0),
         lastCreateNpcAt: new Date(),
         updatedAt: new Date(),
       })
@@ -100,10 +83,13 @@ export async function POST() {
       );
     }
 
+    // Success — double the global price for the next use.
+    if (card) await doubleBonusCardPrice(card.id, card.price);
+
     return NextResponse.json({
       success: true,
       player: result.player,
-      cost: effectiveCost,
+      cost,
       cooldownMs: COOLDOWN_MS,
     });
   } catch (error) {

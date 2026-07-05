@@ -6,16 +6,17 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 
 interface LetGoButtonProps {
   targetId: number;
   targetUsername: string;
   playerValue: number;
   className?: string;
+  square?: boolean;
 }
 
-export function LetGoButton({ targetId, targetUsername, playerValue, className }: LetGoButtonProps) {
+export function LetGoButton({ targetId, targetUsername, playerValue, className, square }: LetGoButtonProps) {
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { play } = useSound();
@@ -36,7 +37,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className }
     },
     onSuccess: (data) => {
       toast.success(
-        `Let ${targetUsername} go! Paid ${formatNumber(data.letGoCost)}¢. They kept their value.`
+        `Let ${targetUsername} go! Paid ${formatCompact(data.letGoCost)}¢. They kept their value.`
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -53,12 +54,38 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className }
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
-      toast.error(`Not enough credits. Need ${formatNumber(cost)}¢`);
+      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
       return;
     }
     play("hire");
     mutation.mutate();
   };
+
+  if (square) {
+    return (
+      <Button
+        variant="outline"
+        onClick={handleClick}
+        disabled={mutation.isPending || !canAfford}
+        className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg ${
+          !canAfford
+            ? "border-gray-700 text-gray-500 cursor-not-allowed"
+            : "text-white border-0 bg-transparent hover:brightness-125 hover:bg-transparent"
+        } ${className ?? ""}`}
+        style={canAfford ? navbarBtnStyle : undefined}
+        title={canAfford ? `Let ${targetUsername} go for ${formatCompact(cost)}¢` : `Need ${formatCompact(cost)}¢`}
+      >
+        {mutation.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <HandHeart className="h-4 w-4" />
+            <span className="text-[7px] leading-none mt-0.5">Let Go</span>
+          </>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -73,8 +100,8 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className }
       style={canAfford ? navbarBtnStyle : undefined}
       title={
         canAfford
-          ? `Let ${targetUsername} go for ${formatNumber(cost)}¢ (they keep value)`
-          : `Need ${formatNumber(cost)}¢`
+          ? `Let ${targetUsername} go for ${formatCompact(cost)}¢ (they keep value)`
+          : `Need ${formatCompact(cost)}¢`
       }
     >
       {mutation.isPending ? (
@@ -82,7 +109,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className }
       ) : (
         <>
           <HandHeart className="h-4 w-4 mr-2" />
-          Let Go ({formatNumber(cost)}¢)
+          Let Go ({formatCompact(cost)}¢)
         </>
       )}
     </Button>

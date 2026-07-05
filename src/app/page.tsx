@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
+
 import {
   Dialog,
   DialogContent,
@@ -9,223 +10,256 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type CoverVariant = "16-9" | "1-1" | "9-16";
 
-interface ButtonConfig {
-  left: string;
-  top: string;
-  width: string;
-  height: string;
-}
-
-interface CoverConfig {
-  src: string;
-  alt: string;
-  aspectRatio: string;
-  buttons: {
-    about: ButtonConfig;
-    login: ButtonConfig;
-    support: ButtonConfig;
-  };
-}
-
-const COVER_CONFIGS: Record<CoverVariant, CoverConfig> = {
-  "16-9": {
-    src: "/Cover169.png",
-    alt: "Game Cover - Landscape",
-    aspectRatio: "16/9",
-    buttons: {
-      about: { left: "4%", top: "87%", width: "30%", height: "11%" },
-      login: { left: "35%", top: "87%", width: "30%", height: "11%" },
-      support: { left: "66%", top: "87%", width: "30%", height: "11%" },
-    },
-  },
-  "1-1": {
-    src: "/Cover11.png",
-    alt: "Game Cover - Square",
-    aspectRatio: "1/1",
-    buttons: {
-      about: { left: "4%", top: "88%", width: "30%", height: "10%" },
-      login: { left: "35%", top: "88%", width: "30%", height: "10%" },
-      support: { left: "66%", top: "88%", width: "30%", height: "10%" },
-    },
-  },
-  "9-16": {
-    src: "/Cover916.png",
-    alt: "Game Cover - Portrait",
-    aspectRatio: "9/16",
-    buttons: {
-      about: { left: "5%", top: "89%", width: "28%", height: "9%" },
-      login: { left: "36%", top: "89%", width: "28%", height: "9%" },
-      support: { left: "67%", top: "89%", width: "28%", height: "9%" },
-    },
-  },
+type Stats = {
+  totalPlayers: number;
+  totalEconomy: number;
+  totalNpcs: number;
+  totalHumans: number;
 };
 
-function useCoverVariant(): CoverVariant {
-  const [variant, setVariant] = useState<CoverVariant>("16-9");
-
+/** Eased count-up from 0 to `target` whenever the target changes. */
+function useCountUp(target: number, duration = 1400) {
+  const [value, setValue] = useState(0);
   useEffect(() => {
-    const updateVariant = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      const ratio = width / height;
-
-      if (ratio > 1.3) {
-        setVariant("16-9");
-      } else if (ratio < 0.7) {
-        setVariant("9-16");
-      } else {
-        setVariant("1-1");
-      }
+    if (!target) {
+      setValue(0);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setValue(Math.floor(eased * target));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else setValue(target);
     };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
 
-    updateVariant();
-    window.addEventListener("resize", updateVariant);
-    return () => window.removeEventListener("resize", updateVariant);
-  }, []);
-
-  return variant;
+function Stat({
+  label,
+  value,
+  suffix,
+  compact,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  compact?: boolean;
+}) {
+  const n = useCountUp(value);
+  const text = compact
+    ? new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n)
+    : n.toLocaleString();
+  return (
+    <div className="flex flex-col items-center">
+      <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
+        {text}
+        {suffix}
+      </span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-gray-400">{label}</span>
+    </div>
+  );
 }
 
 export default function Home() {
   const [gameplayOpen, setGameplayOpen] = useState(false);
-  const coverVariant = useCoverVariant();
-  const coverConfig = COVER_CONFIGS[coverVariant];
+  const [stats, setStats] = useState<Stats | null>(null);
 
-  const { data: humanCountData } = useQuery<{ count: number }>({
-    queryKey: ["human-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/players/human-count");
-      if (!res.ok) return { count: 0 };
-      return res.json();
-    },
-    staleTime: 5 * 60 * 1000,
-  });
+  useEffect(() => {
+    let active = true;
+    fetch("/api/game/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d) setStats(d);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-start justify-center">
-      <div className="relative overflow-hidden w-full">
-        <div className="absolute inset-0 bg-gradient-to-br from-t1-600/10 via-transparent to-t2-600/10" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-t1-500/5 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
+      {/* ===== Hero ===== */}
+      <section className="relative min-h-[140vh] sm:min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-hidden">
+        {/* Background image */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/endgame.png"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover object-top"
+        />
 
-        {/* Game Cover — responsive image with invisible hotspots */}
-        <div className="relative z-10 w-full flex justify-center px-4 sm:px-6 lg:px-8 pt-8 pb-0">
-          <div className="w-full max-w-full">
-            <div className="relative overflow-hidden rounded-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={coverConfig.src}
-                alt={coverConfig.alt}
-                className="w-full h-auto max-h-[85vh] object-contain block mx-auto"
-              />
-              {/* About button - opens How to Play dialog */}
-              <button
-                type="button"
-                onClick={() => setGameplayOpen(true)}
-                aria-label="About"
-                className="absolute cursor-pointer bg-transparent border-0 p-0 group"
-                style={{
-                  left: coverConfig.buttons.about.left,
-                  top: coverConfig.buttons.about.top,
-                  width: coverConfig.buttons.about.width,
-                  height: coverConfig.buttons.about.height,
-                }}
-              >
-                <span className="absolute bottom-[50%] left-[50%] -translate-x-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs font-semibold px-3 py-1 bg-black/60 text-white rounded-full whitespace-nowrap pointer-events-none">
-                  About →
-                </span>
-              </button>
-              {/* Login button - links to register */}
-              <a
-                href="https://n38worth.com/register"
-                aria-label="Login"
-                className="absolute cursor-pointer group"
-                style={{
-                  left: coverConfig.buttons.login.left,
-                  top: coverConfig.buttons.login.top,
-                  width: coverConfig.buttons.login.width,
-                  height: coverConfig.buttons.login.height,
-                }}
-              >
-                <span className="absolute bottom-[50%] left-[50%] -translate-x-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs font-semibold px-3 py-1 bg-black/60 text-white rounded-full whitespace-nowrap pointer-events-none">
-                  Login →
-                </span>
-              </a>
-              {/* Support button - links to LinkedIn */}
-              <a
-                href="https://www.linkedin.com/in/igorcarlier/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Support"
-                className="absolute cursor-pointer group"
-                style={{
-                  left: coverConfig.buttons.support.left,
-                  top: coverConfig.buttons.support.top,
-                  width: coverConfig.buttons.support.width,
-                  height: coverConfig.buttons.support.height,
-                }}
-              >
-                <span className="absolute bottom-[50%] left-[50%] -translate-x-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs font-semibold px-3 py-1 bg-black/60 text-white rounded-full whitespace-nowrap pointer-events-none">
-                  Support →
-                </span>
-              </a>
-            </div>
+        {/* Drifting aurora blobs */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="lp-aurora absolute -top-1/4 -left-1/4 h-[60vmax] w-[60vmax] rounded-full bg-[radial-gradient(circle,var(--t1-600),transparent_60%)] opacity-30 blur-3xl" />
+          <div
+            className="lp-aurora absolute -bottom-1/3 -right-1/4 h-[55vmax] w-[55vmax] rounded-full bg-[radial-gradient(circle,var(--t2-600),transparent_60%)] opacity-25 blur-3xl"
+            style={{ animationDelay: "-6s" }}
+          />
+          <div
+            className="lp-aurora absolute top-1/3 left-1/2 h-[40vmax] w-[40vmax] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,var(--t1-500),transparent_60%)] opacity-20 blur-3xl"
+            style={{ animationDelay: "-12s" }}
+          />
+        </div>
+
+        {/* Overlays for depth + readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,black_85%)]" />
+
+        {/* Hero content */}
+        <div className="relative z-10 flex flex-col items-center gap-6 translate-y-[100px] sm:translate-y-[200px]">
+
+          <Link
+            href="/register"
+            className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
+            style={{ animationDelay: "0.1s" }}
+          >
+            n38worth
+          </Link>
+
+          <p className="lp-fade-up max-w-xl text-base sm:text-lg text-gray-300" style={{ animationDelay: "0.2s" }}>
+            A massive multiplayer game of connection and ambition. Gather people
+            around you, grow your worth, and hunt the six legendary Goddesses
+            before time runs out.
+          </p>
+
+          <div className="lp-fade-up flex flex-col sm:flex-row items-center gap-3" style={{ animationDelay: "0.3s" }}>
+            <Link
+              href="/register"
+              className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_30px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+            >
+              Play Now
+            </Link>
+            <button
+              type="button"
+              onClick={() => setGameplayOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-gray-100 backdrop-blur-sm hover:bg-white/10 hover:scale-105 active:scale-100 transition-all"
+            >
+              How to Play
+            </button>
+          </div>
+
+          {/* Live stats */}
+          <div className="lp-fade-up mt-6 flex items-center gap-6 sm:gap-10" style={{ animationDelay: "0.4s" }}>
+            <Stat label="Cards" value={stats?.totalPlayers ?? 0} />
+            <div className="h-8 w-px bg-white/15" />
+            <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
+            <div className="h-8 w-px bg-white/15" />
+            <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
         </div>
 
-        {/* Game Play Modal */}
-        <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gray-900 border-gray-700 text-gray-100">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-center">How to Play</DialogTitle>
-            </DialogHeader>
-            {humanCountData && humanCountData.count > 0 && (
-              <p className="text-center text-t1-400 text-3xl font-bold mt-4 mb-2">
-                {humanCountData.count} Players already joined
+
+        {/* Bottom links (kept: About + Support) */}
+        <div className="absolute bottom-6 left-0 right-0 z-10 flex justify-between px-8">
+          <button
+            type="button"
+            onClick={() => setGameplayOpen(true)}
+            className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
+          >
+            About
+          </button>
+          <a
+            href="https://n38worth.com/chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all"
+          >
+            Support
+          </a>
+        </div>
+      </section>
+
+
+
+      {/* About dialog */}
+      <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gray-950 border-gray-800 text-gray-100">
+          <DialogHeader>
+            <DialogTitle className="text-center text-3xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent">
+              How to Play
+            </DialogTitle>
+            <p className="pt-1 text-center text-sm text-gray-400">
+              A social game of connection, ambition, and the hunt for the Goddesses.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3 py-4">
+            {/* What is n38worth? */}
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">What is n38worth?</h3>
+              <p className="text-sm leading-relaxed text-gray-300">
+                It&apos;s a social game of connection and ambition, where you gather people
+                around you and grow something that feels like your own little world. Every
+                player carries a spark of value, and together, those sparks can become
+                something extraordinary.
               </p>
-            )}
-            <div className="space-y-6 py-4">
-              {/* What is n38worth? */}
-              <section>
-                <h3 className="text-lg font-semibold text-t1-400 mb-3">What is n38worth?</h3>
-                <div className="space-y-2 text-gray-300 text-sm">
-                  <p>It&apos;s a social game of connection and ambition, where you gather people around you and grow something that feels like your own little world. Every player carries a spark of value, and together, those sparks can become something extraordinary.</p>
-                </div>
-              </section>
+            </section>
 
-              {/* Getting Started */}
-              <section>
-                <h3 className="text-lg font-semibold text-t1-400 mb-3">Getting Started</h3>
-                <div className="space-y-2 text-gray-300 text-sm">
-                  <p>You begin with just a handful of credits—humble, but full of possibility. Everyone starts small, equal at first. As you shape your presence and reveal who you are, your worth begins to rise, drawing others toward you.</p>
-                </div>
-              </section>
+            {/* The journey - numbered steps */}
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-4 text-lg font-semibold text-t1-400">Your Journey</h3>
+              <ol className="space-y-4">
+                {[
+                  {
+                    title: "Start small",
+                    body: "You begin with just a handful of credits—humble, but full of possibility. Everyone starts equal. As you shape your presence and reveal who you are, your worth begins to rise.",
+                  },
+                  {
+                    title: "Build your circle",
+                    body: "Invite others into your circle. As bonds grow, so does their value—and yours. Some connections flourish quickly, others slowly, but each one changes the shape of your journey.",
+                  },
+                  {
+                    title: "Let go when needed",
+                    body: "If a path no longer feels right, you can let someone go, watching them return to their beginnings.",
+                  },
+                  {
+                    title: "Grow your network",
+                    body: "When others choose you, you gain from their belief in you. Over time, your network becomes something alive—quietly growing, rewarding your attention and care.",
+                  },
+                ].map((step, i) => (
+                  <li key={step.title} className="flex gap-4">
+                    <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p className="font-medium text-gray-100">{step.title}</p>
+                      <p className="text-sm leading-relaxed text-gray-400">{step.body}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
 
-              {/* How to Play */}
-              <section>
-                <h3 className="text-lg font-semibold text-t1-400 mb-3">How to Play</h3>
-                <div className="space-y-2 text-gray-300 text-sm">
-                  <p>You invite others into your circle, and as your bond grows, so does their value—and yours. Some connections flourish quickly, others more slowly, but each one changes the shape of your journey.</p>
-                  <p>If a path no longer feels right, you can let someone go, watching them return to their beginnings.</p>
-                  <p>And when others choose you, when they see something worth holding onto, you gain from their belief in you.</p>
-                  <p>Over time, your network becomes something alive—quietly growing, rewarding your attention and care.</p>
-                </div>
-              </section>
+            {/* The goal */}
+            <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">The Ultimate Goal</h3>
+              <p className="text-sm leading-relaxed text-gray-300">
+                Hidden within the game are six legendary figures—Goddesses of power and
+                mystery. To find them, to gather them, and to keep them close until time
+                runs out… that is the ultimate pursuit. Those who succeed leave their mark,
+                remembered among the greats.
+              </p>
+            </section>
+          </div>
 
-              {/* The Goal */}
-              <section>
-                <h3 className="text-lg font-semibold text-t1-400 mb-3">The Goal</h3>
-                <div className="space-y-2 text-gray-300 text-sm">
-                  <p>Hidden within the game are six legendary figures—Goddesses of power and mystery. To find them, to gather them, and to keep them close until time runs out… that is the ultimate pursuit.</p>
-                  <p>Those who succeed leave their mark, remembered among the greats.</p>
-                </div>
-              </section>
-
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          <div className="flex justify-center pb-2">
+            <Link
+              href="/register"
+              className="inline-flex items-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-8 py-3 text-base font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 transition-all"
+            >
+              Play Now
+            </Link>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -7,8 +7,9 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { PG_BIGINT_MAX, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
+import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES, doublesOnUse } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
+import { checkAndAwardMissions } from "@/lib/missions";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -19,7 +20,8 @@ function getValueMultiplier(value: number): number {
   return 1.1;                        // 10% increase
 }
 
-const BLOCK_SELL_DURATION_MS = 60 * 60 * 1000; // 1 hour in milliseconds
+const BLOCK_SELL_DURATION_MS = 3 * 60 * 1000; // 3 minutes in milliseconds
+const UNBREAKABLE_BLOCK_MS = 30 * 60 * 1000; // 30 minutes for bonus cards & goddesses
 
 export async function purchasePlayer(targetId: number, blockDurationHours: number = 1) {
   const session = await auth();
@@ -43,6 +45,8 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
         credits: users.credits,
         blockSellUntil: users.blockSellUntil,
         blockSellBy: users.blockSellBy,
+        isNpc: users.isNpc,
+        avatarUrl: users.avatarUrl,
       })
       .from(users)
       .where(eq(users.id, targetId));
@@ -59,6 +63,8 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
         playerValue: users.playerValue,
         credits: users.credits,
         hireSlots: users.hireSlots,
+        avatarUrl: users.avatarUrl,
+        avatarCompleted: users.avatarCompleted,
       })
       .from(users)
       .where(eq(users.id, buyerId));
@@ -69,18 +75,38 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
 
     // Check if target is a bonus card
     const isBonusCard = BONUS_CARD_USERNAMES.includes(target.username);
+    const isGoddess = GODDESS_USERNAMES.includes(target.username);
 
-    // Calculate cost based on block duration (1x for 1 hour, 6x for 6 hours)
-    // Bonus cards are always free to hire
-    const costMultiplier = isBonusCard ? 0 : Math.max(1, blockDurationHours);
-    const cost = isBonusCard ? 0 : target.playerValue * costMultiplier;
+    // Restrict: buyer must have a completed avatar to hire human players
+    const buyerHasAvatar = !!buyer.avatarUrl && buyer.avatarCompleted === 1;
+    const targetIsHuman = target.isNpc === 0 && !isBonusCard && !isGoddess;
+    if (targetIsHuman && !buyerHasAvatar) {
+      return { error: "You need to upload a profile photo before you can hire human players" };
+    }
 
-    // For bonus cards, force 3-hour block duration
-    const effectiveBlockHours = isBonusCard ? 3 : blockDurationHours;
+    // Effective value used for cost & doubling. Bonus cards are clamped to their
+    // base value so a card whose value was reset below the base (e.g. released to
+    // floor on an owner deletion) still charges/doubles from the base — matching
+    // what the market displays.
+    const bonusBase = isBonusCard ? (BONUS_CARD_VALUES[target.username] ?? 1000) : 0;
+    const effectiveValue = isBonusCard ? Math.max(target.playerValue, bonusBase) : target.playerValue;
 
-    // 3. Validate buyer has enough credits (skip for bonus cards)
-    if (!isBonusCard && buyer.credits < cost) {
-      return { error: `Insufficient credits. You need ${cost}¢ (${costMultiplier}x player value for ${blockDurationHours} hour${blockDurationHours > 1 ? 's' : ''})` };
+    // Calculate cost: bonus cards cost their current (doubling) value, regular
+    // players use the block duration multiplier. (For bonus cards the multiplier
+    // is 1, so cost is simply the card's current value.)
+    const costMultiplier = isBonusCard ? 1 : Math.max(1, blockDurationHours);
+    const cost = effectiveValue * costMultiplier;
+
+    // Bonus cards & goddesses get a fixed 30-min unbreakable initial block.
+    // Other players use the buyer-chosen blockDurationHours for their (breakable) block.
+    const usesUnbreakableInitialBlock = isBonusCard || isGoddess;
+
+    // 3. Validate buyer has enough credits
+    if (buyer.credits < cost) {
+      if (isBonusCard) {
+        return { error: `Insufficient credits. You need ${cost}¢ to hire ${target.username}` };
+      }
+      return { error: `Insufficient credits. You need ${cost}¢ (${costMultiplier}x player value)` };
     }
 
     // 4. Check buyer doesn't already own this player
@@ -113,8 +139,28 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       .from(ownership)
       .where(eq(ownership.ownedId, targetId));
 
-    // 5b. Check if the current ownership has an active partner/sell block
-    if (currentOwner?.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
+    // 5b. Check if the target is one of the buyer's onboarding starter NPCs.
+    //     If so, skip the partner/sell-block check — onboarding NPCs from the
+    //     pool may have stale ownership records with a future blockSellUntil
+    //     from a previous player, which would block new players from completing
+    //     the onboarding flow. We first fetch the buyer's onboardingNpcs list.
+    let isOnboardingNpc = false;
+    try {
+      const [buyerCheck] = await db
+        .select({ onboardingNpcs: users.onboardingNpcs })
+        .from(users)
+        .where(eq(users.id, buyerId));
+      const starterIds = (buyerCheck?.onboardingNpcs as number[]) || [];
+      isOnboardingNpc = starterIds.includes(targetId);
+    } catch {
+      // Onboarding columns may not exist — ignore
+    }
+
+    if (
+      currentOwner?.blockSellUntil &&
+      new Date(currentOwner.blockSellUntil) > new Date() &&
+      !isOnboardingNpc
+    ) {
       const expiresAt = new Date(currentOwner.blockSellUntil);
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
       return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
@@ -130,10 +176,20 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       prevOwnerOwnedCount = ownedResult?.count ?? 0;
     }
 
-    // Pre-compute values using tiered multiplier
-    const multiplier = getValueMultiplier(target.playerValue);
-    const bigPlayerValue = BigInt(target.playerValue);
-    const bigIncreased = (bigPlayerValue * BigInt(Math.round(multiplier * 100))) / BigInt(100);
+    // Pre-compute values using tiered multiplier (or flat ×2 doubling for goddesses only)
+    const bigPlayerValue = BigInt(effectiveValue);
+    let bigIncreased: bigint;
+    if (isGoddess) {
+      // Goddesses double on each hire
+      bigIncreased = bigPlayerValue * BigInt(2);
+    } else if (isBonusCard) {
+      // Bonus cards double their price on each hire (except the slot card,
+      // which keeps its separate slot-upgrade pricing).
+      bigIncreased = doublesOnUse(target.username) ? bigPlayerValue * BigInt(2) : bigPlayerValue;
+    } else {
+      const multiplier = getValueMultiplier(target.playerValue);
+      bigIncreased = (bigPlayerValue * BigInt(Math.round(multiplier * 100))) / BigInt(100);
+    }
     // Cap at the PostgreSQL bigint limit (2^63 - 1) to prevent overflow
     // Use BigInt for precise arithmetic since values may exceed JS safe integer range (2^53)
     // Ensure minimum increase of 1 to prevent stagnation at small values (integer division truncates)
@@ -147,21 +203,19 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     const ownerShare = Math.floor(cost * bonusMultiplier);
     const playerShare = cost;
 
-    // 6. Deduct credits from buyer (floor at 0) - skip for bonus cards
+    // 6. Deduct credits from buyer (floor at 0)
     // Note: neon-http does not support transactions, so we execute operations individually
-    if (!isBonusCard) {
-      await db
-        .update(users)
-        .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
-        .where(eq(users.id, buyerId));
-    }
+    await db
+      .update(users)
+      .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
+      .where(eq(users.id, buyerId));
 
     // 7. Distribute revenue: 100% + bonus to original owner, 100% to the purchased player
     //    (economy-boost: credits are minted on every hire, more for larger portfolios)
 
     // Give 100% + bonus to the original owner (if exists) — cap to prevent overflow
-    // Skip revenue distribution for bonus cards (they're free)
-    if (currentOwner && !isBonusCard) {
+    // Applies to bonus cards too: previous owner gets paid the standard share.
+    if (currentOwner) {
       await db
         .update(users)
         .set({ credits: sql`LEAST(credits + ${ownerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
@@ -188,11 +242,6 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       }
 
       // Remove the original ownership
-      await db
-        .delete(ownership)
-        .where(eq(ownership.id, currentOwner.id));
-    } else if (currentOwner && isBonusCard) {
-      // For bonus cards, just remove ownership without paying the previous owner
       await db
         .delete(ownership)
         .where(eq(ownership.id, currentOwner.id));
@@ -224,27 +273,131 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     }
 
     // 8. Update the target's player value after purchase (tiered increase based on current value, or keep it if at the cap)
-    // Also increment the purchase counter
+    // Also increment the purchase counter. For HUMAN players, `photoScore`
+    // doubles as their card "Score" = times purchased or pumped (NPCs use their
+    // Unsplash-likes score instead), so bump it on every hire.
     await db
       .update(users)
       .set({
         playerValue: newValue,
         purchaseCount: sql`${users.purchaseCount} + 1`,
+        ...(targetIsHuman ? { photoScore: sql`${users.photoScore} + 1` } : {}),
         updatedAt: new Date(),
       })
       .where(eq(users.id, targetId));
 
-    // 9. Create ownership record — set block sell based on requested duration
-    // Calculate new block expiry from now + requested hours (3 hours for bonus cards)
-    const blockExpiry = new Date(Date.now() + effectiveBlockHours * BLOCK_SELL_DURATION_MS);
-    
+    // 9. Create ownership record — set block sell based on card type:
+    //    - Bonus cards & goddesses: fixed 30-min UNBREAKABLE block (no break, even by War/Creation)
+    //    - All other players: buyer-chosen hours, fully breakable
+    const nowMs = Date.now();
+    const blockExpiry = usesUnbreakableInitialBlock
+      ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
+      : new Date(nowMs + blockDurationHours * BLOCK_SELL_DURATION_MS);
+    const unbreakableUntil = usesUnbreakableInitialBlock
+      ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
+      : null;
+
     await db.insert(ownership).values({
       ownerId: buyerId,
       ownedId: targetId,
       purchasePrice: cost,
       blockSellUntil: blockExpiry,
       blockSellBy: buyer.username,
+      blockUnbreakableUntil: unbreakableUntil,
     });
+
+    // 9b. Award +1 hire slot when hiring a player that already had a boss (economy incentive)
+    if (currentOwner && !isBonusCard) {
+      try {
+        await db
+          .update(users)
+          .set({
+            hireSlots: sql`${users.hireSlots} + 1`,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, buyerId));
+
+        await db.insert(rewardHistory).values({
+          userId: buyerId,
+          type: "slot_reward",
+          amount: 1,
+          details: JSON.stringify({
+            reason: "hired_player_with_boss",
+            playerUsername: target.username,
+          }),
+        });
+      } catch (slotError) {
+        console.error("Hire slot reward error:", slotError);
+      }
+    }
+
+    // 9c. Apply immediate bonus for bonus cards (first bonus on hire, then hourly cron takes over)
+    if (isBonusCard) {
+      try {
+        const now = new Date();
+        
+        // Bonus Own Value: +10% if value < 100, otherwise +1%
+        if (target.username === "Bonus Own Value") {
+          const currentValue = BigInt(buyer.playerValue);
+          // Use 10% for small values (< 100), otherwise 1%
+          const percentage = buyer.playerValue < 100 ? BigInt(10) : BigInt(100);
+          const increase = currentValue / percentage;
+          const newValue = currentValue + increase;
+          const cappedValue = newValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : newValue;
+          
+          await db
+            .update(users)
+            .set({
+              playerValue: Number(cappedValue),
+              updatedAt: now,
+            })
+            .where(eq(users.id, buyerId));
+        }
+        
+        // Bonus Owned Players: +1% to all owned players' values
+        else if (target.username === "Bonus Owned Players") {
+          const ownedPlayers = await db
+            .select({
+              id: users.id,
+              playerValue: users.playerValue,
+            })
+            .from(ownership)
+            .innerJoin(users, eq(ownership.ownedId, users.id))
+            .where(eq(ownership.ownerId, buyerId));
+          
+          for (const player of ownedPlayers) {
+            const currentValue = BigInt(player.playerValue);
+            // Use 10% for small values (< 100), otherwise 1%
+            const percentage = player.playerValue < 100 ? BigInt(10) : BigInt(100);
+            const increase = currentValue / percentage;
+            const newValue = currentValue + increase;
+            const cappedValue = newValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : newValue;
+            
+            await db
+              .update(users)
+              .set({
+                playerValue: Number(cappedValue),
+                updatedAt: now,
+              })
+              .where(eq(users.id, player.id));
+          }
+        }
+        
+        // Bonus Player Slot: +1 hire slot
+        else if (target.username === "Bonus Player Slot") {
+          await db
+            .update(users)
+            .set({
+              hireSlots: sql`${users.hireSlots} + 1`,
+              updatedAt: now,
+            })
+            .where(eq(users.id, buyerId));
+        }
+      } catch (bonusError) {
+        console.error("Immediate bonus application error:", bonusError);
+        // Don't fail the purchase if bonus application fails
+      }
+    }
 
     // 10. Log transaction
     await db.insert(transactions).values({
@@ -392,6 +545,14 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       // Don't fail the purchase if countdown check fails
     }
 
+    // 12b. Marketplace missions: award free reward cards when the buyer's
+    //      owned-card count crosses a mission threshold. Never fails the hire.
+    try {
+      await checkAndAwardMissions(buyerId);
+    } catch (missionError) {
+      console.error("Mission award check error:", missionError);
+    }
+
     // 13. Trigger real-time updates via Pusher
     try {
       const pusherPromises = [
@@ -425,6 +586,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       success: true,
       newValue,
       cost,
+      avatarUrl: target.avatarUrl,
       countdownStarted,
       countdownCancelled,
       countdownUser: countdownStarted ? buyer.username : undefined,

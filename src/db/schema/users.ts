@@ -27,6 +27,10 @@ export const users = pgTable(
     photoAuthorName: text("photo_author_name"),
     photoAuthorUrl: text("photo_author_url"),
     photoSourceUrl: text("photo_source_url"),
+    // Unsplash photo "likes" captured at NPC creation — a crowd-sourced proxy
+    // for how good the avatar photo looks. Drives the AI Agent's "prettiest
+    // first" card selection. 0 for humans / non-Unsplash cards.
+    photoScore: integer("photo_score").default(0).notNull(),
     lastRankBonusAt: timestamp("last_rank_bonus_at"),
     lastLoginRewardAt: timestamp("last_login_reward_at"),
     // Multi-account detection fields
@@ -40,17 +44,28 @@ export const users = pgTable(
     onboardingStarted: integer("onboarding_started").default(0).notNull(),
     // Onboarding pool - NPCs pre-generated with avatars, waiting to be assigned
     isOnboardingPool: integer("is_onboarding_pool").default(0).notNull(),
+    // Tracks which player created this onboarding NPC (for visibility restriction)
+    onboardingCreatedBy: integer("onboarding_created_by"),
     // Protection field - prevents deletion of special NPCs (e.g., goddesses)
     isProtected: integer("is_protected").default(0).notNull(),
     // Purchase counter - tracks how many times this player has been purchased
     purchaseCount: integer("purchase_count").default(0).notNull(),
+    // Marketplace mission progress — index of the current mission (0-based).
+    // Increments as the player completes "collect N cards" missions.
+    missionLevel: integer("mission_level").default(0).notNull(),
     // Short bio / description set by the player (or their boss for NPCs)
     bio: text("bio"),
+    // Profession - one of the 6 professions for NPCs, chosen by human players during onboarding
+    profession: varchar("profession", { length: 30 }),
     // Hire slots — max number of players this user can own; starts at 20, purchasable in +10 increments
     hireSlots: integer("hire_slots").default(20).notNull(),
+    temporaryKnowledgeUntil: timestamp("temporary_knowledge_until"),
     // Anchor for hourly "idle user loses 1 NPC per hour after 24h offline" decay
     lastOwnershipDecayAt: timestamp("last_ownership_decay_at"),
     lastCreateNpcAt: timestamp("last_create_npc_at"),
+    // Remaining free NPC creations in the current "Create NPC" batch (one press
+    // spawns 10 NPCs over time; this caps the free follow-up creations).
+    createNpcBatchRemaining: integer("create_npc_batch_remaining").default(0).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

@@ -831,3 +831,221 @@
 .animate-pulse-fast {
   animation: pulse-slow 1.5s ease-in-out infinite;
 }
+
+/* ── "POACHED!" effect: a player you own was hired away by someone else ── */
+@keyframes poach-pop {
+  0%   { opacity: 0; transform: scale(0.6) translateY(10px); }
+  8%   { opacity: 1; transform: scale(1.08) translateY(0); }
+  14%  { transform: scale(1) translateY(0); }
+  78%  { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.92) translateY(-34px); }
+}
+.poach-pop {
+  animation: poach-pop 1.9s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes poach-vignette {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  45%  { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+.poach-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 38%,
+    rgba(244, 63, 94, 0.18) 78%,
+    rgba(251, 191, 36, 0.22) 100%
+  );
+  animation: poach-vignette 1.9s ease-out forwards;
+}
+
+@keyframes poach-shake {
+  0%, 100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-4px) rotate(-2deg); }
+  40% { transform: translateX(4px) rotate(2deg); }
+  60% { transform: translateX(-3px) rotate(-1deg); }
+  80% { transform: translateX(3px) rotate(1deg); }
+}
+.poach-avatar {
+  animation: poach-shake 0.5s ease-in-out 0.1s 1;
+}
+
+@keyframes poach-coins {
+  0%  { opacity: 0; transform: translateY(8px) scale(0.8); }
+  18% { opacity: 1; transform: translateY(0) scale(1.12); }
+  26% { transform: scale(1); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.poach-coins {
+  animation: poach-coins 1.2s ease-out forwards;
+}
+
+@keyframes credits-bump {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.35); text-shadow: 0 0 18px rgba(251, 191, 36, 0.9); }
+  100% { transform: scale(1); text-shadow: none; }
+}
+.credits-bump {
+  display: inline-block;
+  animation: credits-bump 0.7s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poach-pop,
+  .poach-vignette,
+  .poach-avatar,
+  .poach-coins,
+  .credits-bump {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ───────────────────────── Landing page (lp-*) FX ───────────────────────── */
+
+/* Slow drifting aurora blobs behind the hero */
+@keyframes lp-aurora {
+  0%   { transform: translate(0, 0) scale(1); }
+  33%  { transform: translate(6%, -4%) scale(1.15); }
+  66%  { transform: translate(-5%, 5%) scale(0.95); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+.lp-aurora {
+  animation: lp-aurora 18s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Animated multi-stop gradient sweeping across the title */
+@keyframes lp-gradient-pan {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.lp-gradient-text {
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lp-gradient-pan 6s ease-in-out infinite;
+}
+
+/* Gentle infinite float (staggered via inline animation-delay) */
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+.lp-float { animation: lp-float 5s ease-in-out infinite; }
+
+/* Entrance: fade + rise */
+@keyframes lp-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lp-fade-up {
+  opacity: 0;
+  animation: lp-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Sweeping shine across CTA buttons */
+@keyframes lp-shine {
+  0%   { transform: translateX(-150%) skewX(-20deg); }
+  60%, 100% { transform: translateX(250%) skewX(-20deg); }
+}
+.lp-shine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: lp-shine 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Soft pulsing glow ring */
+@keyframes lp-pulse-glow {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.05); }
+}
+.lp-pulse-glow { animation: lp-pulse-glow 3s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-aurora,
+  .lp-gradient-text,
+  .lp-float,
+  .lp-fade-up,
+  .lp-shine::after,
+  .lp-pulse-glow {
+    animation: none !important;
+  }
+  .lp-fade-up { opacity: 1 !important; }
+}
+
+/* Sonner toast stacking: all overlap at the same spot and grow in size + shift color */
+[data-sonner-toast].sonner-toast-stacked {
+  transition: font-size 0.25s ease, color 0.25s ease !important;
+  transform: translateY(0) !important;
+  opacity: 1 !important;
+  scale: 1 !important;
+}
+[data-sonner-toast].sonner-toast-stacked,
+[data-sonner-toast].sonner-toast-stacked [data-title],
+[data-sonner-toast].sonner-toast-stacked [data-content] {
+  transition: font-size 0.25s ease, color 0.25s ease !important;
+}
+
+/* data-index 0 = newest/front toast (on top) */
+/* Newest toast (index 0) is on top AND biggest so it's never covered. Older
+   toasts behind it get progressively smaller. */
+[data-sonner-toast][data-index="0"].sonner-toast-stacked,
+[data-sonner-toast][data-index="0"].sonner-toast-stacked [data-title] {
+  font-size: 1.47rem !important;
+  color: #f97316 !important; /* orange-500 */
+  text-shadow: 0 0 24px rgba(249, 115, 22, 0.8);
+}
+[data-sonner-toast][data-index="1"].sonner-toast-stacked,
+[data-sonner-toast][data-index="1"].sonner-toast-stacked [data-title] {
+  font-size: 1.3rem !important;
+  color: #fb923c !important; /* orange-400 */
+  text-shadow: 0 0 20px rgba(251, 146, 60, 0.7);
+}
+[data-sonner-toast][data-index="2"].sonner-toast-stacked,
+[data-sonner-toast][data-index="2"].sonner-toast-stacked [data-title] {
+  font-size: 1.13rem !important;
+  color: #fbbf24 !important; /* amber-400 */
+  text-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
+}
+[data-sonner-toast][data-index="3"].sonner-toast-stacked,
+[data-sonner-toast][data-index="3"].sonner-toast-stacked [data-title] {
+  font-size: 0.97rem !important;
+  color: #facc15 !important; /* yellow-400 */
+  text-shadow: 0 0 12px rgba(250, 204, 21, 0.6);
+}
+[data-sonner-toast][data-index="4"].sonner-toast-stacked,
+[data-sonner-toast][data-index="4"].sonner-toast-stacked [data-title] {
+  font-size: 0.8rem !important;
+  color: #fde047 !important; /* yellow-300 */
+  text-shadow: 0 0 8px rgba(253, 224, 71, 0.5);
+}
+[data-sonner-toast][data-index="5"].sonner-toast-stacked [data-title],
+[data-sonner-toast][data-index="6"].sonner-toast-stacked [data-title],
+[data-sonner-toast][data-index="7"].sonner-toast-stacked [data-title],
+[data-sonner-toast][data-index="8"].sonner-toast-stacked [data-title],
+[data-sonner-toast][data-index="9"].sonner-toast-stacked [data-title] {
+  font-size: 0.63rem !important;
+  color: #fde047 !important; /* yellow-300 */
+}
+[data-sonner-toast][data-index="5"].sonner-toast-stacked,
+[data-sonner-toast][data-index="6"].sonner-toast-stacked,
+[data-sonner-toast][data-index="7"].sonner-toast-stacked,
+[data-sonner-toast][data-index="8"].sonner-toast-stacked,
+[data-sonner-toast][data-index="9"].sonner-toast-stacked {
+  animation: toast-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes toast-pulse {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.4); }
+}

@@ -4,9 +4,8 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
-import { createOnboardingNpcWithAvatar } from "@/lib/onboarding-npc";
 
-const UNSPLASH_ACCESS_KEY = "JnznSdPgkBkZDiNn37x1-tWo77X077dqXp-zCB5DT_M";
+const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
 const AVATAR_QUERIES = [
   // Fashion
@@ -39,6 +38,14 @@ export async function POST() {
     }
 
     const userId = Number(session.user.id);
+
+    if (!UNSPLASH_ACCESS_KEY) {
+      console.error("UNSPLASH_ACCESS_KEY is not configured");
+      return NextResponse.json(
+        { error: "Server misconfiguration: UNSPLASH_ACCESS_KEY is not set" },
+        { status: 500 }
+      );
+    }
 
     // Fetch a random person image from Unsplash
     let avatarUrl: string | null = null;
@@ -91,58 +98,32 @@ export async function POST() {
       avatarUrl = compressedAvatarUrl;
     }
 
-    // Update the user's avatar
+    const [preState] = await db
+      .select({
+        onboardingStarted: users.onboardingStarted,
+        onboardingNpcs: users.onboardingNpcs,
+      })
+      .from(users)
+      .where(eq(users.id, userId));
+    const isFirstOnboarding =
+      preState?.onboardingStarted === 0 &&
+      ((preState?.onboardingNpcs as number[]) || []).length === 0;
+
     await db
       .update(users)
       .set({
         avatarUrl,
         avatarCompleted: 1,
+        onboardingStarted: 1,
         updatedAt: new Date(),
       })
       .where(eq(users.id, userId));
 
-    // Create 3 fresh onboarding NPCs with unique avatars for this user.
-    // This is a best-effort side task — failures must NOT fail the avatar request,
-    // since the avatar itself has already been persisted above.
-    try {
-      const [user] = await db
-        .select({ onboardingNpcs: users.onboardingNpcs })
-        .from(users)
-        .where(eq(users.id, userId));
-
-      const existingNpcs = (user?.onboardingNpcs as number[]) || [];
-      if (existingNpcs.length === 0) {
-        // Create 3 NPCs in parallel for faster creation
-        const npcPromises = [
-          createOnboardingNpcWithAvatar(false),
-          createOnboardingNpcWithAvatar(false),
-          createOnboardingNpcWithAvatar(false),
-        ];
-        const npcIds = (await Promise.all(npcPromises)).filter((id): id is number => id !== null);
-
-        if (npcIds.length > 0) {
-          // Store the NPC IDs in the user's onboarding state
-          await db
-            .update(users)
-            .set({
-              onboardingNpcs: npcIds,
-              onboardingStarted: 1,
-            })
-            .where(eq(users.id, userId));
-
-          console.log(`Created ${npcIds.length} fresh NPCs for user ${userId}`);
-        }
-
-        // Note: If fewer than 3 NPCs created (Unsplash failure), user can retry by generating a new random avatar
-      }
-    } catch (npcErr) {
-      // Non-fatal: avatar has already been saved. Log and continue.
-      console.error("Onboarding NPC creation failed (non-fatal):", npcErr);
-    }
-
     return NextResponse.json({
       success: true,
       avatarUrl,
+      firstUpload: isFirstOnboarding,
+      starterNpcIds: [],
     });
   } catch (error) {
     console.error("Random avatar error:", error);

@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
-  description: "Massive Multiplayer Online Game",
+  description: "Massive Multiplayer Online Card Trading Game",
   keywords: ["trading", "game", "social", "MMO", "multiplayer"],
   openGraph: {
     title: "n38worth",
-    description: "Massive Multiplayer Online Game",
+    description: "Massive Multiplayer Online Card Trading Game",
     siteName: "n38worth",
     type: "website",
     url: "https://n38worth.com",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "n38worth",
-    description: "Massive Multiplayer Online Game",
+    description: "Massive Multiplayer Online Card Trading Game",
     // images generated dynamically by src/app/twitter-image.tsx
   },
   icons: {
@@ -54,9 +54,24 @@ export default function RootLayout({
           {children}
           <Toaster
             theme="dark"
-            position="bottom-right"
+            position="top-center"
             richColors
-            closeButton
+            closeButton={false}
+            offset={112}
+            visibleToasts={10}
+            expand={true}
+            gap={0}
+            toastOptions={{
+              unstyled: true,
+              classNames: {
+                toast: "sonner-toast-stacked flex items-center gap-2 px-4 py-1.5 font-bold text-gray-100 bg-gray-950/85 backdrop-blur-xl border-b border-gray-800/40 w-full max-w-full rounded-none",
+                success: "text-green-400",
+                error: "text-red-400",
+                info: "text-t1-400",
+                warning: "text-yellow-400",
+              },
+            }}
+            style={{ width: "100%" }}
           />
         </Providers>
       </body>

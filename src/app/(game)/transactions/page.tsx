@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { getAvatarSrcByUsername } from "@/lib/avatar-utils";
 
@@ -151,7 +151,7 @@ export default function TransactionsPage() {
                         }`}
                       >
                         {txn.type === "purchase" ? (txn.isInitiator ? "-" : "+") : (txn.isInitiator ? "+" : "")}
-                        {formatNumber(txn.amount)}¢
+                        {formatCompact(txn.amount)}¢
                       </Badge>
                       <span className="text-xs text-gray-500 w-20 text-right">
                         {new Date(txn.createdAt).toLocaleDateString("en-US", {

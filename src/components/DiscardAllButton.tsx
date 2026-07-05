@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface DiscardAllButtonProps {
   ownedCount: number;
@@ -69,13 +69,13 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
           size="sm"
           onClick={() => play("buttons")}
           disabled={!canAfford}
-          title={!canAfford ? `You need ${formatNumber(totalValue)}¢ to discard all` : undefined}
+          title={!canAfford ? `You need ${formatCompact(totalValue)}¢ to discard all` : undefined}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
           {t.discardAll ?? "Discard All"}
           <span className="ml-1.5 font-mono text-xs opacity-80">
-            −{formatNumber(totalValue)}¢
+            −{formatCompact(totalValue)}¢
           </span>
         </Button>
       </DialogTrigger>
@@ -83,7 +83,7 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
         <DialogHeader>
           <DialogTitle className="text-white">{t.discardAllConfirmTitle ?? "Discard All Players?"}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            {`Discarding all ${ownedCount} player${ownedCount !== 1 ? "s" : ""} costs ${formatNumber(totalValue)}¢ upfront. You'll receive back ~${formatNumber(Math.floor(totalValue / 2))}¢ (50%), and each discarded player receives their 50%. Players with active sell blocks will be skipped.`}
+            {`Discarding all ${ownedCount} player${ownedCount !== 1 ? "s" : ""} costs ${formatCompact(totalValue)}¢ upfront. You'll receive back ~${formatCompact(Math.floor(totalValue / 2))}¢ (50%), and each discarded player receives their 50%. Players with active sell blocks will be skipped.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

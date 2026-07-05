@@ -1,7 +1,34 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { sql, eq, or } from "drizzle-orm";
+import { sql, eq, ne, or, and } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
+
+/**
+ * Tunables for the dynamic NPC-creation cadence.
+ *
+ * The scheduled random-player cron normally fires every 3 minutes (see
+ * vercel.json). On each tick it consults `getCreationContext()` below to
+ * decide whether it should actually create an NPC.
+ */
+// A human is considered "online" if their lastOnlineAt heartbeat is within
+// this many minutes. The /api/me heartbeat is hit on most page loads, and
+// online-time accumulation uses a 10-minute window — we use a slightly
+// looser 15-minute window here to avoid flapping between online/idle modes
+// when a player briefly tabs away.
+export const ONLINE_THRESHOLD_MINUTES = 15;
+// Interval between NPC creations when at least one human is online.
+// The cron ticks every minute (`*/1 * * * *` in vercel.json); we set this just
+// under 1 minute so normal cron jitter never skips a tick — i.e. one NPC per
+// minute while anyone is online.
+export const ACTIVE_INTERVAL_MINUTES = 0.9;
+// Interval between NPC creations when nobody is online.
+export const IDLE_INTERVAL_MINUTES = 30;
+// On the idle→online transition we want to create immediately, but still
+// keep a tiny safety gap so we don't accidentally double-create if the cron
+// ran a few seconds ago for some other reason.
+export const MIN_GAP_ON_WAKE_MINUTES = 1;
 
 // Unsplash credentials must be provided via env. No hardcoded fallback — a
 // missing key should cause a clear failure rather than silently leaking a
@@ -68,39 +95,53 @@ const PORTRAIT_QUERIES = [
   "dance performance portrait",
 ];
 
-function generateRandomUsername(): string {
-  const adjectives = [
-    "Swift", "Bold", "Lucky", "Chill", "Epic", "Witty", "Brave", "Noble",
-    "Keen", "Sly", "Deft", "Wise", "Zany", "Vivid", "Rad", "Cool",
-    "Sleek", "Prime", "Elite", "Mega", "Ultra", "Hyper", "Turbo", "Apex",
-    "Neon", "Pixel", "Cyber", "Astro", "Nova", "Blaze", "Storm", "Frost",
-    "Shadow", "Iron", "Steel", "Golden", "Silver", "Cosmic", "Lunar", "Solar",
-  ];
-  const nouns = [
-    "Trader", "Wolf", "Shark", "Hawk", "Eagle", "Tiger", "Lion", "Bear",
-    "Fox", "Ace", "King", "Boss", "Pro", "Star", "Ninja", "Pilot",
-    "Knight", "Chief", "Alpha", "Rider", "Hunter", "Ranger", "Phantom", "Viper",
-    "Falcon", "Raven", "Phoenix", "Dragon", "Titan", "Rebel", "Maverick", "Nomad",
-  ];
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const num = Math.floor(Math.random() * 999) + 1;
-  return `${adj}${noun}${num}`;
+/**
+ * Counts active human users whose `lastOnlineAt` heartbeat is within the
+ * online threshold. NPCs and deactivated accounts are excluded.
+ *
+ * The AI Agent is also excluded: it is an `isNpc=0` player that refreshes its
+ * own `lastOnlineAt` every turn, so counting it would create a self-sustaining
+ * "online" state that kept the random-NPC cron firing every minute even when
+ * no real human is present.
+ */
+export async function countOnlineHumans(): Promise<number> {
+  const cutoff = new Date(Date.now() - ONLINE_THRESHOLD_MINUTES * 60 * 1000);
+  const [row] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(users)
+    .where(
+      and(
+        eq(users.isNpc, 0),
+        eq(users.isActive, 1),
+        ne(users.username, AGENT_USERNAME),
+        sql`${users.lastOnlineAt} >= ${cutoff}`
+      )
+    );
+  return Number(row?.count ?? 0);
 }
 
 /**
- * Returns the minimum interval (in minutes) that should elapse between
- * scheduled random-player creations, based on the current NPC population.
+ * Resolves the NPC-creation cadence.
  *
- *   0-599   : every 10 minutes
- *   >=600   : every 24 hours (1 per day to replace deleted ownerless NPCs)
+ * Fixed at ONE NPC every 30 minutes (`IDLE_INTERVAL_MINUTES`) regardless of
+ * whether any humans are online. The online-human count is still reported for
+ * the cron response payload, but no longer affects the interval, and `mode`
+ * is always "idle" so the cron's idle→online wake-path never fires.
  *
  * Onboarding NPC provisioning does NOT go through this path — onboarding
- * always gets its 3 starter NPCs regardless of the cap.
+ * always gets its starter NPCs regardless of this cadence.
  */
-export function getCreationIntervalMinutes(npcCount: number): number {
-  if (npcCount >= 600) return 24 * 60;
-  return 10;
+export async function getCreationContext(): Promise<{
+  onlineHumans: number;
+  intervalMinutes: number;
+  mode: "online" | "idle";
+}> {
+  const onlineHumans = await countOnlineHumans();
+  return {
+    onlineHumans,
+    intervalMinutes: IDLE_INTERVAL_MINUTES,
+    mode: "idle",
+  };
 }
 
 /**
@@ -129,10 +170,14 @@ export async function createRandomPlayer(): Promise<{
     let photoAuthorName: string | null = null;
     let photoAuthorUrl: string | null = null;
     let photoSourceUrl: string | null = null;
+    let photoMeta: NpcPhotoMeta | null = null;
+    let photoScore = 0;
 
     const queryOffset = Math.floor(Math.random() * PORTRAIT_QUERIES.length);
-    const MAX_ATTEMPTS = 6;
+    // Try every query once — one attempt per keyword in the pool.
+    const MAX_ATTEMPTS = PORTRAIT_QUERIES.length;
     let rateLimited = false;
+    let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
 
     for (let i = 0; i < MAX_ATTEMPTS && !avatarUrl; i++) {
       const query = PORTRAIT_QUERIES[(i + queryOffset) % PORTRAIT_QUERIES.length];
@@ -168,7 +213,8 @@ export async function createRandomPlayer(): Promise<{
         }
 
         if (!unsplashRes.ok) {
-          console.error(`Unsplash API error (attempt ${i + 1}):`, unsplashRes.status);
+          console.error(`Unsplash API error (attempt ${i + 1}/${MAX_ATTEMPTS}): HTTP ${unsplashRes.status}`);
+          skipReason = "unsplash_error";
           // 404/422 are per-query issues — try another query.
           // 429 is rate-limit, 401/403 are auth — stop retrying.
           if (unsplashRes.status === 404 || unsplashRes.status === 422) {
@@ -186,15 +232,19 @@ export async function createRandomPlayer(): Promise<{
           unsplashData.urls?.small ||
           unsplashData.urls?.thumb;
 
-        if (!candidateUrl) continue;
+        if (!candidateUrl) {
+          console.warn(`Unsplash photo missing image URLs on attempt ${i + 1}/${MAX_ATTEMPTS}`);
+          continue;
+        }
 
         const compressed = await downloadAndCompressAvatar(candidateUrl);
         if (!compressed) {
           // Don't store a hot-linked Unsplash CDN URL — it can rot and we
           // lose the offline-safe data URL we normally serve.
           console.warn(
-            `Failed to compress Unsplash avatar on attempt ${i + 1}; trying next candidate`
+            `Failed to compress Unsplash avatar on attempt ${i + 1}/${MAX_ATTEMPTS} (query: ${query}); trying next candidate`
           );
+          skipReason = "download";
           continue;
         }
         const finalUrl = compressed;
@@ -218,47 +268,71 @@ export async function createRandomPlayer(): Promise<{
           )
           .limit(1);
 
-        if (!duplicate) {
-          avatarUrl = finalUrl;
-          photoAuthorName = unsplashData.user?.name || unsplashData.user?.username || null;
-          photoAuthorUrl = unsplashData.user?.links?.html
-            ? `${unsplashData.user.links.html}?utm_source=networth&utm_medium=referral`
-            : null;
-          photoSourceUrl = sourceUrl;
-          // Trigger Unsplash download event (required by API guidelines).
-          // We await this (with a short timeout) so the request completes
-          // before the serverless invocation ends. Previously this was
-          // fire-and-forget, which on Vercel's runtime would often be killed
-          // mid-flight — violating Unsplash's attribution requirement.
-          if (unsplashData.links?.download_location) {
-            try {
-              const dlController = new AbortController();
-              const dlTimeout = setTimeout(() => dlController.abort(), 5000);
-              await fetch(unsplashData.links.download_location, {
-                headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-                signal: dlController.signal,
-              });
-              clearTimeout(dlTimeout);
-            } catch (err) {
-              console.error("Unsplash download event failed:", err);
-            }
-          }
-          console.log(`Unsplash avatar selected using query "${query}"`);
+        if (duplicate) {
+          console.warn(
+            `Unsplash photo already in use (duplicate on attempt ${i + 1}/${MAX_ATTEMPTS}, query: ${query})`
+          );
+          skipReason = "duplicate";
+          continue;
         }
+
+        // Found a unique, usable photo
+        avatarUrl = finalUrl;
+        photoAuthorName = unsplashData.user?.name || unsplashData.user?.username || null;
+        photoAuthorUrl = unsplashData.user?.links?.html
+          ? `${unsplashData.user.links.html}?utm_source=networth&utm_medium=referral`
+          : null;
+        photoSourceUrl = sourceUrl;
+        photoMeta = {
+          tags: unsplashData.tags,
+          altDescription: unsplashData.alt_description,
+          description: unsplashData.description,
+        };
+        photoScore = Number(unsplashData.likes ?? 0) || 0;
+        // Trigger Unsplash download event (required by API guidelines).
+        // We await this (with a short timeout) so the request completes
+        // before the serverless invocation ends. Previously this was
+        // fire-and-forget, which on Vercel's runtime would often be killed
+        // mid-flight — violating Unsplash's attribution requirement.
+        if (unsplashData.links?.download_location) {
+          try {
+            const dlController = new AbortController();
+            const dlTimeout = setTimeout(() => dlController.abort(), 5000);
+            await fetch(unsplashData.links.download_location, {
+              headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+              signal: dlController.signal,
+            });
+            clearTimeout(dlTimeout);
+          } catch (err) {
+            console.error("Unsplash download event failed:", err);
+          }
+        }
+        console.log(`Unsplash avatar selected using query "${query}" on attempt ${i + 1}/${MAX_ATTEMPTS}`);
       } catch (fetchError) {
-        console.error(`Unsplash fetch error (attempt ${i + 1}):`, fetchError);
+        console.error(`Unsplash fetch error (attempt ${i + 1}/${MAX_ATTEMPTS}):`, fetchError);
         continue;
       }
     }
 
     if (!avatarUrl) {
+      const reason = rateLimited
+        ? "rate_limit"
+        : skipReason === "duplicate"
+          ? `all ${MAX_ATTEMPTS} attempts returned duplicate photos (DB has many NPCs)`
+          : skipReason === "download"
+            ? `failed to download/compress all ${MAX_ATTEMPTS} candidate images`
+            : skipReason === "unsplash_error"
+              ? "Unsplash API returned errors on all attempts"
+              : `exhausted ${MAX_ATTEMPTS} attempts without finding a usable photo`;
+      console.error(`createRandomPlayer failed: ${reason}`);
       return {
         success: false,
-        message: rateLimited
-          ? "Unsplash rate limit reached — please try again later"
-          : "Could not fetch a fashion avatar image from Unsplash after multiple attempts",
+        message: `Could not fetch a unique avatar image from Unsplash (${reason})`,
       };
     }
+
+    // NPCs are always created WITHOUT a profession (hidden card) by design.
+    const profession: string | null = null;
 
     // Create the player, relying on the DB's unique constraint on username to
     // detect collisions atomically instead of the racy SELECT-then-INSERT
@@ -268,7 +342,11 @@ export async function createRandomPlayer(): Promise<{
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < 10 && !newPlayer; attempt++) {
-      const username = generateRandomUsername();
+      // First attempt tries a name derived from the photo metadata. If that
+      // collides (small keyword pool), fall back to the classic random name
+      // generator whose pool is far larger, reducing repeated collisions.
+      const username =
+        attempt === 0 ? generateNpcNameFromMeta(photoMeta) : generateRandomNpcName();
       try {
         const [row] = await db
           .insert(users)
@@ -283,6 +361,8 @@ export async function createRandomPlayer(): Promise<{
             photoAuthorName,
             photoAuthorUrl,
             photoSourceUrl,
+            photoScore,
+            profession,
           })
           .returning({ id: users.id, username: users.username });
         newPlayer = row;
@@ -299,12 +379,12 @@ export async function createRandomPlayer(): Promise<{
           //     so the caller can retry on the next tick with a new photo).
           if (/photo_source_url/i.test(msg)) {
             console.warn(
-              `Unsplash photo already used by another NPC (race with concurrent creation). Aborting this tick.`
+              `Unsplash photo already used by another NPC (race with concurrent creation). Giving up so the next tick retries with a new photo.`
             );
             return {
               success: false,
               message:
-                "Unsplash photo was claimed by a concurrent creation; will retry on next cron tick",
+                "Unsplash photo was claimed by a concurrent NPC creation; retry on next tick",
             };
           }
           console.warn(
@@ -330,7 +410,7 @@ export async function createRandomPlayer(): Promise<{
       };
     }
 
-    console.log(`Random player "${newPlayer.username}" (id: ${newPlayer.id}) created successfully.`);
+    console.log(`Random player "${newPlayer.username}" (id: ${newPlayer.id}) created successfully${profession ? ` with profession: ${profession}` : ""}.`);
 
     return {
       success: true,

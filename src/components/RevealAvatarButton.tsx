@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 
 interface RevealAvatarButtonProps {
   targetId: number;
@@ -14,6 +14,7 @@ interface RevealAvatarButtonProps {
   playerValue: number;
   countdown?: string | null;
   className?: string;
+  square?: boolean;
 }
 
 export function RevealAvatarButton({
@@ -22,6 +23,7 @@ export function RevealAvatarButton({
   playerValue,
   countdown,
   className,
+  square,
 }: RevealAvatarButtonProps) {
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
@@ -45,7 +47,7 @@ export function RevealAvatarButton({
     },
     onSuccess: (data) => {
       toast.success(
-        `Revealed ${targetUsername}! +1h reveal (cost ${formatNumber(data.cost)}¢). Value → ${formatNumber(data.newValue)}¢ (+${formatNumber(
+        `Revealed ${targetUsername}! +1h reveal (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
           data.creditsToPlayer
         )}¢ gifted) 👁️`
       );
@@ -64,7 +66,7 @@ export function RevealAvatarButton({
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
-      toast.error(`Not enough credits. Need ${formatNumber(cost)}¢`);
+      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
       return;
     }
     play("hire");
@@ -72,6 +74,32 @@ export function RevealAvatarButton({
   };
 
   const disabled = mutation.isPending || !canAfford;
+
+  if (square) {
+    return (
+      <Button
+        variant="outline"
+        onClick={handleClick}
+        disabled={disabled}
+        className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg ${
+          canAfford
+            ? "text-white border-0 bg-transparent hover:brightness-125 hover:bg-transparent"
+            : "border-gray-700 text-gray-500 cursor-not-allowed"
+        } ${className ?? ""}`}
+        style={canAfford ? navbarBtnStyle : undefined}
+        title={`Reveal ${targetUsername}'s avatar for 1 hour for ${formatCompact(cost)}¢`}
+      >
+        {mutation.isPending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <>
+            <Camera className="h-4 w-4" />
+            <span className="text-[7px] leading-none mt-0.5">Reveal</span>
+          </>
+        )}
+      </Button>
+    );
+  }
 
   return (
     <Button
@@ -84,14 +112,14 @@ export function RevealAvatarButton({
           : "border-gray-700 text-gray-500 cursor-not-allowed"
       } ${className ?? ""}`}
       style={canAfford ? navbarBtnStyle : undefined}
-      title={`Reveal ${targetUsername}'s avatar on Network for 1 hour for ${formatNumber(cost)}¢`}
+      title={`Reveal ${targetUsername}'s avatar on Network for 1 hour for ${formatCompact(cost)}¢`}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
           <Camera className="h-4 w-4 mr-2" />
-          Reveal ({formatNumber(cost)}¢)
+          Reveal ({formatCompact(cost)}¢)
           {countdown && <span className="ml-2 text-amber-300/70">· {countdown}</span>}
         </>
       )}

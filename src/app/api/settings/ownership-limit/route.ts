@@ -26,7 +26,7 @@ export async function GET() {
 
     const limit = user?.hireSlots ?? 20;
     const currentOwned = ownershipCount.count;
-    const tier = Math.max(0, Math.floor(limit / 10) - 2);
+    const tier = Math.min(50, Math.max(0, Math.floor(limit / 10) - 2));
     const nextSlotCost = Math.round(1000 * Math.pow(1.3, tier));
 
     return NextResponse.json({

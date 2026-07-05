@@ -6,7 +6,6 @@ import { eq, and, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { purchasePlayer } from "@/actions/purchasePlayer";
 import { getGoddessPowers } from "@/lib/goddess-powers";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -47,6 +46,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No active sell block — use the regular hire button" }, { status: 400 });
     }
 
+    // Check for an active unbreakable window (applies to bonus cards & goddesses during their initial 30 min)
+    // This overrides ALL break-block paths — even Goddess of War / Goddess of Creation cannot break it.
+    const unbreakableEnd = ownershipRecord.blockUnbreakableUntil
+      ? new Date(ownershipRecord.blockUnbreakableUntil).getTime()
+      : 0;
+    if (unbreakableEnd > now) {
+      const minutesLeft = Math.ceil((unbreakableEnd - now) / 60000);
+      return NextResponse.json(
+        {
+          error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
+        },
+        { status: 403 }
+      );
+    }
+
     // Load target value
     const [target] = await db
       .select({ id: users.id, username: users.username, playerValue: users.playerValue, credits: users.credits })
@@ -55,14 +69,6 @@ export async function POST(req: Request) {
 
     if (!target) {
       return NextResponse.json({ error: "Target player not found" }, { status: 404 });
-    }
-
-    // Check if target is a bonus card - their blocks are unbreakable
-    if (BONUS_CARD_USERNAMES.includes(target.username)) {
-      return NextResponse.json(
-        { error: "Bonus cards have an unbreakable partnership block that cannot be broken by any means" },
-        { status: 403 }
-      );
     }
 
     // Load buyer
@@ -101,10 +107,11 @@ export async function POST(req: Request) {
     }
 
     // Deduct break fee from buyer (0 for War/Creation holders)
+    // Use SQL to avoid race conditions with concurrent credit updates
     if (breakCost > 0) {
       await db
         .update(users)
-        .set({ credits: Math.max(Math.round((buyer.credits - breakCost) * 100) / 100, 0) })
+        .set({ credits: sql`credits - ${breakCost}` })
         .where(eq(users.id, buyerId));
 
       // Credit break fee to the current owner (compensation)
@@ -125,10 +132,12 @@ export async function POST(req: Request) {
 
     if (purchaseResult.error) {
       // Rollback: refund break fee to buyer, re-credit owner, restore block
-      await db
-        .update(users)
-        .set({ credits: Math.min(Math.round((buyer.credits) * 100) / 100, Number(MAX_CREDITS_SQL)) })
-        .where(eq(users.id, buyerId));
+      if (breakCost > 0) {
+        await db
+          .update(users)
+          .set({ credits: sql`LEAST(credits + ${breakCost}, ${sql.raw(MAX_CREDITS_SQL)})` })
+          .where(eq(users.id, buyerId));
+      }
       return NextResponse.json({ error: purchaseResult.error }, { status: 400 });
     }
 

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useState } from "react";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface ResignButtonProps {
   ownershipId: number;
@@ -43,7 +43,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
     },
     onSuccess: async (data) => {
       toast.success(
-        `You resigned from ${ownerUsername}! Paid ${formatNumber(data.cost)}¢.`
+        `You resigned from ${ownerUsername}! Paid ${formatCompact(data.cost)}¢.`
       );
       setOpen(false);
       await Promise.all([
@@ -68,7 +68,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm px-4 py-2 h-auto min-h-[36px] font-bold"
         >
           <DoorOpen className="h-4 w-4 mr-2" />
-          Resign — {formatNumber(cost)}¢
+          Resign — {formatCompact(cost)}¢
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
@@ -76,7 +76,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
           <DialogTitle className="text-white">Resign from {ownerUsername}?</DialogTitle>
           <DialogDescription className="text-gray-400">
             You will pay{" "}
-            <span className="text-red-400 font-semibold">{formatNumber(cost)}¢</span>{" "}
+            <span className="text-red-400 font-semibold">{formatCompact(cost)}¢</span>{" "}
             (90% of your credits) to{" "}
             <span className="text-white font-semibold">{ownerUsername}</span>{" "}
             to release yourself from their ownership.
@@ -101,7 +101,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
                 Resigning…
               </>
             ) : (
-              `Resign — ${formatNumber(cost)}¢`
+              `Resign — ${formatCompact(cost)}¢`
             )}
           </Button>
         </DialogFooter>

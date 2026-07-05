@@ -1,0 +1,282 @@
+import type { AgentStrategy } from "@/lib/agent/strategy";
+
+export type AgentDecision =
+  | { action: "BUY"; targetId: number; reason?: string }
+  | { action: "SELL_COMBO"; playerIds: number[]; reason?: string }
+  | { action: "BUY_SLOTS"; reason?: string } // use "+10 Player Slots" to raise the hire cap
+  | { action: "CREATE_NPC"; reason?: string } // use "Create NPC" to spawn a fresh target
+  | { action: "WAIT"; reason?: string };
+
+/**
+ * Deterministic, balanced fallback used when the LLM is disabled, unreachable,
+ * or returns something invalid. Safe and legal-by-construction:
+ *   1. Buy the cheapest affordable goddess (pursue the win) if any.
+ *   2. Otherwise fill a missing profession (enables combo income).
+ *   3. Otherwise ACCUMULATE: buy any affordable card to grow the roster toward
+ *      the mission ladder, which awards goddesses (at 100/200/300/400/500 owned,
+ *      plus the final "Goddess" at 10,000) — i.e. accumulation is itself a path
+ *      to winning.
+ *   4. Otherwise (can't afford anything) refuel by cashing in a sellable combo.
+ *   5. Otherwise wait.
+ * This naturally hoards while cash is healthy and only sells when low.
+ */
+export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
+  const affordableGoddess = strategy.goddessCandidates
+    .filter((g) => g.affordable)
+    .sort((a, b) => a.cost - b.cost);
+  const affordableBuy = strategy.buyCandidates
+    .filter((c) => c.value <= strategy.credits)
+    .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value); // prettiest photo first, value tie-break
+  const affordableGrowth = strategy.growthCandidates
+    .filter((c) => c.value <= strategy.credits)
+    .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value);
+  const wantsToBuy =
+    affordableGoddess.length > 0 || affordableBuy.length > 0 || affordableGrowth.length > 0;
+
+  // Every BUY (goddesses included) consumes a hire slot. When the roster is full
+  // the Agent must first expand capacity with the "+10 Player Slots" card or
+  // refuel by selling a combo — otherwise all buys would be rejected.
+  if (strategy.atHireLimit) {
+    if (strategy.slotUpgrade.affordable && wantsToBuy) {
+      return {
+        action: "BUY_SLOTS",
+        reason: "heuristic: at hire limit, buying +10 slots to keep accumulating",
+      };
+    }
+    if (strategy.comboCandidate) {
+      return {
+        action: "SELL_COMBO",
+        playerIds: strategy.comboCandidate.playerIds,
+        reason: "heuristic: at hire limit & can't expand, cashing combo to refuel",
+      };
+    }
+    return { action: "WAIT", reason: "heuristic: at hire limit, can't expand or sell" };
+  }
+
+  // 1) Grab an affordable, already-UNLOCKED goddess (toward the win).
+  if (affordableGoddess.length > 0) {
+    return {
+      action: "BUY",
+      targetId: affordableGoddess[0].targetId,
+      reason: `heuristic: acquire ${affordableGoddess[0].username} (toward win)`,
+    };
+  }
+
+  // 2) Fill a missing profession (enables combo income).
+  if (affordableBuy.length > 0) {
+    const c = affordableBuy[0];
+    return {
+      action: "BUY",
+      targetId: c.targetId,
+      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} ${c.profession}`,
+    };
+  }
+
+  // 3) Accumulate any affordable card to grow the owned-card count toward the
+  // mission ladder, which both AWARDS goddesses/bonus cards AND UNLOCKS buying
+  // them. Most-expensive-first to also pump card values and keep things lively.
+  if (affordableGrowth.length > 0) {
+    const c = affordableGrowth[0];
+    return {
+      action: "BUY",
+      targetId: c.targetId,
+      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} to grow roster (unlock mission goddesses)`,
+    };
+  }
+
+  // 4) Nothing affordable to hire → spawn a fresh cheap target with "Create NPC"
+  // so the market isn't a dead-end.
+  if (strategy.createNpc.affordable && !strategy.createNpc.onCooldown) {
+    return {
+      action: "CREATE_NPC",
+      reason: "heuristic: market thin, spawning an NPC target to hire next",
+    };
+  }
+
+  // 5) Broke -> cash in a combo to refuel.
+  if (strategy.comboCandidate) {
+    return {
+      action: "SELL_COMBO",
+      playerIds: strategy.comboCandidate.playerIds,
+      reason: "heuristic: low credits, cashing combo",
+    };
+  }
+
+  return { action: "WAIT", reason: "heuristic: nothing affordable/sellable" };
+}
+
+interface DecideOptions {
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+  timeoutMs?: number;
+}
+
+function buildPrompt(strategy: AgentStrategy): string {
+  return JSON.stringify(
+    {
+      objective:
+        "You are 'Agent', an aggressive player in a card game. There are TWO paths to WIN, both centered on owning all 6 goddesses: (A) ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 100/200/300/400/500 owned, plus the final 'Goddess' at 10,000 owned) and the 3 bonus cards (at 20); hoarding cards is itself a path to victory, so keep buying cards every turn while you have credits. (B) Acquire goddesses directly. Owning ALL 6 GODDESSES wins the game. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. LOCK RULE: goddesses and the 3 bonus cards are LOCKED for purchase until you UNLOCK them by completing the mission that awards them (i.e. by accumulating cards) \u2014 so accumulation is what unlocks them. 'goddessCandidates' already lists ONLY goddesses you have unlocked AND can currently buy; 'lockedGoddesses' lists goddesses you still need to unlock by accumulating. Do NOT try to buy locked cards. SINGLE-USE ACTION CARDS you may also use, like a normal player: BUY_SLOTS (the '+10 Player Slots' card) raises your hire cap \u2014 use it when slotsRemaining is 0/low so accumulation does not stall (every BUY, goddesses included, needs a free slot); CREATE_NPC (the 'Create NPC' card) spawns a fresh ownerless target \u2014 use it when the market has nothing affordable to hire. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: if at hire limit, BUY_SLOTS (or SELL_COMBO to refuel); else grab affordable goddesses, then accumulate cards (buyCandidates then growthCandidates); CREATE_NPC if nothing affordable; SELL_COMBO mainly to refuel when low on credits.",
+      credits: strategy.credits,
+      ownedCount: strategy.ownedCount,
+      ownedGoddessCount: strategy.ownedGoddessCount,
+      missionLevel: strategy.missionLevel,
+      nextMissionThreshold: strategy.nextMissionThreshold,
+      hireSlots: strategy.hireSlots,
+      slotsRemaining: strategy.slotsRemaining,
+      atHireLimit: strategy.atHireLimit,
+      slotUpgrade: strategy.slotUpgrade,
+      createNpc: strategy.createNpc,
+      lockedGoddesses: strategy.lockedGoddesses,
+      ownedProfessions: strategy.ownedProfessions,
+      buyCandidates: strategy.buyCandidates,
+      growthCandidates: strategy.growthCandidates,
+      goddessCandidates: strategy.goddessCandidates,
+      comboAvailable: strategy.comboCandidate
+        ? {
+            playerIds: strategy.comboCandidate.playerIds,
+            estimatedReward: strategy.comboCandidate.estimatedReward,
+          }
+        : null,
+      instructions:
+        "Choose exactly ONE action. Respond with strict JSON only: {\"action\":\"BUY\",\"targetId\":<id>} OR {\"action\":\"SELL_COMBO\",\"playerIds\":[6 ids from comboAvailable]} OR {\"action\":\"BUY_SLOTS\"} OR {\"action\":\"CREATE_NPC\"} OR {\"action\":\"WAIT\"}. For BUY, targetId MUST be a targetId from buyCandidates, growthCandidates, or goddessCandidates, you must afford it (cost/value <= credits), AND slotsRemaining must be > 0. Among affordable BUY candidates, prefer the one with the highest photoScore (best-looking photo), with value as the tie-break. Use BUY_SLOTS only if slotUpgrade.affordable is true. Use CREATE_NPC only if createNpc.affordable is true and createNpc.onCooldown is false. Prefer not to WAIT while you can still afford to accumulate cards. playerIds must equal comboAvailable.playerIds exactly.",
+    },
+    null,
+    0
+  );
+}
+
+/**
+ * Asks the configured DeepSeek (OpenAI-compatible) model to choose an action,
+ * validated strictly against the candidate set. Falls back to the heuristic on
+ * any error, timeout, or invalid/illegal response.
+ */
+export async function decideAction(
+  strategy: AgentStrategy,
+  opts: DecideOptions = {}
+): Promise<{ decision: AgentDecision; source: "llm" | "heuristic" }> {
+  // .trim() guards against trailing newlines that `vercel env add` appends when
+  // values are piped over stdin (a newline in a header value is a hard error).
+  const baseUrl = (opts.baseUrl ?? process.env.AGENT_LLM_BASE_URL ?? "").trim();
+  const apiKey = (opts.apiKey ?? process.env.AGENT_LLM_API_KEY ?? "").trim();
+  const model = (opts.model ?? process.env.AGENT_LLM_MODEL ?? "deepseek-chat").trim();
+  const timeoutMs = opts.timeoutMs ?? 8000;
+
+  // No LLM configured → heuristic.
+  if (!baseUrl || !apiKey) {
+    return { decision: heuristicDecision(strategy), source: "heuristic" };
+  }
+
+  // No card to BUY for the LLM to choose among → let the deterministic heuristic
+  // decide between BUY_SLOTS / CREATE_NPC / SELL_COMBO / WAIT without spending a
+  // token. (The heuristic still handles the single-use action cards.)
+  if (
+    strategy.buyCandidates.length === 0 &&
+    strategy.growthCandidates.length === 0 &&
+    strategy.goddessCandidates.length === 0
+  ) {
+    return { decision: heuristicDecision(strategy), source: "heuristic" };
+  }
+
+  const url = `${baseUrl.replace(/\/$/, "")}/v1/chat/completions`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        temperature: 0.3,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a careful game-playing agent. Reply with strict JSON only — no prose, no markdown.",
+          },
+          { role: "user", content: buildPrompt(strategy) },
+        ],
+      }),
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      console.error("Agent LLM HTTP error:", res.status);
+      return { decision: heuristicDecision(strategy), source: "heuristic" };
+    }
+
+    const data = await res.json();
+    const content: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!content) {
+      return { decision: heuristicDecision(strategy), source: "heuristic" };
+    }
+
+    const parsed = JSON.parse(content) as Partial<AgentDecision> & { action?: string };
+    const validated = validateDecision(parsed, strategy);
+    if (validated) {
+      return { decision: validated, source: "llm" };
+    }
+    return { decision: heuristicDecision(strategy), source: "heuristic" };
+  } catch (err) {
+    clearTimeout(timeout);
+    console.error("Agent LLM call failed:", err instanceof Error ? err.message : err);
+    return { decision: heuristicDecision(strategy), source: "heuristic" };
+  }
+}
+
+/**
+ * Re-validates an LLM-proposed decision against the legal candidate set.
+ * Returns null if the proposal is illegal/malformed (caller falls back).
+ */
+function validateDecision(
+  parsed: (Partial<AgentDecision> & { action?: string }) | null,
+  strategy: AgentStrategy
+): AgentDecision | null {
+  if (!parsed || typeof parsed.action !== "string") return null;
+
+  if (parsed.action === "WAIT") {
+    return { action: "WAIT", reason: "llm" };
+  }
+
+  if (parsed.action === "BUY") {
+    // A free hire slot is required for any purchase.
+    if (strategy.atHireLimit) return null;
+    const targetId = (parsed as { targetId?: unknown }).targetId;
+    if (typeof targetId !== "number") return null;
+    const ok =
+      strategy.buyCandidates.some((c) => c.targetId === targetId) ||
+      strategy.growthCandidates.some((c) => c.targetId === targetId) ||
+      strategy.goddessCandidates.some((g) => g.targetId === targetId);
+    if (!ok) return null;
+    return { action: "BUY", targetId, reason: "llm" };
+  }
+
+  if (parsed.action === "BUY_SLOTS") {
+    return strategy.slotUpgrade.affordable ? { action: "BUY_SLOTS", reason: "llm" } : null;
+  }
+
+  if (parsed.action === "CREATE_NPC") {
+    return strategy.createNpc.affordable && !strategy.createNpc.onCooldown
+      ? { action: "CREATE_NPC", reason: "llm" }
+      : null;
+  }
+
+  if (parsed.action === "SELL_COMBO") {
+    if (!strategy.comboCandidate) return null;
+    const ids = (parsed as { playerIds?: unknown }).playerIds;
+    if (!Array.isArray(ids) || ids.length !== 6) return null;
+    const want = new Set(strategy.comboCandidate.playerIds);
+    const got = new Set(ids.map((x) => Number(x)));
+    if (want.size !== got.size) return null;
+    for (const id of want) if (!got.has(id)) return null;
+    return { action: "SELL_COMBO", playerIds: strategy.comboCandidate.playerIds, reason: "llm" };
+  }
+
+  return null;
+}

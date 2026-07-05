@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
+import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import type { OnboardingState } from "@/types/onboarding";
 
@@ -14,35 +14,31 @@ export async function GET() {
   const userId = parseInt(session.user.id);
 
   try {
-    // Try to fetch onboarding state - columns may not exist yet
     let avatarCompleted = false;
-    let starterNpcIds: number[] = [];
     let onboardingComplete = false;
-    let actualOwnedCount = 0;
+    let profession: string | null = null;
 
     try {
       const [user] = await db
         .select({
           avatarCompleted: users.avatarCompleted,
-          onboardingNpcs: users.onboardingNpcs,
-          onboardingOwnedCount: users.onboardingOwnedCount,
           onboardingComplete: users.onboardingComplete,
           onboardingStarted: users.onboardingStarted,
           avatarUrl: users.avatarUrl,
           playerValue: users.playerValue,
           totalOnlineMinutes: users.totalOnlineMinutes,
+          profession: users.profession,
         })
         .from(users)
         .where(eq(users.id, userId));
 
       if (user) {
-        starterNpcIds = (user.onboardingNpcs as number[]) || [];
         avatarCompleted = user.avatarCompleted === 1;
         onboardingComplete = user.onboardingComplete === 1;
+        profession = user.profession ?? null;
 
-        // For players who have a custom uploaded avatar (data: URL) but avatarCompleted is 0,
-        // auto-fix the flag. This handles edge cases where the flag wasn't set properly.
-        // Note: Unsplash URLs don't count - only data: URLs mean the user uploaded their own.
+        console.log(`[onboarding] userId=${userId} avatarCompleted=${avatarCompleted} onboardingComplete=${onboardingComplete} onboardingStarted=${user.onboardingStarted} profession=${profession}`);
+
         if (!avatarCompleted && user.avatarUrl && user.avatarUrl.startsWith("data:")) {
           avatarCompleted = true;
           await db
@@ -51,17 +47,10 @@ export async function GET() {
             .where(eq(users.id, userId));
         }
 
-        // For existing/current players: if they have no onboarding NPCs assigned,
-        // they were created before the onboarding system existed.
-        // Automatically mark onboarding as complete so they don't see the onboarding flow.
-        // New players have onboardingStarted=1 set during their first avatar upload.
-        // We distinguish existing players from brand-new ones using onboardingStarted flag.
-        // If onboardingStarted=0 and they have no NPCs, they're likely existing players.
-        // Additional confirmation: having custom avatar, player value > 1, or online time.
         const hasCustomAvatar = !!user.avatarUrl && user.avatarUrl.startsWith("data:");
         const hasGameActivity = user.playerValue > 1 || user.totalOnlineMinutes > 0;
         const isLikelyExistingPlayer = user.onboardingStarted === 0 && (hasCustomAvatar || hasGameActivity);
-        if (!onboardingComplete && (!starterNpcIds || starterNpcIds.length === 0) && isLikelyExistingPlayer) {
+        if (!onboardingComplete && isLikelyExistingPlayer) {
           onboardingComplete = true;
           avatarCompleted = true;
           await db
@@ -69,70 +58,8 @@ export async function GET() {
             .set({ onboardingComplete: 1, avatarCompleted: 1 })
             .where(eq(users.id, userId));
         }
-
-        // Handle players who were reset: they may have stale onboarding NPCs from before
-        // the reset, but all ownership records were deleted. Detect this by checking if a
-        // player with real play history (totalOnlineMinutes > 0) has onboarding NPCs
-        // assigned but owns NONE of them. We use totalOnlineMinutes specifically because
-        // it's never cleared during resets and reliably distinguishes existing players from
-        // brand-new ones who just uploaded their avatar and got NPCs assigned.
-        // Note: We don't use isExistingPlayer here because hasCustomAvatar would be true
-        // for new players who just completed avatar upload (the step right before NPC purchase).
-        const hasPlayHistory = user.totalOnlineMinutes > 0;
-        if (!onboardingComplete && starterNpcIds.length > 0 && hasPlayHistory) {
-          // Check how many of the assigned onboarding NPCs this player currently owns
-          const ownedNpcsCheck = await db
-            .select({ ownedId: ownership.ownedId })
-            .from(ownership)
-            .where(eq(ownership.ownerId, userId));
-
-          const ownedIds = new Set(ownedNpcsCheck.map((o) => o.ownedId));
-          const ownedStarterCount = starterNpcIds.filter((id) => ownedIds.has(id)).length;
-
-          if (ownedStarterCount === 0) {
-            // Existing player has onboarding NPCs but owns none of them — stale state
-            // from a game reset or account fresh-start. Clear and auto-complete.
-            console.log(`Clearing stale onboarding for existing user ${userId} — owns 0/${starterNpcIds.length} starter NPCs`);
-            starterNpcIds = [];
-            onboardingComplete = true;
-            avatarCompleted = true;
-            await db
-              .update(users)
-              .set({
-                onboardingNpcs: [],
-                onboardingOwnedCount: 0,
-                onboardingComplete: 1,
-                avatarCompleted: 1,
-              })
-              .where(eq(users.id, userId));
-          }
-        }
-
-        // Recalculate owned count from ownership table to ensure accuracy
-        if (starterNpcIds.length > 0 && !onboardingComplete) {
-          const ownedNpcs = await db
-            .select({ ownedId: ownership.ownedId })
-            .from(ownership)
-            .where(eq(ownership.ownerId, userId));
-
-          const ownedIds = new Set(ownedNpcs.map((o) => o.ownedId));
-          actualOwnedCount = starterNpcIds.filter((id) => ownedIds.has(id)).length;
-
-          // Update the count in DB if it's different
-          if (actualOwnedCount !== user.onboardingOwnedCount) {
-            await db
-              .update(users)
-              .set({
-                onboardingOwnedCount: actualOwnedCount,
-                onboardingComplete: actualOwnedCount >= 3 ? 1 : 0,
-              })
-              .where(eq(users.id, userId));
-          }
-        }
       }
     } catch (dbError) {
-      // Onboarding columns may not exist yet - mark as complete for all existing players
-      // since the onboarding system isn't fully set up
       console.log("Onboarding columns may not exist, skipping onboarding:", dbError);
       avatarCompleted = true;
       onboardingComplete = true;
@@ -141,11 +68,14 @@ export async function GET() {
     const state: OnboardingState = {
       avatarCompleted,
       marketUnlocked: avatarCompleted,
-      starterNpcIds,
-      starterNpcOwnedCount: Math.min(actualOwnedCount, 3),
-      onboardingComplete: onboardingComplete || actualOwnedCount >= 3,
+      starterNpcIds: [],
+      starterNpcOwnedCount: 0,
+      onboardingComplete,
+      profession,
+      professionSelected: !!profession,
     };
 
+    console.log(`[onboarding] RETURNING userId=${userId} state=${JSON.stringify(state)}`);
     return NextResponse.json(state);
   } catch (error) {
     console.error("Onboarding fetch error:", error);

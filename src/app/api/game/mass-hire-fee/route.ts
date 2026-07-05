@@ -4,8 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getGoddessPowers } from "@/lib/goddess-powers";
-
-const MASS_HIRE_FEE = 1000;
+import { getBonusCardPrice, doubleBonusCardPrice } from "@/lib/bonus-card-price";
 
 export async function POST() {
   const session = await auth();
@@ -30,19 +29,26 @@ export async function POST() {
       return NextResponse.json({ ok: true, deducted: 0 });
     }
 
-    if (user.credits < MASS_HIRE_FEE) {
+    // Current global Mass Hire fee — doubles on each use.
+    const card = await getBonusCardPrice("Mass Hire");
+    const fee = card?.price ?? 1000;
+
+    if (user.credits < fee) {
       return NextResponse.json(
-        { error: `Mass Hire costs ${MASS_HIRE_FEE}¢. You don't have enough credits.` },
+        { error: `Mass Hire costs ${fee}¢. You don't have enough credits.` },
         { status: 400 }
       );
     }
 
     await db
       .update(users)
-      .set({ credits: sql`GREATEST(credits - ${MASS_HIRE_FEE}, 0)` })
+      .set({ credits: sql`GREATEST(credits - ${fee}, 0)` })
       .where(eq(users.id, userId));
 
-    return NextResponse.json({ ok: true, deducted: MASS_HIRE_FEE });
+    // Double the global price for the next use.
+    if (card) await doubleBonusCardPrice(card.id, card.price);
+
+    return NextResponse.json({ ok: true, deducted: fee });
   } catch (error) {
     console.error("Mass hire fee error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

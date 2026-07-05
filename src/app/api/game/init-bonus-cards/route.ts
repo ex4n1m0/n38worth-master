@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { inArray } from "drizzle-orm";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_IMAGES } from "@/lib/bonus-cards";
+import { eq, inArray } from "drizzle-orm";
+import { BONUS_CARD_USERNAMES, BONUS_CARD_IMAGES, BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 import { auth } from "@/lib/auth";
 
 export async function POST() {
@@ -23,10 +23,29 @@ export async function POST() {
       username => !existingUsernames.has(username)
     );
 
+    // Repair existing cards whose playerValue is below the intended base (e.g. created with 0 or 1)
+    const repairedCards: string[] = [];
+    const existingFull = await db
+      .select({ id: users.id, username: users.username, playerValue: users.playerValue })
+      .from(users)
+      .where(inArray(users.username, BONUS_CARD_USERNAMES));
+
+    for (const card of existingFull) {
+      const baseValue = BONUS_CARD_VALUES[card.username] ?? 1000;
+      if (card.playerValue < baseValue) {
+        await db
+          .update(users)
+          .set({ playerValue: baseValue, updatedAt: new Date() })
+          .where(eq(users.id, card.id));
+        repairedCards.push(card.username);
+      }
+    }
+
     if (cardsToCreate.length === 0) {
       return NextResponse.json({ 
         message: "All bonus cards already exist", 
         created: [],
+        repaired: repairedCards,
         alreadyExist: Array.from(existingUsernames)
       });
     }
@@ -41,7 +60,7 @@ export async function POST() {
           avatarUrl: BONUS_CARD_IMAGES[username],
           isNpc: 1,
           isProtected: 1,
-          playerValue: 0,
+          playerValue: BONUS_CARD_VALUES[username] ?? 1000,
           credits: 0,
         })
         .returning({ id: users.id, username: users.username });
@@ -52,6 +71,7 @@ export async function POST() {
     return NextResponse.json({
       message: `Created ${createdCards.length} bonus card(s)`,
       created: createdCards,
+      repaired: repairedCards,
       alreadyExist: Array.from(existingUsernames),
     });
   } catch (error) {

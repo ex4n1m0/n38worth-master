@@ -10,6 +10,7 @@ export interface GoddessPowers {
   hasTime: boolean;
   hasWar: boolean;
   hasAll: boolean;
+  temporaryKnowledgeUntil: string | null;
 }
 
 /**
@@ -17,6 +18,11 @@ export interface GoddessPowers {
  * Holding "Goddess" (Goddess of Creation) activates all powers.
  */
 export async function getGoddessPowers(userId: number): Promise<GoddessPowers> {
+  const [user] = await db
+    .select({ temporaryKnowledgeUntil: users.temporaryKnowledgeUntil })
+    .from(users)
+    .where(eq(users.id, userId));
+
   const goddessRows = await db
     .select({ username: users.username })
     .from(ownership)
@@ -31,13 +37,18 @@ export async function getGoddessPowers(userId: number): Promise<GoddessPowers> {
   const owned = new Set(goddessRows.map((r) => r.username));
 
   const hasAll = owned.has("Goddess");
+  const temporaryKnowledgeUntil = user?.temporaryKnowledgeUntil ?? null;
+  const hasTemporaryKnowledge = !!(
+    temporaryKnowledgeUntil && new Date(temporaryKnowledgeUntil) > new Date()
+  );
 
   return {
     hasWealth: hasAll || owned.has("Goddess of Wealth"),
-    hasKnowledge: hasAll || owned.has("Goddess of Knowledge"),
+    hasKnowledge: hasAll || owned.has("Goddess of Knowledge") || hasTemporaryKnowledge,
     hasFate: hasAll || owned.has("Goddess of Fate"),
     hasTime: hasAll || owned.has("Goddess of Time"),
     hasWar: hasAll || owned.has("Goddess of War"),
     hasAll,
+    temporaryKnowledgeUntil: temporaryKnowledgeUntil?.toISOString() ?? null,
   };
 }

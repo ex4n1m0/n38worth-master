@@ -39,7 +39,7 @@ export default function LoginPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/my-profile");
+        router.push("/leaderboard");
       });
     }
 
@@ -71,7 +71,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid username or password");
       } else {
-        router.push("/my-profile");
+        router.push("/leaderboard");
         router.refresh();
       }
     } catch {

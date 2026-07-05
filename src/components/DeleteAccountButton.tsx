@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface DeleteAccountButtonProps {
   playerValue: number;
@@ -82,7 +82,7 @@ export function DeleteAccountButton({
                 <p>
                   👤 Your <span className="text-white font-semibold">{ownerCount} owner{ownerCount !== 1 ? "s" : ""}</span> will
                   each receive a refund of{" "}
-                  <span className="text-t1-400 font-semibold">{formatNumber(refundPerOwner)}¢</span>{" "}
+                  <span className="text-t1-400 font-semibold">{formatCompact(refundPerOwner)}¢</span>{" "}
                   <span className="text-gray-500">(half your current value)</span>
                 </p>
               )}
