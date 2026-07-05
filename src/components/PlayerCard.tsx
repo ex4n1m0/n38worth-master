@@ -653,10 +653,7 @@ export function PlayerCard({
 
   if (leaderboardMode) {
     return (
-      <Link
-        href={`/players/${username}`}
-        onClick={canCombo ? handleComboToggle : undefined}
-      >
+      <Link href={`/players/${username}`}>
         <Card className={`${cardClassName} relative ${isComboSelected ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20" : ""}`}>
           {isComboSelected && (
             <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
@@ -695,9 +692,27 @@ export function PlayerCard({
                 {valueFloor >= 100 && (<Gem className="h-5 w-5 text-purple-400 shrink-0" />)}
                 {valueFloor >= 10 && valueFloor < 100 && (<Star className="h-5 w-5 text-yellow-400 shrink-0" />)}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {effectiveProfession || "Hidden"}
-              </p>
+              {/* The profession name is the combo toggle (owned players only);
+                  clicking anywhere else on the card opens the profile. */}
+              {canCombo ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleComboToggle}
+                  className={`inline-flex items-center gap-1 text-xs mt-0.5 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+                    isComboSelected
+                      ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
+                      : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
+                  }`}
+                  title="Tap to add/remove from your 6-profession combo"
+                >
+                  {effectiveProfession}
+                </span>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {effectiveProfession || "Hidden"}
+                </p>
+              )}
               <p className="text-xs font-semibold text-gray-300 mt-1">
                 {playerType === "human" ? "Human" : "NPC"}
               </p>
@@ -813,10 +828,7 @@ export function PlayerCard({
   }
 
   return (
-    <Link
-      href={`/players/${username}`}
-      onClick={canCombo ? handleComboToggle : undefined}
-    >
+    <Link href={`/players/${username}`}>
       <Card className={`${cardClassName} relative ${isComboSelected ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20" : ""}`}>
         {isComboSelected && (
           <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
@@ -848,9 +860,25 @@ export function PlayerCard({
                 {valueFloor >= 100 && (<Gem className="h-5 w-5 text-purple-400 shrink-0" />)}
                 {valueFloor >= 10 && valueFloor < 100 && (<Star className="h-5 w-5 text-yellow-400 shrink-0" />)}
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5 text-left">
-                {effectiveProfession || "Hidden"}
-              </p>
+              {canCombo ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={handleComboToggle}
+                  className={`inline-flex items-center gap-1 text-xs mt-0.5 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+                    isComboSelected
+                      ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
+                      : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
+                  }`}
+                  title="Tap to add/remove from your 6-profession combo"
+                >
+                  {effectiveProfession}
+                </span>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5 text-left">
+                  {effectiveProfession || "Hidden"}
+                </p>
+              )}
 
               <div className={`flex items-center gap-1 mt-1.5 ${getDynamicFontSize(playerValue)}`}>
                 <Coins className="h-3.5 w-3.5 text-t1-400 shrink-0" />
