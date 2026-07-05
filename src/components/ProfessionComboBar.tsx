@@ -85,14 +85,14 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-1.5">
-      <span className="flex items-center gap-1.5 shrink-0 text-sm sm:text-base font-bold text-amber-300 uppercase tracking-wide">
-        <Sparkles className="h-4 w-4 sm:h-5 sm:w-5" />
+      <span className="flex items-center gap-1.5 shrink-0 text-xs sm:text-sm font-bold text-amber-300 uppercase tracking-wide">
+        <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Combo
         <span className="font-bold text-amber-400/60">{combo.selectedCount}/6</span>
       </span>
-      <p className="text-sm sm:text-base font-bold leading-tight text-amber-200/60 flex-1 min-w-0">
-        Pick one player per profession (tap a profession filter to select) and sell the full set for{" "}
-        <span className="font-bold text-amber-300">10x combined value</span>. The 6 reset to floor & 6 fresh NPCs spawn.
+      <p className="text-[11px] sm:text-xs font-medium leading-tight text-amber-200/60 flex-1 min-w-0">
+        One player per profession — sell all 6 for{" "}
+        <span className="font-bold text-amber-300">10x combined value</span>. They reset to floor &amp; 6 fresh NPCs spawn.
       </p>
 
       {/* Sell Button - appears when all 6 selected */}

@@ -83,10 +83,6 @@ export default function LeaderboardPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-        <p className="text-yellow-400 text-2xl font-bold">
-          Collect as many cards as you can to win
-        </p>
-
         {/* Goddess Countdown Banner */}
         <GoddessCountdown />
 
