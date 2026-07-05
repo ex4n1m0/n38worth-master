@@ -50,8 +50,10 @@ async function fetchNpcAvatar(): Promise<NpcAvatar | null> {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
+      // Fetch a batch (one request, same rate-limit cost) so we can prefer the
+      // highest-liked / best-looking photo.
       const unsplashRes = await fetch(
-        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish`,
+        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&count=12`,
         {
           headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
           signal: controller.signal,
@@ -67,52 +69,59 @@ async function fetchNpcAvatar(): Promise<NpcAvatar | null> {
       }
 
       const unsplashData = await unsplashRes.json();
-      const candidateUrl =
-        unsplashData.urls?.regular ||
-        unsplashData.urls?.small ||
-        unsplashData.urls?.thumb;
-      if (!candidateUrl) continue;
+      // `count` returns an array; rank by likes so the best-looking photo wins.
+      const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
+        .filter(Boolean)
+        .sort((a, b) => (Number(b?.likes ?? 0) || 0) - (Number(a?.likes ?? 0) || 0));
 
-      const compressed = await downloadAndCompressAvatar(candidateUrl);
-      const finalUrl = compressed || candidateUrl;
+      for (const photo of batch) {
+        const candidateUrl =
+          photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
+        if (!candidateUrl) continue;
 
-      const sourceUrl = unsplashData.links?.html
-        ? `${unsplashData.links.html}?utm_source=networth&utm_medium=referral`
-        : null;
+        const compressed = await downloadAndCompressAvatar(candidateUrl);
+        const finalUrl = compressed || candidateUrl;
 
-      // Duplicate check
-      const [duplicate] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(
-          or(
-            eq(users.avatarUrl, finalUrl),
-            sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
+        const sourceUrl = photo.links?.html
+          ? `${photo.links.html}?utm_source=networth&utm_medium=referral`
+          : null;
+
+        // Duplicate check
+        const [duplicate] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            or(
+              eq(users.avatarUrl, finalUrl),
+              sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
+            )
           )
-        )
-        .limit(1);
-      if (duplicate) continue;
+          .limit(1);
+        if (duplicate) continue;
 
-      // Trigger Unsplash download event (fire and forget)
-      if (unsplashData.links?.download_location) {
-        fetch(unsplashData.links.download_location, {
-          headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-        }).catch((err) => console.error("Unsplash download event failed:", err));
+        // Trigger Unsplash download event (fire and forget)
+        if (photo.links?.download_location) {
+          fetch(photo.links.download_location, {
+            headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+          }).catch((err) => console.error("Unsplash download event failed:", err));
+        }
+
+        return {
+          avatarUrl: finalUrl,
+          photoAuthorName:
+            photo.user?.name || photo.user?.username || null,
+          photoAuthorUrl: photo.user?.links?.html
+            ? `${photo.user.links.html}?utm_source=networth&utm_medium=referral`
+            : null,
+          photoSourceUrl: sourceUrl,
+          photoScore: Number(photo.likes ?? 0) || 0,
+          tags: photo.tags,
+          altDescription: photo.alt_description,
+          description: photo.description,
+        };
       }
-
-      return {
-        avatarUrl: finalUrl,
-        photoAuthorName:
-          unsplashData.user?.name || unsplashData.user?.username || null,
-        photoAuthorUrl: unsplashData.user?.links?.html
-          ? `${unsplashData.user.links.html}?utm_source=networth&utm_medium=referral`
-          : null,
-        photoSourceUrl: sourceUrl,
-        photoScore: Number(unsplashData.likes ?? 0) || 0,
-        tags: unsplashData.tags,
-        altDescription: unsplashData.alt_description,
-        description: unsplashData.description,
-      };
+      // No usable photo in this batch — try the next query.
+      continue;
     } catch (err) {
       console.error(`Unsplash fetch error (attempt ${i + 1}):`, err);
       continue;

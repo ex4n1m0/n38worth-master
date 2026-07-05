@@ -186,8 +186,10 @@ export async function createRandomPlayer(): Promise<{
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
+        // Fetch a BATCH of random photos in a single request (same rate-limit
+        // cost as one) so we can prefer the best-looking / highest-liked one.
         const unsplashRes = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish`,
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&count=12`,
           {
             headers: {
               Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
@@ -227,87 +229,87 @@ export async function createRandomPlayer(): Promise<{
         }
 
         const unsplashData = await unsplashRes.json();
-        const candidateUrl =
-          unsplashData.urls?.regular ||
-          unsplashData.urls?.small ||
-          unsplashData.urls?.thumb;
+        // `count` returns an array; a bare request returns a single object.
+        // Rank the batch by likes (highest-scoring photo first) and take the
+        // first candidate that is unique and compresses successfully.
+        const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
+          .filter(Boolean)
+          .sort((a, b) => (Number(b?.likes ?? 0) || 0) - (Number(a?.likes ?? 0) || 0));
 
-        if (!candidateUrl) {
-          console.warn(`Unsplash photo missing image URLs on attempt ${i + 1}/${MAX_ATTEMPTS}`);
-          continue;
-        }
+        for (const photo of batch) {
+          const candidateUrl =
+            photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
+          if (!candidateUrl) continue;
 
-        const compressed = await downloadAndCompressAvatar(candidateUrl);
-        if (!compressed) {
-          // Don't store a hot-linked Unsplash CDN URL — it can rot and we
-          // lose the offline-safe data URL we normally serve.
-          console.warn(
-            `Failed to compress Unsplash avatar on attempt ${i + 1}/${MAX_ATTEMPTS} (query: ${query}); trying next candidate`
-          );
-          skipReason = "download";
-          continue;
-        }
-        const finalUrl = compressed;
-
-        // Check for duplicates using both avatarUrl and photoSourceUrl (Unsplash photo ID).
-        // NOTE: this is best-effort — there's no DB unique constraint, so a
-        // concurrent creation could still race past this check. Acceptable at
-        // current volume; add a unique index on photo_source_url to harden.
-        const sourceUrl = unsplashData.links?.html
-          ? `${unsplashData.links.html}?utm_source=networth&utm_medium=referral`
-          : null;
-
-        const [duplicate] = await db
-          .select({ id: users.id })
-          .from(users)
-          .where(
-            or(
-              eq(users.avatarUrl, finalUrl),
-              sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
-            )
-          )
-          .limit(1);
-
-        if (duplicate) {
-          console.warn(
-            `Unsplash photo already in use (duplicate on attempt ${i + 1}/${MAX_ATTEMPTS}, query: ${query})`
-          );
-          skipReason = "duplicate";
-          continue;
-        }
-
-        // Found a unique, usable photo
-        avatarUrl = finalUrl;
-        photoAuthorName = unsplashData.user?.name || unsplashData.user?.username || null;
-        photoAuthorUrl = unsplashData.user?.links?.html
-          ? `${unsplashData.user.links.html}?utm_source=networth&utm_medium=referral`
-          : null;
-        photoSourceUrl = sourceUrl;
-        photoMeta = {
-          tags: unsplashData.tags,
-          altDescription: unsplashData.alt_description,
-          description: unsplashData.description,
-        };
-        photoScore = Number(unsplashData.likes ?? 0) || 0;
-        // Trigger Unsplash download event (required by API guidelines).
-        // We await this (with a short timeout) so the request completes
-        // before the serverless invocation ends. Previously this was
-        // fire-and-forget, which on Vercel's runtime would often be killed
-        // mid-flight — violating Unsplash's attribution requirement.
-        if (unsplashData.links?.download_location) {
-          try {
-            const dlController = new AbortController();
-            const dlTimeout = setTimeout(() => dlController.abort(), 5000);
-            await fetch(unsplashData.links.download_location, {
-              headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-              signal: dlController.signal,
-            });
-            clearTimeout(dlTimeout);
-          } catch (err) {
-            console.error("Unsplash download event failed:", err);
+          const compressed = await downloadAndCompressAvatar(candidateUrl);
+          if (!compressed) {
+            // Don't store a hot-linked Unsplash CDN URL — it can rot and we
+            // lose the offline-safe data URL we normally serve.
+            skipReason = "download";
+            continue;
           }
+          const finalUrl = compressed;
+
+          // Check for duplicates using both avatarUrl and photoSourceUrl (Unsplash photo ID).
+          // NOTE: this is best-effort — there's no DB unique constraint, so a
+          // concurrent creation could still race past this check. Acceptable at
+          // current volume; add a unique index on photo_source_url to harden.
+          const sourceUrl = photo.links?.html
+            ? `${photo.links.html}?utm_source=networth&utm_medium=referral`
+            : null;
+
+          const [duplicate] = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(
+              or(
+                eq(users.avatarUrl, finalUrl),
+                sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
+              )
+            )
+            .limit(1);
+
+          if (duplicate) {
+            skipReason = "duplicate";
+            continue;
+          }
+
+          // Found a unique, usable photo (highest-liked available in this batch)
+          avatarUrl = finalUrl;
+          photoAuthorName = photo.user?.name || photo.user?.username || null;
+          photoAuthorUrl = photo.user?.links?.html
+            ? `${photo.user.links.html}?utm_source=networth&utm_medium=referral`
+            : null;
+          photoSourceUrl = sourceUrl;
+          photoMeta = {
+            tags: photo.tags,
+            altDescription: photo.alt_description,
+            description: photo.description,
+          };
+          photoScore = Number(photo.likes ?? 0) || 0;
+          // Trigger Unsplash download event (required by API guidelines).
+          // We await this (with a short timeout) so the request completes
+          // before the serverless invocation ends. Previously this was
+          // fire-and-forget, which on Vercel's runtime would often be killed
+          // mid-flight — violating Unsplash's attribution requirement.
+          if (photo.links?.download_location) {
+            try {
+              const dlController = new AbortController();
+              const dlTimeout = setTimeout(() => dlController.abort(), 5000);
+              await fetch(photo.links.download_location, {
+                headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+                signal: dlController.signal,
+              });
+              clearTimeout(dlTimeout);
+            } catch (err) {
+              console.error("Unsplash download event failed:", err);
+            }
+          }
+          console.log(
+            `Unsplash avatar selected using query "${query}" (likes=${photoScore}) on attempt ${i + 1}/${MAX_ATTEMPTS}`
+          );
+          break;
         }
-        console.log(`Unsplash avatar selected using query "${query}" on attempt ${i + 1}/${MAX_ATTEMPTS}`);
       } catch (fetchError) {
         console.error(`Unsplash fetch error (attempt ${i + 1}/${MAX_ATTEMPTS}):`, fetchError);
         continue;
