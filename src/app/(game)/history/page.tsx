@@ -14,6 +14,7 @@ import {
   Filter,
 } from "lucide-react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 import { useState } from "react";
 import { formatCompact } from "@/lib/utils";
@@ -159,23 +160,30 @@ export default function GameHistoryPage() {
                                     {event.actorUsername.slice(0, 2).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-sm text-white font-medium truncate">
+                                <Link
+                                  href={`/players/${event.actorUsername}`}
+                                  className="text-sm text-white font-medium truncate hover:text-t1-400 hover:underline transition-colors"
+                                >
                                   {event.actorUsername}
-                                </span>
+                                </Link>
                               </>
                             )}
                             
                             <span className="text-sm text-gray-400 flex-shrink-0">
-                              {event.eventType === "purchase" && "hired"}
+                              {event.eventType === "purchase" && "got"}
+                              {event.eventType === "pump" && "pumped"}
                               {event.eventType === "sell" && "fired"}
                               {event.eventType === "npc_deletion" && "deleted NPC"}
                               {event.eventType === "player_deletion" && "deleted player"}
                             </span>
 
                             {event.targetUsername && (
-                              <span className="text-sm text-white font-medium truncate">
+                              <Link
+                                href={`/players/${event.targetUsername}`}
+                                className="text-sm text-white font-medium truncate hover:text-t1-400 hover:underline transition-colors"
+                              >
                                 {event.targetUsername}
-                              </span>
+                              </Link>
                             )}
                           </div>
 
