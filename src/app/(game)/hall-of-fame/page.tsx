@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { Crown, Calendar, Star, Sparkles, Loader2, Wallet, Gift, ChevronDown } from "lucide-react";
+import { Crown, Calendar, Star, Loader2, Wallet, Gift, ChevronDown } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
 import { BonusCardMarket } from "@/components/BonusCardMarket";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
@@ -128,29 +128,18 @@ export default function HallOfFamePage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
-      {/* Game Goal — one-line win condition */}
-      <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-900/25 via-gray-900/60 to-amber-900/10 p-5 sm:p-6">
-        <div className="flex items-center gap-2 mb-2">
-          <Crown className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-xl sm:text-2xl font-black text-white">How to Win</h1>
-        </div>
-        <p className="text-sm sm:text-lg text-gray-200 leading-relaxed">
-          <span className="font-bold text-yellow-300">Own all 6 Goddesses and hold them for one full hour.</span>{" "}
-          The world then resets and your name is carved into the Hall of Fame forever.
-        </p>
-      </div>
-
       {/* Mission Progress */}
       <MissionProgress />
 
-      {/* Goddesses Section */}
+      {/* Goddesses Section — the heading doubles as the win-condition explainer. */}
       <div className="mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="h-5 w-5 text-purple-400" />
-          <h2 className="text-xl font-bold text-white">The 6 Goddesses</h2>
+        <div className="flex items-center gap-2 mb-2">
+          <Crown className="h-6 w-6 text-yellow-400" />
+          <h2 className="text-xl sm:text-2xl font-black text-white">How to Win</h2>
         </div>
-        <p className="text-sm sm:text-base text-amber-300/90 font-medium mb-4">
-          Claim all six Goddesses and wield their power—hold them for one hour to seize ultimate victory.
+        <p className="text-sm sm:text-lg text-gray-200 leading-relaxed mb-4">
+          <span className="font-bold text-yellow-300">Own all 6 Goddesses and hold them for one full hour.</span>{" "}
+          The world then resets and your name is carved into the Hall of Fame forever.
         </p>
         
         {goddessLoading ? (
