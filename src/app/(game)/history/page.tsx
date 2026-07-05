@@ -9,9 +9,7 @@ import { Button } from "@/components/ui/button";
 import {
   History,
   ShoppingCart,
-  DollarSign,
-  UserX,
-  Trash2,
+  Rocket,
   Loader2,
   Filter,
 } from "lucide-react";
@@ -23,31 +21,17 @@ import { formatCompact } from "@/lib/utils";
 const eventTypeConfig = {
   purchase: {
     icon: ShoppingCart,
-    label: "Purchase",
+    label: "Get",
     color: "text-green-400",
     bgColor: "bg-green-500/10",
     borderColor: "border-green-500/20",
   },
-  sell: {
-    icon: DollarSign,
-    label: "Sell",
-    color: "text-yellow-400",
-    bgColor: "bg-yellow-500/10",
-    borderColor: "border-yellow-500/20",
-  },
-  npc_deletion: {
-    icon: Trash2,
-    label: "NPC Deletion",
-    color: "text-red-400",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/20",
-  },
-  player_deletion: {
-    icon: UserX,
-    label: "Player Deletion",
-    color: "text-red-400",
-    bgColor: "bg-red-500/10",
-    borderColor: "border-red-500/20",
+  pump: {
+    icon: Rocket,
+    label: "Pump",
+    color: "text-fuchsia-400",
+    bgColor: "bg-fuchsia-500/10",
+    borderColor: "border-fuchsia-500/20",
   },
 };
 
@@ -74,11 +58,9 @@ export default function GameHistoryPage() {
   }
 
   const filters = [
-    { value: null, label: "All Events" },
-    { value: "purchase", label: "Hires" },
-    { value: "sell", label: "Fires" },
-    { value: "npc_deletion", label: "NPC Deletions" },
-    { value: "player_deletion", label: "Player Deletions" },
+    { value: null, label: "ALL" },
+    { value: "purchase", label: "GETS" },
+    { value: "pump", label: "PUMPS" },
   ];
 
   return (

@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership, messages } from "@/db/schema";
+import { users, ownership, messages, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
@@ -133,6 +133,19 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
         blockSellBy: owner.username,
       })
       .where(eq(ownership.id, record.id));
+
+    // Log to game history so pumps show up in the History feed ("PUMPS" filter).
+    try {
+      await db.insert(gameHistory).values({
+        eventType: "pump",
+        actorId: ownerId,
+        targetId: record.ownedId,
+        targetUsername: ownedPlayer.username,
+        details: JSON.stringify({ amount: cost, newValue }),
+      });
+    } catch (e) {
+      console.error("Pump game history insert error:", e);
+    }
 
     // Send a DM chat message to the owned player about the pump
     const now = new Date();
