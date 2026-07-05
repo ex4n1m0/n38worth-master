@@ -18,7 +18,7 @@ import {
 import { redirect } from "next/navigation";
 import { useLanguage } from "@/components/LanguageContext";
 import { useState } from "react";
-import { formatCompact, navbarBtnStyle } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 const eventTypeConfig = {
   purchase: {
@@ -103,10 +103,9 @@ export default function GameHistoryPage() {
             onClick={() => setFilter(f.value)}
             className={
               filter === f.value
-                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
+                ? "rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
             }
-            style={navbarBtnStyle}
           >
             <Filter className="h-3 w-3 mr-1" />
             {f.label}
