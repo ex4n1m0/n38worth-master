@@ -128,6 +128,9 @@ export default function HallOfFamePage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
+      {/* Rank category strips — pinned to the very top of the page. */}
+      <EmpireRankStrip />
+
       {/* Rewards & Income — collapsible, open by default, pinned to the top. */}
       {currentUserId && (
         <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
@@ -197,9 +200,6 @@ export default function HallOfFamePage() {
 
       {/* Bonus Cards market — moved here from the Market page, just below the Goddesses. */}
       <BonusCardsMarketSection currentUserId={currentUserId} />
-
-      {/* Rank category strips */}
-      <EmpireRankStrip />
 
       {/* Hall of Champions — on desktop this lives in the rank-strip dropdown
           above; the full list below is shown on mobile only (the strip is
