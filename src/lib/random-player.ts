@@ -18,12 +18,13 @@ import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } fro
 // looser 15-minute window here to avoid flapping between online/idle modes
 // when a player briefly tabs away.
 export const ONLINE_THRESHOLD_MINUTES = 15;
-// Interval between NPC creations when at least one human is online.
+// Interval between NPC creations when at least one human is online: ~3 minutes.
 // The cron ticks every minute (`*/1 * * * *` in vercel.json); we set this just
-// under 1 minute so normal cron jitter never skips a tick — i.e. one NPC per
-// minute while anyone is online.
-export const ACTIVE_INTERVAL_MINUTES = 0.9;
-// Interval between NPC creations when nobody is online.
+// under 3 so normal cron jitter never pushes creation onto the following tick
+// (which would stretch it toward 4 min). Effectively one NPC every 3 minutes
+// while anyone is online.
+export const ACTIVE_INTERVAL_MINUTES = 2.9;
+// Interval between NPC creations when nobody is online: one NPC every 30 minutes.
 export const IDLE_INTERVAL_MINUTES = 30;
 // On the idle→online transition we want to create immediately, but still
 // keep a tiny safety gap so we don't accidentally double-create if the cron
@@ -121,12 +122,13 @@ export async function countOnlineHumans(): Promise<number> {
 }
 
 /**
- * Resolves the NPC-creation cadence.
+ * Resolves the NPC-creation cadence based on whether any real humans are online:
+ *   - online (>= 1 human): one NPC every ~3 minutes (`ACTIVE_INTERVAL_MINUTES`).
+ *   - idle (nobody online): one NPC every 30 minutes (`IDLE_INTERVAL_MINUTES`).
  *
- * Fixed at ONE NPC every 30 minutes (`IDLE_INTERVAL_MINUTES`) regardless of
- * whether any humans are online. The online-human count is still reported for
- * the cron response payload, but no longer affects the interval, and `mode`
- * is always "idle" so the cron's idle→online wake-path never fires.
+ * Returning `mode: "online"` when humans are present also re-enables the cron's
+ * idle→online wake-path, so the first NPC lands promptly when someone shows up
+ * instead of waiting out a leftover idle interval.
  *
  * Onboarding NPC provisioning does NOT go through this path — onboarding
  * always gets its starter NPCs regardless of this cadence.
@@ -137,10 +139,11 @@ export async function getCreationContext(): Promise<{
   mode: "online" | "idle";
 }> {
   const onlineHumans = await countOnlineHumans();
+  const online = onlineHumans > 0;
   return {
     onlineHumans,
-    intervalMinutes: IDLE_INTERVAL_MINUTES,
-    mode: "idle",
+    intervalMinutes: online ? ACTIVE_INTERVAL_MINUTES : IDLE_INTERVAL_MINUTES,
+    mode: online ? "online" : "idle",
   };
 }
 

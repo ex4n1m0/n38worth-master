@@ -6,7 +6,7 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, CreditCard } from "lucide-react";
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { navbarBtnStyle } from "@/lib/utils";
 import { PROFESSIONS } from "@/lib/professions";
@@ -24,8 +24,10 @@ export default function PlayersPage() {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("most-owned");
+  const [sort, setSort] = useState("last-online");
   const [hasOwner, setHasOwner] = useState(false);
+  // Default market view shows ownerless cards ("no owner"). "" clears the filter.
+  const [ownerFilter, setOwnerFilter] = useState<"" | "none">("none");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -37,7 +39,7 @@ export default function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["players", debouncedSearch, page, sort, hasOwner, playerType, profession],
+    queryKey: ["players", debouncedSearch, page, sort, hasOwner, ownerFilter, playerType, profession],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -45,6 +47,7 @@ export default function PlayersPage() {
         sort,
         ...(debouncedSearch && { search: debouncedSearch }),
         ...(hasOwner && { hasOwner: "true" }),
+        ...(ownerFilter && { ownerFilter }),
         ...(playerType && { playerType }),
         ...(profession && { profession }),
       });
@@ -105,7 +108,13 @@ export default function PlayersPage() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => { setHasOwner(!hasOwner); setPage(1); }}
+            onClick={() => {
+              const next = !hasOwner;
+              setHasOwner(next);
+              // "Has owner" and "No owner" are mutually exclusive.
+              if (next) setOwnerFilter("");
+              setPage(1);
+            }}
             className={
               hasOwner
                 ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
@@ -115,6 +124,26 @@ export default function PlayersPage() {
           >
             <Crown className="h-3.5 w-3.5 mr-1" />
             {t.hasOwner}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const next = ownerFilter === "none" ? "" : "none";
+              setOwnerFilter(next);
+              // "No owner" and "Has owner" are mutually exclusive.
+              if (next === "none") setHasOwner(false);
+              setPage(1);
+            }}
+            className={
+              ownerFilter === "none"
+                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
+                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
+            }
+            style={navbarBtnStyle}
+          >
+            <UserX className="h-3.5 w-3.5 mr-1" />
+            No Owner
           </Button>
           <Button
             variant="ghost"
