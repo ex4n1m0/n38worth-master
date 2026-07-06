@@ -4,15 +4,9 @@ import { eq, sql, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { PROFESSIONS } from "@/lib/professions";
 import { MISSIONS } from "@/lib/missions";
-import { isPurchaseUnlockedAtLevel } from "@/lib/missions-data";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 import { getSlotCost, getCreateNpcState } from "@/lib/agent/actions";
-import {
-  GODDESS_USERNAMES,
-  MOST_EXPENSIVE_GODDESS,
-  MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
-  MOST_EXPENSIVE_GODDESS_MIN_VALUE,
-} from "@/lib/goddesses";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 export const PROFESSION_NAMES = PROFESSIONS.map((p) => p.name);
 
@@ -85,9 +79,10 @@ export interface AgentStrategy {
  *
  * Strategy: aggressively grow the roster (preferring to STEAL owned cards,
  * cheapest -> most expensive, before buying ownerless NPCs) to climb the
- * mission ladder and pursue the 6 distinct professions for combo sales, while
- * also tracking goddess acquisition toward a possible win. The runner picks
- * among buyCandidates / goddessCandidates / comboCandidate.
+ * mission ladder and pursue the 6 distinct professions for combo sales. The
+ * Agent is barred from BUYING goddesses and bonus cards, so the runner only
+ * picks among buyCandidates / growthCandidates / comboCandidate (plus the
+ * BUY_SLOTS / CREATE_NPC action cards). `goddessCandidates` is always empty.
  */
 export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
   // Agent credits + mission progress + hire capacity
@@ -189,58 +184,23 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     }
   }
 
-  // Goddess acquisition targets (toward owning all 6 => win). Exclude goddesses
-  // the Agent already owns and any currently blocked by another owner. The most
-  // expensive goddess is priced as a share of the economy; the rest at value.
+  // Goddesses are NOT purchasable by the Agent. We still read the goddess rows
+  // to report how many the Agent already owns (context/telemetry), but the Agent
+  // never buys goddesses — so no goddess buy candidates are ever produced.
   const goddessRows = await db
     .select({
       id: users.id,
-      username: users.username,
-      value: users.playerValue,
       ownerId: ownership.ownerId,
-      blockSellUntil: ownership.blockSellUntil,
     })
     .from(users)
     .leftJoin(ownership, eq(ownership.ownedId, users.id))
     .where(inArray(users.username, GODDESS_USERNAMES));
 
-  const [econ] = await db
-    .select({
-      total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
-    })
-    .from(users);
-  const economy = Number(econ?.total ?? 0);
-
   const ownedGoddessCount = goddessRows.filter((g) => g.ownerId === agentId).length;
+  // Agent is barred from buying goddesses AND bonus cards. Goddess candidates are
+  // always empty; buy/growth candidates already exclude bonus cards below.
   const goddessCandidates: GoddessCandidate[] = [];
   const lockedGoddesses: string[] = [];
-  for (const g of goddessRows) {
-    if (g.ownerId === agentId) continue; // already owned
-    // Mission lock: a goddess can only be BOUGHT once unlocked by completing the
-    // mission that awards it. Locked goddesses are surfaced (lockedGoddesses) so
-    // the Agent understands it must accumulate cards to unlock them, but they are
-    // NOT offered as buy candidates (the purchase would be rejected anyway).
-    if (!isPurchaseUnlockedAtLevel(g.username, missionLevel)) {
-      lockedGoddesses.push(g.username);
-      continue;
-    }
-    const blockedByOther =
-      g.ownerId != null &&
-      g.ownerId !== agentId &&
-      !!g.blockSellUntil &&
-      new Date(g.blockSellUntil).getTime() > now;
-    if (blockedByOther) continue; // can't steal right now
-    const cost =
-      g.username === MOST_EXPENSIVE_GODDESS
-        ? Math.max(MOST_EXPENSIVE_GODDESS_MIN_VALUE, Math.floor(economy * MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE))
-        : Number(g.value);
-    goddessCandidates.push({
-      targetId: g.id,
-      username: g.username,
-      cost,
-      affordable: cost <= credits,
-    });
-  }
 
   // Growth / accumulation targets: ANY acquirable card (regardless of
   // profession) bought purely to grow the owned-card count. Climbing the

@@ -113,10 +113,21 @@ export async function runAgentTurn(
     let success = false;
 
     if (decision.action === "BUY") {
-      const result = await buyPlayerCore(agentId, decision.targetId, 1);
-      detail = result;
-      success = !!result.success;
-      if (success && typeof result.cost === "number") spent = result.cost;
+      // Safety net: the Agent may NEVER buy goddesses or bonus cards. Those are
+      // never included in buyCandidates/growthCandidates, so a legal BUY target
+      // must be present in one of them. Reject anything else outright.
+      const allowedTarget =
+        strategy.buyCandidates.some((c) => c.targetId === decision.targetId) ||
+        strategy.growthCandidates.some((c) => c.targetId === decision.targetId);
+      if (!allowedTarget) {
+        detail = { error: "blocked: Agent may not buy goddesses or bonus cards" };
+        success = false;
+      } else {
+        const result = await buyPlayerCore(agentId, decision.targetId, 1);
+        detail = result;
+        success = !!result.success;
+        if (success && typeof result.cost === "number") spent = result.cost;
+      }
     } else if (decision.action === "SELL_COMBO") {
       const result = await sellComboCore(agentId, decision.playerIds);
       detail = result;

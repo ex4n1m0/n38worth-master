@@ -10,28 +10,25 @@ export type AgentDecision =
 /**
  * Deterministic, balanced fallback used when the LLM is disabled, unreachable,
  * or returns something invalid. Safe and legal-by-construction:
- *   1. Buy the cheapest affordable goddess (pursue the win) if any.
- *   2. Otherwise fill a missing profession (enables combo income).
- *   3. Otherwise ACCUMULATE: buy any affordable card to grow the roster toward
+ *   1. Fill a missing profession (enables combo income).
+ *   2. Otherwise ACCUMULATE: buy any affordable card to grow the roster toward
  *      the mission ladder, which awards goddesses (at 100/200/300/400/500 owned,
  *      plus the final "Goddess" at 10,000) — i.e. accumulation is itself a path
  *      to winning.
- *   4. Otherwise (can't afford anything) refuel by cashing in a sellable combo.
- *   5. Otherwise wait.
- * This naturally hoards while cash is healthy and only sells when low.
+ *   3. Otherwise (can't afford anything) refuel by cashing in a sellable combo.
+ *   4. Otherwise wait.
+ * Goddesses and bonus cards are NEVER bought — they are only earned via the
+ * mission ladder. This naturally hoards while cash is healthy and only sells
+ * when low.
  */
 export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
-  const affordableGoddess = strategy.goddessCandidates
-    .filter((g) => g.affordable)
-    .sort((a, b) => a.cost - b.cost);
   const affordableBuy = strategy.buyCandidates
     .filter((c) => c.value <= strategy.credits)
     .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value); // prettiest photo first, value tie-break
   const affordableGrowth = strategy.growthCandidates
     .filter((c) => c.value <= strategy.credits)
     .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value);
-  const wantsToBuy =
-    affordableGoddess.length > 0 || affordableBuy.length > 0 || affordableGrowth.length > 0;
+  const wantsToBuy = affordableBuy.length > 0 || affordableGrowth.length > 0;
 
   // Every BUY (goddesses included) consumes a hire slot. When the roster is full
   // the Agent must first expand capacity with the "+10 Player Slots" card or
@@ -53,16 +50,7 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     return { action: "WAIT", reason: "heuristic: at hire limit, can't expand or sell" };
   }
 
-  // 1) Grab an affordable, already-UNLOCKED goddess (toward the win).
-  if (affordableGoddess.length > 0) {
-    return {
-      action: "BUY",
-      targetId: affordableGoddess[0].targetId,
-      reason: `heuristic: acquire ${affordableGoddess[0].username} (toward win)`,
-    };
-  }
-
-  // 2) Fill a missing profession (enables combo income).
+  // 1) Fill a missing profession (enables combo income).
   if (affordableBuy.length > 0) {
     const c = affordableBuy[0];
     return {
@@ -72,19 +60,19 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     };
   }
 
-  // 3) Accumulate any affordable card to grow the owned-card count toward the
-  // mission ladder, which both AWARDS goddesses/bonus cards AND UNLOCKS buying
-  // them. Most-expensive-first to also pump card values and keep things lively.
+  // 2) Accumulate any affordable card to grow the owned-card count toward the
+  // mission ladder, which AWARDS goddesses/bonus cards for free. Most-expensive-
+  // first to also pump card values and keep things lively.
   if (affordableGrowth.length > 0) {
     const c = affordableGrowth[0];
     return {
       action: "BUY",
       targetId: c.targetId,
-      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} to grow roster (unlock mission goddesses)`,
+      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} to grow roster (earn mission goddesses)`,
     };
   }
 
-  // 4) Nothing affordable to hire → spawn a fresh cheap target with "Create NPC"
+  // 3) Nothing affordable to hire → spawn a fresh cheap target with "Create NPC"
   // so the market isn't a dead-end.
   if (strategy.createNpc.affordable && !strategy.createNpc.onCooldown) {
     return {
@@ -93,7 +81,7 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     };
   }
 
-  // 5) Broke -> cash in a combo to refuel.
+  // 4) Broke -> cash in a combo to refuel.
   if (strategy.comboCandidate) {
     return {
       action: "SELL_COMBO",
@@ -116,7 +104,7 @@ function buildPrompt(strategy: AgentStrategy): string {
   return JSON.stringify(
     {
       objective:
-        "You are 'Agent', an aggressive player in a card game. There are TWO paths to WIN, both centered on owning all 6 goddesses: (A) ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 100/200/300/400/500 owned, plus the final 'Goddess' at 10,000 owned) and the 3 bonus cards (at 20); hoarding cards is itself a path to victory, so keep buying cards every turn while you have credits. (B) Acquire goddesses directly. Owning ALL 6 GODDESSES wins the game. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. LOCK RULE: goddesses and the 3 bonus cards are LOCKED for purchase until you UNLOCK them by completing the mission that awards them (i.e. by accumulating cards) \u2014 so accumulation is what unlocks them. 'goddessCandidates' already lists ONLY goddesses you have unlocked AND can currently buy; 'lockedGoddesses' lists goddesses you still need to unlock by accumulating. Do NOT try to buy locked cards. SINGLE-USE ACTION CARDS you may also use, like a normal player: BUY_SLOTS (the '+10 Player Slots' card) raises your hire cap \u2014 use it when slotsRemaining is 0/low so accumulation does not stall (every BUY, goddesses included, needs a free slot); CREATE_NPC (the 'Create NPC' card) spawns a fresh ownerless target \u2014 use it when the market has nothing affordable to hire. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: if at hire limit, BUY_SLOTS (or SELL_COMBO to refuel); else grab affordable goddesses, then accumulate cards (buyCandidates then growthCandidates); CREATE_NPC if nothing affordable; SELL_COMBO mainly to refuel when low on credits.",
+        "You are 'Agent', an aggressive player in a card game. Your path to WIN is to ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 100/200/300/400/500 owned, plus the final 'Goddess' at 10,000 owned) and the 3 bonus cards (at 20). Owning ALL 6 GODDESSES wins the game, but you EARN goddesses ONLY through the mission ladder \u2014 so hoarding cards is your route to victory; keep buying regular cards every turn while you have credits. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. HARD RULE: you may NEVER buy goddesses or bonus cards \u2014 they are not offered as buy candidates and any attempt is rejected. Only 'buyCandidates' and 'growthCandidates' are buyable. SINGLE-USE ACTION CARDS you may still use, like a normal player: BUY_SLOTS (the '+10 Player Slots' card) raises your hire cap \u2014 use it when slotsRemaining is 0/low so accumulation does not stall (every BUY needs a free slot); CREATE_NPC (the 'Create NPC' card) spawns a fresh ownerless target \u2014 use it when the market has nothing affordable to hire. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: if at hire limit, BUY_SLOTS (or SELL_COMBO to refuel); else accumulate cards (buyCandidates then growthCandidates); CREATE_NPC if nothing affordable; SELL_COMBO mainly to refuel when low on credits.",
       credits: strategy.credits,
       ownedCount: strategy.ownedCount,
       ownedGoddessCount: strategy.ownedGoddessCount,
@@ -127,11 +115,9 @@ function buildPrompt(strategy: AgentStrategy): string {
       atHireLimit: strategy.atHireLimit,
       slotUpgrade: strategy.slotUpgrade,
       createNpc: strategy.createNpc,
-      lockedGoddesses: strategy.lockedGoddesses,
       ownedProfessions: strategy.ownedProfessions,
       buyCandidates: strategy.buyCandidates,
       growthCandidates: strategy.growthCandidates,
-      goddessCandidates: strategy.goddessCandidates,
       comboAvailable: strategy.comboCandidate
         ? {
             playerIds: strategy.comboCandidate.playerIds,
@@ -139,7 +125,7 @@ function buildPrompt(strategy: AgentStrategy): string {
           }
         : null,
       instructions:
-        "Choose exactly ONE action. Respond with strict JSON only: {\"action\":\"BUY\",\"targetId\":<id>} OR {\"action\":\"SELL_COMBO\",\"playerIds\":[6 ids from comboAvailable]} OR {\"action\":\"BUY_SLOTS\"} OR {\"action\":\"CREATE_NPC\"} OR {\"action\":\"WAIT\"}. For BUY, targetId MUST be a targetId from buyCandidates, growthCandidates, or goddessCandidates, you must afford it (cost/value <= credits), AND slotsRemaining must be > 0. Among affordable BUY candidates, prefer the one with the highest photoScore (best-looking photo), with value as the tie-break. Use BUY_SLOTS only if slotUpgrade.affordable is true. Use CREATE_NPC only if createNpc.affordable is true and createNpc.onCooldown is false. Prefer not to WAIT while you can still afford to accumulate cards. playerIds must equal comboAvailable.playerIds exactly.",
+        "Choose exactly ONE action. Respond with strict JSON only: {\"action\":\"BUY\",\"targetId\":<id>} OR {\"action\":\"SELL_COMBO\",\"playerIds\":[6 ids from comboAvailable]} OR {\"action\":\"BUY_SLOTS\"} OR {\"action\":\"CREATE_NPC\"} OR {\"action\":\"WAIT\"}. For BUY, targetId MUST be a targetId from buyCandidates or growthCandidates (goddesses and bonus cards are NOT buyable), you must afford it (value <= credits), AND slotsRemaining must be > 0. Among affordable BUY candidates, prefer the one with the highest photoScore (best-looking photo), with value as the tie-break. Use BUY_SLOTS only if slotUpgrade.affordable is true. Use CREATE_NPC only if createNpc.affordable is true and createNpc.onCooldown is false. Prefer not to WAIT while you can still afford to accumulate cards. playerIds must equal comboAvailable.playerIds exactly.",
     },
     null,
     0
@@ -172,8 +158,7 @@ export async function decideAction(
   // token. (The heuristic still handles the single-use action cards.)
   if (
     strategy.buyCandidates.length === 0 &&
-    strategy.growthCandidates.length === 0 &&
-    strategy.goddessCandidates.length === 0
+    strategy.growthCandidates.length === 0
   ) {
     return { decision: heuristicDecision(strategy), source: "heuristic" };
   }
@@ -249,10 +234,11 @@ function validateDecision(
     if (strategy.atHireLimit) return null;
     const targetId = (parsed as { targetId?: unknown }).targetId;
     if (typeof targetId !== "number") return null;
+    // Goddesses & bonus cards are never buyable by the Agent, so they are not in
+    // either candidate list — a BUY targeting one is rejected here.
     const ok =
       strategy.buyCandidates.some((c) => c.targetId === targetId) ||
-      strategy.growthCandidates.some((c) => c.targetId === targetId) ||
-      strategy.goddessCandidates.some((g) => g.targetId === targetId);
+      strategy.growthCandidates.some((c) => c.targetId === targetId);
     if (!ok) return null;
     return { action: "BUY", targetId, reason: "llm" };
   }
