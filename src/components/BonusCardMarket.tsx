@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ export function BonusCardMarket({
   const { play } = useSound();
   const { data: credits } = useCredits();
 
+  const isDemoPlayer = session?.user?.name?.startsWith("Demo Player") ?? false;
   const isMassHire = username === "Mass Hire";
   const isCreateNpc = username === "Create NPC";
   const isTenSlots = username === "+10 Player Slots";
@@ -130,7 +132,23 @@ export function BonusCardMarket({
   const massHireMutation = useMutation({
     mutationFn: async () => {
       const massHireFee = playerValue;
-      if (!credits || credits < massHireFee) {
+
+      // Read authoritative credits from the server. The cached value can be
+      // stale right after a reward claim (the demo auto-hire flow fires
+      // immediately after the daily reward lands), which would under-hire.
+      let currentCredits = credits ?? 0;
+      try {
+        const meRes = await fetch("/api/me");
+        if (meRes.ok) {
+          const me = await meRes.json();
+          const fresh = typeof me.credits === "number" ? me.credits : Number(me.credits);
+          if (Number.isFinite(fresh)) currentCredits = fresh;
+        }
+      } catch {
+        // fall back to the cached credits value
+      }
+
+      if (!currentCredits || currentCredits < massHireFee) {
         throw new Error(`Mass Hire costs ${formatNumber(massHireFee)}¢. You don't have enough credits.`);
       }
 
@@ -150,7 +168,7 @@ export function BonusCardMarket({
         throw new Error(feeData.error || "Failed to charge Mass Hire fee");
       }
 
-      let remainingCredits = credits - massHireFee;
+      let remainingCredits = currentCredits - massHireFee;
       let hiredCount = 0;
       let spent = 0;
       let failedCount = 0;
@@ -349,6 +367,31 @@ export function BonusCardMarket({
       ]);
     },
   });
+
+  // Demo players auto-fire Mass Hire once, right after their daily reward is
+  // claimed (LoginReward sets a flag + dispatches "demo-daily-claimed"), so they
+  // instantly get a roster to play with. One-shot guarded via sessionStorage
+  // ("demo-mass-hired", reset on fresh demo login) plus a ref for this mount.
+  const autoMassHiredRef = useRef(false);
+  useEffect(() => {
+    if (!isMassHire || !isDemoPlayer) return;
+
+    const tryAutoMassHire = () => {
+      if (autoMassHiredRef.current || typeof window === "undefined") return;
+      // Only after the daily reward has actually landed, and only once.
+      if (!sessionStorage.getItem("demo-reward-claimed")) return;
+      if (sessionStorage.getItem("demo-mass-hired")) return;
+      autoMassHiredRef.current = true;
+      sessionStorage.setItem("demo-mass-hired", "1");
+      massHireMutation.mutate();
+    };
+
+    // Fire if the reward was already claimed before this card mounted, or when
+    // the claim happens afterwards.
+    tryAutoMassHire();
+    window.addEventListener("demo-daily-claimed", tryAutoMassHire);
+    return () => window.removeEventListener("demo-daily-claimed", tryAutoMassHire);
+  }, [isMassHire, isDemoPlayer, massHireMutation]);
 
   const handleBuyClick = (e: React.MouseEvent) => {
     e.preventDefault();

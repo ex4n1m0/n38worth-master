@@ -89,11 +89,17 @@ export function LoginReward() {
       }
       // After a manual claim, send regular players straight to the market to
       // start spending. Demo players START on the End Game page and should stay
-      // there (their claim auto-fires below), so we skip the forward for them.
+      // there (their claim auto-fires below), so we skip the forward for them
+      // and instead trigger an automatic Mass Hire so they get a starting
+      // roster. The Mass Hire card (on this same page) fetches fresh credits,
+      // so the just-claimed reward is included.
       if (!isDemoPlayer) {
         setTimeout(() => {
           window.location.href = "/leaderboard";
         }, 700);
+      } else if (typeof window !== "undefined") {
+        sessionStorage.setItem("demo-reward-claimed", "1");
+        window.dispatchEvent(new Event("demo-daily-claimed"));
       }
     },
     onError: () => {

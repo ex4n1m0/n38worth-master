@@ -54,8 +54,12 @@ export default function RegisterPage() {
     play("buttons");
     setError("");
     setDemoLoading(true);
-    // Clear the one-shot guard so this fresh demo session auto-fires Mass Hire.
-    if (typeof window !== "undefined") sessionStorage.removeItem("demo-mass-hired");
+    // Reset the one-shot guards so this fresh demo session auto-fires Mass Hire
+    // only after its own daily reward is claimed (see LoginReward / BonusCardMarket).
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("demo-mass-hired");
+      sessionStorage.removeItem("demo-reward-claimed");
+    }
 
     try {
       const res = await fetch("/api/demo-register", { method: "POST" });
