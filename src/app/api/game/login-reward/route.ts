@@ -6,36 +6,45 @@ import { and, eq, lte, or, isNull, sql, desc } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
+const GODDESS_OF_WEALTH_USERNAME = "Goddess of Wealth";
 
 /**
  * Compute the login reward for a given claimer.
  *
- * The reward is 1% of the single wealthiest player's credits, transferred from
- * that player (not minted). To give everyone else a chance to catch up, the
- * current leader gets NOTHING: if the claimer IS the richest player overall,
- * the reward is 0. Both GET (preview) and POST (claim) use this so they stay
- * in sync.
+ * The reward equals the Goddess of Wealth card's CURRENT value, transferred
+ * from the richest HUMAN player (isNpc = 0 — this excludes NPC cards,
+ * goddesses, and bonus cards, which are all isNpc = 1). It's a transfer, not
+ * minted. To give everyone else a chance to catch up, the richest human gets
+ * NOTHING: if the claimer IS that player, the reward is 0. Both GET (preview)
+ * and POST (claim) use this so they stay in sync.
  */
 async function computeLoginReward(claimerId: number) {
-  // The single wealthiest player overall (could be the claimer).
+  // The single wealthiest HUMAN player (excludes NPC cards, goddesses, bonus cards).
   const [richest] = await db
-    .select({ id: users.id, credits: users.credits })
+    .select({ id: users.id })
     .from(users)
+    .where(and(eq(users.isNpc, 0), eq(users.isActive, 1)))
     .orderBy(desc(users.credits))
     .limit(1);
 
-  // Leader gets no reward. Also nothing to give if there are no players at all.
+  // Richest human gets no reward (can't transfer to themselves); also nothing
+  // to give if there are no other eligible human players.
   if (!richest || richest.id === claimerId) {
-    return { richestCredits: 0, rewardAmount: 0, sourceUserId: null };
+    return { rewardAmount: 0, sourceUserId: null };
   }
 
-  const richestCredits = Math.max(0, Number(richest.credits));
-  const rewardAmount = Math.round(richestCredits * 0.01 * 100) / 100;
+  // Reward amount = the Goddess of Wealth card's current value.
+  const [goddess] = await db
+    .select({ value: users.playerValue })
+    .from(users)
+    .where(eq(users.username, GODDESS_OF_WEALTH_USERNAME))
+    .limit(1);
+
+  const rewardAmount = Math.max(0, Math.round(Number(goddess?.value ?? 0) * 100) / 100);
 
   return {
-    richestCredits,
     rewardAmount,
-    sourceUserId: richest.id,
+    sourceUserId: rewardAmount > 0 ? richest.id : null,
   };
 }
 
@@ -95,12 +104,11 @@ export async function POST(req: Request) {
       });
     }
 
-    const { richestCredits, rewardAmount, sourceUserId } =
-      await computeLoginReward(userId);
+    const { rewardAmount, sourceUserId } = await computeLoginReward(userId);
 
-    // The current leader (richest player) earns nothing — this gives everyone
-    // else a chance to catch up. Don't consume their daily claim in that case,
-    // so they can claim a real reward once they're no longer #1.
+    // The richest human earns nothing — this gives everyone else a chance to
+    // catch up. Don't consume their daily claim in that case, so they can claim
+    // a real reward once they're no longer on top.
     if (rewardAmount <= 0 || sourceUserId === null) {
       return NextResponse.json({
         success: false,
@@ -166,7 +174,7 @@ export async function POST(req: Request) {
         userId,
         type: "login_reward",
         amount: rewardAmount,
-        details: JSON.stringify({ richestCredits, sourceUserId }),
+        details: JSON.stringify({ sourceUserId, source: "goddess_of_wealth_value" }),
       });
     } catch (historyError) {
       console.error("Reward history insert error (login):", historyError);
