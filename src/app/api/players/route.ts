@@ -246,15 +246,25 @@ export async function GET(req: Request) {
 
       const q = db.select(selectFields).from(users);
       const filtered = whereClause ? q.where(whereClause) : q;
-      // Default "last-online" view: players that have an owner appear first,
-      // with most-recently-online as the secondary criterion. Other sorts keep
-      // their single ordering.
-      const ownerFirstExpr = desc(
-        sql`((SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0)`
+      // Default "last-online" view: group players into ownership tiers —
+      // (0) no owner, (1) owned by someone else, (2) owned by ME — and, within
+      // each tier, show the most-recently-online first. Other sorts keep their
+      // single ordering.
+      const ownerBucketExpr = asc(
+        currentUserId
+          ? sql`(CASE
+              WHEN (SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0 THEN 0
+              WHEN EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId}) THEN 2
+              ELSE 1
+            END)`
+          : sql`(CASE
+              WHEN (SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0 THEN 0
+              ELSE 1
+            END)`
       );
       playersList = await (
         sort === "last-online"
-          ? filtered.orderBy(ownerFirstExpr, orderBy)
+          ? filtered.orderBy(ownerBucketExpr, orderBy)
           : filtered.orderBy(orderBy)
       )
         .limit(limit)
