@@ -174,9 +174,9 @@ export function BonusCardMarket({
       let failedCount = 0;
       const limit = 100;
 
-      // Hire cheapest-first, but prioritise players that already have an owner
-      // (hasOwner) before ownerless players (noBoss). Each pass paginates the
-      // cheapest matching players and hires within the remaining budget/slots.
+      // Hire the globally cheapest players first, across ALL options (owned or
+      // ownerless). The pass paginates the cheapest matching players and hires
+      // within the remaining budget/slots.
       const runHirePass = async (filter: Record<string, string>) => {
         let page = 1;
         while (true) {
@@ -247,10 +247,8 @@ export function BonusCardMarket({
         }
       };
 
-      // 1) Players that already have an owner, cheapest first.
-      await runHirePass({ hasOwner: "true" });
-      // 2) Remaining ownerless players, cheapest first.
-      await runHirePass({ noBoss: "true" });
+      // Single pass over ALL players (no owner filter), cheapest first.
+      await runHirePass({});
 
       return { hiredCount, spent, failedCount };
     },
