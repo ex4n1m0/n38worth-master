@@ -102,7 +102,7 @@ function BonusCardsMarketSection({ currentUserId }: { currentUserId: number | nu
 export default function HallOfFamePage() {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id ? Number(session.user.id) : null;
-  const [showRewards, setShowRewards] = useState(false);
+  const [showRewards, setShowRewards] = useState(true);
 
   const { data: winners = [], isLoading } = useQuery<HallOfFameEntry[]>({
     queryKey: ["hall-of-fame"],
@@ -128,6 +128,38 @@ export default function HallOfFamePage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
+      {/* Rewards & Income — collapsible, open by default, pinned to the top. */}
+      {currentUserId && (
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+          <button
+            onClick={() => setShowRewards((v) => !v)}
+            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
+          >
+            <span className="flex items-center gap-2 font-bold text-white">
+              <Wallet className="h-5 w-5 text-t1-400" />
+              Your Rewards &amp; Income
+            </span>
+            <ChevronDown
+              className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
+            />
+          </button>
+          {showRewards && (
+            <div className="p-4 pt-0 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <PortfolioRewardCountdown />
+                <RankBonusCountdown />
+                <BossIncomeCard userId={currentUserId} />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <RandomPlayerCountdown />
+                <LoginReward />
+              </div>
+              <RewardHistory />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Mission Progress */}
       <MissionProgress />
 
@@ -165,39 +197,6 @@ export default function HallOfFamePage() {
 
       {/* Bonus Cards market — moved here from the Market page, just below the Goddesses. */}
       <BonusCardsMarketSection currentUserId={currentUserId} />
-
-      {/* Rewards & Income — collapsible, collapsed by default to keep the focus
-          on the win condition. */}
-      {currentUserId && (
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
-          <button
-            onClick={() => setShowRewards((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
-          >
-            <span className="flex items-center gap-2 font-bold text-white">
-              <Wallet className="h-5 w-5 text-t1-400" />
-              Your Rewards &amp; Income
-            </span>
-            <ChevronDown
-              className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
-            />
-          </button>
-          {showRewards && (
-            <div className="p-4 pt-0 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <PortfolioRewardCountdown />
-                <RankBonusCountdown />
-                <BossIncomeCard userId={currentUserId} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <RandomPlayerCountdown />
-                <LoginReward />
-              </div>
-              <RewardHistory />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Rank category strips */}
       <EmpireRankStrip />
