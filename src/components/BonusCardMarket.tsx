@@ -86,11 +86,14 @@ export function BonusCardMarket({
     enabled: !!session && isTenSlots,
     staleTime: 30 * 1000,
   });
-  // "+10 Player Slots" keeps the slot-upgrade price; every other card shows its
-  // current global price (playerValue), which doubles on each hire/use.
+  // "+10 Player Slots" keeps the slot-upgrade price; Mass Hire is free; every
+  // other card shows its current global price (playerValue), which doubles on
+  // each hire/use.
   const displayValue = isTenSlots
     ? ownershipLimit?.nextSlotCost ?? originalValue
-    : playerValue;
+    : isMassHire
+      ? 0
+      : playerValue;
   const isOwned = ownerCount > 0 && !!ownerName;
   const isOwnProfile = !isActionCard && session?.user?.name === username;
   const bonusCardAvatarSrc = getAvatarSrc({
@@ -131,11 +134,9 @@ export function BonusCardMarket({
 
   const massHireMutation = useMutation({
     mutationFn: async () => {
-      const massHireFee = playerValue;
-
-      // Read authoritative credits from the server. The cached value can be
-      // stale right after a reward claim (the demo auto-hire flow fires
-      // immediately after the daily reward lands), which would under-hire.
+      // Mass Hire is FREE — no fee. Players only pay for the players they hire.
+      // Read authoritative credits from the server (the cached value can be
+      // stale right after a reward claim, e.g. the demo auto-hire flow).
       let currentCredits = credits ?? 0;
       try {
         const meRes = await fetch("/api/me");
@@ -148,10 +149,6 @@ export function BonusCardMarket({
         // fall back to the cached credits value
       }
 
-      if (!currentCredits || currentCredits < massHireFee) {
-        throw new Error(`Mass Hire costs ${formatNumber(massHireFee)}¢. You don't have enough credits.`);
-      }
-
       const slotRes = await fetch("/api/settings/ownership-limit");
       let slotsRemaining = Infinity;
       if (slotRes.ok) {
@@ -162,13 +159,7 @@ export function BonusCardMarket({
         }
       }
 
-      const feeRes = await fetch("/api/game/mass-hire-fee", { method: "POST" });
-      if (!feeRes.ok) {
-        const feeData = await feeRes.json();
-        throw new Error(feeData.error || "Failed to charge Mass Hire fee");
-      }
-
-      let remainingCredits = currentCredits - massHireFee;
+      let remainingCredits = currentCredits;
       let hiredCount = 0;
       let spent = 0;
       let failedCount = 0;
@@ -247,8 +238,10 @@ export function BonusCardMarket({
         }
       };
 
-      // Single pass over ALL players (no owner filter), cheapest first.
-      await runHirePass({});
+      // 1) Cheapest OWNERLESS players first.
+      await runHirePass({ noBoss: "true" });
+      // 2) Then the cheapest remaining players (already owned by someone else).
+      await runHirePass({ hasOwner: "true" });
 
       return { hiredCount, spent, failedCount };
     },
@@ -261,7 +254,6 @@ export function BonusCardMarket({
       } else {
         toast.success(
           `Mass Hire complete! Hired ${hiredCount} player${hiredCount === 1 ? "" : "s"} for ${formatNumber(spent)}¢` +
-            ` (+ ${formatNumber(playerValue)}¢ fee)` +
             (failedCount > 0 ? ` (${failedCount} failed)` : "")
         );
       }
@@ -447,7 +439,7 @@ export function BonusCardMarket({
 
           {/* Value Badge - current hire cost (doubles each hire) */}
           <Badge className={compact ? 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-[10px] break-all px-1.5 py-0.5' : 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-xs sm:text-sm break-all'}>
-            {formatCompact(displayValue)}¢
+            {isMassHire ? "Free" : `${formatCompact(displayValue)}¢`}
           </Badge>
 
           {/* Stats */}
@@ -493,7 +485,9 @@ export function BonusCardMarket({
               ) : isActionCard ? (
                 <>
                   <ShoppingCart className={compact ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'} />
-                  {compact ? formatCompact(displayValue) + '¢' : `Use for ${formatCompact(displayValue)}¢`}
+                  {isMassHire
+                    ? (compact ? "Free" : "Use (Free)")
+                    : compact ? formatCompact(displayValue) + '¢' : `Use for ${formatCompact(displayValue)}¢`}
                 </>
               ) : (
                 <>
