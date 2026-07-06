@@ -4,6 +4,7 @@ import { desc, eq, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { PROFESSIONS } from "@/lib/professions";
+import { countOnlineHumans } from "@/lib/random-player";
 
 const CHAT_LAST_KEY = "agent_chat_last_at"; // epoch seconds of last Agent chat
 const MAX_LENGTH = 200; // hard cap on the Agent's reply length
@@ -120,11 +121,17 @@ async function getAgentStats(agentId: number): Promise<AgentChatStats> {
  *   - Short, game-only replies. Stays silent if the LLM is unavailable
  *     (no canned spam, saves tokens).
  *
- * Online-gating (only chat when humans are present) is enforced by the caller.
+ * Online-gating (only chat when humans are present) is enforced HERE as well as
+ * by the caller — the Agent must never talk to an empty room.
  */
 export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> {
   if ((process.env.AGENT_ENABLED ?? "").trim() !== "true") {
     return { chatted: false, skipped: "disabled" };
+  }
+
+  // Hard gate: never chat unless at least one real human is online.
+  if ((await countOnlineHumans()) <= 0) {
+    return { chatted: false, skipped: "no humans online" };
   }
 
   const nowSec = Math.floor(Date.now() / 1000);

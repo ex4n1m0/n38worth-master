@@ -7,6 +7,7 @@ import { decideAction } from "@/lib/agent/llm";
 import { buyPlayerCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
 import { buyHireSlotsCore, createNpcCore } from "@/lib/agent/actions";
+import { countOnlineHumans } from "@/lib/random-player";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
@@ -52,18 +53,26 @@ export interface AgentRunResult {
 /**
  * Runs an Agent turn: up to `maxActions` moves (buy / sell-combo) per call.
  *
- * Online-gating (only act when humans are present) is enforced by the caller
- * (the cron route). Here we enforce the kill switch and an OPTIONAL daily spend
- * cap (disabled by default — set AGENT_DAILY_SPEND_CAP > 0 to re-enable). Every
- * executed action is independently re-validated by the action cores
- * (buyPlayerCore / sellComboCore). Each move re-reads game state so the burst
- * reacts to its own purchases.
+ * Online-gating (only act when humans are present) is enforced HERE as well as
+ * by the caller — the Agent must never play in an empty room. We also enforce
+ * the kill switch and an OPTIONAL daily spend cap (disabled by default — set
+ * AGENT_DAILY_SPEND_CAP > 0 to re-enable). Every executed action is
+ * independently re-validated by the action cores (buyPlayerCore /
+ * sellComboCore). Each move re-reads game state so the burst reacts to its own
+ * purchases.
  */
 export async function runAgentTurn(
   opts: { maxActions?: number } = {}
 ): Promise<AgentRunResult> {
   if ((process.env.AGENT_ENABLED ?? "").trim() !== "true") {
     return { ran: false, skipped: "disabled" };
+  }
+
+  // Hard gate: never play unless at least one real human is online. This mirrors
+  // the cron-route check so the Agent can't act in an empty room even if invoked
+  // from somewhere else. (countOnlineHumans excludes NPCs and the Agent itself.)
+  if ((await countOnlineHumans()) <= 0) {
+    return { ran: false, skipped: "no humans online" };
   }
 
   const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 1));
