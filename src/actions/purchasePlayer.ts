@@ -9,7 +9,7 @@ import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES, doublesOnUse } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
-import { checkAndAwardMissions } from "@/lib/missions";
+import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -82,6 +82,21 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     const targetIsHuman = target.isNpc === 0 && !isBonusCard && !isGoddess;
     if (targetIsHuman && !buyerHasAvatar) {
       return { error: "You need to upload a profile photo before you can hire human players" };
+    }
+
+    // Mission lock: goddesses and the 3 passive bonus cards can only be bought
+    // with credits once the buyer has obtained them from a mission at least
+    // once (i.e. completed the mission that awards them). Single-use action
+    // cards and regular players are never locked. `canPurchaseCard` returns
+    // true immediately (no DB hit) for non-lockable cards. This mirrors the
+    // check in buyPlayerCore and is enforced server-side so flows that bypass
+    // the UI (e.g. Mass Hire hitting /api/game/purchase directly) can't acquire
+    // a still-locked goddess.
+    const purchaseUnlocked = await canPurchaseCard(buyerId, target.username);
+    if (!purchaseUnlocked) {
+      return {
+        error: `🔒 ${target.username} is locked. Win it from a mission first to unlock buying it with credits.`,
+      };
     }
 
     // Effective value used for cost & doubling. Bonus cards are clamped to their
