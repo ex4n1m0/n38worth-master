@@ -66,7 +66,6 @@ async function main() {
         playerValue: g.valueFloor,
         blockSellUntil: null,
         blockSellBy: null,
-        blockUnbreakableUntil: null,
         updatedAt: new Date(),
       })
       .where(eq(users.id, g.id));
