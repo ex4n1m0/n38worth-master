@@ -11,6 +11,34 @@
 export const PG_BIGINT_MAX = BigInt("9223372036854775807");
 
 /**
+ * Maximum player (card) value ceiling — 1e12.
+ *
+ * Player values grow multiplicatively on every hire/pump. Without a ceiling
+ * they eventually approach Number.MAX_SAFE_INTEGER, at which point (a) plain JS
+ * number math loses precision and, more importantly, (b) the purchase cost
+ * (value × up to 6 block-hours) exceeds the maximum credits any player can ever
+ * hold (MAX_CREDITS ≈ 9e15) — so the card becomes impossible to buy.
+ *
+ * We cap values at 1e12. The priciest a card can ever cost is then
+ * 1e12 × 6 = 6e12, still ~1,500× below MAX_CREDITS, so top cards always stay
+ * affordable and every value/cost stays comfortably inside the lossless
+ * integer range (< 2^53).
+ */
+export const MAX_PLAYER_VALUE = 1_000_000_000_000; // 1e12
+
+/** String form for embedding inside raw SQL `LEAST(expr, ...)` */
+export const MAX_PLAYER_VALUE_SQL = "1000000000000";
+
+/**
+ * Cap a player value so it never exceeds MAX_PLAYER_VALUE (and never drops
+ * below 1). Use at every site that grows a player's value before writing it.
+ */
+export function capPlayerValue(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(1, Math.min(value, MAX_PLAYER_VALUE));
+}
+
+/**
  * Maximum credits we allow.  We use JS MAX_SAFE_INTEGER so that every
  * arithmetic operation in Node stays lossless.  The DB column is
  * double-precision which can store this exactly.

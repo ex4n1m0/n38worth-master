@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 
 const REVEAL_DURATION_MS = 10 * 60 * 60 * 1000; // 10 hours per card use (10 presses)
 const MAX_REVEAL_MS = 12 * 60 * 60 * 1000; // 12-hour hard cap
@@ -168,7 +168,7 @@ async function applyRevealToPlayer(
   const creditsToPlayer = Math.round(REVEAL_COST_MULTIPLIER * p.playerValue * CREDITS_TO_PLAYER_RATIO);
 
   // Compound value: value × 1.10^10
-  const newValue = Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, REVEAL_PRESSES));
+  const newValue = capPlayerValue(Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, REVEAL_PRESSES)));
 
   // Credit the target player
   await db

@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { capCredits } from "@/lib/safeguards";
+import { capCredits, capPlayerValue } from "@/lib/safeguards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -78,10 +78,7 @@ export async function POST(req: Request) {
     const currentValue = target.playerValue;
     const cost = Math.round(currentValue * 1.0 * 100) / 100;
     const creditsToPlayer = Math.round(cost * 0.90 * 100) / 100;
-    const newValue = Math.min(
-      Math.round(currentValue * 1.10),
-      Number.MAX_SAFE_INTEGER
-    );
+    const newValue = capPlayerValue(Math.round(currentValue * 1.10));
 
     if (cost < 0.01) {
       return NextResponse.json(

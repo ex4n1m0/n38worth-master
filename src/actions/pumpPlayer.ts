@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, ownership, messages, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
@@ -78,7 +78,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
 
     // Calculate cost: 100% of owned player's value
     const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * ownedPlayer.playerValue));
-    const newValue = Math.round(ownedPlayer.playerValue * VALUE_MULTIPLIER);
+    const newValue = capPlayerValue(Math.round(ownedPlayer.playerValue * VALUE_MULTIPLIER));
     const creditsToPlayer = cost; // 100% of cost goes to player
 
     // Check if owner has enough credits

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { pusher } from "@/lib/pusher-server";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
@@ -86,10 +86,7 @@ export async function POST(req: Request) {
     const currentValue = target.playerValue;
     const cost = Math.round(currentValue * 1.0 * 100) / 100;
     const creditsToPlayer = Math.round(cost * 0.90 * 100) / 100;
-    const newValue = Math.min(
-      Math.round(currentValue * 1.10),
-      Number.MAX_SAFE_INTEGER
-    );
+    const newValue = capPlayerValue(Math.round(currentValue * 1.10));
 
     if (cost < 0.01) {
       return NextResponse.json(

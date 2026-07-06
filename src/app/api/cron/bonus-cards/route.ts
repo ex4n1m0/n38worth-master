@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, inArray } from "drizzle-orm";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
-import { PG_BIGINT_MAX } from "@/lib/safeguards";
+import { MAX_PLAYER_VALUE } from "@/lib/safeguards";
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -56,8 +56,8 @@ export async function GET(req: Request) {
           const increase = currentValue / percentage;
           const newValue = currentValue + increase;
 
-          // Cap at PostgreSQL bigint limit
-          const cappedValue = newValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : newValue;
+          // Cap at MAX_PLAYER_VALUE (1e12) so values never outrun the credit cap
+          const cappedValue = newValue > BigInt(MAX_PLAYER_VALUE) ? BigInt(MAX_PLAYER_VALUE) : newValue;
 
           await db
             .update(users)
@@ -97,8 +97,8 @@ export async function GET(req: Request) {
             const increase = currentValue / percentage;
             const newValue = currentValue + increase;
 
-            // Cap at PostgreSQL bigint limit
-            const cappedValue = newValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : newValue;
+            // Cap at MAX_PLAYER_VALUE (1e12) so values never outrun the credit cap
+            const cappedValue = newValue > BigInt(MAX_PLAYER_VALUE) ? BigInt(MAX_PLAYER_VALUE) : newValue;
 
             await db
               .update(users)

@@ -9,7 +9,7 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { PG_BIGINT_MAX } from "@/lib/safeguards";
+import { MAX_PLAYER_VALUE } from "@/lib/safeguards";
 import { BONUS_CARD_VALUES, BONUS_CARD_IMAGES, doublesOnUse } from "@/lib/bonus-cards";
 
 export { doublesOnUse };
@@ -65,12 +65,12 @@ export async function getBonusCardPrice(
 }
 
 /**
- * Double a bonus card's global price (capped at the bigint limit). Pass the
+ * Double a bonus card's global price (capped at MAX_PLAYER_VALUE). Pass the
  * current price you already charged so the next hire/use costs 2×.
  */
 export async function doubleBonusCardPrice(cardId: number, currentPrice: number): Promise<void> {
   const doubled = BigInt(Math.max(0, Math.round(currentPrice))) * BigInt(2);
-  const capped = doubled <= PG_BIGINT_MAX ? Number(doubled) : currentPrice;
+  const capped = doubled > BigInt(MAX_PLAYER_VALUE) ? MAX_PLAYER_VALUE : Number(doubled);
   await db
     .update(users)
     .set({ playerValue: capped, updatedAt: new Date() })

@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, count } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 
 const BLOCK_SELL_DURATION_MS = 10 * 60 * 60 * 1000; // 10 hours per card use
 const MAX_BLOCK_MS = 12 * 60 * 60 * 1000; // 12-hour hard cap
@@ -126,7 +126,7 @@ export async function massBlockSell() {
 
         // Pay the owned player + bump value (compound 10 presses)
         const creditsToPlayer = Math.round(p.cost * CREDITS_TO_PLAYER_RATIO);
-        const newValue = Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, BLOCK_PRESSES));
+        const newValue = capPlayerValue(Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, BLOCK_PRESSES)));
         await db
           .update(users)
           .set({
@@ -191,7 +191,7 @@ export async function massBlockSell() {
 
       // Pay the owned player + bump value (compound 10 presses)
       const creditsToPlayer = Math.round(p.cost * CREDITS_TO_PLAYER_RATIO);
-      const newValue = Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, BLOCK_PRESSES));
+      const newValue = capPlayerValue(Math.round(p.playerValue * Math.pow(VALUE_MULTIPLIER, BLOCK_PRESSES)));
       await db
         .update(users)
         .set({

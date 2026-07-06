@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { users, ownership, transactions, gameHistory, rewardHistory } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { PG_BIGINT_MAX, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES, MOST_EXPENSIVE_GODDESS, MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE, MOST_EXPENSIVE_GODDESS_MIN_VALUE } from "@/lib/goddesses";
 import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES, doublesOnUse } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
@@ -234,12 +234,13 @@ export async function buyPlayerCore(
       const multiplier = getValueMultiplier(target.playerValue);
       bigIncreased = (bigPlayerValue * BigInt(Math.round(multiplier * 100))) / BigInt(100);
     }
-    // Cap at the PostgreSQL bigint limit (2^63 - 1) to prevent overflow
-    // Use BigInt for precise arithmetic since values may exceed JS safe integer range (2^53)
     // Ensure minimum increase of 1 to prevent stagnation at small values (integer division truncates)
     const bigNewValue = bigIncreased > bigPlayerValue ? bigIncreased : bigPlayerValue + BigInt(1);
-    const canIncrease = bigNewValue <= PG_BIGINT_MAX;
-    const newValue = canIncrease ? Number(bigNewValue) : target.playerValue;
+    // Cap at MAX_PLAYER_VALUE (1e12). Clamping in BigInt space keeps this precise
+    // even if a stored value was already above the ceiling; the result is ≤ 1e12
+    // so the Number() conversion is lossless. This guarantees the card stays
+    // affordable (cost = value × ≤6h stays far below the credit cap).
+    const newValue = Number(bigNewValue > BigInt(MAX_PLAYER_VALUE) ? BigInt(MAX_PLAYER_VALUE) : bigNewValue);
     // Economy boost: previous owner gets 100% + 1% per owned player as bonus,
     // purchased player receives 100%. Buyer pays `cost`, but more credits are minted
     // into the economy based on the previous owner's portfolio size.
@@ -387,7 +388,7 @@ export async function buyPlayerCore(
           const percentage = buyer.playerValue < 100 ? BigInt(10) : BigInt(100);
           const increase = currentValue / percentage;
           const bonusNewValue = currentValue + increase;
-          const cappedValue = bonusNewValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : bonusNewValue;
+          const cappedValue = bonusNewValue > BigInt(MAX_PLAYER_VALUE) ? BigInt(MAX_PLAYER_VALUE) : bonusNewValue;
 
           await db
             .update(users)
@@ -415,7 +416,7 @@ export async function buyPlayerCore(
             const percentage = player.playerValue < 100 ? BigInt(10) : BigInt(100);
             const increase = currentValue / percentage;
             const bonusNewValue = currentValue + increase;
-            const cappedValue = bonusNewValue > PG_BIGINT_MAX ? PG_BIGINT_MAX : bonusNewValue;
+            const cappedValue = bonusNewValue > BigInt(MAX_PLAYER_VALUE) ? BigInt(MAX_PLAYER_VALUE) : bonusNewValue;
 
             await db
               .update(users)

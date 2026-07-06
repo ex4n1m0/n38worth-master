@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { users, ownership, messages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of self value per hour
 const BLOCK_SELL_DURATION_MS = 1 * 60 * 60 * 1000; // 1 hour per press
@@ -57,7 +57,7 @@ export async function blockSell(ownershipId: number) {
 
     // Calculate cost: 100% of owned player's value per hour
     const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * ownedPlayer.playerValue));
-    const newValue = Math.round(ownedPlayer.playerValue * 1.10);
+    const newValue = capPlayerValue(Math.round(ownedPlayer.playerValue * 1.10));
     const creditsToPlayer = Math.round(cost * 0.90);
 
     // Check if owner has enough credits
