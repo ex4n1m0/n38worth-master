@@ -87,23 +87,21 @@ export function LoginReward() {
       } else {
         toast.info(data.message || "Reward already claimed");
       }
-      // After claiming, send the player straight to the market to start
-      // spending. Hard navigation guarantees the jump regardless of where the
-      // reward card is shown (e.g. the profile page). Short delay lets the
-      // reward toast flash first.
-      setTimeout(() => {
-        window.location.href = "/leaderboard";
-      }, 700);
+      // After a manual claim, send regular players straight to the market to
+      // start spending. Demo players START on the End Game page and should stay
+      // there (their claim auto-fires below), so we skip the forward for them.
+      if (!isDemoPlayer) {
+        setTimeout(() => {
+          window.location.href = "/leaderboard";
+        }, 700);
+      }
     },
     onError: () => {
       // For demo players the claim runs automatically. A failure here is almost
       // always a stale demo session (the previous demo account was purged after
-      // 1 hour), so don't strand them with a scary error — quietly forward them
-      // into the market and let the journey continue.
+      // 1 hour), so don't strand them with a scary error — stay quietly on the
+      // End Game page they start on rather than bouncing them elsewhere.
       if (isDemoPlayer) {
-        setTimeout(() => {
-          window.location.href = "/leaderboard";
-        }, 300);
         return;
       }
       toast.error("Failed to claim login reward");

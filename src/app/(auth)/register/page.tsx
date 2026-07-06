@@ -78,10 +78,10 @@ export default function RegisterPage() {
         setDemoLoading(false);
       } else {
         // Hard navigation so the freshly-created demo session is fully picked
-        // up before the profile loads. A soft router.push here raced with the
-        // session refresh. Demo players start on their own profile, where the
-        // daily reward auto-claims and forwards them into the market.
-        window.location.href = `/players/${encodeURIComponent(data.username)}`;
+        // up before the page loads. A soft router.push here raced with the
+        // session refresh. Demo players start on the End Game (Hall of Fame)
+        // page, where their daily reward auto-claims (see LoginReward).
+        window.location.href = "/hall-of-fame";
       }
     } catch {
       setError("Something went wrong. Please try again.");
