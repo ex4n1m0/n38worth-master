@@ -13,7 +13,17 @@ import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useCredits } from "@/hooks/useCredits";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatNumber, formatCompact } from "@/lib/utils";
-import { BONUS_CARD_POWERS } from "@/lib/bonus-cards";
+import { BONUS_CARD_POWERS, BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
+
+// Mass Hire must never target goddesses or bonus cards — those are earned via
+// mission progress, not bulk-hired. They're excluded client-side so the loop
+// doesn't waste attempts (and inflate the "failed" count) on cards the server
+// will reject anyway.
+const MASS_HIRE_EXCLUDED = new Set<string>([
+  ...GODDESS_USERNAMES,
+  ...BONUS_CARD_USERNAMES,
+]);
 
 interface BonusCardMarketProps {
   id: number;
@@ -164,12 +174,25 @@ export function BonusCardMarket({
           const res = await fetch(`/api/players?${params}`);
           if (!res.ok) break;
           const data = await res.json();
-          const players: Array<{ id: number; username: string; playerValue: number }> =
+          const rawPlayers: Array<{ id: number; username: string; playerValue: number }> =
             data.players || [];
 
-          if (players.length === 0) break;
+          if (rawPlayers.length === 0) break;
 
-          players.sort((a, b) => a.playerValue - b.playerValue);
+          // Never mass-hire goddesses or bonus cards. Keep the raw page length
+          // for pagination so filtering these out doesn't cut the pass short.
+          const players = rawPlayers
+            .filter((p) => !MASS_HIRE_EXCLUDED.has(p.username))
+            .sort((a, b) => a.playerValue - b.playerValue);
+
+          // Whole page was excluded, but later (pricier) pages may still have
+          // hireable cards — advance instead of ending the pass.
+          if (players.length === 0) {
+            if (rawPlayers.length < limit) break;
+            page++;
+            if (page > 20) break;
+            continue;
+          }
 
           if (players[0].playerValue > remainingCredits) break;
 
@@ -199,7 +222,7 @@ export function BonusCardMarket({
 
           if (hiredCount >= slotsRemaining) break;
           if (!anyHiredThisPage) break;
-          if (players.length < limit) break;
+          if (rawPlayers.length < limit) break;
           if (remainingCredits <= 0) break;
           page++;
           if (page > 20) break;
