@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, User, ShoppingCart, Loader2 } from "lucide-react";
+import { Gift, User, ShoppingCart, Loader2, Shield, Clock } from "lucide-react";
+import { BlockCountdownBar } from "./BlockCountdownBar";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -37,8 +37,29 @@ interface BonusCardMarketProps {
   ownedCount: number;
   ownerName?: string | null;
   ownerValue?: number | null;
+  blockSellUntil?: string | null;
   currentUserId: number | null;
   compact?: boolean;
+}
+
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
+/** Live partnership countdown — ticks down to the block end every second. */
+function PartnershipCountdown({ blockSellUntil }: { blockSellUntil: string | Date }) {
+  const endMs = new Date(blockSellUntil).getTime();
+  const [remaining, setRemaining] = useState(() => Math.max(0, endMs - Date.now()));
+  useEffect(() => {
+    const id = setInterval(() => setRemaining(Math.max(0, endMs - Date.now())), 1000);
+    return () => clearInterval(id);
+  }, [endMs]);
+  return <>{formatCountdown(remaining)}</>;
 }
 
 function getBonusCardEmoji(username: string): string {
@@ -63,6 +84,7 @@ export function BonusCardMarket({
   ownerCount,
   ownedCount,
   ownerName,
+  blockSellUntil,
   compact = false,
 }: BonusCardMarketProps) {
   const { data: session } = useSession();
@@ -99,6 +121,13 @@ export function BonusCardMarket({
       : playerValue;
   const isOwned = ownerCount > 0 && !!ownerName;
   const isOwnProfile = !isActionCard && session?.user?.name === username;
+  // Ownable (passive) bonus cards get a partnership sell-block + extend button,
+  // just like goddesses. Action cards (Mass Hire, Create NPC, etc.) never do.
+  const isOwnableCard = !isActionCard;
+  const isViewerOwner =
+    !!session?.user?.name && !!ownerName && session.user.name === ownerName;
+  const blockActive = !!blockSellUntil && new Date(blockSellUntil) > new Date();
+  const canAffordExtend = (credits ?? 0) >= displayValue;
   const bonusCardAvatarSrc = getAvatarSrc({
     avatarUrl,
     playerId: id,
@@ -329,6 +358,38 @@ export function BonusCardMarket({
     },
   });
 
+  // Extend partnership (+10 min) — owner only. Cost = the card's current value,
+  // burned from the economy (mirrors the goddess extend flow).
+  const extendMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/extend-partnership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId: id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to extend partnership");
+      return data as { cost: number };
+    },
+    onSuccess: async (data) => {
+      toast.success(`+10 min partnership on ${username}! (-${formatCompact(data.cost)}¢)`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["bonus-cards"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+      ]);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const handleExtendClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    play("hire");
+    extendMutation.mutate();
+  };
+
   const temporaryKnowledgeMutation = useMutation({
     mutationFn: async () => {
       const knowledgeCost = playerValue;
@@ -444,18 +505,9 @@ export function BonusCardMarket({
             </h3>
           </div>
 
-          {/* Value Badge - current hire cost (doubles each hire) */}
-          <Badge className={compact ? 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-[10px] break-all px-1.5 py-0.5' : 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-xs sm:text-sm break-all'}>
-            {isMassHire || createNpcIsFree ? "Free" : `${formatCompact(displayValue)}¢`}
-          </Badge>
-
-          {/* Stats */}
+          {/* Owner — the card's value is shown only in the action button below. */}
           {!isActionCard && !compact && (
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-gray-800/50 rounded-lg p-2">
-                <p className="text-gray-400 text-xs">Original</p>
-                <p className="text-white font-semibold text-[10px] sm:text-sm truncate">{formatCompact(originalValue)}¢</p>
-              </div>
+            <div className="grid grid-cols-1 gap-2">
               <div className="bg-gray-800/50 rounded-lg p-2">
                 <p className="text-gray-400 text-xs">Owner</p>
                 {isOwned ? (
@@ -480,8 +532,8 @@ export function BonusCardMarket({
             </div>
           )}
 
-          {/* Buy Button - hidden when user already owns this card */}
-          {session && !isOwnProfile && (isActionCard || !ownedIds.has(id)) && (
+          {/* Buy Button - hidden when the viewer already owns this card */}
+          {session && !isOwnProfile && !isViewerOwner && (isActionCard || !ownedIds.has(id)) && (
             <Button
               onClick={handleBuyClick}
               disabled={isPending}
@@ -502,6 +554,37 @@ export function BonusCardMarket({
                   {compact ? formatCompact(displayValue) + '¢' : `Hire for ${formatCompact(displayValue)}¢`}
                 </>
               )}
+            </Button>
+          )}
+
+          {/* Partnership sell-block countdown — ownable bonus cards only. */}
+          {isOwnableCard && blockActive && blockSellUntil && (
+            <div className="flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
+              <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
+                <Shield className="h-3 w-3" />
+                <PartnershipCountdown blockSellUntil={blockSellUntil} />
+              </span>
+              <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[70%]" />
+            </div>
+          )}
+
+          {/* Extend partnership (+10 min) — owner only. Cost = current value. */}
+          {isOwnableCard && isViewerOwner && (
+            <Button
+              onClick={handleExtendClick}
+              disabled={!canAffordExtend || extendMutation.isPending}
+              className={`w-full font-bold py-2 px-2 text-[9px] sm:text-[11px] leading-tight h-auto min-h-[2.5rem] ${
+                canAffordExtend
+                  ? "bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white shadow-lg"
+                  : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              }`}
+            >
+              {extendMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 shrink-0" />
+              ) : (
+                <Clock className="h-3 w-3 mr-1 shrink-0" />
+              )}
+              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatCompact(displayValue)}¢</span>
             </Button>
           )}
 

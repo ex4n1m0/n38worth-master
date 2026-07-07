@@ -25,7 +25,9 @@ export async function GET() {
         playerValue: users.playerValue,
         valueFloor: users.valueFloor,
         credits: users.credits,
-        blockSellUntil: users.blockSellUntil,
+        // Active sell-block from the ownership record (the real partnership
+        // timer), not the stale users column — mirrors the goddesses API.
+        blockSellUntil: sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.purchased_at DESC LIMIT 1)`.as("block_sell_until"),
         estimatedDeletionAt: users.estimatedDeletionAt,
         isActive: users.isActive,
         createdAt: users.createdAt,
