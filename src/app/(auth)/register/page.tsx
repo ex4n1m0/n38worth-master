@@ -39,7 +39,7 @@ export default function RegisterPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/leaderboard");
+        router.push("/hall-of-fame");
       });
     }
 
@@ -54,11 +54,13 @@ export default function RegisterPage() {
     play("buttons");
     setError("");
     setDemoLoading(true);
-    // Reset the one-shot guards so this fresh demo session auto-fires Mass Hire
-    // only after its own daily reward is claimed (see LoginReward / BonusCardMarket).
+    // Re-arm the one-shot guards so this fresh demo session auto-claims its daily
+    // reward and then auto-fires a bootstrap Mass Hire (see LoginReward /
+    // BonusCardMarket). "initial-mass-hire-pending" flags that a bootstrap hire
+    // is owed; it fires once the reward is claimed this session.
     if (typeof window !== "undefined") {
-      sessionStorage.removeItem("demo-mass-hired");
-      sessionStorage.removeItem("demo-reward-claimed");
+      sessionStorage.removeItem("auto-reward-claimed");
+      sessionStorage.setItem("initial-mass-hire-pending", "1");
     }
 
     try {
@@ -110,6 +112,12 @@ export default function RegisterPage() {
       return;
     }
 
+    // Re-arm the per-session daily-reward auto-claim for this fresh account. The
+    // one-time bootstrap Mass Hire is armed later, when onboarding completes.
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("auto-reward-claimed");
+    }
+
     try {
       const res = await fetch("/api/register", {
         method: "POST",
@@ -135,7 +143,10 @@ export default function RegisterPage() {
       if (signInResult?.error) {
         router.push("/login");
       } else {
-        router.push("/leaderboard");
+        // New accounts still need onboarding (avatar + profession); the global
+        // Navbar guard routes them to their profile until it's done, after which
+        // OnboardingProfessionStep sends them to the End Game page.
+        router.push("/hall-of-fame");
         router.refresh();
       }
     } catch {

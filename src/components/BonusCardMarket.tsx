@@ -73,7 +73,6 @@ export function BonusCardMarket({
   // Goddess of Fate (and Creation) creates NPCs for free.
   const { hasFate } = useKnowledgePower();
 
-  const isDemoPlayer = session?.user?.name?.startsWith("Demo Player") ?? false;
   const isMassHire = username === "Mass Hire";
   const isCreateNpc = username === "Create NPC";
   const isTenSlots = username === "+10 Player Slots";
@@ -363,30 +362,33 @@ export function BonusCardMarket({
     },
   });
 
-  // Demo players auto-fire Mass Hire once, right after their daily reward is
-  // claimed (LoginReward sets a flag + dispatches "demo-daily-claimed"), so they
-  // instantly get a roster to play with. One-shot guarded via sessionStorage
-  // ("demo-mass-hired", reset on fresh demo login) plus a ref for this mount.
+  // One-time bootstrap Mass Hire: fires once, right after the daily reward is
+  // claimed (LoginReward sets "auto-reward-claimed" + dispatches
+  // "auto-daily-claimed"), so a player instantly gets a starter roster. It only
+  // runs when a bootstrap hire is PENDING — armed at onboarding completion for
+  // new players, or on a fresh demo session. Established players never have the
+  // pending flag, so their credits are never auto-spent on login. The pending
+  // flag is cleared as soon as it fires, so it happens once per account.
   const autoMassHiredRef = useRef(false);
   useEffect(() => {
-    if (!isMassHire || !isDemoPlayer) return;
+    if (!isMassHire) return;
 
     const tryAutoMassHire = () => {
       if (autoMassHiredRef.current || typeof window === "undefined") return;
-      // Only after the daily reward has actually landed, and only once.
-      if (!sessionStorage.getItem("demo-reward-claimed")) return;
-      if (sessionStorage.getItem("demo-mass-hired")) return;
+      // Only when a bootstrap hire is owed AND the reward has landed this session.
+      if (!sessionStorage.getItem("initial-mass-hire-pending")) return;
+      if (!sessionStorage.getItem("auto-reward-claimed")) return;
       autoMassHiredRef.current = true;
-      sessionStorage.setItem("demo-mass-hired", "1");
+      sessionStorage.removeItem("initial-mass-hire-pending");
       massHireMutation.mutate();
     };
 
     // Fire if the reward was already claimed before this card mounted, or when
     // the claim happens afterwards.
     tryAutoMassHire();
-    window.addEventListener("demo-daily-claimed", tryAutoMassHire);
-    return () => window.removeEventListener("demo-daily-claimed", tryAutoMassHire);
-  }, [isMassHire, isDemoPlayer, massHireMutation]);
+    window.addEventListener("auto-daily-claimed", tryAutoMassHire);
+    return () => window.removeEventListener("auto-daily-claimed", tryAutoMassHire);
+  }, [isMassHire, massHireMutation]);
 
   const handleBuyClick = (e: React.MouseEvent) => {
     e.preventDefault();

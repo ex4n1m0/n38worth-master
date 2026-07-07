@@ -60,8 +60,13 @@ export function OnboardingProfessionStep() {
 
       toast.success(`You are now a ${selectedProfession}! 🔮`);
       await refresh();
-      // Onboarding is now complete — send the player straight to the market.
-      router.push("/leaderboard");
+      // Onboarding is complete — arm the one-time bootstrap Mass Hire (fires once
+      // the daily reward is auto-claimed) and send the player to the End Game
+      // page, where the reward auto-claims and the starter roster is hired.
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("initial-mass-hire-pending", "1");
+      }
+      router.push("/hall-of-fame");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to select profession"

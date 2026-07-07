@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift, Clock, Check, Loader2, Crown } from "lucide-react";
@@ -13,9 +12,10 @@ export function LoginReward() {
   const queryClient = useQueryClient();
   const [countdown, setCountdown] = useState<string>("");
   const { play } = useSound();
-  const { data: session } = useSession();
-  const isDemoPlayer = session?.user?.name?.startsWith("Demo Player") ?? false;
   const autoClaimedRef = useRef(false);
+  // Tracks whether the in-flight claim was auto-triggered (so a failure stays
+  // quiet instead of showing a scary error on page load).
+  const isAutoClaimRef = useRef(false);
 
   const { data: rewardStatus, isLoading } = useQuery({
     queryKey: ["login-reward-status"],
@@ -87,48 +87,48 @@ export function LoginReward() {
       } else {
         toast.info(data.message || "Reward already claimed");
       }
-      // After a manual claim, send regular players straight to the market to
-      // start spending. Demo players START on the End Game page and should stay
-      // there (their claim auto-fires below), so we skip the forward for them
-      // and instead trigger an automatic Mass Hire so they get a starting
-      // roster. The Mass Hire card (on this same page) fetches fresh credits,
-      // so the just-claimed reward is included.
-      if (!isDemoPlayer) {
-        setTimeout(() => {
-          window.location.href = "/leaderboard";
-        }, 700);
-      } else if (typeof window !== "undefined") {
-        sessionStorage.setItem("demo-reward-claimed", "1");
-        window.dispatchEvent(new Event("demo-daily-claimed"));
+      // All players START on the End Game page and stay there. Mark the reward
+      // as claimed for this session and notify the auto Mass Hire flow — if a
+      // one-time bootstrap hire is pending (new players after onboarding, or a
+      // fresh demo session) it fires now that credits are available. The Mass
+      // Hire card (same page) fetches fresh credits, so the just-claimed reward
+      // is included.
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("auto-reward-claimed", "1");
+        window.dispatchEvent(new Event("auto-daily-claimed"));
       }
+      isAutoClaimRef.current = false;
     },
     onError: () => {
-      // For demo players the claim runs automatically. A failure here is almost
-      // always a stale demo session (the previous demo account was purged after
-      // 1 hour), so don't strand them with a scary error — stay quietly on the
-      // End Game page they start on rather than bouncing them elsewhere.
-      if (isDemoPlayer) {
+      // Auto-claims run on page load; a failure there (e.g. a stale/purged
+      // session) shouldn't strand the player with a scary error. Only surface an
+      // error for an explicit manual claim.
+      if (isAutoClaimRef.current) {
+        isAutoClaimRef.current = false;
         return;
       }
       toast.error("Failed to claim login reward");
     },
   });
 
-  // Demo players auto-claim their daily reward the moment it's available. The
-  // claim's onSuccess then forwards them into the market. Guarded so it only
-  // fires once per mount.
+  // All players auto-claim their daily reward the moment it's available when
+  // they land on the End Game page. Guarded by a ref (once per mount) and a
+  // per-session sessionStorage flag (re-armed on each login), so it fires once
+  // per login session rather than on every remount.
   useEffect(() => {
     if (
-      isDemoPlayer &&
       rewardStatus?.canClaim &&
       !claimMutation.isPending &&
-      !autoClaimedRef.current
+      !autoClaimedRef.current &&
+      typeof window !== "undefined" &&
+      !sessionStorage.getItem("auto-reward-claimed")
     ) {
       autoClaimedRef.current = true;
+      isAutoClaimRef.current = true;
       play("hire");
       claimMutation.mutate();
     }
-  }, [isDemoPlayer, rewardStatus?.canClaim, claimMutation, play]);
+  }, [rewardStatus?.canClaim, claimMutation, play]);
 
   if (isLoading) {
     return (
