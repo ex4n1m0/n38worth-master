@@ -68,11 +68,18 @@ export async function runAgentTurn(
     return { ran: false, skipped: "disabled" };
   }
 
-  // Hard gate: never play unless at least one real human is online. This mirrors
-  // the cron-route check so the Agent can't act in an empty room even if invoked
-  // from somewhere else. (countOnlineHumans excludes NPCs and the Agent itself.)
-  if ((await countOnlineHumans()) <= 0) {
+  // Hard gate: only play when exactly one real human is online. This mirrors the
+  // cron-route check so the Agent can't act from anywhere else when it shouldn't.
+  // (countOnlineHumans excludes NPCs and the Agent itself.)
+  //   - 0 humans  → empty room, never play.
+  //   - >1 humans → real players are around; the Agent stops playing (it still
+  //                 chats via maybeAgentChat) so it doesn't compete/interfere.
+  const onlineHumans = await countOnlineHumans();
+  if (onlineHumans <= 0) {
     return { ran: false, skipped: "no humans online" };
+  }
+  if (onlineHumans > 1) {
+    return { ran: false, skipped: "multiple humans online — chat only" };
   }
 
   const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 1));

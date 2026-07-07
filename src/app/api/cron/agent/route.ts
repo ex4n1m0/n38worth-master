@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { countOnlineHumans } from "@/lib/random-player";
-import { runAgentTurn } from "@/lib/agent/runner";
+import { runAgentTurn, type AgentRunResult } from "@/lib/agent/runner";
 import { ensureAgent } from "@/lib/agent/seed";
 import { maybeAgentChat } from "@/lib/agent/chat";
 
@@ -13,8 +13,10 @@ export const maxDuration = 60;
  * Gating:
  *   - CRON_SECRET bearer (same as other crons).
  *   - AGENT_ENABLED must be "true" (checked inside runAgentTurn).
- *   - The Agent ONLY acts on ticks where at least one human is online.
- *     No empty-room play.
+ *   - PLAYING only happens when exactly one human is online (no empty-room play;
+ *     and it stops playing when 2+ humans are online to avoid interfering).
+ *   - CHATTING happens whenever at least one human is online — including when
+ *     2+ are online and the Agent has stopped playing.
  */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -36,7 +38,7 @@ export async function GET(req: Request) {
     // ticks where it doesn't act (e.g. no humans online). Cheap (cached id).
     const agentId = await ensureAgent();
 
-    // Only play when humans are online.
+    // Nothing to do in an empty room — never play or chat with no humans online.
     const onlineHumans = await countOnlineHumans();
     if (onlineHumans <= 0) {
       return NextResponse.json({
@@ -48,10 +50,19 @@ export async function GET(req: Request) {
       });
     }
 
-    const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 6);
-    const result = await runAgentTurn({ maxActions });
+    // Play only when a single human is online (keeps the lone player company).
+    // With more than one human online the Agent STOPS playing so it doesn't
+    // compete with / interfere among real players — but it still chats below.
+    let result: AgentRunResult;
+    if (onlineHumans <= 1) {
+      const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 3);
+      result = await runAgentTurn({ maxActions });
+    } else {
+      result = { ran: false, skipped: "multiple humans online — chat only" };
+    }
 
-    // Reactive, throttled public-chat reply (only when a human posted recently).
+    // Reactive, throttled public-chat reply (runs whenever humans are online,
+    // including when 2+ are online and the Agent has stopped playing).
     let chat;
     try {
       chat = await maybeAgentChat(agentId);
