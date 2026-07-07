@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ownership, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 
 export async function GET() {
   const session = await auth();
@@ -26,8 +27,9 @@ export async function GET() {
 
     const limit = user?.hireSlots ?? 20;
     const currentOwned = ownershipCount.count;
-    const tier = Math.min(50, Math.max(0, Math.floor(limit / 10) - 2));
-    const nextSlotCost = Math.round(1000 * Math.pow(1.3, tier));
+    // Pinned to the "+10 Player Slots" card floor — a flat price that no longer
+    // escalates with slot count.
+    const nextSlotCost = BONUS_CARD_VALUES["+10 Player Slots"] ?? 1000;
 
     return NextResponse.json({
       limit,

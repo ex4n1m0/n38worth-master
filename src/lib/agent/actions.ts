@@ -3,6 +3,7 @@ import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { createRandomPlayer } from "@/lib/random-player";
 import { getBonusCardPrice, doubleBonusCardPrice } from "@/lib/bonus-card-price";
+import { BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 
 /**
  * Session-free cores for the single-use "action" bonus cards the AI Agent can
@@ -19,16 +20,15 @@ import { getBonusCardPrice, doubleBonusCardPrice } from "@/lib/bonus-card-price"
  */
 
 const SLOTS_PER_PURCHASE = 10;
-const MAX_SLOT_TIER = 50;
 const CREATE_NPC_COOLDOWN_MS = 30_000;
 
 /**
- * Cost to buy the next +10 slots — 1.3× per tier, capped at tier 50.
- * Mirrors the formula in `/api/game/buy-hire-slots` and `/api/settings/ownership-limit`.
+ * Cost to buy the next +10 slots — pinned to the "+10 Player Slots" card floor
+ * (a flat price that no longer escalates). Mirrors `/api/game/buy-hire-slots`
+ * and `/api/settings/ownership-limit`.
  */
-export function getSlotCost(currentSlots: number): number {
-  const tier = Math.min(MAX_SLOT_TIER, Math.max(0, Math.floor(currentSlots / 10) - 2));
-  return Math.round(1000 * Math.pow(1.3, tier));
+export function getSlotCost(_currentSlots: number): number {
+  return BONUS_CARD_VALUES["+10 Player Slots"] ?? 1000;
 }
 
 export interface AgentActionResult {
