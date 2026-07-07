@@ -1049,3 +1049,21 @@
   from { filter: brightness(1); }
   to { filter: brightness(1.4); }
 }
+
+/* ===== Mobile bottom tab bar spacing ===== */
+/* Respect the iOS home-indicator safe area on the fixed bottom tab bar. */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Extra bottom padding on page content so it clears the fixed mobile tab bar
+   (h-16 = 4rem) plus the device safe area. Only needed on mobile; the tab bar
+   is hidden from md up, where we restore the normal py-8 bottom spacing. */
+.pb-bottom-nav {
+  padding-bottom: calc(4rem + 1.5rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 768px) {
+  .pb-bottom-nav {
+    padding-bottom: 2rem;
+  }
+}
