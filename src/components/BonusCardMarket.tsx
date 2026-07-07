@@ -12,6 +12,7 @@ import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useCredits } from "@/hooks/useCredits";
+import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatNumber, formatCompact } from "@/lib/utils";
 import { BONUS_CARD_POWERS, BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
@@ -69,6 +70,8 @@ export function BonusCardMarket({
   const { ownedIds } = useOwnedPlayerIds();
   const { play } = useSound();
   const { data: credits } = useCredits();
+  // Goddess of Fate (and Creation) creates NPCs for free.
+  const { hasFate } = useKnowledgePower();
 
   const isDemoPlayer = session?.user?.name?.startsWith("Demo Player") ?? false;
   const isMassHire = username === "Mass Hire";
@@ -86,12 +89,13 @@ export function BonusCardMarket({
     enabled: !!session && isTenSlots,
     staleTime: 30 * 1000,
   });
-  // "+10 Player Slots" keeps the slot-upgrade price; Mass Hire is free; every
-  // other card shows its current global price (playerValue), which doubles on
-  // each hire/use.
+  // "+10 Player Slots" keeps the slot-upgrade price; Mass Hire is free (and
+  // Create NPC is free for Goddess of Fate holders); every other card shows its
+  // current global price (playerValue), which doubles on each hire/use.
+  const createNpcIsFree = isCreateNpc && hasFate;
   const displayValue = isTenSlots
     ? ownershipLimit?.nextSlotCost ?? originalValue
-    : isMassHire
+    : isMassHire || createNpcIsFree
       ? 0
       : playerValue;
   const isOwned = ownerCount > 0 && !!ownerName;
@@ -270,8 +274,9 @@ export function BonusCardMarket({
 
   const createNpcMutation = useMutation({
     mutationFn: async () => {
-      const createNpcCost = playerValue;
-      if (!credits || credits < createNpcCost) {
+      // Goddess of Fate holders create NPCs for free — skip the credit gate.
+      const createNpcCost = hasFate ? 0 : playerValue;
+      if (!hasFate && (!credits || credits < createNpcCost)) {
         throw new Error(`Need ${formatNumber(createNpcCost)}¢ to create an NPC`);
       }
 
@@ -439,7 +444,7 @@ export function BonusCardMarket({
 
           {/* Value Badge - current hire cost (doubles each hire) */}
           <Badge className={compact ? 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-[10px] break-all px-1.5 py-0.5' : 'bg-purple-500/30 text-purple-200 border-purple-400/30 font-mono text-xs sm:text-sm break-all'}>
-            {isMassHire ? "Free" : `${formatCompact(displayValue)}¢`}
+            {isMassHire || createNpcIsFree ? "Free" : `${formatCompact(displayValue)}¢`}
           </Badge>
 
           {/* Stats */}
@@ -485,7 +490,7 @@ export function BonusCardMarket({
               ) : isActionCard ? (
                 <>
                   <ShoppingCart className={compact ? 'h-3 w-3 mr-1' : 'h-4 w-4 mr-2'} />
-                  {isMassHire
+                  {isMassHire || createNpcIsFree
                     ? (compact ? "Free" : "Use (Free)")
                     : compact ? formatCompact(displayValue) + '¢' : `Use for ${formatCompact(displayValue)}¢`}
                 </>

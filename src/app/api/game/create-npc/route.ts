@@ -5,6 +5,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { createRandomPlayer } from "@/lib/random-player";
 import { getBonusCardPrice, doubleBonusCardPrice } from "@/lib/bonus-card-price";
+import { getGoddessPowers } from "@/lib/goddess-powers";
 
 const COOLDOWN_MS = 10_000;
 
@@ -43,9 +44,14 @@ export async function POST() {
       }
     }
 
+    // Goddess of Fate (and Creation) creates NPCs for free — no charge and the
+    // global price is left untouched (it only doubles on paid uses).
+    const powers = await getGoddessPowers(callerId);
+    const isFree = powers.hasFate;
+
     // Current global Create NPC price — doubles on each successful use.
     const card = await getBonusCardPrice("Create NPC");
-    const cost = card?.price ?? 1000;
+    const cost = isFree ? 0 : (card?.price ?? 1000);
 
     if (caller.credits < cost) {
       return NextResponse.json(
@@ -83,8 +89,8 @@ export async function POST() {
       );
     }
 
-    // Success — double the global price for the next use.
-    if (card) await doubleBonusCardPrice(card.id, card.price);
+    // Success — double the global price for the next use (paid uses only).
+    if (card && !isFree) await doubleBonusCardPrice(card.id, card.price);
 
     return NextResponse.json({
       success: true,

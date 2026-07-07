@@ -14,12 +14,12 @@ export const GODDESS_USERNAMES: string[] = [
 
 /** Power description shown on each goddess card */
 export const GODDESS_POWERS: Record<string, string> = {
-  "Goddess of Wealth": "The player holding this card gains double from all passive income, portfolio rewards, and boss income.",
-  "Goddess of Knowledge": "The player holding this card can see all avatars without needing to press the reveal buttons.",
-  "Goddess of Fate": "The player holding this card can create NPCs and perform mass hire for free.",
-  "Goddess of Time": "The player holding this card reduces the time needed to receive portfolio rewards and boss income by half, but only for himself.",
-  "Goddess of War": "The player holding this card can break blocks for free; only the normal hire cost applies when hiring a player.",
-  "Goddess": "The player holding this card activates all powers from all other cards, regardless of whether the player holds any other goddess card or not.",
+  "Goddess of Wealth": "The player holding this card earns double credits from their portfolio rewards, and double on the boss tax they collect from players they own.",
+  "Goddess of Knowledge": "The player holding this card automatically sees every avatar, including ones that are otherwise hidden.",
+  "Goddess of Fate": "The player holding this card can create NPCs for free.",
+  "Goddess of Time": "The player holding this card collects their portfolio rewards (and pays their boss's tax) twice as often as everyone else, halving their own wait between payouts.",
+  "Goddess of War": "The player holding this card breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window, which no one can break.",
+  "Goddess": "The player holding this card activates the powers of all other goddess cards, whether or not they hold those cards.",
 };
 
 /**

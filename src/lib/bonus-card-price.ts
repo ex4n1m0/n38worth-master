@@ -1,28 +1,27 @@
 /**
  * Server-side pricing helpers for bonus cards.
  *
- * Every bonus card (except "+10 Player Slots", which uses the slot-upgrade
- * price) has a single shared price stored on its `users` row. The price starts
- * at its base value (BONUS_CARD_VALUES) and DOUBLES globally on each hire/use.
+ * Every bonus card has a single shared price. Prices are pinned to their floor
+ * (base) value from BONUS_CARD_VALUES and no longer grow — the old "doubles
+ * globally on each hire/use" behaviour has been removed, so cards always cost
+ * their base value. ("+10 Player Slots" uses the separate slot-upgrade price.)
  */
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { MAX_PLAYER_VALUE } from "@/lib/safeguards";
 import { BONUS_CARD_VALUES, BONUS_CARD_IMAGES, doublesOnUse } from "@/lib/bonus-cards";
 
 export { doublesOnUse };
 
 /**
- * Read a bonus card's current global price (its DB `playerValue`), never below
- * its base value. Returns the card id so callers can update it afterwards.
+ * Read a bonus card's price. Prices are pinned to the card's floor (base) value
+ * from BONUS_CARD_VALUES — they no longer grow — so this always returns the base
+ * value regardless of any stale stored `playerValue`. Returns the card id so
+ * callers can still reference the row.
  *
  * Self-healing: if the card row does not exist yet (e.g. action cards that were
- * never seeded) it is created at the base value so the doubling has somewhere
- * to persist. The returned price is clamped to the base value so a card whose
- * value was reset below the base (e.g. released to floor on an owner deletion)
- * still starts doubling from the base rather than from the stale low value.
+ * never seeded) it is created at the base value.
  */
 export async function getBonusCardPrice(
   username: string
@@ -60,19 +59,16 @@ export async function getBonusCardPrice(
 
   if (!card) return null;
 
-  const price = card.playerValue && card.playerValue >= base ? card.playerValue : base;
-  return { id: card.id, price };
+  // Prices are pinned to the floor — always charge the base value.
+  return { id: card.id, price: base };
 }
 
 /**
- * Double a bonus card's global price (capped at MAX_PLAYER_VALUE). Pass the
- * current price you already charged so the next hire/use costs 2×.
+ * No-op: bonus card prices no longer grow. Previously this doubled the card's
+ * global price on each hire/use; that behaviour has been removed so prices stay
+ * at their floor (base) value. Kept as a no-op so existing call sites don't need
+ * to change.
  */
-export async function doubleBonusCardPrice(cardId: number, currentPrice: number): Promise<void> {
-  const doubled = BigInt(Math.max(0, Math.round(currentPrice))) * BigInt(2);
-  const capped = doubled > BigInt(MAX_PLAYER_VALUE) ? MAX_PLAYER_VALUE : Number(doubled);
-  await db
-    .update(users)
-    .set({ playerValue: capped, updatedAt: new Date() })
-    .where(eq(users.id, cardId));
+export async function doubleBonusCardPrice(_cardId: number, _currentPrice: number): Promise<void> {
+  // Intentionally does nothing — prices are pinned to their floor value.
 }

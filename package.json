@@ -15,7 +15,8 @@
     "backfill:photo-scores": "npx tsx scripts/backfill-photo-scores.ts",
     "audit:schema": "npx tsx scripts/audit-schema.ts",
     "audit:avatars": "npx tsx scripts/avatar-storage-audit.ts",
-    "cap:player-values": "npx tsx scripts/cap-player-values.ts"
+    "cap:player-values": "npx tsx scripts/cap-player-values.ts",
+    "reset:card-values": "npx tsx scripts/reset-card-values.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

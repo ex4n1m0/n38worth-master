@@ -3,8 +3,8 @@ import { users, ownership, transactions, gameHistory, rewardHistory } from "@/db
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
-import { GODDESS_USERNAMES, MOST_EXPENSIVE_GODDESS, MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE, MOST_EXPENSIVE_GODDESS_MIN_VALUE } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES, doublesOnUse } from "@/lib/bonus-cards";
+import { GODDESS_USERNAMES, GODDESS_VALUES, MOST_EXPENSIVE_GODDESS, MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE, MOST_EXPENSIVE_GODDESS_MIN_VALUE } from "@/lib/goddesses";
+import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 
@@ -220,22 +220,22 @@ export async function buyPlayerCore(
       prevOwnerOwnedCount = ownedResult?.count ?? 0;
     }
 
-    // Pre-compute values using tiered multiplier (or flat ×2 doubling for goddesses only)
+    // Pre-compute the post-hire value. Goddesses and bonus cards no longer grow
+    // on purchase — they are pinned to their floor value (goddesses:
+    // GODDESS_VALUES, bonus cards: BONUS_CARD_VALUES). Only regular players grow,
+    // via the tiered multiplier.
     const bigPlayerValue = BigInt(effectiveValue);
-    let bigIncreased: bigint;
+    let bigNewValue: bigint;
     if (isGoddess) {
-      // Goddesses double on each hire
-      bigIncreased = bigPlayerValue * BigInt(2);
+      bigNewValue = BigInt(GODDESS_VALUES[target.username] ?? effectiveValue);
     } else if (isBonusCard) {
-      // Bonus cards double their price on each hire (except the slot card,
-      // which keeps its separate slot-upgrade pricing).
-      bigIncreased = doublesOnUse(target.username) ? bigPlayerValue * BigInt(2) : bigPlayerValue;
+      bigNewValue = BigInt(bonusBase);
     } else {
       const multiplier = getValueMultiplier(target.playerValue);
-      bigIncreased = (bigPlayerValue * BigInt(Math.round(multiplier * 100))) / BigInt(100);
+      const bigIncreased = (bigPlayerValue * BigInt(Math.round(multiplier * 100))) / BigInt(100);
+      // Ensure minimum increase of 1 to prevent stagnation at small values (integer division truncates)
+      bigNewValue = bigIncreased > bigPlayerValue ? bigIncreased : bigPlayerValue + BigInt(1);
     }
-    // Ensure minimum increase of 1 to prevent stagnation at small values (integer division truncates)
-    const bigNewValue = bigIncreased > bigPlayerValue ? bigIncreased : bigPlayerValue + BigInt(1);
     // Cap at MAX_PLAYER_VALUE (1e12). Clamping in BigInt space keeps this precise
     // even if a stored value was already above the ceiling; the result is ≤ 1e12
     // so the Number() conversion is lossless. This guarantees the card stays
