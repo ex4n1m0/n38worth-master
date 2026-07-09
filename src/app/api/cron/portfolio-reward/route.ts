@@ -6,9 +6,6 @@ import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 
-// Track last successful portfolio reward distribution time
-let lastPortfolioRewardTime: Date | null = null;
-
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
   const cronSecret = process.env.CRON_SECRET;
@@ -22,17 +19,14 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 2 minutes
-    const intervalMinutes = 2;
-
-    // Check if enough time has passed since last portfolio reward
-    let globalIntervalSkip = false;
-    if (lastPortfolioRewardTime) {
-      const minutesSinceLastReward = (now.getTime() - lastPortfolioRewardTime.getTime()) / (1000 * 60);
-      if (minutesSinceLastReward < intervalMinutes) {
-        globalIntervalSkip = true;
-      }
-    }
+    // Rewards are HOURLY. The cron fires at :00 and :30 (see vercel.json):
+    //   - :00 → FULL run: every active player gets their hourly portfolio reward.
+    //   - :30 → Time-only run: ONLY Goddess of Time / Creation holders are paid,
+    //           giving them 2x frequency (a payout every 30 min).
+    // We key off the wall-clock minute rather than in-memory state so the split
+    // is correct even on cold serverless instances.
+    const intervalMinutes = 60;
+    const globalIntervalSkip = now.getUTCMinutes() >= 15;
 
     // Get all active human players (exclude NPCs)
     const allPlayers = await db
@@ -283,11 +277,6 @@ export async function GET(req: Request) {
       } catch (pusherError) {
         console.error("Pusher batch error for portfolio rewards:", pusherError);
       }
-    }
-
-    // Update last successful reward time (only on full runs, not Time-power-only ticks)
-    if (!globalIntervalSkip) {
-      lastPortfolioRewardTime = now;
     }
 
     return NextResponse.json({

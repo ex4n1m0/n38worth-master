@@ -147,13 +147,13 @@ export default function HallOfFamePage() {
             />
           </button>
           {showRewards && (
-            <div className="p-4 pt-0 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 pt-0 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 <PortfolioRewardCountdown />
                 <RankBonusCountdown />
                 <BossIncomeCard userId={currentUserId} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <RandomPlayerCountdown />
                 <LoginReward />
               </div>

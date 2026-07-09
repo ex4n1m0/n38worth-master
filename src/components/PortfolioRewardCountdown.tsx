@@ -20,7 +20,7 @@ function getSecondsToNextPortfolioReward(intervalMinutes: number) {
 
 export function PortfolioRewardCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 2; // Fixed 2-minute interval
+  const intervalMinutes = 60; // Hourly
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
@@ -77,12 +77,12 @@ export function PortfolioRewardCountdown() {
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-t1-900/20 to-t2-900/20 border border-t1-500/20 p-4">
+    <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-t1-400" />
           <h3 className="text-sm font-semibold text-t1-400">
-            Portfolio Reward — Every {intervalMinutes} Min
+            Portfolio Reward — Hourly
           </h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-t1-500/20">
@@ -119,7 +119,7 @@ export function PortfolioRewardCountdown() {
       )}
       
       <p className="text-xs text-gray-500 mt-2">
-        Earn 0.2% of your portfolio value as credits every {intervalMinutes} minutes!
+        Earn 0.2% of your portfolio value as credits every hour!
       </p>
       
       {/* Breakdown Toggle */}

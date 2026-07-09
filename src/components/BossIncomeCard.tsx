@@ -31,7 +31,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
   const hasIncome = data && data.estimatedPerHour > 0;
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-amber-900/20 to-orange-900/20 border border-amber-500/20 p-4">
+    <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <Crown className="h-5 w-5 text-amber-400" />

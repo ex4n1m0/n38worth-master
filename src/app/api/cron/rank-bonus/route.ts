@@ -30,8 +30,11 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Fixed interval: 1 minute
-    const intervalMinutes = 1;
+    // Hourly cron (see vercel.json). This in-memory guard only blocks accidental
+    // double-fires; we keep it a little under 60 min so normal cron jitter never
+    // skips the hourly payout. Amounts are unchanged per payout, so this is a
+    // deliberate income slowdown vs the old per-minute cadence.
+    const intervalMinutes = 50;
 
     // Check if enough time has passed since last rank bonus
     if (lastRankBonusTime) {

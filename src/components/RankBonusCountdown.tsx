@@ -20,7 +20,7 @@ function getSecondsToNextRankBonus(intervalMinutes: number) {
 
 export function RankBonusCountdown() {
   const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 1; // Fixed 1-minute interval
+  const intervalMinutes = 60; // Hourly
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
@@ -116,12 +116,12 @@ export function RankBonusCountdown() {
   }
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-t2-900/20 to-t1-900/20 border border-t2-500/20 p-4">
+    <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-t2-400" />
           <h3 className="text-sm font-semibold text-t2-400">
-            Rank Bonus — Every {intervalMinutes} Min
+            Rank Bonus — Hourly
           </h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-t2-500/20">
