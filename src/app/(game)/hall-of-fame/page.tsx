@@ -10,7 +10,7 @@ import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
 import { RankBonusCountdown } from "@/components/RankBonusCountdown";
 import { LoginReward } from "@/components/LoginReward";
-import { RandomPlayerCountdown } from "@/components/RandomPlayerCountdown";
+import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
 import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
 import { MissionProgress } from "@/components/MissionProgress";
@@ -142,9 +142,13 @@ export default function HallOfFamePage() {
               <Wallet className="h-5 w-5 text-t1-400" />
               Your Rewards &amp; Income
             </span>
-            <ChevronDown
-              className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
-            />
+            <span className="flex items-center gap-2">
+              {/* One shared hourly counter for both the portfolio + rank payouts. */}
+              <HourlyRewardCountdown />
+              <ChevronDown
+                className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
+              />
+            </span>
           </button>
           {showRewards && (
             <div className="p-4 pt-0 space-y-3">
@@ -153,10 +157,7 @@ export default function HallOfFamePage() {
                 <RankBonusCountdown />
                 <BossIncomeCard userId={currentUserId} />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <RandomPlayerCountdown />
-                <LoginReward />
-              </div>
+              <LoginReward />
               <RewardHistory />
             </div>
           )}

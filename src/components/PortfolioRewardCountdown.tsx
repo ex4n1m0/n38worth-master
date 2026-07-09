@@ -1,30 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, TrendingUp, DollarSign, ChevronDown, ChevronUp, Users, Info } from "lucide-react";
-import { useSound } from "@/hooks/useSound";
+import { TrendingUp, DollarSign, ChevronDown, ChevronUp, Users, Info } from "lucide-react";
 import { getDynamicFontSize } from "@/lib/utils";
 
-/** Calculate seconds remaining until the next portfolio reward interval */
-function getSecondsToNextPortfolioReward(intervalMinutes: number) {
-  const now = new Date();
-  const minutesSinceEpoch = Math.floor(now.getTime() / (1000 * 60));
-  const minutesUntilNext = intervalMinutes - (minutesSinceEpoch % intervalMinutes);
-  const seconds = now.getSeconds();
-  
-  // Calculate total seconds until next interval boundary
-  return (minutesUntilNext * 60) - seconds;
-}
-
 export function PortfolioRewardCountdown() {
-  const [totalSeconds, setTotalSeconds] = useState(0);
-  const intervalMinutes = 60; // Hourly
-  const prevSecondsRef = useRef<number>(0);
-  const wasSmallRef = useRef<boolean>(false);
   const { data: session } = useSession();
-  const { play } = useSound();
 
   // Fetch current user's portfolio data from /api/me — this uses the same
   // BigInt-safe formula as the portfolio-reward cron and leaderboard rankings,
@@ -41,33 +24,6 @@ export function PortfolioRewardCountdown() {
     refetchInterval: 60 * 1000,
   });
 
-  useEffect(() => {
-    const update = () => {
-      const newSeconds = getSecondsToNextPortfolioReward(intervalMinutes);
-      const prevSeconds = prevSecondsRef.current;
-      
-      // Check if we just had a reset: was counting down (prev was small, 1-60) and now jumped to large
-      const justReset = wasSmallRef.current && prevSeconds <= 60 && newSeconds > 100;
-      
-      if (justReset) {
-        play("hire");
-      }
-      
-      // Track if we're in the "counting down from small value" state
-      wasSmallRef.current = prevSeconds > 0 && prevSeconds <= 60;
-      
-      prevSecondsRef.current = newSeconds;
-      setTotalSeconds(newSeconds);
-    };
-    update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
-  }, [intervalMinutes, play]);
-
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  const pad = (n: number) => n.toString().padStart(2, "0");
-
   // portfolioValue and portfolioReward are computed server-side in /api/me
   // using the same BigInt-safe formula as the cron and leaderboard — no client recompute needed.
   const playerValue = playerData?.playerValue ?? 0;
@@ -78,19 +34,11 @@ export function PortfolioRewardCountdown() {
 
   return (
     <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-t1-400" />
-          <h3 className="text-sm font-semibold text-t1-400">
-            Portfolio Reward — Hourly
-          </h3>
-        </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-t1-500/20">
-          <Clock className="h-3.5 w-3.5 text-t1-400" />
-          <span className="font-mono font-bold text-white text-sm">
-            {pad(minutes)}:{pad(seconds)}
-          </span>
-        </div>
+      <div className="flex items-center gap-2">
+        <TrendingUp className="h-5 w-5 text-t1-400" />
+        <h3 className="text-sm font-semibold text-t1-400">
+          Portfolio Reward
+        </h3>
       </div>
       
       {/* Show user's portfolio value and potential reward */}
@@ -119,7 +67,7 @@ export function PortfolioRewardCountdown() {
       )}
       
       <p className="text-xs text-gray-500 mt-2">
-        Earn 0.2% of your portfolio value as credits every hour!
+        Earn 0.2% of your portfolio value as credits.
       </p>
       
       {/* Breakdown Toggle */}

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { Users, Briefcase, Gem, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
+import { Users, Briefcase, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
 import React from "react";
 import { formatNumber } from "@/lib/utils";
 
@@ -58,15 +58,6 @@ const STRIPS: StripConfig[] = [
     suffix: "¢",
   },
   {
-    key: "topValue",
-    label: "Highest Value",
-    icon: Gem,
-    iconClass: "text-amber-400",
-    labelClass: "text-amber-300",
-    getValue: (p) => p.playerValue,
-    suffix: "¢",
-  },
-  {
     key: "topCredits",
     label: "Most Credits",
     icon: Coins,
@@ -83,7 +74,7 @@ const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 /** A single compact, always-visible ranking card showing the top 3. */
 function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
   const Icon = cfg.icon;
-  const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 3);
+  const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 10);
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
       <div className={`flex items-center gap-1.5 mb-2 ${cfg.labelClass}`}>
@@ -138,7 +129,7 @@ export function EmpireRankStrip() {
 
   if (!session) return null;
 
-  const topChampions = champions.slice(0, 3);
+  const topChampions = champions.slice(0, 10);
 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4">
@@ -146,7 +137,7 @@ export function EmpireRankStrip() {
         <Trophy className="h-5 w-5 text-t1-400" />
         <h2 className="font-bold text-white">Live Rankings</h2>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {STRIPS.map((cfg) => (
           <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
         ))}
