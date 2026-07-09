@@ -40,60 +40,24 @@ export const MIN_GAP_ON_WAKE_MINUTES = 1;
 // error (RFC 7230 §3.2.4). Trimming here is defensive, cheap, and invisible.
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
+// Broad, high-yield portrait queries. Each of these matches a large pool of
+// squarish portraits on Unsplash, so we find fresh (never-used) photos easily
+// and almost never hit a 404/empty result. Narrow multi-word "vibe" queries
+// (e.g. "space age fashion") were removed — they matched tiny pools, 404'd
+// often, and exhausted the unique-photo pool quickly.
 const PORTRAIT_QUERIES = [
-  // Fashion
-  "luxury fashion model",
-  "high fashion editorial",
-  "runway model",
-  "fashion photography",
-  "street style fashion",
-  "haute couture",
-  "fashion influencer",
-  "glamour model",
-  "vogue style",
-  "fashion portrait",
-  // Fun
-  "fun portrait smile",
-  "happy person lifestyle",
-  "joyful candid photo",
-  "party vibes portrait",
-  "cheerful model",
-  // Action
-  "action portrait photography",
-  "dynamic pose model",
-  "athletic portrait",
-  "sporty lifestyle photo",
-  "energetic movement portrait",
-  // Lust
-  "seductive portrait",
-  "alluring model photo",
-  "sultry editorial",
-  "sensual portrait photography",
-  "glamour night portrait",
-  // Cyber
-  "cyberpunk portrait",
-  "neon lights person",
-  "futuristic cyber model",
-  "digital aesthetic portrait",
-  "cyber style photography",
-  // Future
-  "futuristic portrait",
-  "sci-fi inspired model",
-  "space age fashion",
-  "future aesthetic portrait",
-  "avant garde futuristic",
-  // Techno
-  "techno club portrait",
-  "electronic music aesthetic",
-  "rave culture portrait",
-  "techno style model",
-  "underground music portrait",
-  // Dance
-  "dance portrait photography",
-  "dancer movement photo",
-  "ballet portrait elegant",
-  "contemporary dance model",
-  "dance performance portrait",
+  "portrait",
+  "portrait photography",
+  "headshot",
+  "face portrait",
+  "person face",
+  "fashion model",
+  "woman portrait",
+  "man portrait",
+  "studio portrait",
+  "beauty portrait",
+  "candid portrait",
+  "model photography",
 ];
 
 /**
@@ -177,9 +141,14 @@ export async function createRandomPlayer(): Promise<{
     let photoScore = 0;
 
     const queryOffset = Math.floor(Math.random() * PORTRAIT_QUERIES.length);
-    // Try every query once — one attempt per keyword in the pool.
-    const MAX_ATTEMPTS = PORTRAIT_QUERIES.length;
+    // Cap Unsplash requests per creation. Each request fetches a batch of 30
+    // candidates, so a handful of attempts covers ~120 photos — plenty to find
+    // a unique one — while staying well within Unsplash's rate limit. (Looping
+    // over every keyword previously fired dozens of requests per creation, which
+    // exhausted the hourly limit and made every subsequent creation fail.)
+    const MAX_ATTEMPTS = Math.min(4, PORTRAIT_QUERIES.length);
     let rateLimited = false;
+    let authError = false;
     let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
 
     for (let i = 0; i < MAX_ATTEMPTS && !avatarUrl; i++) {
@@ -192,7 +161,7 @@ export async function createRandomPlayer(): Promise<{
         // Fetch a BATCH of random photos in a single request (same rate-limit
         // cost as one) so we can prefer the best-looking / highest-liked one.
         const unsplashRes = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&count=12`,
+          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&count=30`,
           {
             headers: {
               Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
@@ -228,16 +197,23 @@ export async function createRandomPlayer(): Promise<{
           if (unsplashRes.status === 429) {
             rateLimited = true;
           }
+          if (unsplashRes.status === 401 || unsplashRes.status === 403) {
+            authError = true;
+          }
           break;
         }
 
         const unsplashData = await unsplashRes.json();
         // `count` returns an array; a bare request returns a single object.
-        // Rank the batch by likes (highest-scoring photo first) and take the
-        // first candidate that is unique and compresses successfully.
+        // SHUFFLE the batch and take the first candidate that is unique and
+        // compresses successfully. We deliberately do NOT sort by likes: always
+        // preferring the most-liked photo kept picking the same popular images,
+        // which — with the strict per-photo uniqueness constraint — meant nearly
+        // every candidate was already used (a duplicate). Randomizing explores
+        // Unsplash's pool and finds fresh photos far more reliably.
         const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
           .filter(Boolean)
-          .sort((a, b) => (Number(b?.likes ?? 0) || 0) - (Number(a?.likes ?? 0) || 0));
+          .sort(() => Math.random() - 0.5);
 
         for (const photo of batch) {
           const candidateUrl =
@@ -320,15 +296,17 @@ export async function createRandomPlayer(): Promise<{
     }
 
     if (!avatarUrl) {
-      const reason = rateLimited
-        ? "rate_limit"
-        : skipReason === "duplicate"
-          ? `all ${MAX_ATTEMPTS} attempts returned duplicate photos (DB has many NPCs)`
-          : skipReason === "download"
-            ? `failed to download/compress all ${MAX_ATTEMPTS} candidate images`
-            : skipReason === "unsplash_error"
-              ? "Unsplash API returned errors on all attempts"
-              : `exhausted ${MAX_ATTEMPTS} attempts without finding a usable photo`;
+      const reason = authError
+        ? "auth_error (invalid/unauthorized UNSPLASH_ACCESS_KEY — check the key and that the Unsplash app is approved)"
+        : rateLimited
+          ? "rate_limit (Unsplash hourly limit hit — a Demo app is only 50 req/hr; apply for Production = 5000/hr)"
+          : skipReason === "duplicate"
+            ? `all ${MAX_ATTEMPTS} attempts returned duplicate photos (DB has many NPCs)`
+            : skipReason === "download"
+              ? `failed to download/compress all ${MAX_ATTEMPTS} candidate images`
+              : skipReason === "unsplash_error"
+                ? "Unsplash API returned errors on all attempts"
+                : `exhausted ${MAX_ATTEMPTS} attempts without finding a usable photo`;
       console.error(`createRandomPlayer failed: ${reason}`);
       return {
         success: false,
