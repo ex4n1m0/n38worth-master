@@ -24,7 +24,8 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { getAvatarSrc } from "@/lib/avatar-utils";
-import { getProfessionImage, PROFESSIONS } from "@/lib/professions";
+import { getProfessionImage } from "@/lib/professions";
+import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
 import {
   TrendingUp,
   Loader2,
@@ -44,8 +45,6 @@ import {
   User,
   Search,
   Crown,
-  Coins,
-  ShoppingCart,
   MessageCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -91,9 +90,10 @@ export default function PlayerProfilePage() {
   const [teamSearch, setTeamSearch] = useState("");
   const [teamPlayerType, setTeamPlayerType] = useState<"" | "human" | "card">("");
   const [teamSort, setTeamSort] = useState<string>("last-online");
+  const [teamDir, setTeamDir] = useState<SortDir>("desc");
+  const [teamProfession, setTeamProfession] = useState("");
   const [hasPlayersFilter, setHasPlayersFilter] = useState(false);
   const [noPartnerFilter, setNoPartnerFilter] = useState(false);
-  const [revealedAvatarFilter, setRevealedAvatarFilter] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
   const [heroAvatarRevealUntil, setHeroAvatarRevealUntil] = useState<string | null>(null);
   const { ownedIds } = useOwnedPlayerIds();
@@ -151,44 +151,50 @@ export default function PlayerProfilePage() {
     const filtered = all.filter((p: {
       username: string;
       playerType?: string;
+      profession?: string | null;
       ownedCount?: number;
       blockSellUntil?: string | null;
-      avatarRevealUntil?: string | null;
     }) => {
       const matchSearch = !teamSearch || p.username.toLowerCase().includes(teamSearch.toLowerCase());
       const matchType = !teamPlayerType || p.playerType === teamPlayerType;
+      const matchProfession = !teamProfession || p.profession === teamProfession;
       const matchHasPlayers = !hasPlayersFilter || (p.ownedCount ?? 0) > 0;
       const matchNoPartner = !noPartnerFilter || !p.blockSellUntil || new Date(p.blockSellUntil) <= new Date();
-      const matchRevealedAvatar = !revealedAvatarFilter || (p.avatarRevealUntil ? new Date(p.avatarRevealUntil) > new Date() : false);
-      return matchSearch && matchType && matchHasPlayers && matchNoPartner && matchRevealedAvatar;
+      return matchSearch && matchType && matchProfession && matchHasPlayers && matchNoPartner;
     });
 
-    if (teamSort.startsWith("prof:")) {
-      const profName = teamSort.slice("prof:".length);
-      const inProfession = filtered.filter((p: { profession?: string | null; username: string }) => p.profession === profName && !GODDESS_USERNAMES.includes(p.username));
-      inProfession.sort((a: { playerValue?: number }, b: { playerValue?: number }) => (b.playerValue ?? 0) - (a.playerValue ?? 0));
-      return inProfession;
-    }
-
-    filtered.sort((a: { lastOnlineAt?: string | null; playerValue?: number; credits?: number; createdAt?: string | null; purchaseCount?: number }, b: { lastOnlineAt?: string | null; playerValue?: number; credits?: number; createdAt?: string | null; purchaseCount?: number }) => {
+    // Single-select sort (Core 6) with an Asc/Desc toggle. Each case computes a
+    // descending comparison; `mult` flips it for ascending.
+    const mult = teamDir === "asc" ? -1 : 1;
+    filtered.sort((a: { lastOnlineAt?: string | null; playerValue?: number; credits?: number; createdAt?: string | null; purchaseCount?: number; photoScore?: number }, b: { lastOnlineAt?: string | null; playerValue?: number; credits?: number; createdAt?: string | null; purchaseCount?: number; photoScore?: number }) => {
+      let cmp = 0;
       switch (teamSort) {
         case "last-online":
-          return new Date(b.lastOnlineAt || 0).getTime() - new Date(a.lastOnlineAt || 0).getTime();
+          cmp = new Date(b.lastOnlineAt || 0).getTime() - new Date(a.lastOnlineAt || 0).getTime();
+          break;
         case "value":
-          return (b.playerValue ?? 0) - (a.playerValue ?? 0);
+          cmp = (b.playerValue ?? 0) - (a.playerValue ?? 0);
+          break;
         case "credits":
-          return (b.credits ?? 0) - (a.credits ?? 0);
+          cmp = (b.credits ?? 0) - (a.credits ?? 0);
+          break;
+        case "score":
+          cmp = (b.photoScore ?? 0) - (a.photoScore ?? 0);
+          break;
         case "newest":
-          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+          cmp = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+          break;
         case "hired-times":
-          return (b.purchaseCount ?? 0) - (a.purchaseCount ?? 0);
+          cmp = (b.purchaseCount ?? 0) - (a.purchaseCount ?? 0);
+          break;
         default:
-          return 0;
+          cmp = 0;
       }
+      return mult * cmp;
     });
 
     return filtered;
-  }, [player?.ownedPlayers, teamSearch, teamPlayerType, teamSort, hasPlayersFilter, noPartnerFilter, revealedAvatarFilter]);
+  }, [player?.ownedPlayers, teamSearch, teamPlayerType, teamProfession, teamSort, teamDir, hasPlayersFilter, noPartnerFilter]);
 
   const teamTotalPages = Math.max(1, Math.ceil(teamItemsNoAvatars.length / TEAM_PER_PAGE));
   const teamCurrentPage = Math.min(teamPage, teamTotalPages);
@@ -439,17 +445,26 @@ export default function PlayerProfilePage() {
             <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="h-5 w-5 text-t1-400" />{`${username}'s Team`}<span className="text-sm font-normal text-gray-400">({player.pagination?.total ?? player.ownedPlayers.length})</span></h2>
             <div className="flex items-center gap-2 ml-auto flex-wrap">
               <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" /><Input placeholder="Search..." value={teamSearch} onChange={(e) => { setTeamSearch(e.target.value); setTeamPage(1); }} className="pl-8 h-8 w-36 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 text-sm" /></div>
-              <button onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${teamPlayerType === "human" ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><User className="h-3 w-3" /> Human</button>
-              <button onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${teamPlayerType === "card" ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><CreditCard className="h-3 w-3" /> Card</button>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap"><span className="text-xs text-gray-500 mr-1">Sort:</span>{[{ key: "last-online", label: "Latest Online", icon: Clock }, { key: "value", label: "Value", icon: TrendingUp }, { key: "credits", label: "Credits", icon: Coins }, { key: "newest", label: "Newest", icon: Calendar }, { key: "hired-times", label: "Hired Times", icon: ShoppingCart }].map(({ key, label, icon: Icon }) => (<button key={key} onClick={() => { setTeamSort(key); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${teamSort === key ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><Icon className="h-3 w-3" /> {label}</button>))}</div>
-          <div className="flex items-center gap-2 flex-wrap"><span className="text-xs text-gray-500 mr-1">Profession:</span>{PROFESSIONS.map((p) => { const key = `prof:${p.name}`; return (<button key={key} onClick={() => { setTeamSort(key); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${teamSort === key ? "border-amber-500/60 text-amber-300 bg-amber-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><img src={p.imagePath} alt="" className="h-3.5 w-3.5 object-contain" /> {p.name}</button>); })}</div>
-          <div className="flex items-center gap-2 flex-wrap"><span className="text-xs text-gray-500 mr-1">Filter:</span>
-            <button onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${hasPlayersFilter ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><Users className="h-3 w-3" /> Has Players</button>
-            <button onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${noPartnerFilter ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><Shield className="h-3 w-3" /> No Partner</button>
-            <button onClick={() => { setRevealedAvatarFilter(!revealedAvatarFilter); setTeamPage(1); }} className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${revealedAvatarFilter ? "border-cyan-500/50 text-cyan-400 bg-cyan-500/10" : "border-gray-700 text-gray-500 hover:text-gray-300"}`}><Camera className="h-3 w-3" /> Revealed Avatar</button>
+          <SortBar
+            sort={teamSort}
+            dir={teamDir}
+            onSortChange={(k) => { setTeamSort(k); setTeamPage(1); }}
+            onToggleDir={() => { setTeamDir((d) => (d === "asc" ? "desc" : "asc")); setTeamPage(1); }}
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500 mr-1">Filter:</span>
+            <FilterPill active={teamPlayerType === "human"} onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }}><User className="h-3 w-3" /> Human</FilterPill>
+            <FilterPill active={teamPlayerType === "card"} onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }}><CreditCard className="h-3 w-3" /> Card</FilterPill>
+            <span className="w-px h-4 bg-gray-700 mx-1" />
+            <FilterPill active={hasPlayersFilter} onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }}><Users className="h-3 w-3" /> Has Team</FilterPill>
+            <FilterPill active={noPartnerFilter} onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }}><Shield className="h-3 w-3" /> Available</FilterPill>
           </div>
+          <ProfessionFilterBar
+            selected={teamProfession}
+            onSelect={(name) => { setTeamProfession(name); setTeamPage(1); }}
+          />
 
           <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {teamPaginated.map((p: { id: number; username: string; avatarUrl: string | null; playerValue: number; valueFloor?: number; ownerCount: number; ownedCount: number; credits?: number; portfolioValue?: number; blockSellUntil?: string | Date | null; estimatedDeletionAt?: string | Date | null; isActive?: number; lastOnlineAt?: string | Date | null; totalOnlineMinutes?: number; createdAt?: string | Date | null; isVerified?: number; playerType?: string; photoAuthorName?: string | null; photoAuthorUrl?: string | null; photoSourceUrl?: string | null; lastRankBonusAt?: string | Date | null; ownerName?: string | null; ownerValue?: number | null; purchaseCount?: number; bio?: string | null; profession?: string | null; avatarRevealUntil?: string | Date | null; onboardingComplete?: number }) => (

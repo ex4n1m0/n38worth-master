@@ -6,29 +6,22 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard } from "lucide-react";
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
-import { navbarBtnStyle } from "@/lib/utils";
-import { PROFESSIONS } from "@/lib/professions";
-
-const SORT_OPTIONS = [
-  { key: "most-owned", label: "Most Owned" },
-  { key: "last-online", label: "Latest Online" },
-  { key: "value", label: "Value" },
-  { key: "most-hired", label: "Most Hired" },
-  { key: "newest", label: "Newest" },
-  { key: "name", label: "Name" },
-] as const;
+import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
 
 export default function PlayersPage() {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
-  const [hasOwner, setHasOwner] = useState(false);
-  // Default market view shows ownerless cards ("no owner"). "" clears the filter.
-  const [ownerFilter, setOwnerFilter] = useState<"" | "none">("none");
+  const [dir, setDir] = useState<SortDir>("desc");
+  // Ownership (relative to me): "" = all, "none" = no owner, "mine" = I own,
+  // "other" = owned by someone else. Market defaults to the No-Owner view.
+  const [ownerFilter, setOwnerFilter] = useState<"" | "none" | "mine" | "other">("none");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
+  const [hasTeam, setHasTeam] = useState(false);
+  const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -39,16 +32,18 @@ export default function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["players", debouncedSearch, page, sort, hasOwner, ownerFilter, playerType, profession],
+    queryKey: ["players", debouncedSearch, page, sort, dir, ownerFilter, playerType, hasTeam, available, profession],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: "20",
         sort,
+        dir,
         ...(debouncedSearch && { search: debouncedSearch }),
-        ...(hasOwner && { hasOwner: "true" }),
         ...(ownerFilter && { ownerFilter }),
         ...(playerType && { playerType }),
+        ...(hasTeam && { hasPlayers: "true" }),
+        ...(available && { noPartner: "true" }),
         ...(profession && { profession }),
       });
       const res = await fetch(`/api/players?${params}`);
@@ -70,8 +65,10 @@ export default function PlayersPage() {
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
+      {/* Filters — clearly separated, labeled groups. Sort is single-select with
+          an Asc/Desc toggle; every filter row below is freely combinable. */}
+      <div className="space-y-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
             placeholder={t.searchPlayers}
@@ -80,121 +77,45 @@ export default function PlayersPage() {
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {SORT_OPTIONS.map((s) => {
-            const labelMap: Record<string, string> = {
-              "last-online": t.lastOnline,
-              "value": t.value,
-              "newest": t.newest,
-              "name": t.name,
-            };
-            return (
-              <Button
-                key={s.key}
-                variant="ghost"
-                size="sm"
-                onClick={() => { setSort(s.key); setPage(1); }}
-                className={
-                  sort === s.key
-                    ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                    : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-                }
-                style={navbarBtnStyle}
-              >
-                {labelMap[s.key] || s.label}
-              </Button>
-            );
-          })}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const next = !hasOwner;
-              setHasOwner(next);
-              // "Has owner" and "No owner" are mutually exclusive.
-              if (next) setOwnerFilter("");
-              setPage(1);
-            }}
-            className={
-              hasOwner
-                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-            }
-            style={navbarBtnStyle}
-          >
-            <Crown className="h-3.5 w-3.5 mr-1" />
-            {t.hasOwner}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const next = ownerFilter === "none" ? "" : "none";
-              setOwnerFilter(next);
-              // "No owner" and "Has owner" are mutually exclusive.
-              if (next === "none") setHasOwner(false);
-              setPage(1);
-            }}
-            className={
-              ownerFilter === "none"
-                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-            }
-            style={navbarBtnStyle}
-          >
-            <UserX className="h-3.5 w-3.5 mr-1" />
-            No Owner
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}
-            className={
-              playerType === "human"
-                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-            }
-            style={navbarBtnStyle}
-          >
-            <User className="h-3.5 w-3.5 mr-1" />
-            Human
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}
-            className={
-              playerType === "card"
-                ? "text-cyan-400 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(34,211,238,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-            }
-            style={navbarBtnStyle}
-          >
-            <CreditCard className="h-3.5 w-3.5 mr-1" />
-            NPC
-          </Button>
-        </div>
-      </div>
 
-      <div className="flex gap-2 flex-wrap items-center">
-        <span className="text-xs text-gray-500 mr-1">Profession:</span>
-        {PROFESSIONS.map((p) => (
-          <Button
-            key={p.name}
-            variant="ghost"
-            size="sm"
-            onClick={() => { setProfession(profession === p.name ? "" : p.name); setPage(1); }}
-            className={
-              profession === p.name
-                ? "text-amber-300 font-semibold !bg-transparent brightness-125 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg drop-shadow-[0_0_8px_rgba(251,191,36,0.4)]"
-                : "text-gray-400 font-semibold !bg-transparent brightness-50 hover:brightness-125 hover:!bg-transparent border-0 drop-shadow-lg"
-            }
-            style={navbarBtnStyle}
-          >
-            <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
-            {p.name}
-          </Button>
-        ))}
+        <SortBar
+          sort={sort}
+          dir={dir}
+          onSortChange={(k) => { setSort(k); setPage(1); }}
+          onToggleDir={() => { setDir((d) => (d === "asc" ? "desc" : "asc")); setPage(1); }}
+        />
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 mr-1">Filter:</span>
+          <FilterPill active={playerType === "human"} onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}>
+            <User className="h-3 w-3" /> Human
+          </FilterPill>
+          <FilterPill active={playerType === "card"} onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}>
+            <CreditCard className="h-3 w-3" /> NPC
+          </FilterPill>
+          <span className="w-px h-4 bg-gray-700 mx-1" />
+          <FilterPill active={ownerFilter === "none"} onClick={() => { setOwnerFilter(ownerFilter === "none" ? "" : "none"); setPage(1); }}>
+            <UserX className="h-3 w-3" /> No Owner
+          </FilterPill>
+          <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }}>
+            <Crown className="h-3 w-3" /> My Owned
+          </FilterPill>
+          <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }}>
+            <Users className="h-3 w-3" /> Others Owned
+          </FilterPill>
+          <span className="w-px h-4 bg-gray-700 mx-1" />
+          <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }}>
+            <Users className="h-3 w-3" /> Has Team
+          </FilterPill>
+          <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }}>
+            <Shield className="h-3 w-3" /> Available
+          </FilterPill>
+        </div>
+
+        <ProfessionFilterBar
+          selected={profession}
+          onSelect={(name) => { setProfession(name); setPage(1); }}
+        />
       </div>
 
       {isLoading ? (

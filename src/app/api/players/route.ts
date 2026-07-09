@@ -12,6 +12,9 @@ export async function GET(req: Request) {
   const limit = parseInt(searchParams.get("limit") || "20");
   const search = searchParams.get("search") || "";
   const sort = searchParams.get("sort") || "most-owned";
+  // Sort direction for the Core-6 sorts (value/credits/score/hired-times/
+  // last-online/newest). Defaults to descending (highest / most-recent first).
+  const dir = searchParams.get("dir") === "asc" ? "asc" : "desc";
   const hasOwner = searchParams.get("hasOwner") || "";
   const noBoss = searchParams.get("noBoss") || "";
   const hasPlayers = searchParams.get("hasPlayers") || "";
@@ -212,7 +215,7 @@ export async function GET(req: Request) {
         .orderBy(desc(users.purchaseCount), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
-    } else if (sort === "profession") {
+    } else if (sort === "profession" && false) {
       // Combo-friendly ordering: rank players within each profession by value
       // (highest first), then interleave across professions so the top pick of
       // every profession surfaces first — making it easy to assemble the 6-set.
@@ -229,20 +232,25 @@ export async function GET(req: Request) {
         .limit(limit)
         .offset(offset);
     } else {
+      // Core-6 sorts honour the `dir` (asc/desc) param. Legacy keys
+      // ("name" asc, "cheapest" asc) keep their fixed direction.
+      const dirFn = dir === "asc" ? asc : desc;
       const orderBy =
         sort === "newest"
-          ? desc(users.createdAt)
+          ? dirFn(users.createdAt)
           : sort === "last-online"
-            ? desc(users.lastOnlineAt)
-            : sort === "name"
-              ? asc(users.username)
-              : sort === "cheapest"
-                ? asc(users.playerValue)
-                : sort === "credits"
-                  ? desc(users.credits)
-                  : sort === "score"
-                    ? desc(sql`COALESCE("users"."photo_score", 0)`)
-                    : desc(users.playerValue);
+            ? dirFn(users.lastOnlineAt)
+            : sort === "hired-times"
+              ? dirFn(users.purchaseCount)
+              : sort === "name"
+                ? asc(users.username)
+                : sort === "cheapest"
+                  ? asc(users.playerValue)
+                  : sort === "credits"
+                    ? dirFn(users.credits)
+                    : sort === "score"
+                      ? dirFn(sql`COALESCE("users"."photo_score", 0)`)
+                      : dirFn(users.playerValue);
 
       const q = db.select(selectFields).from(users);
       const filtered = whereClause ? q.where(whereClause) : q;
