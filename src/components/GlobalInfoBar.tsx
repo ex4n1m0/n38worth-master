@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Users, Coins, Bot, User } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
-import { formatCompact } from "@/lib/utils";
+import { formatCompact, formatNumber } from "@/lib/utils";
 
 export function GlobalInfoBar() {
   const { t } = useLanguage();
@@ -40,7 +40,7 @@ export function GlobalInfoBar() {
         <Users className="h-4 w-4 sm:h-5 sm:w-5 text-t1-400 shrink-0" />
         <span className="text-gray-500">Cards</span>
         <span className="text-white">
-          {formatCompact(stats.totalPlayers)}
+          {formatNumber(stats.totalPlayers)}
         </span>
       </div>
       <div className="hidden sm:block w-px h-3 bg-gray-700" />

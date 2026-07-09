@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Medal } from "lucide-react";
+import { formatCompact } from "@/lib/utils";
 
 export function RankBonusCountdown() {
   const { data: session } = useSession();
@@ -89,7 +90,7 @@ export function RankBonusCountdown() {
               </span>
             </div>
             <span className="text-xs font-bold text-t2-400">
-              +{totalPrize.toLocaleString()}¢ total
+              +{formatCompact(totalPrize)}¢ total
             </span>
           </div>
           <div className="space-y-1">
@@ -99,7 +100,7 @@ export function RankBonusCountdown() {
                   {positionEmojis[position - 1]} #{position} in {categoryLabels[category]}
                 </span>
                 <span className="text-t2-400 font-semibold">
-                  +{prize.toLocaleString()}¢
+                  +{formatCompact(prize)}¢
                 </span>
               </div>
             ))}

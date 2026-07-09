@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, DollarSign, ChevronDown, ChevronUp, Users, Info } from "lucide-react";
-import { getDynamicFontSize } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 export function PortfolioRewardCountdown() {
   const { data: session } = useSession();
@@ -48,8 +48,8 @@ export function PortfolioRewardCountdown() {
             <div className="flex items-center gap-2 min-w-0">
               <DollarSign className="h-4 w-4 text-t1-400 shrink-0" />
               {portfolioValue > 0 ? (
-                <span className={`${getDynamicFontSize(portfolioValue)} font-semibold text-t1-300 truncate`}>
-                  Your Portfolio: {portfolioValue.toLocaleString()}¢
+                <span className="text-sm font-semibold text-t1-300 truncate">
+                  Your Portfolio: {formatCompact(portfolioValue)}¢
                 </span>
               ) : (
                 <span className="text-sm font-semibold text-t1-300 truncate">
@@ -58,8 +58,8 @@ export function PortfolioRewardCountdown() {
               )}
             </div>
             {portfolioValue > 0 && (
-              <span className={`${getDynamicFontSize(potentialReward)} font-bold text-t1-400 shrink-0`}>
-                +{potentialReward.toLocaleString()}¢
+              <span className="text-sm font-bold text-t1-400 shrink-0">
+                +{formatCompact(potentialReward)}¢
               </span>
             )}
           </div>
@@ -96,17 +96,17 @@ export function PortfolioRewardCountdown() {
 
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Your Base Value</span>
-            <span className="text-white font-medium">{playerValue.toLocaleString()}¢</span>
+            <span className="text-white font-medium">{formatCompact(playerValue)}¢</span>
           </div>
 
           <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-700">
             <span className="text-gray-300 font-medium">Final Portfolio Value</span>
-            <span className="text-white font-bold">{portfolioValue.toLocaleString()}¢</span>
+            <span className="text-white font-bold">{formatCompact(portfolioValue)}¢</span>
           </div>
 
           <div className="flex items-center justify-between text-xs bg-t1-500/10 rounded px-2 py-1">
             <span className="text-t1-300">0.2% Reward</span>
-            <span className="text-t1-400 font-bold">+{potentialReward.toLocaleString()}¢</span>
+            <span className="text-t1-400 font-bold">+{formatCompact(potentialReward)}¢</span>
           </div>
         </div>
       )}

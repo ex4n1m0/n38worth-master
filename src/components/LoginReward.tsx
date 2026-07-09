@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Gift, Clock, Check, Loader2, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
+import { formatCompact } from "@/lib/utils";
 
 export function LoginReward() {
   const queryClient = useQueryClient();
@@ -80,7 +81,7 @@ export function LoginReward() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(`🎁 Login reward claimed! +${data.reward.toLocaleString()}¢`);
+        toast.success(`🎁 Login reward claimed! +${formatCompact(data.reward)}¢`);
         queryClient.invalidateQueries({ queryKey: ["login-reward-status"] });
         queryClient.invalidateQueries({ queryKey: ["credits"] });
         queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -178,7 +179,7 @@ export function LoginReward() {
                 {isLeader
                   ? "You're #1 — top players earn no reward. Others catch up!"
                   : canClaim
-                    ? `Claim your ${(rewardStatus?.rewardAmount ?? 0).toLocaleString()}¢ reward!`
+                    ? `Claim your ${formatCompact(rewardStatus?.rewardAmount ?? 0)}¢ reward!`
                     : `Next reward in ${countdown}`}
               </p>
             </div>

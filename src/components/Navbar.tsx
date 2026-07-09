@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useCredits } from "@/hooks/useCredits";
 import { usePlayerValue } from "@/hooks/usePlayerValue";
 import { Coins, Loader2, TrendingUp } from "lucide-react";
-import { formatNumber, formatCompact } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 import { OwnershipLimit } from "./OwnershipLimit";
 import { ChatNotificationBell } from "./ChatNotificationBell";
 
@@ -258,7 +258,7 @@ export function Navbar() {
                 <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
               ) : (
                 <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatNumber(Number((credits ?? 0).toFixed(2)))}¢
+                  {formatCompact(credits ?? 0)}¢
                 </span>
               )}
             </div>
@@ -270,7 +270,7 @@ export function Navbar() {
                 <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
               ) : (
                 <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatNumber(playerValue ?? 0)}¢
+                  {formatCompact(playerValue ?? 0)}¢
                 </span>
               )}
             </div>
@@ -298,7 +298,7 @@ export function Navbar() {
                 className="poach-coins font-mono font-bold text-orange-400"
                 style={{ fontSize: "clamp(0.55rem, 1vw, 0.77rem)" }}
               >
-                +{formatNumber(poachEvent.amount)}¢
+                +{formatCompact(poachEvent.amount)}¢
               </span>
             </div>
           </div>

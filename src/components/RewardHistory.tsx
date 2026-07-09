@@ -18,6 +18,7 @@ import {
   Clock,
   Trash2,
 } from "lucide-react";
+import { formatCompact } from "@/lib/utils";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -211,7 +212,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
         {/* Right: amount + expand arrow */}
         <div className="flex items-center gap-1.5 shrink-0">
           <span className={`text-xs font-bold ${config.color}`}>
-            +{display.amount.toLocaleString()}¢
+            +{formatCompact(display.amount)}¢
           </span>
           {hasDetails && (
             <span className="text-gray-500">
@@ -232,7 +233,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Portfolio Value</span>
               <span className="text-white font-medium">
-                {Number(details.portfolioValue ?? 0).toLocaleString()}¢
+                {formatCompact(Number(details.portfolioValue ?? 0))}¢
               </span>
             </div>
           )}
@@ -258,7 +259,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
                     {display.entries.length > 1 && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-gray-400">Amount</span>
-                        <span className="text-amber-400 font-medium">+{entry.amount.toLocaleString()}¢</span>
+                        <span className="text-amber-400 font-medium">+{formatCompact(entry.amount)}¢</span>
                       </div>
                     )}
                   </div>
@@ -271,7 +272,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-400">Total Economy at Claim</span>
               <span className="text-white font-medium">
-                {Number(details.totalEconomy ?? 0).toLocaleString()}¢
+                {formatCompact(Number(details.totalEconomy ?? 0))}¢
               </span>
             </div>
           )}
@@ -293,7 +294,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-gray-400">Sale Price</span>
                 <span className="text-white font-medium">
-                  {Number(details.salePrice ?? 0).toLocaleString()}¢
+                  {formatCompact(Number(details.salePrice ?? 0))}¢
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -355,7 +356,7 @@ function SummaryBar({
             <div className="min-w-0">
               <p className="text-xs text-gray-400 truncate">{cfg.label}</p>
               <p className={`text-xs font-bold ${cfg.color}`}>
-                +{val.toLocaleString()}¢
+                +{formatCompact(val)}¢
               </p>
             </div>
           </div>
@@ -435,7 +436,7 @@ export function RewardHistory() {
           </h3>
           {totalEarned > 0 && (
             <span className="text-xs text-gray-500">
-              — {totalEarned.toLocaleString()}¢ total
+              — {formatCompact(totalEarned)}¢ total
             </span>
           )}
         </div>

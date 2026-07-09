@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Users, Briefcase, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
 import React from "react";
-import { formatNumber } from "@/lib/utils";
+import { formatCompact } from "@/lib/utils";
 
 interface RankPlayer {
   id: number;
@@ -92,7 +92,7 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
               </span>
               <span className="flex-1 truncate font-medium text-gray-200">{p.username}</span>
               <span className="shrink-0 font-mono tabular-nums text-gray-400">
-                {formatNumber(cfg.getValue(p))}
+                {formatCompact(cfg.getValue(p))}
                 {cfg.suffix ?? ""}
               </span>
             </li>
