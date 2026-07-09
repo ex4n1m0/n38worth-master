@@ -18,55 +18,14 @@ import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
+// Single source of truth for the mission ladder (client-safe). Re-exported so
+// server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
+import { MISSIONS, type Mission } from "@/lib/missions-data";
 
-export interface Mission {
-  /** Number of owned cards required to complete the mission */
-  threshold: number;
-  /** Card usernames awarded for free on completion */
-  rewardCards: string[];
-  /** Text shown on the progress bar */
-  label: string;
-}
+export { MISSIONS };
+export type { Mission };
 
-export const MISSIONS: Mission[] = [
-  {
-    threshold: 20,
-    rewardCards: ["Bonus Own Value", "Bonus Owned Players", "Bonus Player Slot"],
-    label: "Own 20 cards to unlock the 3 Bonus cards",
-  },
-  {
-    threshold: 100,
-    rewardCards: ["Goddess of Wealth"],
-    label: "Own 100 cards to unlock Goddess of Wealth",
-  },
-  {
-    threshold: 200,
-    rewardCards: ["Goddess of Knowledge"],
-    label: "Own 200 cards to unlock Goddess of Knowledge",
-  },
-  {
-    threshold: 300,
-    rewardCards: ["Goddess of Fate"],
-    label: "Own 300 cards to unlock Goddess of Fate",
-  },
-  {
-    threshold: 400,
-    rewardCards: ["Goddess of Time"],
-    label: "Own 400 cards to unlock Goddess of Time",
-  },
-  {
-    threshold: 500,
-    rewardCards: ["Goddess of War"],
-    label: "Own 500 cards to unlock Goddess of War",
-  },
-  {
-    threshold: 10000,
-    rewardCards: ["Goddess"],
-    label: "Own 10000 cards to unlock Goddess",
-  },
-];
-
-// Bonus cards & goddesses get a fixed 30-min unbreakable block when acquired,
+// Goddesses get a fixed 30-min unbreakable block when acquired,
 // matching the behavior in purchasePlayer.
 const UNBREAKABLE_BLOCK_MS = 30 * 60 * 1000;
 
