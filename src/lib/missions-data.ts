@@ -18,34 +18,34 @@ export interface Mission {
 
 export const MISSIONS: Mission[] = [
   {
-    threshold: 100,
+    threshold: 1000,
     rewardCards: ["Goddess of Wealth"],
-    label: "Collect 100 cards to acquire Goddess of Wealth",
+    label: "Own 1,000 cards to unlock Goddess of Wealth",
   },
   {
-    threshold: 200,
+    threshold: 2000,
     rewardCards: ["Goddess of Knowledge"],
-    label: "Collect 200 cards to acquire Goddess of Knowledge",
+    label: "Own 2,000 cards to unlock Goddess of Knowledge",
   },
   {
-    threshold: 300,
+    threshold: 3000,
     rewardCards: ["Goddess of Fate"],
-    label: "Collect 300 cards to acquire Goddess of Fate",
+    label: "Own 3,000 cards to unlock Goddess of Fate",
   },
   {
-    threshold: 400,
+    threshold: 4000,
     rewardCards: ["Goddess of Time"],
-    label: "Collect 400 cards to acquire Goddess of Time",
+    label: "Own 4,000 cards to unlock Goddess of Time",
   },
   {
-    threshold: 500,
+    threshold: 5000,
     rewardCards: ["Goddess of War"],
-    label: "Collect 500 cards to acquire Goddess of War",
+    label: "Own 5,000 cards to unlock Goddess of War",
   },
   {
-    threshold: 10000,
+    threshold: 6000,
     rewardCards: ["Goddess"],
-    label: "Collect 10,000 cards to acquire Goddess",
+    label: "Own 6,000 cards to unlock the Goddess",
   },
 ];
 

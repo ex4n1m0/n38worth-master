@@ -200,8 +200,8 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
 
   // Growth / accumulation targets: ANY acquirable card (regardless of
   // profession) bought purely to grow the owned-card count. Climbing the
-  // mission ladder awards goddess cards (at 100/200/300/400/500 owned, plus the
-  // final "Goddess" at 10,000 owned), and owning all 6 goddesses wins the game
+  // mission ladder awards goddess cards (at 1000/2000/3000/4000/5000 owned, plus
+  // the final "Goddess" at 6,000 owned), and owning all 6 goddesses wins the game
   // — so accumulating cards is itself a path to victory. Excludes goddesses and
   // bonus cards (acquired/earned via
   // their own paths), protected and onboarding-pool cards, the Agent itself,

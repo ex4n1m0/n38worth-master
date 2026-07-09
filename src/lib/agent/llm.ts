@@ -10,7 +10,7 @@ export type AgentDecision =
  * or returns something invalid. Safe and legal-by-construction:
  *   1. Fill a missing profession (enables combo income).
  *   2. Otherwise ACCUMULATE: buy any affordable card to grow the roster toward
- *      the mission ladder, which awards goddesses (at 100/200/300/400/500 owned,
+ *      the mission ladder, which awards goddesses (at 1000/2000/3000/4000/5000 owned,
  *      plus the final "Goddess" at 10,000) — i.e. accumulation is itself a path
  *      to winning.
  *   3. Otherwise (can't afford anything) refuel by cashing in a sellable combo.
@@ -86,7 +86,7 @@ function buildPrompt(strategy: AgentStrategy): string {
   return JSON.stringify(
     {
       objective:
-        "You are 'Agent', an aggressive player in a card game. Your path to WIN is to ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 100/200/300/400/500 owned, plus the final 'Goddess' at 10,000 owned). Owning ALL 6 GODDESSES wins the game, but you EARN goddesses ONLY through the mission ladder \u2014 so hoarding cards is your route to victory; keep buying regular cards every turn while you have credits. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. HARD RULE: you may NEVER buy goddesses \u2014 they are not offered as buy candidates and any attempt is rejected. Only 'buyCandidates' and 'growthCandidates' are buyable. Every BUY needs a free hire slot (the cap is fixed) \u2014 if slotsRemaining is 0 you can only SELL_COMBO or WAIT. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: accumulate cards (buyCandidates then growthCandidates); SELL_COMBO mainly to refuel when low on credits or at the hire limit.",
+        "You are 'Agent', an aggressive player in a card game. Your path to WIN is to ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 1000/2000/3000/4000/5000 owned, plus the final 'Goddess' at 6,000 owned). Owning ALL 6 GODDESSES wins the game, but you EARN goddesses ONLY through the mission ladder \u2014 so hoarding cards is your route to victory; keep buying regular cards every turn while you have credits. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. HARD RULE: you may NEVER buy goddesses \u2014 they are not offered as buy candidates and any attempt is rejected. Only 'buyCandidates' and 'growthCandidates' are buyable. Every BUY needs a free hire slot (the cap is fixed) \u2014 if slotsRemaining is 0 you can only SELL_COMBO or WAIT. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: accumulate cards (buyCandidates then growthCandidates); SELL_COMBO mainly to refuel when low on credits or at the hire limit.",
       credits: strategy.credits,
       ownedCount: strategy.ownedCount,
       ownedGoddessCount: strategy.ownedGoddessCount,
