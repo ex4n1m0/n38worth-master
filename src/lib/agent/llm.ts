@@ -125,7 +125,7 @@ export async function decideAction(
   // values are piped over stdin (a newline in a header value is a hard error).
   const baseUrl = (opts.baseUrl ?? process.env.AGENT_LLM_BASE_URL ?? "").trim();
   const apiKey = (opts.apiKey ?? process.env.AGENT_LLM_API_KEY ?? "").trim();
-  const model = (opts.model ?? process.env.AGENT_LLM_MODEL ?? "deepseek-chat").trim();
+  const model = (opts.model ?? process.env.AGENT_LLM_MODEL ?? "deepseek-v4-flash").trim();
   const timeoutMs = opts.timeoutMs ?? 8000;
 
   // No LLM configured → heuristic.
@@ -156,6 +156,10 @@ export async function decideAction(
       signal: controller.signal,
       body: JSON.stringify({
         model,
+        // Disable DeepSeek "thinking" mode (default-on for deepseek-v4-*) so the
+        // model returns the JSON decision directly and fast instead of spending
+        // the budget on chain-of-thought. Falls back to the heuristic on failure.
+        thinking: { type: "disabled" },
         temperature: 0.3,
         response_format: { type: "json_object" },
         messages: [

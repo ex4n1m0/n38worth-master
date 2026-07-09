@@ -318,7 +318,7 @@ async function generateChatReply(
 ): Promise<string | null> {
   const baseUrl = (process.env.AGENT_LLM_BASE_URL ?? "").trim();
   const apiKey = (process.env.AGENT_LLM_API_KEY ?? "").trim();
-  const model = (process.env.AGENT_LLM_MODEL ?? "deepseek-chat").trim();
+  const model = (process.env.AGENT_LLM_MODEL ?? "deepseek-v4-flash").trim();
 
   if (!baseUrl || !apiKey) return null;
 
@@ -370,6 +370,11 @@ async function generateChatReply(
       signal: controller.signal,
       body: JSON.stringify({
         model,
+        // Disable DeepSeek "thinking" mode (default-on for deepseek-v4-*). With
+        // thinking enabled the model spends the token budget on reasoning and
+        // returns empty `content`, so the Agent would stay silent. Disabled =
+        // fast, direct one-line replies (like the old deepseek-chat).
+        thinking: { type: "disabled" },
         temperature: 0.7,
         max_tokens: 80,
         messages: [
