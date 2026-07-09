@@ -1,9 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
+import { ensureAgent } from "@/lib/agent/seed";
+import { maybeAgentChat } from "@/lib/agent/chat";
 
 const PUBLIC_REWARD = 0; // Credits earned per public message (disabled)
 const MAX_LENGTH = 280;
@@ -119,6 +121,22 @@ export async function POST(req: Request) {
       }
     } catch (pusherError) {
       console.error("Pusher error:", pusherError);
+    }
+
+    // When a human posts in the PUBLIC room, have the Agent reply immediately
+    // (instead of waiting for its once-a-minute cron). Runs after the response
+    // is sent so it never slows down the sender.
+    if (!isPrivate && sender.isNpc === 0) {
+      after(async () => {
+        try {
+          const agentId = await ensureAgent();
+          if (senderId !== agentId) {
+            await maybeAgentChat(agentId);
+          }
+        } catch (e) {
+          console.error("Agent fast-reply error:", e);
+        }
+      });
     }
 
     return NextResponse.json({

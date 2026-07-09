@@ -174,6 +174,11 @@ export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> 
     return { chatted: false, skipped: "no humans online" };
   }
 
+  // Keep the Agent marked "online" whenever a human is around. This runs every
+  // cron tick (and on each human message), so the Agent never appears idle
+  // between its now-infrequent play turns.
+  await db.update(users).set({ lastOnlineAt: new Date() }).where(eq(users.id, agentId));
+
   const nowSec = Math.floor(Date.now() / 1000);
 
   // Timestamp of the Agent's last public reply. No cadence throttle anymore —
