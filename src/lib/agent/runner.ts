@@ -1,15 +1,122 @@
 import { db } from "@/db";
-import { users, gameSettings, gameHistory } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, gameSettings, gameHistory, ownership } from "@/db/schema";
+import { eq, sql, desc } from "drizzle-orm";
 import { ensureAgent } from "@/lib/agent/seed";
 import { buildStrategy } from "@/lib/agent/strategy";
 import { decideAction } from "@/lib/agent/llm";
 import { buyPlayerCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
 import { countOnlineHumans } from "@/lib/random-player";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
+const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the Agent's last play turn
+
+// The Agent only plays (buys/sells/pumps) once per hour, even though the cron
+// runs far more often (so it can chat frequently).
+const PLAY_INTERVAL_SECONDS = 60 * 60;
+
+// Pump tuning — mirrors pumpPlayer (100% cost, value x2, +10 min block, 12h cap).
+const PUMP_BLOCK_MS = 10 * 60 * 1000;
+const PUMP_MAX_BLOCK_MS = 12 * 60 * 60 * 1000;
+const MAX_PUMPS_PER_TURN = 2;
+
+/**
+ * Once per play turn, the Agent pumps the 1-2 most valuable cards it owns —
+ * favouring cards that own other players (a "team"), then high photo scores,
+ * then raw value. Pumping costs 100% of the card's value, doubles it, pays that
+ * card, and extends its sell block. Returns total credits spent.
+ */
+async function pumpValuableOwnedCards(agentId: number): Promise<AgentMove[]> {
+  const moves: AgentMove[] = [];
+  try {
+    const [agent] = await db
+      .select({ credits: users.credits, username: users.username })
+      .from(users)
+      .where(eq(users.id, agentId));
+    if (!agent) return moves;
+
+    // The Agent's owned cards, ranked by "value the Agent cares about":
+    // owns-a-team first, then best photo, then highest value. Goddesses are
+    // skipped (their value is pinned).
+    const owned = await db
+      .select({
+        ownershipId: ownership.id,
+        ownedId: ownership.ownedId,
+        username: users.username,
+        playerValue: users.playerValue,
+        photoScore: users.photoScore,
+        credits: users.credits,
+        blockSellUntil: ownership.blockSellUntil,
+        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id})`.as("owned_count"),
+      })
+      .from(ownership)
+      .innerJoin(users, eq(ownership.ownedId, users.id))
+      .where(eq(ownership.ownerId, agentId))
+      .orderBy(
+        desc(sql`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id})`),
+        desc(users.photoScore),
+        desc(users.playerValue)
+      )
+      .limit(20);
+
+    let remainingCredits = Number(agent.credits);
+    let pumps = 0;
+
+    for (const card of owned) {
+      if (pumps >= MAX_PUMPS_PER_TURN) break;
+      if (GODDESS_USERNAMES.includes(card.username)) continue;
+
+      const cost = Math.max(1, Math.round(Number(card.playerValue)));
+      if (cost > remainingCredits) continue;
+
+      // Skip cards already at the 12h block cap.
+      const now = Date.now();
+      const currentEnd = card.blockSellUntil ? new Date(card.blockSellUntil).getTime() : 0;
+      if (Math.max(0, currentEnd - now) >= PUMP_MAX_BLOCK_MS) continue;
+
+      const newValue = capPlayerValue(Math.round(Number(card.playerValue) * 2));
+      const newEnd = new Date(Math.max(now, currentEnd) + PUMP_BLOCK_MS);
+
+      // Deduct from the Agent, bump + pay the pumped card, extend its block.
+      await db.update(users).set({ credits: sql`GREATEST(credits - ${cost}, 0)`, updatedAt: new Date() }).where(eq(users.id, agentId));
+      await db
+        .update(users)
+        .set({ credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})`, playerValue: newValue, updatedAt: new Date() })
+        .where(eq(users.id, card.ownedId));
+      await db
+        .update(ownership)
+        .set({ blockSellUntil: newEnd, blockSellBy: agent.username })
+        .where(eq(ownership.id, card.ownershipId));
+
+      try {
+        await db.insert(gameHistory).values({
+          eventType: "pump",
+          actorId: agentId,
+          targetId: card.ownedId,
+          targetUsername: card.username,
+          details: JSON.stringify({ amount: cost, newValue, ownedCount: Number(card.ownedCount), photoScore: card.photoScore, by: "agent" }),
+        });
+      } catch { /* audit best-effort */ }
+
+      remainingCredits -= cost;
+      pumps++;
+      moves.push({
+        action: "PUMP",
+        source: "heuristic",
+        reason: `pumped ${card.username} (team=${Number(card.ownedCount)}, score=${card.photoScore})`,
+        success: true,
+        spent: cost,
+        detail: { targetId: card.ownedId, newValue },
+      });
+    }
+  } catch (e) {
+    console.error("Agent pump error:", e);
+  }
+  return moves;
+}
 
 async function getSetting(key: string): Promise<number | null> {
   const [row] = await db
@@ -80,6 +187,16 @@ export async function runAgentTurn(
   if (onlineHumans > 1) {
     return { ran: false, skipped: "multiple humans online — chat only" };
   }
+
+  // Play at most ONCE PER HOUR. The cron runs every minute (so the Agent can
+  // chat often), but actual gameplay is rate-limited here via a persistent
+  // timestamp so it survives cold serverless instances.
+  const nowSec = Math.floor(Date.now() / 1000);
+  const lastPlay = (await getSetting(LAST_PLAY_KEY)) ?? 0;
+  if (nowSec - lastPlay < PLAY_INTERVAL_SECONDS) {
+    return { ran: false, skipped: "hourly play cooldown" };
+  }
+  await setSetting(LAST_PLAY_KEY, nowSec);
 
   const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 1));
 
@@ -173,6 +290,10 @@ export async function runAgentTurn(
     // Stop the burst if the move failed (avoid hammering a dead-end target).
     if (!success) break;
   }
+
+  // Once per hourly turn, pump the Agent's most valuable owned cards.
+  const pumpMoves = await pumpValuableOwnedCards(agentId);
+  moves.push(...pumpMoves);
 
   return { ran: moves.some((m) => m.action !== "WAIT"), moves };
 }

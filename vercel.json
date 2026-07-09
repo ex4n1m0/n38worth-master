@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/agent",
-      "schedule": "*/2 * * * *"
+      "schedule": "*/1 * * * *"
     },
     {
       "path": "/api/cron/default-avatar",
