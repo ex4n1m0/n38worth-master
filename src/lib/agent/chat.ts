@@ -11,8 +11,10 @@ const MAX_LENGTH = 200; // hard cap on the Agent's reply length
 const CONTEXT_MESSAGES = 8; // recent public messages provided to the LLM
 const TRIGGER_WINDOW_SECONDS = 15 * 60; // ignore human messages older than this
 // When a human is online the Agent proactively says something at least this
-// often (in addition to replying to any new human messages), so it feels alive.
-const PROACTIVE_INTERVAL_SECONDS = 5 * 60;
+// often (in addition to replying to any new human messages), so it's very
+// active in the chat. The cron runs every minute, so this is effectively
+// "say something every minute" when the room is otherwise quiet.
+const PROACTIVE_INTERVAL_SECONDS = 60;
 
 export interface AgentChatResult {
   chatted: boolean;

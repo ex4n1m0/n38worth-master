@@ -14,9 +14,9 @@ const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
 const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the Agent's last play turn
 
-// The Agent only plays (buys/sells/pumps) once per hour, even though the cron
-// runs far more often (so it can chat frequently).
-const PLAY_INTERVAL_SECONDS = 60 * 60;
+// The Agent only plays (buys/sells/pumps) once every 15 minutes, even though the
+// cron runs every minute (so it can chat very frequently).
+const PLAY_INTERVAL_SECONDS = 15 * 60;
 
 // Pump tuning — mirrors pumpPlayer (100% cost, value x2, +10 min block, 12h cap).
 const PUMP_BLOCK_MS = 10 * 60 * 1000;
@@ -188,13 +188,13 @@ export async function runAgentTurn(
     return { ran: false, skipped: "multiple humans online — chat only" };
   }
 
-  // Play at most ONCE PER HOUR. The cron runs every minute (so the Agent can
-  // chat often), but actual gameplay is rate-limited here via a persistent
+  // Play at most once every 15 minutes. The cron runs every minute (so the Agent
+  // can chat often), but actual gameplay is rate-limited here via a persistent
   // timestamp so it survives cold serverless instances.
   const nowSec = Math.floor(Date.now() / 1000);
   const lastPlay = (await getSetting(LAST_PLAY_KEY)) ?? 0;
   if (nowSec - lastPlay < PLAY_INTERVAL_SECONDS) {
-    return { ran: false, skipped: "hourly play cooldown" };
+    return { ran: false, skipped: "play cooldown (15 min)" };
   }
   await setSetting(LAST_PLAY_KEY, nowSec);
 
