@@ -60,12 +60,8 @@ export function OnboardingProfessionStep() {
 
       toast.success(`You are now a ${selectedProfession}! 🔮`);
       await refresh();
-      // Onboarding is complete — arm the one-time bootstrap Mass Hire (fires once
-      // the daily reward is auto-claimed) and send the player to the End Game
-      // page, where the reward auto-claims and the starter roster is hired.
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("initial-mass-hire-pending", "1");
-      }
+      // Onboarding is complete — send the player to the End Game page, where the
+      // daily reward auto-claims. They then hire their roster from the market.
       router.push("/hall-of-fame");
     } catch (error) {
       toast.error(

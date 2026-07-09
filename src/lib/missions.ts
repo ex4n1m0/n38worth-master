@@ -16,8 +16,6 @@ import { users, ownership, rewardHistory, gameHistory } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { doublesOnUse, doubleBonusCardPrice } from "@/lib/bonus-card-price";
-import { BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
 
@@ -163,12 +161,9 @@ async function forceAwardCard(
     .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, card.id)));
   if (existing.length > 0) return true;
 
-  // Bonus cards are clamped to their base value so a card released to floor on a
-  // prior owner deletion still awards/doubles from the base (matching the market).
-  const base = BONUS_CARD_VALUES[card.username];
-  const cost = base !== undefined && doublesOnUse(card.username)
-    ? Math.max(card.playerValue, base)
-    : card.playerValue;
+  // Mission awards are goddesses now (bonus cards removed). The previous owner
+  // is paid the card's current value.
+  const cost = card.playerValue;
 
   // Pay the previous owner (if any) the card's current value, then remove their ownership.
   const [currentOwner] = await db
@@ -210,12 +205,6 @@ async function forceAwardCard(
     blockSellBy: buyerUsername,
     blockUnbreakableUntil: blockExpiry,
   });
-
-  // Awarding a bonus card counts as a "use": double its global price so the
-  // next hire/award costs 2×. (Goddesses and the slot card are excluded.)
-  if (doublesOnUse(card.username)) {
-    await doubleBonusCardPrice(card.id, cost);
-  }
 
   try {
     await db.insert(gameHistory).values({

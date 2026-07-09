@@ -3,9 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import { Crown, Calendar, Star, Loader2, Wallet, Gift, ChevronDown } from "lucide-react";
+import { Crown, Calendar, Star, Loader2, Wallet, ChevronDown } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
-import { BonusCardMarket } from "@/components/BonusCardMarket";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
 import { RankBonusCountdown } from "@/components/RankBonusCountdown";
@@ -35,69 +34,6 @@ interface GoddessData {
 }
 
 
-
-function BonusCardsMarketSection({ currentUserId }: { currentUserId: number | null }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["bonus-cards"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/bonus-cards");
-        if (!res.ok) throw new Error("Failed to fetch bonus cards");
-        return res.json();
-      } catch (error) {
-        console.error("Bonus cards fetch error:", error);
-        throw error;
-      }
-    },
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-  });
-
-  // Single-use action cards shown first, then the passive "others". The
-  // 10-Min Knowledge card is excluded so there are exactly 6 bonus cards
-  // (mirroring the 6 goddesses).
-  const SINGLE_USE = new Set(["Mass Hire", "Create NPC", "+10 Player Slots"]);
-  const bonusCards = ((data?.bonusCards ?? []) as Array<{
-    id: number;
-    username: string;
-    avatarUrl: string | null;
-    playerValue: number;
-    originalValue: number;
-    ownerCount: number;
-    ownedCount: number;
-    ownerName?: string | null;
-    ownerValue?: number | null;
-  }>)
-    .filter((card) => card.username !== "10-Min Knowledge")
-    .sort(
-      (a, b) =>
-        (SINGLE_USE.has(a.username) ? 0 : 1) - (SINGLE_USE.has(b.username) ? 0 : 1)
-    );
-
-  return (
-    <div className="space-y-4 mb-8">
-      <div className="flex items-center gap-2">
-        <Gift className="h-5 w-5 text-purple-400" />
-        <h2 className="text-xl font-bold text-white">Bonus Cards</h2>
-      </div>
-      {isLoading ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-purple-400" />
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {bonusCards.map((card) => (
-            <BonusCardMarket
-              key={card.id}
-              {...card}
-              currentUserId={currentUserId}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function HallOfFamePage() {
   const { data: session } = useSession();
@@ -198,9 +134,6 @@ export default function HallOfFamePage() {
           </div>
         )}
       </div>
-
-      {/* Bonus Cards market — moved here from the Market page, just below the Goddesses. */}
-      <BonusCardsMarketSection currentUserId={currentUserId} />
 
       {/* Hall of Champions — on desktop this lives in the rank-strip dropdown
           above; the full list below is shown on mobile only (the strip is

@@ -5,7 +5,6 @@ import { users, ownership, messages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { pusher } from "@/lib/pusher-server";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -66,12 +65,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Target player not found" }, { status: 404 });
     }
 
-    if (BONUS_CARD_USERNAMES.includes(target.username)) {
-      return NextResponse.json(
-        { error: "Bonus cards do not need a reveal — their avatar is always visible" },
-        { status: 403 }
-      );
-    }
 
     // Load sender
     const [sender] = await db

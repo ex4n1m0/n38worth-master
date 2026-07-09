@@ -9,7 +9,6 @@ import {
   MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
   MOST_EXPENSIVE_GODDESS_MIN_VALUE,
 } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 
 // Each press extends the partnership by 10 minutes. The cost equals the
 // goddess's current value and is BURNED (removed from the economy — not paid to
@@ -39,10 +38,8 @@ export async function POST(req: Request) {
     if (!target) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    const isGoddess = GODDESS_USERNAMES.includes(target.username);
-    const isBonusCard = BONUS_CARD_USERNAMES.includes(target.username);
-    if (!isGoddess && !isBonusCard) {
-      return NextResponse.json({ error: "Only goddess or bonus card partnerships can be extended" }, { status: 400 });
+    if (!GODDESS_USERNAMES.includes(target.username)) {
+      return NextResponse.json({ error: "Only goddess partnerships can be extended" }, { status: 400 });
     }
 
     // You can only extend a partnership you own.
@@ -80,10 +77,6 @@ export async function POST(req: Request) {
         MOST_EXPENSIVE_GODDESS_MIN_VALUE,
         Math.floor(Number(econ.total) * MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE)
       );
-    } else if (isBonusCard) {
-      // Bonus cards are pinned to their floor value; clamp to the base so the
-      // cost matches what the market shows.
-      cost = Math.max(Number(target.playerValue), BONUS_CARD_VALUES[target.username] ?? 1000);
     } else {
       cost = Number(target.playerValue);
     }

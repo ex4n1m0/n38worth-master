@@ -3,7 +3,6 @@ import { db } from "@/db";
 import { ownership, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 
 export async function GET() {
   const session = await auth();
@@ -27,15 +26,11 @@ export async function GET() {
 
     const limit = user?.hireSlots ?? 20;
     const currentOwned = ownershipCount.count;
-    // Pinned to the "+10 Player Slots" card floor — a flat price that no longer
-    // escalates with slot count.
-    const nextSlotCost = BONUS_CARD_VALUES["+10 Player Slots"] ?? 1000;
 
     return NextResponse.json({
       limit,
       currentOwned,
       canBuyMore: currentOwned < limit,
-      nextSlotCost,
     });
   } catch (error) {
     console.error("Error fetching ownership limit:", error);

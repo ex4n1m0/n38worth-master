@@ -21,7 +21,6 @@ import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
@@ -112,8 +111,7 @@ export default function PlayerProfilePage() {
 
   const { data: credits } = useCredits();
   const isSpecialCard =
-    !!player?.username &&
-    (GODDESS_USERNAMES.includes(player.username) || BONUS_CARD_USERNAMES.includes(player.username));
+    !!player?.username && GODDESS_USERNAMES.includes(player.username);
   const heroProfession = isSpecialCard ? null : player?.profession ?? null;
   const professionImage = getProfessionImage(heroProfession);
 

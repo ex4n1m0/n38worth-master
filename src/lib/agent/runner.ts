@@ -6,7 +6,6 @@ import { buildStrategy } from "@/lib/agent/strategy";
 import { decideAction } from "@/lib/agent/llm";
 import { buyPlayerCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
-import { buyHireSlotsCore, createNpcCore } from "@/lib/agent/actions";
 import { countOnlineHumans } from "@/lib/random-player";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
@@ -148,18 +147,6 @@ export async function runAgentTurn(
       const result = await sellComboCore(agentId, decision.playerIds);
       detail = result;
       success = !!(result as { success?: boolean }).success;
-    } else if (decision.action === "BUY_SLOTS") {
-      // Single-use "+10 Player Slots" card: raise the hire cap.
-      const result = await buyHireSlotsCore(agentId);
-      detail = result;
-      success = !!result.success;
-      if (success && typeof result.cost === "number") spent = result.cost;
-    } else if (decision.action === "CREATE_NPC") {
-      // Single-use "Create NPC" card: spawn a fresh ownerless target.
-      const result = await createNpcCore(agentId);
-      detail = result;
-      success = !!result.success;
-      if (success && typeof result.cost === "number") spent = result.cost;
     }
 
     if (spent > 0) {

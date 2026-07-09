@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, sql, ilike, desc, asc, and, ne, notInArray } from "drizzle-orm";
+import { eq, sql, ilike, desc, asc, and, ne } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -32,11 +30,6 @@ export async function GET(req: Request) {
 
     // Build WHERE conditions
     const conditions = [];
-
-    // Bonus cards never appear in the market. Goddesses are visible.
-    conditions.push(
-      notInArray(users.username, [...BONUS_CARD_USERNAMES])
-    );
 
     // Filter to a specific profession when requested
     if (profession) {

@@ -88,14 +88,9 @@ export function LoginReward() {
         toast.info(data.message || "Reward already claimed");
       }
       // All players START on the End Game page and stay there. Mark the reward
-      // as claimed for this session and notify the auto Mass Hire flow — if a
-      // one-time bootstrap hire is pending (new players after onboarding, or a
-      // fresh demo session) it fires now that credits are available. The Mass
-      // Hire card (same page) fetches fresh credits, so the just-claimed reward
-      // is included.
+      // as claimed for this session so the per-session auto-claim doesn't re-fire.
       if (typeof window !== "undefined") {
         sessionStorage.setItem("auto-reward-claimed", "1");
-        window.dispatchEvent(new Event("auto-daily-claimed"));
       }
       isAutoClaimRef.current = false;
     },

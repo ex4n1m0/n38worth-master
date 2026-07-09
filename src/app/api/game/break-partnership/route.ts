@@ -37,6 +37,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "This player has no active partnership to break" }, { status: 400 });
     }
 
+    // Sealed Fate: a player owned by a Goddess of Fate (or Creation) holder
+    // cannot be poached, even by breaking their partnership.
+    if (ownershipRecord.ownerId !== buyerId) {
+      const ownerPowers = await getGoddessPowers(ownershipRecord.ownerId);
+      if (ownerPowers.hasFate) {
+        return NextResponse.json(
+          { error: "This player's owner holds the Goddess of Fate — their team cannot be taken." },
+          { status: 403 }
+        );
+      }
+    }
+
     // Verify there is actually an active sell block
     const now = Date.now();
     const blockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;

@@ -31,8 +31,7 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_POWERS } from "@/lib/bonus-cards";
-import { Shield, Sparkles, MessageSquare } from "lucide-react";
+import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 
 function formatTimeRemaining(date: string | Date | null | undefined): string | null {
@@ -202,7 +201,7 @@ function OwnershipCard({
   const { play } = useSound();
 
   const isOwnCard = session?.user?.name === item.username;
-  const isBonus = BONUS_CARD_USERNAMES.includes(item.username);
+  const isBonus = false; // Bonus cards removed from the game.
   const isGoddess = GODDESS_USERNAMES.includes(item.username);
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
@@ -556,18 +555,7 @@ function OwnershipCard({
         </Link>
 
         {/* Action buttons */}
-        {!ownedMode && isBonus && (
-          <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-purple-500/30">
-            {sellBlockTime && (
-              <div className="rounded-md border border-purple-500/40 bg-purple-950/40 px-3 py-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-purple-300"><Shield className="h-4 w-4 shrink-0" /><span className="text-xs font-semibold">1h Block</span></div>
-                <span className="text-xs font-bold text-purple-200 tabular-nums">{sellBlockTime}</span>
-              </div>
-            )}
-            <p className="text-[11px] text-purple-300/80 flex items-start gap-1 leading-snug"><Sparkles className="h-3 w-3 shrink-0 mt-0.5" /><span>{BONUS_CARD_POWERS[item.username]}</span></p>
-          </div>
-        )}
-        {!ownedMode && !isBonus && (
+        {!ownedMode && (
           <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-gray-800/60">
             {showSendCredits && (<SendCreditsButton targetId={item.id} targetUsername={item.username} square />)}
             {showBoost && !isOwnCard && (<BoostCardButton targetId={item.id} targetUsername={item.username} playerValue={item.playerValue} countdown={sellBlockTime} square />)}

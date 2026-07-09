@@ -183,7 +183,7 @@ export function Navbar() {
               <div className="flex flex-col gap-1 h-full">
                 {/* Top: slots counter + bell side by side */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <OwnershipLimit hideButton />
+                  <OwnershipLimit />
                   <ChatNotificationBell className="shrink-0" />
                 </div>
               </div>

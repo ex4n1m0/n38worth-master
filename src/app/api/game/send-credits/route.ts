@@ -5,7 +5,6 @@ import { users, ownership, messages } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { capCredits } from "@/lib/safeguards";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -86,12 +85,6 @@ export async function POST(req: Request) {
       );
     }
 
-    if (BONUS_CARD_USERNAMES.includes(target.username)) {
-      return NextResponse.json(
-        { error: "Cannot send credits to a bonus card" },
-        { status: 403 }
-      );
-    }
 
     // Deduct from sender (floor at 0, never go negative)
     await db

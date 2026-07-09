@@ -17,7 +17,6 @@ import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatNumber, formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
@@ -144,7 +143,8 @@ export function PlayerCard({
     return () => clearInterval(id);
   }, [blockSellUntil, isHireBlocked]);
   
-  const isBonusCard = BONUS_CARD_USERNAMES.includes(username);
+  // Bonus cards have been removed from the game — no player is ever a bonus card.
+  const isBonusCard = false;
   const isGoddess = GODDESS_USERNAMES.includes(username);
   const effectiveAvatarUrl = tempRevealedAvatarUrl ?? avatarUrl;
 
@@ -499,7 +499,7 @@ export function PlayerCard({
             <span className="text-[8px] sm:text-[9px] leading-none tabular-nums">{blockCountdown}</span>
           </div>
           <div className="flex flex-row flex-wrap justify-end gap-2">
-            {!ownedIds.has(id) && !isAvatarTempRevealed && !isAvatarRevealed && !BONUS_CARD_USERNAMES.includes(username) && !hasKnowledge && (
+            {!ownedIds.has(id) && !isAvatarTempRevealed && !isAvatarRevealed && !isBonusCard && !hasKnowledge && (
               <Button
                 onClick={handleRevealClick}
                 disabled={revealMutation.isPending || (myCredits ?? 0) < revealCost}
@@ -525,17 +525,17 @@ export function PlayerCard({
             )}
             <Button
               onClick={handleBreakClick}
-              disabled={breakMutation.isPending || (myCredits ?? 0) < totalBreakCost || BONUS_CARD_USERNAMES.includes(username)}
+              disabled={breakMutation.isPending || (myCredits ?? 0) < totalBreakCost || isBonusCard}
               className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
-                (myCredits ?? 0) >= totalBreakCost && !BONUS_CARD_USERNAMES.includes(username)
+                (myCredits ?? 0) >= totalBreakCost && !isBonusCard
                   ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
-              style={{...((myCredits ?? 0) >= totalBreakCost && !BONUS_CARD_USERNAMES.includes(username) ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...((myCredits ?? 0) >= totalBreakCost && !isBonusCard ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
             >
               {breakMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
-              ) : BONUS_CARD_USERNAMES.includes(username) ? (
+              ) : isBonusCard ? (
                 <>
                   <Shield className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5" />
                   <span className="text-[8px] sm:text-[9px] leading-none">Unbreakable</span>
@@ -570,7 +570,7 @@ export function PlayerCard({
             >
               {mutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
-              ) : BONUS_CARD_USERNAMES.includes(username) ? (
+              ) : isBonusCard ? (
                 <>
                   <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5" />
                   <span className="text-[9px] sm:text-[10px] leading-none">Hire 3h</span>
@@ -590,9 +590,9 @@ export function PlayerCard({
             </Button>
           </div>
           {/* Right column: Reveal above Hire 6h */}
-          {!GODDESS_USERNAMES.includes(username) && !BONUS_CARD_USERNAMES.includes(username) && (
+          {!GODDESS_USERNAMES.includes(username) && !isBonusCard && (
           <div className="flex flex-col gap-2 shrink-0">
-            {!ownedIds.has(id) && !isAvatarTempRevealed && !isAvatarRevealed && !BONUS_CARD_USERNAMES.includes(username) && !hasKnowledge && (
+            {!ownedIds.has(id) && !isAvatarTempRevealed && !isAvatarRevealed && !isBonusCard && !hasKnowledge && (
               <Button
                 onClick={handleRevealClick}
                 disabled={revealMutation.isPending || (myCredits ?? 0) < playerValue * 0.1}
@@ -796,7 +796,7 @@ export function PlayerCard({
               >
                 {mutation.isPending ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
-                ) : BONUS_CARD_USERNAMES.includes(username) ? (
+                ) : isBonusCard ? (
                   <span className="text-sm sm:text-lg leading-none">GET</span>
                 ) : (
                   <>

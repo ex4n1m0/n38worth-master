@@ -4,8 +4,6 @@ import { eq, sql, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { PROFESSIONS } from "@/lib/professions";
 import { MISSIONS } from "@/lib/missions";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
-import { getSlotCost, getCreateNpcState } from "@/lib/agent/actions";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 export const PROFESSION_NAMES = PROFESSIONS.map((p) => p.name);
@@ -66,10 +64,8 @@ export interface AgentStrategy {
   missionLevel: number; // current marketplace mission index
   nextMissionThreshold: number | null; // owned-count needed for the next mission reward
   hireSlots: number; // max cards the Agent can own
-  slotsRemaining: number; // hireSlots - ownedCount (0 => can't hire until expanded)
+  slotsRemaining: number; // hireSlots - ownedCount (0 => can't hire, cap is fixed)
   atHireLimit: boolean; // true when slotsRemaining <= 0
-  slotUpgrade: { cost: number; affordable: boolean }; // single-use "+10 Player Slots"
-  createNpc: { cost: number; affordable: boolean; onCooldown: boolean }; // single-use "Create NPC"
 }
 
 /**
@@ -211,7 +207,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
   // their own paths), protected and onboarding-pool cards, the Agent itself,
   // cards it already owns, and any card under an active sell block by another
   // owner. Affordable only; owned-first (steal) then priciest (pumps values).
-  const excludedUsernames = [...GODDESS_USERNAMES, ...BONUS_CARD_USERNAMES];
+  const excludedUsernames = [...GODDESS_USERNAMES];
   const growthRows = await db
     .select({
       id: users.id,
@@ -274,11 +270,8 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     };
   }
 
-  // Single-use action cards the Agent may choose to use, just like a player.
   const ownedCount = owned.length;
   const slotsRemaining = hireSlots - ownedCount;
-  const slotCost = getSlotCost(hireSlots);
-  const npcState = await getCreateNpcState(agentId);
 
   return {
     agentId,
@@ -297,11 +290,5 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     hireSlots,
     slotsRemaining,
     atHireLimit: slotsRemaining <= 0,
-    slotUpgrade: { cost: slotCost, affordable: slotCost <= credits },
-    createNpc: {
-      cost: npcState.cost,
-      affordable: npcState.cost <= credits,
-      onCooldown: npcState.onCooldown,
-    },
   };
 }

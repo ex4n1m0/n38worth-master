@@ -54,13 +54,9 @@ export default function RegisterPage() {
     play("buttons");
     setError("");
     setDemoLoading(true);
-    // Re-arm the one-shot guards so this fresh demo session auto-claims its daily
-    // reward and then auto-fires a bootstrap Mass Hire (see LoginReward /
-    // BonusCardMarket). "initial-mass-hire-pending" flags that a bootstrap hire
-    // is owed; it fires once the reward is claimed this session.
+    // Re-arm the daily-reward auto-claim for this fresh demo session.
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("auto-reward-claimed");
-      sessionStorage.setItem("initial-mass-hire-pending", "1");
     }
 
     try {
@@ -112,8 +108,7 @@ export default function RegisterPage() {
       return;
     }
 
-    // Re-arm the per-session daily-reward auto-claim for this fresh account. The
-    // one-time bootstrap Mass Hire is armed later, when onboarding completes.
+    // Re-arm the per-session daily-reward auto-claim for this fresh account.
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("auto-reward-claimed");
     }

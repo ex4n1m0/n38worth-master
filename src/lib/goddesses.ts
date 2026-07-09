@@ -16,7 +16,7 @@ export const GODDESS_USERNAMES: string[] = [
 export const GODDESS_POWERS: Record<string, string> = {
   "Goddess of Wealth": "The player holding this card earns double credits from their portfolio rewards, and double on the boss tax they collect from players they own.",
   "Goddess of Knowledge": "The player holding this card automatically sees every avatar, including ones that are otherwise hidden.",
-  "Goddess of Fate": "The player holding this card can create NPCs for free.",
+  "Goddess of Fate": "While the player holds this card, no one can poach or buy the players they own — their entire roster is sealed to them.",
   "Goddess of Time": "The player holding this card collects their portfolio rewards (and pays their boss's tax) twice as often as everyone else, halving their own wait between payouts.",
   "Goddess of War": "The player holding this card breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window, which no one can break.",
   "Goddess": "The player holding this card activates the powers of all other goddess cards, whether or not they hold those cards.",

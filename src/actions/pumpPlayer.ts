@@ -7,7 +7,6 @@ import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES } from "@/lib/bonus-cards";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of player value per press
 const PUMP_BLOCK_DURATION_MS = 10 * 60 * 1000; // 10 minutes per press
@@ -114,8 +113,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
     // pumped (NPCs use their Unsplash-likes score), so bump it on every pump.
     const pumpedIsHuman =
       ownedPlayer.isNpc === 0 &&
-      !GODDESS_USERNAMES.includes(ownedPlayer.username) &&
-      !BONUS_CARD_USERNAMES.includes(ownedPlayer.username);
+      !GODDESS_USERNAMES.includes(ownedPlayer.username);
     await db
       .update(users)
       .set({

@@ -7,9 +7,9 @@ import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
-import { BONUS_CARD_USERNAMES, BONUS_CARD_VALUES } from "@/lib/bonus-cards";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
+import { getGoddessPowers } from "@/lib/goddess-powers";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -73,8 +73,8 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       return { error: "Buyer not found" };
     }
 
-    // Check if target is a bonus card
-    const isBonusCard = BONUS_CARD_USERNAMES.includes(target.username);
+    // Bonus cards were removed from the game — no player is ever a bonus card.
+    const isBonusCard = false;
     const isGoddess = GODDESS_USERNAMES.includes(target.username);
 
     // Restrict: buyer must have a completed avatar to hire human players
@@ -103,8 +103,8 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     // base value so a card whose value was reset below the base (e.g. released to
     // floor on an owner deletion) still charges/doubles from the base — matching
     // what the market displays.
-    const bonusBase = isBonusCard ? (BONUS_CARD_VALUES[target.username] ?? 1000) : 0;
-    const effectiveValue = isBonusCard ? Math.max(target.playerValue, bonusBase) : target.playerValue;
+    const bonusBase = 0;
+    const effectiveValue = target.playerValue;
 
     // Calculate cost: bonus cards cost their current (doubling) value, regular
     // players use the block duration multiplier. (For bonus cards the multiplier
@@ -153,6 +153,15 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       .select()
       .from(ownership)
       .where(eq(ownership.ownedId, targetId));
+
+    // Sealed Fate: a player owned by a Goddess of Fate (or Creation) holder
+    // cannot be poached — their roster is locked to them.
+    if (currentOwner && currentOwner.ownerId !== buyerId) {
+      const ownerPowers = await getGoddessPowers(currentOwner.ownerId);
+      if (ownerPowers.hasFate) {
+        return { error: `${target.username}'s owner holds the Goddess of Fate — their team cannot be taken.` };
+      }
+    }
 
     // 5b. Check if the target is one of the buyer's onboarding starter NPCs.
     //     If so, skip the partner/sell-block check — onboarding NPCs from the

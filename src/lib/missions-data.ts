@@ -18,11 +18,6 @@ export interface Mission {
 
 export const MISSIONS: Mission[] = [
   {
-    threshold: 20,
-    rewardCards: ["Bonus Own Value", "Bonus Owned Players", "Bonus Player Slot"],
-    label: "Collect 20 cards to acquire the 3 Bonus cards",
-  },
-  {
     threshold: 100,
     rewardCards: ["Goddess of Wealth"],
     label: "Collect 100 cards to acquire Goddess of Wealth",
@@ -68,10 +63,8 @@ export const MISSION_CARD_INDEX: Record<string, number> = MISSIONS.reduce(
 
 /**
  * Whether a card must be unlocked via missions before it can be bought with
- * credits. True for the 3 passive bonus cards and the 6 goddesses (everything
- * the mission ladder awards). False for regular players and the single-use
- * action cards (Mass Hire, Create NPC, +10 Player Slots, 10-Min Knowledge),
- * which are never part of the mission ladder.
+ * credits. True for the 6 goddesses (everything the mission ladder awards).
+ * False for regular players.
  */
 export function isLockablePurchaseCard(username: string): boolean {
   return username in MISSION_CARD_INDEX;
