@@ -1,5 +1,11 @@
 # Project notes for AI agents
 
+## Infrastructure / accounts
+- **Vercel: Pro plan.** Minute-level (and sub-hourly) cron schedules are allowed
+  (e.g. `*/1`, `0,30 * * * *`), and functions may set `maxDuration` up to 60s.
+- **Unsplash: Production API tier** (5000 requests/hour, not the 50/hr Demo tier).
+  Used for NPC avatars in `src/lib/random-player.ts`.
+
 ## Workflow preferences
 - **Always commit AND deploy together.** When deploying, also commit the changes
   to git (and vice versa). Don't leave deployed work uncommitted.
