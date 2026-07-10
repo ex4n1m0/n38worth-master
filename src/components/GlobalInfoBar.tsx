@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Coins, Bot, User } from "lucide-react";
+import { Users, Coins, Bot, User, Circle } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 import { formatCompact, formatNumber } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ export function GlobalInfoBar() {
     totalEconomy: number;
     totalNpcs: number;
     totalHumans: number;
+    onlineHumans?: number;
   } | null>(null);
 
   useEffect(() => {
@@ -66,6 +67,15 @@ export function GlobalInfoBar() {
         <span className="text-white">
           {formatCompact(stats.totalHumans)}
         </span>
+        {stats.onlineHumans != null && (
+          <span className="flex items-center gap-1 text-green-400">
+            <Circle className="h-2 w-2 fill-green-400 text-green-400 shrink-0" />
+            <span className="text-white">
+              {formatCompact(stats.onlineHumans)}
+            </span>
+            <span>online</span>
+          </span>
+        )}
       </div>
     </div>
   );

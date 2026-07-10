@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq, ne, and } from "drizzle-orm";
+import { ONLINE_THRESHOLD_MINUTES } from "@/lib/random-player";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
 
 export const dynamic = "force-dynamic";
 
@@ -20,11 +22,29 @@ export async function GET() {
     const { totalPlayers, totalCredits, totalValues, totalNpcs, totalHumans } = result[0];
     const totalEconomy = Number(totalCredits);
 
+    // Online humans: same definition as the random-player cron (lastOnlineAt
+    // heartbeat within the online threshold, excluding NPCs, deactivated
+    // accounts, and the AI Agent).
+    const cutoff = new Date(Date.now() - ONLINE_THRESHOLD_MINUTES * 60 * 1000);
+    const [onlineRow] = await db
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(users)
+      .where(
+        and(
+          eq(users.isNpc, 0),
+          eq(users.isActive, 1),
+          ne(users.username, AGENT_USERNAME),
+          sql`${users.lastOnlineAt} >= ${cutoff}`
+        )
+      );
+    const onlineHumans = Number(onlineRow?.count ?? 0);
+
     return NextResponse.json({
       totalPlayers: Number(totalPlayers),
       totalEconomy: Math.round(totalEconomy * 100) / 100,
       totalNpcs: Number(totalNpcs),
       totalHumans: Number(totalHumans),
+      onlineHumans,
     });
   } catch (error) {
     console.error("Stats error:", error);
