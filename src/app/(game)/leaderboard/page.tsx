@@ -17,6 +17,8 @@ import {
   User,
   CreditCard,
   Sparkles,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
@@ -136,6 +138,7 @@ function BrowsePlayersSection({
 }) {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
@@ -148,6 +151,7 @@ function BrowsePlayersSection({
       "players",
       debouncedSearch,
       sort,
+      dir,
       ownerFilter,
       playerType,
       profession,
@@ -160,6 +164,7 @@ function BrowsePlayersSection({
           page: String(page),
           limit: String(limit),
           sort,
+          dir,
           ...(debouncedSearch && { search: debouncedSearch }),
           ...(ownerFilter && { ownerFilter }),
           ...(playerType && { playerType }),
@@ -250,6 +255,20 @@ function BrowsePlayersSection({
               {s.label}
             </Button>
           ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("buttons");
+              setDir(dir === "asc" ? "desc" : "asc");
+              setPage(1);
+            }}
+            title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
+            className="rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+          >
+            {dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 mr-1" /> : <ArrowDown className="h-3.5 w-3.5 mr-1" />}
+            {dir === "asc" ? "Asc" : "Desc"}
+          </Button>
           {OWNER_FILTERS.map((f) => (
             <Button
               key={f.key}
