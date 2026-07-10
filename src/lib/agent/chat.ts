@@ -10,11 +10,15 @@ const CHAT_LAST_KEY = "agent_chat_last_at"; // epoch seconds of last Agent chat
 const MAX_LENGTH = 200; // hard cap on the Agent's reply length
 const CONTEXT_MESSAGES = 8; // recent public messages provided to the LLM
 const TRIGGER_WINDOW_SECONDS = 15 * 60; // ignore human messages older than this
-// When a human is online the Agent proactively says something at least this
-// often (in addition to replying to any new human messages), so it's very
-// active in the chat. The cron runs every minute, so this is effectively
-// "say something every minute" when the room is otherwise quiet.
-const PROACTIVE_INTERVAL_SECONDS = 60;
+// Minimum seconds between the Agent's replies, even when new human messages
+// arrive. Prevents the Agent from replying to every single message on the next
+// cron tick and dominating the conversation.
+const REPLY_COOLDOWN_SECONDS = 3 * 60; // 3 minutes
+// When a human is online but the chat is quiet, the Agent proactively says
+// something at most this often (a comment on the standings, trash talk, etc.).
+// Kept much longer than the reply cooldown so the Agent feels like a player who
+// occasionally chimes in, not a bot narrating every minute.
+const PROACTIVE_INTERVAL_SECONDS = 10 * 60; // 10 minutes
 
 export interface AgentChatResult {
   chatted: boolean;
@@ -154,10 +158,11 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
  * Rules (by request):
  *   - PUBLIC chat only; never initiates a conversation.
  *   - Replies only when a HUMAN posted a public message since the Agent last
- *     spoke (and within a recent window).
- *   - No cadence throttle: the Agent answers each new human message promptly
- *     (bounded by the cron tick rate). The trigger gate prevents re-replying
- *     to a message it already answered, so it won't spam.
+ *     spoke (and within a recent window), AND at least REPLY_COOLDOWN_SECONDS
+ *     have passed since its last message — so it doesn't reply to every single
+ *     human message and dominate the chat.
+ *   - Proactively comments at most once every PROACTIVE_INTERVAL_SECONDS when
+ *     the room is quiet (but humans are online).
  *   - Short, game-only replies. Stays silent if the LLM is unavailable
  *     (no canned spam, saves tokens).
  *
@@ -203,9 +208,11 @@ export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> 
     .limit(CONTEXT_MESSAGES)) as PublicMessage[];
 
   // The Agent speaks when EITHER:
-  //   (reactive) a NEW human message arrived since it last spoke, or
+  //   (reactive) a NEW human message arrived since it last spoke AND the reply
+  //               cooldown has elapsed (so it doesn't reply to every single
+  //               message on the next tick and dominate the chat), or
   //   (proactive) it's been a while (PROACTIVE_INTERVAL) since it last spoke —
-  //               so it stays chatty and can comment on the current standings.
+  //               so it occasionally chimes in on the current standings.
   // Humans are isNpc === 0 and not the Agent itself.
   const triggerFloor = Math.max(lastAt, nowSec - TRIGGER_WINDOW_SECONDS);
   const hasHumanTrigger = recent.some(
@@ -214,11 +221,12 @@ export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> 
       m.senderId !== agentId &&
       Math.floor(new Date(m.createdAt).getTime() / 1000) > triggerFloor
   );
+  const cooldownElapsed = nowSec - lastAt >= REPLY_COOLDOWN_SECONDS;
   const proactiveDue = nowSec - lastAt >= PROACTIVE_INTERVAL_SECONDS;
-  if (!hasHumanTrigger && !proactiveDue) {
+  if (!(hasHumanTrigger && cooldownElapsed) && !proactiveDue) {
     return { chatted: false, skipped: "nothing to reply to & not due to speak" };
   }
-  const mode: "reply" | "proactive" = hasHumanTrigger ? "reply" : "proactive";
+  const mode: "reply" | "proactive" = hasHumanTrigger && cooldownElapsed ? "reply" : "proactive";
 
   // Generate a short, on-topic message. Silent if the LLM isn't configured.
   // Feed the Agent's live standing + the current top-3 ranks so it references
