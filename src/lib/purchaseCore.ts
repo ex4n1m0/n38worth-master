@@ -183,14 +183,11 @@ export async function buyPlayerCore(
       .from(ownership)
       .where(eq(ownership.ownedId, targetId));
 
-    // Sealed Fate: a player owned by a Goddess of Fate (or Creation) holder
-    // cannot be poached — their roster is locked to them.
-    if (currentOwner && currentOwner.ownerId !== buyerId) {
-      const ownerPowers = await getGoddessPowers(currentOwner.ownerId);
-      if (ownerPowers.hasFate) {
-        return { error: `${target.username}'s owner holds the Goddess of Fate — their team cannot be taken.` };
-      }
-    }
+    // Note: Goddess of Fate no longer hard-blocks poaching. Instead, Fate
+    // holders' teams get permanent sell blocks (set by the fate-seal cron).
+    // Players can break the block at 1000× the player's value via the
+    // break-partnership API. Normal purchases are blocked by the sell block
+    // (blockSellUntil), which is the standard flow for any partnered player.
 
     // 5b. Check if the target is one of the buyer's onboarding starter NPCs.
     //     If so, skip the partner/sell-block check — onboarding NPCs from the

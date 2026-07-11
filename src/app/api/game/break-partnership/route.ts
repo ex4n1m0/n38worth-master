@@ -6,6 +6,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { purchasePlayer } from "@/actions/purchasePlayer";
 import { getGoddessPowers } from "@/lib/goddess-powers";
+import { formatNumber } from "@/lib/utils";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -37,16 +38,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "This player has no active partnership to break" }, { status: 400 });
     }
 
-    // Sealed Fate: a player owned by a Goddess of Fate (or Creation) holder
-    // cannot be poached, even by breaking their partnership.
+    // Goddess of Fate: the owner's team has permanent sell blocks. Breaking
+    // them is allowed but costs 1000× the player's current value (instead of
+    // the normal hourly break fee). War power does NOT waive this Fate fee.
+    let ownerHasFate = false;
     if (ownershipRecord.ownerId !== buyerId) {
       const ownerPowers = await getGoddessPowers(ownershipRecord.ownerId);
-      if (ownerPowers.hasFate) {
-        return NextResponse.json(
-          { error: "This player's owner holds the Goddess of Fate — their team cannot be taken." },
-          { status: 403 }
-        );
-      }
+      ownerHasFate = ownerPowers.hasFate;
     }
 
     // Verify there is actually an active sell block
@@ -103,17 +101,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You already own this player" }, { status: 400 });
     }
 
-    // Calculate break fee: ceil(hoursRemaining) × playerValue
-    // War / Creation power: break fee is waived — only normal hire cost applies
+    // Calculate break fee:
+    // - Fate-protected player: 1000× playerValue (War power does NOT waive this)
+    // - Normal: ceil(hoursRemaining) × playerValue
+    // - War / Creation power: normal break fee waived (only hire cost)
     const buyerPowers = await getGoddessPowers(buyerId);
-    const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
-    const breakCost = buyerPowers.hasWar ? 0 : hoursRemaining * target.playerValue;
+    let breakCost: number;
+    if (ownerHasFate) {
+      breakCost = target.playerValue * 1000;
+    } else if (buyerPowers.hasWar) {
+      breakCost = 0;
+    } else {
+      const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
+      breakCost = hoursRemaining * target.playerValue;
+    }
 
     // Buyer must afford break fee + normal purchase price
     const totalCost = breakCost + target.playerValue;
     if (buyer.credits < totalCost) {
       return NextResponse.json(
-        { error: `Not enough credits. Need ${totalCost.toFixed(2)}¢ (${breakCost.toFixed(2)}¢ break fee + ${target.playerValue.toFixed(2)}¢ hire)` },
+        { error: `Not enough credits. Need ${formatNumber(totalCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(target.playerValue)}¢ hire)` },
         { status: 400 }
       );
     }

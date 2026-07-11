@@ -51,6 +51,10 @@
     {
       "path": "/api/cron/default-avatar",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/fate-seal",
+      "schedule": "*/1 * * * *"
     }
   ]
 }
