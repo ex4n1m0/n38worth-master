@@ -63,6 +63,12 @@ export async function GET(req: Request) {
         conditions.push(
           sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0`
         );
+      } else if (ownerFilter === "owns") {
+        // Players that own other players (i.e. have at least one ownership row
+        // as the owner).
+        conditions.push(
+          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id") > 0`
+        );
       }
     }
 

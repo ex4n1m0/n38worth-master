@@ -744,8 +744,8 @@ export function PlayerCard({
                     </span>
                   )}
                   {ownedCount > 0 && (
-                    <span className="flex items-center gap-1 text-t2-400">
-                      <Users className="h-3 w-3 shrink-0" />
+                    <span className="flex items-center gap-1 text-t2-400 text-[22px] font-bold">
+                      <Users className="h-5 w-5 shrink-0" />
                       Owns {formatCompact(ownedCount)}
                     </span>
                   )}

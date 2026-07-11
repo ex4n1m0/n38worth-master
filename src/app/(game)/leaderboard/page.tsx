@@ -42,6 +42,7 @@ const OWNER_FILTERS = [
   { key: "mine", label: "My Owned" },
   { key: "other", label: "Others Owned" },
   { key: "none", label: "No Owner" },
+  { key: "owns", label: "Owns" },
 ] as const;
 
 export default function LeaderboardPage() {
@@ -146,7 +147,7 @@ function BrowsePlayersSection({
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [pageSize, setPageSize] = useState(20);
-  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none">("");
+  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   const { play } = useSound();

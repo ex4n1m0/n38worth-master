@@ -18,7 +18,7 @@ export default function PlayersPage() {
   const [dir, setDir] = useState<SortDir>("desc");
   // Ownership (relative to me): "" = all, "none" = no owner, "mine" = I own,
   // "other" = owned by someone else. Market defaults to the No-Owner view.
-  const [ownerFilter, setOwnerFilter] = useState<"" | "none" | "mine" | "other">("none");
+  const [ownerFilter, setOwnerFilter] = useState<"" | "none" | "mine" | "other" | "owns">("none");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [hasTeam, setHasTeam] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -103,6 +103,9 @@ export default function PlayersPage() {
           </FilterPill>
           <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }}>
             <Users className="h-3 w-3" /> Others Owned
+          </FilterPill>
+          <FilterPill active={ownerFilter === "owns"} onClick={() => { setOwnerFilter(ownerFilter === "owns" ? "" : "owns"); setPage(1); }}>
+            <Users className="h-3 w-3" /> Owns
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
           <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }}>
