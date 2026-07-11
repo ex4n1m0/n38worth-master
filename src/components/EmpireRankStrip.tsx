@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { Users, Briefcase, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
 import React from "react";
+import Link from "next/link";
 import { formatCompact } from "@/lib/utils";
 
 interface RankPlayer {
@@ -90,7 +91,9 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
               <span className={`w-3.5 shrink-0 text-center font-mono font-bold ${RANK_COLORS[i] ?? "text-gray-500"}`}>
                 {i + 1}
               </span>
-              <span className="flex-1 truncate font-medium text-gray-200">{p.username}</span>
+              <Link href={`/players/${p.username}`} className="flex-1 truncate font-medium text-gray-200 hover:underline">
+                {p.username}
+              </Link>
               <span className="shrink-0 font-mono tabular-nums text-gray-400">
                 {formatCompact(cfg.getValue(p))}
                 {cfg.suffix ?? ""}
@@ -161,9 +164,9 @@ export function EmpireRankStrip() {
                       <span className="font-mono font-bold text-gray-500">{champions.length - i}</span>
                     )}
                   </span>
-                  <span className={`flex-1 truncate font-semibold ${i === 0 ? "text-yellow-300" : "text-white"}`}>
+                  <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
                     {w.username}
-                  </span>
+                  </Link>
                   <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
                     <Calendar className="h-2.5 w-2.5" />
                     {new Date(w.wonAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
