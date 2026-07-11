@@ -558,9 +558,7 @@ function formatRanks(ranks: RankSnapshot): string {
     out += "\nGoddess Holders: none yet";
   }
   if (ranks.onlineHumans.length > 0) {
-    out += "\nPlayers online now (with their stats):\n" + ranks.onlineHumans
-      .map((h) => `  ${h.username}: ${h.ownedCount} cards hired, ${compactNum(h.playerValue)}\u00a2 value, ${compactNum(h.credits)}\u00a2 credits${h.profession ? `, ${h.profession}` : ""}`)
-      .join("\n");
+    out += "\nPlayers online now: " + ranks.onlineHumans.map((h) => h.username).join(", ");
   }
   return out;
 }
@@ -683,9 +681,15 @@ async function generateChatReply(
             role: "user",
             content:
               `Recent public chat (oldest first):\n${transcript}\n\n` +
+              (ranks.onlineHumans.length > 0
+                ? "PLAYERS ONLINE RIGHT NOW (use their REAL stats in your reply — how many cards they've hired, their value, their credits):\n" +
+                  ranks.onlineHumans.map((h) =>
+                    `  ${h.username}: ${h.ownedCount} cards hired, ${compactNum(h.playerValue)}\u00a2 value, ${compactNum(h.credits)}\u00a2 credits${h.profession ? `, ${h.profession}` : ""}`
+                  ).join("\n") + "\n\n"
+                : "") +
               (mode === "reply"
-                ? "Write Agent's next short public reply. React to what was just said, sound like a real player who knows the game, and keep it to one line about the game only."
-                : "The chat is quiet — start a short, lively public message on your own. Comment on the current top standings (call out or trash-talk the leader, or hype your own climb), or the market/your latest moves. One natural line about the game only."),
+                ? "Write Agent's next short public reply. React to what was just said, sound like a real player who knows the game, and keep it to one line about the game only. If a player is online, reference their actual stats (e.g. '3000 cards? seriously?')."
+                : "The chat is quiet — start a short, lively public message on your own. Comment on the current top standings (call out or trash-talk the leader, or hype your own climb), or the market/your latest moves. If a player is online, reference their actual stats. One natural line about the game only."),
           },
         ],
       }),
