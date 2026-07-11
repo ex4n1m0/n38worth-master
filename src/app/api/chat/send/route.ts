@@ -131,6 +131,12 @@ export async function POST(req: Request) {
         try {
           const agentId = await ensureAgent();
           if (senderId !== agentId) {
+            // Send "typing" indicator immediately so the user sees the Agent
+            // is about to reply — makes the chat feel responsive while the
+            // LLM generates the actual response (2-5 seconds).
+            try {
+              await pusher.trigger("chat-public", "agent-typing", {});
+            } catch {}
             await maybeAgentChat(agentId);
           }
         } catch (e) {
