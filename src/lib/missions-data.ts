@@ -18,7 +18,7 @@ export interface Mission {
 
 /** Special "Mass Hire" card — unlocks at 500 owned cards (not a goddess mission). */
 export const MASS_HIRE_CARD = "Mass Hire";
-export const MASS_HIRE_UNLOCK_THRESHOLD = 500;
+export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
 export const MISSIONS: Mission[] = [
   {

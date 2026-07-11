@@ -19,7 +19,7 @@ export const MASS_HIRE_USERNAME = "Mass Hire";
 export const MASS_HIRE_AVATAR_URL = "/masshire.png";
 
 /** Mission threshold (owned cards) to unlock the Mass Hire card. */
-export const MASS_HIRE_UNLOCK_THRESHOLD = 500;
+export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
 /** Cooldown between Mass Hire uses, in milliseconds. */
 export const MASS_HIRE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
