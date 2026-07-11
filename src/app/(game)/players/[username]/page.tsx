@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +81,11 @@ export default function PlayerProfilePage() {
   const [heroAvatarRevealUntil, setHeroAvatarRevealUntil] = useState<string | null>(null);
   const { ownedIds } = useOwnedPlayerIds();
   const TEAM_PER_PAGE = 18;
+
+  // Scroll to top on page mount / username change.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [username]);
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", username],

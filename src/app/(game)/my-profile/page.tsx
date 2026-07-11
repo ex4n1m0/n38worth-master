@@ -11,7 +11,7 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.name) {
-      router.replace(`/players/${session.user.name}`);
+      router.replace(`/players/${session.user.name}`, { scroll: true });
     }
   }, [session, status, router]);
 
