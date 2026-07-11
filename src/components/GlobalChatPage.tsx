@@ -334,7 +334,9 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
         )}
         </div>
 
-        {/* Right sidebar: human players */}
+        {/* Right sidebar: human players (only for authenticated users —
+            clicking a player opens a DM, which requires login). */}
+        {session && (
         <div className="hidden lg:flex flex-col w-64 shrink-0">
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-gray-500" />
@@ -392,6 +394,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
             })}
           </div>
         </div>
+        )}
 
       </div>
     </div>
