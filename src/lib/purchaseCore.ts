@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { users, ownership, transactions, gameHistory, rewardHistory } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES, GODDESS_VALUES, MOST_EXPENSIVE_GODDESS, MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE, MOST_EXPENSIVE_GODDESS_MIN_VALUE } from "@/lib/goddesses";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
@@ -654,5 +654,262 @@ export async function buyPlayerCore(
     console.error("Purchase error:", errMsg);
     console.error("Purchase error full:", error);
     return { error: "Purchase failed. Please try again." };
+  }
+}
+
+/**
+ * Core break-partnership logic — clears a sell block on a target card, charges
+ * the break fee (1000× for Fate-sealed, 0 for War holders, otherwise
+ * ceil(hoursRemaining) × value), then runs a normal purchase to transfer
+ * ownership. Used by the API route (via auth) and the AI Agent (server-side,
+ * no session). Returns the same shape as BuyPlayerResult plus break cost info.
+ */
+export interface BreakPartnershipResult {
+  success?: boolean;
+  error?: string;
+  breakCost?: number;
+  purchaseCost?: number;
+  totalCost?: number;
+  newValue?: number;
+  targetUsername?: string;
+  countdownStarted?: boolean;
+}
+
+export async function breakPartnershipCore(
+  buyerId: number,
+  targetId: number
+): Promise<BreakPartnershipResult> {
+  if (targetId === buyerId) {
+    return { error: "Cannot break your own partnership" };
+  }
+
+  // Load the current ownership record for target
+  const [ownershipRecord] = await db
+    .select()
+    .from(ownership)
+    .where(eq(ownership.ownedId, targetId));
+
+  if (!ownershipRecord) {
+    return { error: "This player has no active partnership to break" };
+  }
+
+  // Goddess of Fate: the owner's team has permanent sell blocks. Breaking
+  // them is allowed but costs 1000× the player's current value (instead of
+  // the normal hourly break fee). War power does NOT waive this Fate fee.
+  let ownerHasFate = false;
+  if (ownershipRecord.ownerId !== buyerId) {
+    const ownerPowers = await getGoddessPowers(ownershipRecord.ownerId);
+    ownerHasFate = ownerPowers.hasFate;
+  }
+
+  // Verify there is actually an active sell block
+  const now = Date.now();
+  const blockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;
+  const remainingMs = Math.max(0, blockEnd - now);
+
+  if (remainingMs <= 0) {
+    return { error: "No active sell block — use the regular hire button" };
+  }
+
+  // Check for an active unbreakable window
+  const unbreakableEnd = ownershipRecord.blockUnbreakableUntil
+    ? new Date(ownershipRecord.blockUnbreakableUntil).getTime()
+    : 0;
+  if (unbreakableEnd > now) {
+    const minutesLeft = Math.ceil((unbreakableEnd - now) / 60000);
+    return {
+      error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
+    };
+  }
+
+  // Load target value
+  const [target] = await db
+    .select({ id: users.id, username: users.username, playerValue: users.playerValue, credits: users.credits })
+    .from(users)
+    .where(eq(users.id, targetId));
+
+  if (!target) {
+    return { error: "Target player not found" };
+  }
+
+  // Load buyer
+  const [buyer] = await db
+    .select({ id: users.id, credits: users.credits, username: users.username })
+    .from(users)
+    .where(eq(users.id, buyerId));
+
+  if (!buyer) {
+    return { error: "Buyer not found" };
+  }
+
+  // Check buyer doesn't already own this player
+  const [alreadyOwns] = await db
+    .select({ id: ownership.id })
+    .from(ownership)
+    .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, targetId)));
+
+  if (alreadyOwns) {
+    return { error: "You already own this player" };
+  }
+
+  // Calculate break fee
+  const buyerPowers = await getGoddessPowers(buyerId);
+  let breakCost: number;
+  if (ownerHasFate) {
+    breakCost = Number(target.playerValue) * 1000;
+  } else if (buyerPowers.hasWar) {
+    breakCost = 0;
+  } else {
+    const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
+    breakCost = hoursRemaining * Number(target.playerValue);
+  }
+
+  // Buyer must afford break fee + normal purchase price
+  const totalCost = breakCost + Number(target.playerValue);
+  if (Number(buyer.credits) < totalCost) {
+    return { error: `Not enough credits. Need ${totalCost} (${breakCost} break fee + ${target.playerValue} hire)` };
+  }
+
+  // Deduct break fee from buyer (0 for War holders)
+  if (breakCost > 0) {
+    await db
+      .update(users)
+      .set({ credits: sql`credits - ${breakCost}` })
+      .where(eq(users.id, buyerId));
+
+    // Credit break fee to the current owner (compensation)
+    await db
+      .update(users)
+      .set({ credits: sql`LEAST(credits + ${breakCost}, ${sql.raw(MAX_CREDITS_SQL)})` })
+      .where(eq(users.id, ownershipRecord.ownerId));
+  }
+
+  // Clear the sell block on the ownership record so purchasePlayer can proceed
+  await db
+    .update(ownership)
+    .set({ blockSellUntil: null, blockSellBy: null })
+    .where(eq(ownership.id, ownershipRecord.id));
+
+  // Now run the normal purchase (standard 1-hour block for new owner)
+  const { purchasePlayer } = await import("@/actions/purchasePlayer");
+  const purchaseResult = await purchasePlayer(targetId, 1);
+
+  if (purchaseResult.error) {
+    // Rollback: refund break fee to buyer, re-credit owner
+    if (breakCost > 0) {
+      await db
+        .update(users)
+        .set({ credits: sql`LEAST(credits + ${breakCost}, ${sql.raw(MAX_CREDITS_SQL)})` })
+        .where(eq(users.id, buyerId));
+    }
+    return { error: purchaseResult.error };
+  }
+
+  return {
+    success: true,
+    breakCost,
+    purchaseCost: Number(target.playerValue),
+    totalCost,
+    newValue: purchaseResult.newValue,
+    targetUsername: target.username,
+    countdownStarted: purchaseResult.countdownStarted,
+  };
+}
+
+/**
+ * Core block-sell logic — protects an owned card from being sold/poached by
+ * extending its sell block. Costs 100% of the card's value per hour, bumps the
+ * card's value by 10%, and pays 90% of the cost to the card. Used by the API
+ * route (via auth) and the AI Agent (server-side, no session).
+ */
+export interface BlockSellCoreResult {
+  success?: boolean;
+  error?: string;
+  cost?: number;
+  ownedUsername?: string;
+  expiresAt?: string;
+  totalHours?: number;
+}
+
+const SELL_BLOCK_COST_PERCENT = 1.0;
+const SELL_BLOCK_DURATION_MS = 1 * 60 * 60 * 1000;
+const SELL_BLOCK_MAX_MS = 12 * 60 * 60 * 1000;
+
+export async function blockSellCore(
+  ownerId: number,
+  ownershipId: number
+): Promise<BlockSellCoreResult> {
+  try {
+    const [record] = await db
+      .select()
+      .from(ownership)
+      .where(and(eq(ownership.id, ownershipId), eq(ownership.ownerId, ownerId)));
+
+    if (!record) {
+      return { error: "Ownership record not found. You must be the owner." };
+    }
+
+    const [owner] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, ownerId));
+
+    if (!owner) return { error: "Owner not found" };
+
+    const [ownedPlayer] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, record.ownedId));
+
+    if (!ownedPlayer) return { error: "Player not found" };
+
+    const cost = Math.max(1, Math.round(SELL_BLOCK_COST_PERCENT * Number(ownedPlayer.playerValue)));
+    const newValue = capPlayerValue(Math.round(Number(ownedPlayer.playerValue) * 1.10));
+    const creditsToPlayer = Math.round(cost * 0.90);
+
+    if (Number(owner.credits) < cost) {
+      return { error: `Not enough credits. Need ${cost}` };
+    }
+
+    const currentBlockEnd = record.blockSellUntil && new Date(record.blockSellUntil) > new Date()
+      ? new Date(record.blockSellUntil).getTime()
+      : Date.now();
+
+    const remainingBlockMs = Math.max(0, currentBlockEnd - Date.now());
+    if (remainingBlockMs >= SELL_BLOCK_MAX_MS) {
+      return { error: "Sell block already at 12h max" };
+    }
+
+    const newExpiresAt = new Date(currentBlockEnd + SELL_BLOCK_DURATION_MS);
+    const totalHoursRemaining = Math.ceil((newExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
+
+    await db
+      .update(users)
+      .set({ credits: sql`credits - ${cost}`, updatedAt: new Date() })
+      .where(eq(users.id, ownerId));
+
+    await db
+      .update(users)
+      .set({
+        credits: sql`LEAST(credits + ${creditsToPlayer}, ${sql.raw(MAX_CREDITS_SQL)})`,
+        playerValue: newValue,
+      })
+      .where(eq(users.id, record.ownedId));
+
+    await db
+      .update(ownership)
+      .set({ blockSellUntil: newExpiresAt, blockSellBy: owner.username })
+      .where(eq(ownership.id, ownershipId));
+
+    return {
+      success: true,
+      cost,
+      ownedUsername: ownedPlayer.username,
+      expiresAt: newExpiresAt.toISOString(),
+      totalHours: totalHoursRemaining,
+    };
+  } catch (error) {
+    console.error("Block sell core error:", error);
+    return { error: "Block sell failed" };
   }
 }

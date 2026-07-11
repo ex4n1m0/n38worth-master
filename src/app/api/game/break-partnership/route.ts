@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
-import { MAX_CREDITS_SQL } from "@/lib/safeguards";
-import { purchasePlayer } from "@/actions/purchasePlayer";
-import { getGoddessPowers } from "@/lib/goddess-powers";
+import { breakPartnershipCore } from "@/lib/purchaseCore";
 import { formatNumber } from "@/lib/utils";
 
 export async function POST(req: Request) {
@@ -23,151 +18,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid target player" }, { status: 400 });
     }
 
-    if (targetId === buyerId) {
-      return NextResponse.json({ error: "Cannot break your own partnership" }, { status: 400 });
-    }
+    const result = await breakPartnershipCore(buyerId, targetId);
 
-    // Load the current ownership record for target
-    const [ownershipRecord] = await db
-      .select()
-      .from(ownership)
-      .where(eq(ownership.ownedId, targetId));
-
-    if (!ownershipRecord) {
-      // No owner — no block, proceed with normal purchase
-      return NextResponse.json({ error: "This player has no active partnership to break" }, { status: 400 });
-    }
-
-    // Goddess of Fate: the owner's team has permanent sell blocks. Breaking
-    // them is allowed but costs 1000× the player's current value (instead of
-    // the normal hourly break fee). War power does NOT waive this Fate fee.
-    let ownerHasFate = false;
-    if (ownershipRecord.ownerId !== buyerId) {
-      const ownerPowers = await getGoddessPowers(ownershipRecord.ownerId);
-      ownerHasFate = ownerPowers.hasFate;
-    }
-
-    // Verify there is actually an active sell block
-    const now = Date.now();
-    const blockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;
-    const remainingMs = Math.max(0, blockEnd - now);
-
-    if (remainingMs <= 0) {
-      return NextResponse.json({ error: "No active sell block — use the regular hire button" }, { status: 400 });
-    }
-
-    // Check for an active unbreakable window (applies to bonus cards & goddesses during their initial 30 min)
-    // This overrides ALL break-block paths — even Goddess of War / Goddess of Creation cannot break it.
-    const unbreakableEnd = ownershipRecord.blockUnbreakableUntil
-      ? new Date(ownershipRecord.blockUnbreakableUntil).getTime()
-      : 0;
-    if (unbreakableEnd > now) {
-      const minutesLeft = Math.ceil((unbreakableEnd - now) / 60000);
-      return NextResponse.json(
-        {
-          error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
-        },
-        { status: 403 }
-      );
-    }
-
-    // Load target value
-    const [target] = await db
-      .select({ id: users.id, username: users.username, playerValue: users.playerValue, credits: users.credits })
-      .from(users)
-      .where(eq(users.id, targetId));
-
-    if (!target) {
-      return NextResponse.json({ error: "Target player not found" }, { status: 404 });
-    }
-
-    // Load buyer
-    const [buyer] = await db
-      .select({ id: users.id, credits: users.credits, username: users.username })
-      .from(users)
-      .where(eq(users.id, buyerId));
-
-    if (!buyer) {
-      return NextResponse.json({ error: "Buyer not found" }, { status: 404 });
-    }
-
-    // Check buyer doesn't already own this player
-    const [alreadyOwns] = await db
-      .select({ id: ownership.id })
-      .from(ownership)
-      .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, targetId)));
-
-    if (alreadyOwns) {
-      return NextResponse.json({ error: "You already own this player" }, { status: 400 });
-    }
-
-    // Calculate break fee:
-    // - Fate-protected player: 1000× playerValue (War power does NOT waive this)
-    // - Normal: ceil(hoursRemaining) × playerValue
-    // - War / Creation power: normal break fee waived (only hire cost)
-    const buyerPowers = await getGoddessPowers(buyerId);
-    let breakCost: number;
-    if (ownerHasFate) {
-      breakCost = target.playerValue * 1000;
-    } else if (buyerPowers.hasWar) {
-      breakCost = 0;
-    } else {
-      const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
-      breakCost = hoursRemaining * target.playerValue;
-    }
-
-    // Buyer must afford break fee + normal purchase price
-    const totalCost = breakCost + target.playerValue;
-    if (buyer.credits < totalCost) {
-      return NextResponse.json(
-        { error: `Not enough credits. Need ${formatNumber(totalCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(target.playerValue)}¢ hire)` },
-        { status: 400 }
-      );
-    }
-
-    // Deduct break fee from buyer (0 for War/Creation holders)
-    // Use SQL to avoid race conditions with concurrent credit updates
-    if (breakCost > 0) {
-      await db
-        .update(users)
-        .set({ credits: sql`credits - ${breakCost}` })
-        .where(eq(users.id, buyerId));
-
-      // Credit break fee to the current owner (compensation)
-      await db
-        .update(users)
-        .set({ credits: sql`LEAST(credits + ${breakCost}, ${sql.raw(MAX_CREDITS_SQL)})` })
-        .where(eq(users.id, ownershipRecord.ownerId));
-    }
-
-    // Clear the sell block on the ownership record so purchasePlayer can proceed
-    await db
-      .update(ownership)
-      .set({ blockSellUntil: null, blockSellBy: null })
-      .where(eq(ownership.id, ownershipRecord.id));
-
-    // Now run the normal purchase (standard 1-hour block for new owner)
-    const purchaseResult = await purchasePlayer(targetId, 1);
-
-    if (purchaseResult.error) {
-      // Rollback: refund break fee to buyer, re-credit owner, restore block
-      if (breakCost > 0) {
-        await db
-          .update(users)
-          .set({ credits: sql`LEAST(credits + ${breakCost}, ${sql.raw(MAX_CREDITS_SQL)})` })
-          .where(eq(users.id, buyerId));
-      }
-      return NextResponse.json({ error: purchaseResult.error }, { status: 400 });
+    if (result.error) {
+      // Format the error message with proper currency notation for the API
+      const status = result.error.includes("unbreakable") ? 403 : 400;
+      return NextResponse.json({ error: result.error }, { status });
     }
 
     return NextResponse.json({
       success: true,
-      breakCost,
-      purchaseCost: target.playerValue,
-      totalCost,
-      newValue: purchaseResult.newValue,
-      targetUsername: target.username,
-      countdownStarted: purchaseResult.countdownStarted,
+      breakCost: result.breakCost,
+      purchaseCost: result.purchaseCost,
+      totalCost: result.totalCost,
+      newValue: result.newValue,
+      targetUsername: result.targetUsername,
+      countdownStarted: result.countdownStarted,
     });
   } catch (error) {
     console.error("Break partnership error:", error);

@@ -1,10 +1,11 @@
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, inArray } from "drizzle-orm";
+import { eq, sql, inArray, desc } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { PROFESSIONS } from "@/lib/professions";
 import { MISSIONS } from "@/lib/missions";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { getGoddessPowers } from "@/lib/goddess-powers";
 
 export const PROFESSION_NAMES = PROFESSIONS.map((p) => p.name);
 
@@ -49,6 +50,17 @@ export interface GrowthCandidate {
   ownerIsHuman: boolean;
 }
 
+export interface BreakCandidate {
+  targetId: number;
+  username: string;
+  profession: string | null;
+  value: number; // player's current value
+  breakCost: number; // total cost (break fee + hire cost)
+  isFateSealed: boolean; // true if owner has Fate power (1000x cost)
+  ownerName: string | null;
+  blockRemainingMs: number;
+}
+
 export interface AgentStrategy {
   agentId: number;
   credits: number;
@@ -56,6 +68,7 @@ export interface AgentStrategy {
   ownedProfessions: string[]; // distinct, non-null professions currently owned
   buyCandidates: BuyCandidate[]; // best (owned-first, cheapest) card per missing profession
   growthCandidates: GrowthCandidate[]; // any acquirable card, bought purely to grow the roster
+  breakCandidates: BreakCandidate[]; // cards under sell blocks that can be broken (steal by force)
   goddessCandidates: GoddessCandidate[]; // UNLOCKED goddesses not yet owned & currently acquirable
   lockedGoddesses: string[]; // goddesses still locked for purchase (unlock by climbing missions)
   comboCandidate: ComboCandidate | null; // present only when a sellable 6-combo exists
@@ -66,6 +79,7 @@ export interface AgentStrategy {
   hireSlots: number; // max cards the Agent can own
   slotsRemaining: number; // hireSlots - ownedCount (0 => can't hire, cap is fixed)
   atHireLimit: boolean; // true when slotsRemaining <= 0
+  hasWar: boolean; // true if Agent has Goddess of War (free break blocks)
 }
 
 /**
@@ -248,6 +262,94 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     ownerIsHuman: r.ownerId != null && r.ownerIsNpc === 0,
   }));
 
+  // Break candidates: cards under an active sell block that the Agent could
+  // break by force. Excludes goddesses, bonus cards, the Agent itself, and
+  // cards the Agent already owns. The break cost = break fee + hire cost.
+  // For Fate-sealed cards (block > 30 days), the break fee is 1000× value.
+  // For normal blocks, break fee = ceil(hoursRemaining) × value. War power
+  // waives the normal break fee (but NOT the Fate fee). Only affordable cards
+  // are included. Limited to 6 candidates, sorted by value descending.
+  const breakRows = await db
+    .select({
+      id: users.id,
+      username: users.username,
+      profession: users.profession,
+      value: users.playerValue,
+      ownerId: ownership.ownerId,
+      ownerName: ownerUser.username,
+      blockSellUntil: ownership.blockSellUntil,
+      blockUnbreakableUntil: ownership.blockUnbreakableUntil,
+    })
+    .from(users)
+    .innerJoin(ownership, eq(ownership.ownedId, users.id))
+    .leftJoin(ownerUser, eq(ownerUser.id, ownership.ownerId))
+    .where(
+      sql`${users.isProtected} = 0
+        AND ${users.isOnboardingPool} = 0
+        AND ${users.id} <> ${agentId}
+        AND ${ownership.ownerId} <> ${agentId}
+        AND ${ownership.blockSellUntil} > NOW()
+        AND (${ownership.blockUnbreakableUntil} IS NULL OR ${ownership.blockUnbreakableUntil} <= NOW())
+        AND ${users.username} NOT IN (${sql.join(
+          excludedUsernames.map((u) => sql`${u}`),
+          sql`, `
+        )})`
+    )
+    .orderBy(desc(users.playerValue))
+    .limit(20);
+
+  // Check which owners have Fate power (for 1000x break cost).
+  const ownerIds = [...new Set(breakRows.map((r) => r.ownerId).filter((id): id is number => id != null))];
+  const ownerFateMap = new Map<number, boolean>();
+  for (const oid of ownerIds) {
+    try {
+      const powers = await getGoddessPowers(oid);
+      ownerFateMap.set(oid, powers.hasFate);
+    } catch {
+      ownerFateMap.set(oid, false);
+    }
+  }
+
+  // Check if the Agent itself has War power (free breaks).
+  let agentHasWar = false;
+  try {
+    const agentPowers = await getGoddessPowers(agentId);
+    agentHasWar = agentPowers.hasWar;
+  } catch { /* best-effort */ }
+
+  const breakCandidates: BreakCandidate[] = [];
+  for (const r of breakRows) {
+    const blockEnd = r.blockSellUntil ? new Date(r.blockSellUntil).getTime() : 0;
+    const remainingMs = Math.max(0, blockEnd - now);
+    const isFateSealed = remainingMs > 30 * 24 * 60 * 60 * 1000; // > 30 days = Fate seal
+    const ownerHasFate = r.ownerId != null && (ownerFateMap.get(r.ownerId) ?? false);
+
+    let breakFee: number;
+    if (isFateSealed || ownerHasFate) {
+      breakFee = Number(r.value) * 1000;
+    } else if (agentHasWar) {
+      breakFee = 0;
+    } else {
+      const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
+      breakFee = hoursRemaining * Number(r.value);
+    }
+
+    const totalCost = breakFee + Number(r.value);
+    if (totalCost > credits) continue; // only affordable breaks
+
+    breakCandidates.push({
+      targetId: r.id,
+      username: r.username,
+      profession: r.profession,
+      value: Number(r.value),
+      breakCost: totalCost,
+      isFateSealed: isFateSealed || ownerHasFate,
+      ownerName: r.ownerName,
+      blockRemainingMs: remainingMs,
+    });
+    if (breakCandidates.length >= 6) break;
+  }
+
   // Combo: pick one owned, currently-sellable (unblocked) card per distinct
   // profession. A sellable 6-combo requires 6 distinct professions all unblocked.
   const comboPick: OwnedCard[] = [];
@@ -280,6 +382,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     ownedProfessions,
     buyCandidates,
     growthCandidates,
+    breakCandidates,
     goddessCandidates,
     lockedGoddesses,
     comboCandidate,
@@ -289,6 +392,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     nextMissionThreshold,
     hireSlots,
     slotsRemaining,
+    hasWar: agentHasWar,
     atHireLimit: slotsRemaining <= 0,
   };
 }

@@ -13,10 +13,9 @@ export const maxDuration = 60;
  * Gating:
  *   - CRON_SECRET bearer (same as other crons).
  *   - AGENT_ENABLED must be "true" (checked inside runAgentTurn).
- *   - PLAYING only happens when exactly one human is online (no empty-room play;
- *     and it stops playing when 2+ humans are online to avoid interfering).
- *   - CHATTING happens whenever at least one human is online — including when
- *     2+ are online and the Agent has stopped playing.
+ *   - PLAYING happens whenever at least one human is online — the Agent is a
+ *     competitive player that participates in the market alongside everyone.
+ *   - CHATTING happens whenever at least one human is online.
  */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -50,15 +49,14 @@ export async function GET(req: Request) {
       });
     }
 
-    // Play only when a single human is online (keeps the lone player company).
-    // With more than one human online the Agent STOPS playing so it doesn't
-    // compete with / interfere among real players — but it still chats below.
+    // Play whenever at least one human is online — the Agent competes
+    // alongside real players in the market.
     let result: AgentRunResult;
-    if (onlineHumans <= 1) {
+    if (onlineHumans >= 1) {
       const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 3);
       result = await runAgentTurn({ maxActions });
     } else {
-      result = { ran: false, skipped: "multiple humans online — chat only" };
+      result = { ran: false, skipped: "no humans online" };
     }
 
     // Reactive, throttled public-chat reply (runs whenever humans are online,

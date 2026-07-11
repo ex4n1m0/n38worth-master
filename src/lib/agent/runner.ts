@@ -4,7 +4,7 @@ import { eq, sql, desc } from "drizzle-orm";
 import { ensureAgent } from "@/lib/agent/seed";
 import { buildStrategy } from "@/lib/agent/strategy";
 import { decideAction } from "@/lib/agent/llm";
-import { buyPlayerCore } from "@/lib/purchaseCore";
+import { buyPlayerCore, breakPartnershipCore, blockSellCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
 import { countOnlineHumans } from "@/lib/random-player";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
@@ -14,9 +14,10 @@ const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
 const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the Agent's last play turn
 
-// The Agent only plays (buys/sells/pumps) once every 15 minutes, even though the
-// cron runs every minute (so it can chat very frequently).
-const PLAY_INTERVAL_SECONDS = 15 * 60;
+// The Agent plays (buys/sells/pumps) once every 5 minutes, even though the
+// cron runs every minute (so it can chat very frequently). Faster than the
+// old 15-min interval so the Agent reacts to market changes more quickly.
+const PLAY_INTERVAL_SECONDS = 5 * 60;
 
 // Pump tuning — mirrors pumpPlayer (100% cost, value x2, +10 min block, 12h cap).
 const PUMP_BLOCK_MS = 10 * 60 * 1000;
@@ -174,18 +175,15 @@ export async function runAgentTurn(
     return { ran: false, skipped: "disabled" };
   }
 
-  // Hard gate: only play when exactly one real human is online. This mirrors the
-  // cron-route check so the Agent can't act from anywhere else when it shouldn't.
+  // Hard gate: only play when at least one real human is online. The Agent now
+  // plays even when multiple humans are present — it's a competitive player that
+  // participates in the market alongside everyone else.
   // (countOnlineHumans excludes NPCs and the Agent itself.)
   //   - 0 humans  → empty room, never play.
-  //   - >1 humans → real players are around; the Agent stops playing (it still
-  //                 chats via maybeAgentChat) so it doesn't compete/interfere.
+  //   - 1+ humans → play normally (compete with real players).
   const onlineHumans = await countOnlineHumans();
   if (onlineHumans <= 0) {
     return { ran: false, skipped: "no humans online" };
-  }
-  if (onlineHumans > 1) {
-    return { ran: false, skipped: "multiple humans online — chat only" };
   }
 
   // Play at most once every 15 minutes. The cron runs every minute (so the Agent
@@ -260,6 +258,19 @@ export async function runAgentTurn(
         success = !!result.success;
         if (success && typeof result.cost === "number") spent = result.cost;
       }
+    } else if (decision.action === "BREAK") {
+      // Break a sell block on a target card to steal it. The break cost includes
+      // the break fee + the hire cost. Validated against breakCandidates.
+      const allowedTarget = strategy.breakCandidates.some((c) => c.targetId === decision.targetId);
+      if (!allowedTarget) {
+        detail = { error: "blocked: target not in break candidates" };
+        success = false;
+      } else {
+        const result = await breakPartnershipCore(agentId, decision.targetId);
+        detail = result;
+        success = !!result.success;
+        if (success && typeof result.totalCost === "number") spent = result.totalCost;
+      }
     } else if (decision.action === "SELL_COMBO") {
       const result = await sellComboCore(agentId, decision.playerIds);
       detail = result;
@@ -291,9 +302,87 @@ export async function runAgentTurn(
     if (!success) break;
   }
 
-  // Once per hourly turn, pump the Agent's most valuable owned cards.
+  // Once per play turn, pump the Agent's most valuable owned cards.
   const pumpMoves = await pumpValuableOwnedCards(agentId);
   moves.push(...pumpMoves);
 
+  // Protect valuable unblocked owned cards with sell blocks. The Agent
+  // block-sells its 2 most valuable unblocked non-goddess cards per turn,
+  // spending up to 50% of its remaining credits on protection.
+  const blockMoves = await blockSellValuableCards(agentId);
+  moves.push(...blockMoves);
+
   return { ran: moves.some((m) => m.action !== "WAIT"), moves };
+}
+
+const MAX_BLOCKS_PER_TURN = 2;
+
+/**
+ * Protects the Agent's most valuable unblocked owned cards by extending their
+ * sell blocks. Costs 100% of the card's value per hour but bumps the card's
+ * value by 10% and pays 90% to the card. Only blocks cards that are:
+ *   - Not goddesses (value is pinned)
+ *   - Not already blocked
+ *   - Affordable (cost <= 50% of remaining credits, to keep cash for buys)
+ */
+async function blockSellValuableCards(agentId: number): Promise<AgentMove[]> {
+  const moves: AgentMove[] = [];
+  try {
+    const [agent] = await db
+      .select({ credits: users.credits, username: users.username })
+      .from(users)
+      .where(eq(users.id, agentId));
+    if (!agent) return moves;
+
+    // Find unblocked owned cards, sorted by value descending.
+    const unblocked = await db
+      .select({
+        ownershipId: ownership.id,
+        ownedId: ownership.ownedId,
+        username: users.username,
+        playerValue: users.playerValue,
+        blockSellUntil: ownership.blockSellUntil,
+      })
+      .from(ownership)
+      .innerJoin(users, eq(ownership.ownedId, users.id))
+      .where(eq(ownership.ownerId, agentId))
+      .orderBy(desc(users.playerValue))
+      .limit(20);
+
+    const now = Date.now();
+    let remainingCredits = Number(agent.credits);
+    // Spend at most 50% of credits on block-sells (keep the rest for buys).
+    const blockBudget = remainingCredits * 0.5;
+    let blocks = 0;
+    let blockSpent = 0;
+
+    for (const card of unblocked) {
+      if (blocks >= MAX_BLOCKS_PER_TURN) break;
+      if (GODDESS_USERNAMES.includes(card.username)) continue;
+
+      // Skip cards that already have an active block.
+      const currentEnd = card.blockSellUntil ? new Date(card.blockSellUntil).getTime() : 0;
+      if (currentEnd > now) continue;
+
+      const cost = Math.max(1, Math.round(Number(card.playerValue)));
+      if (cost > blockBudget - blockSpent) continue;
+
+      const result = await blockSellCore(agentId, card.ownershipId);
+      if (result.success) {
+        blockSpent += cost;
+        blocks++;
+        moves.push({
+          action: "BLOCK_SELL",
+          source: "heuristic",
+          reason: `blocked ${card.username} (value=${Number(card.playerValue)})`,
+          success: true,
+          spent: cost,
+          detail: { targetId: card.ownedId, expiresAt: result.expiresAt },
+        });
+      }
+    }
+  } catch (e) {
+    console.error("Agent block-sell error:", e);
+  }
+  return moves;
 }

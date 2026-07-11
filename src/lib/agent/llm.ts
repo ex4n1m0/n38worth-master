@@ -2,6 +2,7 @@ import type { AgentStrategy } from "@/lib/agent/strategy";
 
 export type AgentDecision =
   | { action: "BUY"; targetId: number; reason?: string }
+  | { action: "BREAK"; targetId: number; reason?: string }
   | { action: "SELL_COMBO"; playerIds: number[]; reason?: string }
   | { action: "WAIT"; reason?: string };
 
@@ -26,8 +27,11 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
   const affordableGrowth = strategy.growthCandidates
     .filter((c) => c.value <= strategy.credits)
     .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value);
+  const affordableBreaks = strategy.breakCandidates
+    .filter((c) => c.breakCost <= strategy.credits)
+    .sort((a, b) => b.value - a.value); // most valuable first
 
-  // Every BUY consumes a hire slot. The hire cap is fixed (slot-buying was
+  // Every BUY/BREAK consumes a hire slot. The hire cap is fixed (slot-buying was
   // removed with the bonus cards), so when the roster is full the Agent can only
   // refuel by selling a combo, else wait.
   if (strategy.atHireLimit) {
@@ -51,7 +55,27 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     };
   }
 
-  // 2) Accumulate any affordable card to grow the owned-card count toward the
+  // 2) Break a sell block to steal a valuable card (especially if it fills a
+  //    missing profession). Skip Fate-sealed cards unless we're rich.
+  if (affordableBreaks.length > 0) {
+    // Prefer non-Fate-sealed breaks (cheaper). Only break Fate seals if we
+    // have plenty of credits (break cost is 1000x value).
+    const nonFateBreaks = affordableBreaks.filter((c) => !c.isFateSealed);
+    const pool = nonFateBreaks.length > 0 ? nonFateBreaks : affordableBreaks;
+    if (pool.length > 0) {
+      const c = pool[0];
+      // Only break Fate seals if the Agent has > 10x the break cost in credits.
+      if (!c.isFateSealed || strategy.credits > c.breakCost * 10) {
+        return {
+          action: "BREAK",
+          targetId: c.targetId,
+          reason: `heuristic: break ${c.isFateSealed ? "Fate seal" : "sell block"} on ${c.username} (value=${c.value})`,
+        };
+      }
+    }
+  }
+
+  // 3) Accumulate any affordable card to grow the owned-card count toward the
   // mission ladder, which AWARDS goddesses/bonus cards for free. Most-expensive-
   // first to also pump card values and keep things lively.
   if (affordableGrowth.length > 0) {
@@ -63,7 +87,7 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     };
   }
 
-  // 3) Broke -> cash in a combo to refuel.
+  // 4) Broke -> cash in a combo to refuel.
   if (strategy.comboCandidate) {
     return {
       action: "SELL_COMBO",
@@ -86,7 +110,7 @@ function buildPrompt(strategy: AgentStrategy): string {
   return JSON.stringify(
     {
       objective:
-        "You are 'Agent', an aggressive player in a card game. Your path to WIN is to ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 1000/2000/3000/4000/5000 owned, plus the final 'Goddess' at 6,000 owned). Owning ALL 6 GODDESSES wins the game, but you EARN goddesses ONLY through the mission ladder \u2014 so hoarding cards is your route to victory; keep buying regular cards every turn while you have credits. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. HARD RULE: you may NEVER buy goddesses \u2014 they are not offered as buy candidates and any attempt is rejected. Only 'buyCandidates' and 'growthCandidates' are buyable. Every BUY needs a free hire slot (the cap is fixed) \u2014 if slotsRemaining is 0 you can only SELL_COMBO or WAIT. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. Priority: accumulate cards (buyCandidates then growthCandidates); SELL_COMBO mainly to refuel when low on credits or at the hire limit.",
+        "You are 'Agent', an aggressive player in a card game. Your path to WIN is to ACCUMULATE as many cards as possible \u2014 growing your owned-card count climbs the mission ladder, which awards FREE goddess cards (at 1000/2000/3000/4000/5000 owned, plus the final 'Goddess' at 6,000 owned). Owning ALL 6 GODDESSES wins the game, but you EARN goddesses ONLY through the mission ladder \u2014 so hoarding cards is your route to victory; keep buying regular cards every turn while you have credits. Also: collect 6 cards with 6 DIFFERENT professions and SELL_COMBO for cash (pays sum(value) x 10) to refuel. HARD RULE: you may NEVER buy goddesses \u2014 they are not offered as buy candidates and any attempt is rejected. Only 'buyCandidates', 'growthCandidates', and 'breakCandidates' are actionable. Every BUY or BREAK needs a free hire slot (the cap is fixed) \u2014 if slotsRemaining is 0 you can only SELL_COMBO or WAIT. Prefer stealing OWNED cards, and among affordable options favor the BEST-LOOKING photos first (highest 'photoScore' — a proxy for how good the card's photo looks), using card value as the tie-break, before ownerless cards. BREAK candidates are cards under sell blocks \u2014 you can break the block to steal the card, but it costs more (breakCost includes break fee + hire cost). Fate-sealed cards (isFateSealed=true) cost 1000x value to break \u2014 only break those if you're very rich. If you have War power (hasWar=true), normal break fees are waived (but Fate fees are NOT waived). Priority: fill missing professions (buyCandidates) → break valuable sell-blocked cards (breakCandidates) → accumulate cards (growthCandidates); SELL_COMBO mainly to refuel when low on credits or at the hire limit.",
       credits: strategy.credits,
       ownedCount: strategy.ownedCount,
       ownedGoddessCount: strategy.ownedGoddessCount,
@@ -95,9 +119,21 @@ function buildPrompt(strategy: AgentStrategy): string {
       hireSlots: strategy.hireSlots,
       slotsRemaining: strategy.slotsRemaining,
       atHireLimit: strategy.atHireLimit,
+      hasWar: strategy.hasWar,
       ownedProfessions: strategy.ownedProfessions,
       buyCandidates: strategy.buyCandidates,
       growthCandidates: strategy.growthCandidates,
+      breakCandidates: strategy.breakCandidates.length > 0
+        ? strategy.breakCandidates.map((c) => ({
+            targetId: c.targetId,
+            username: c.username,
+            profession: c.profession,
+            value: c.value,
+            breakCost: c.breakCost,
+            isFateSealed: c.isFateSealed,
+            ownerName: c.ownerName,
+          }))
+        : [],
       comboAvailable: strategy.comboCandidate
         ? {
             playerIds: strategy.comboCandidate.playerIds,
@@ -105,7 +141,7 @@ function buildPrompt(strategy: AgentStrategy): string {
           }
         : null,
       instructions:
-        "Choose exactly ONE action. Respond with strict JSON only: {\"action\":\"BUY\",\"targetId\":<id>} OR {\"action\":\"SELL_COMBO\",\"playerIds\":[6 ids from comboAvailable]} OR {\"action\":\"WAIT\"}. For BUY, targetId MUST be a targetId from buyCandidates or growthCandidates (goddesses are NOT buyable), you must afford it (value <= credits), AND slotsRemaining must be > 0. Among affordable BUY candidates, prefer the one with the highest photoScore (best-looking photo), with value as the tie-break. Prefer not to WAIT while you can still afford to accumulate cards. playerIds must equal comboAvailable.playerIds exactly.",
+        "Choose exactly ONE action. Respond with strict JSON only: {\"action\":\"BUY\",\"targetId\":<id>} OR {\"action\":\"BREAK\",\"targetId\":<id>} OR {\"action\":\"SELL_COMBO\",\"playerIds\":[6 ids from comboAvailable]} OR {\"action\":\"WAIT\"}. For BUY, targetId MUST be from buyCandidates or growthCandidates. For BREAK, targetId MUST be from breakCandidates and you must afford breakCost <= credits. For both BUY and BREAK, slotsRemaining must be > 0. Among affordable BUY candidates, prefer the one with the highest photoScore (best-looking photo), with value as the tie-break. Consider BREAK to steal high-value cards that are sell-blocked, especially if they fill a missing profession — but avoid Fate-sealed cards unless you have plenty of credits. Prefer not to WAIT while you can still afford to accumulate cards. playerIds must equal comboAvailable.playerIds exactly.",
     },
     null,
     0
@@ -133,11 +169,12 @@ export async function decideAction(
     return { decision: heuristicDecision(strategy), source: "heuristic" };
   }
 
-  // No card to BUY for the LLM to choose among → let the deterministic heuristic
-  // decide between SELL_COMBO / WAIT without spending a token.
+  // No card to BUY or BREAK for the LLM to choose among → let the deterministic
+  // heuristic decide between SELL_COMBO / WAIT without spending a token.
   if (
     strategy.buyCandidates.length === 0 &&
-    strategy.growthCandidates.length === 0
+    strategy.growthCandidates.length === 0 &&
+    strategy.breakCandidates.length === 0
   ) {
     return { decision: heuristicDecision(strategy), source: "heuristic" };
   }
@@ -224,6 +261,18 @@ function validateDecision(
       strategy.growthCandidates.some((c) => c.targetId === targetId);
     if (!ok) return null;
     return { action: "BUY", targetId, reason: "llm" };
+  }
+
+  if (parsed.action === "BREAK") {
+    // A free hire slot is required for breaking (it results in a purchase).
+    if (strategy.atHireLimit) return null;
+    const targetId = (parsed as { targetId?: unknown }).targetId;
+    if (typeof targetId !== "number") return null;
+    const cand = strategy.breakCandidates.find((c) => c.targetId === targetId);
+    if (!cand) return null;
+    // Must be able to afford the break cost.
+    if (cand.breakCost > strategy.credits) return null;
+    return { action: "BREAK", targetId, reason: "llm" };
   }
 
   if (parsed.action === "SELL_COMBO") {
