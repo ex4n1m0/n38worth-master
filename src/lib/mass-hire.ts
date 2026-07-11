@@ -10,7 +10,7 @@
  */
 
 import { db } from "@/db";
-import { users, gameSettings, ownership } from "@/db/schema";
+import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
 import { eq, and, sql, asc, ne } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions } from "@/lib/missions";
@@ -202,10 +202,13 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
 
     // 5. Find cheapest ownerless players first (excluding self, the Mass Hire
     //    card, goddesses, and the Agent). Sort by playerValue ascending.
-    //    If there aren't enough ownerless candidates to fill maxHires, also
-    //    fetch owned (poachable) candidates — cheapest first — so the card can
-    //    continue hiring even when the market is saturated.
+    //    Cap ownerless hires at maxHires - 1 so at least 1 slot is reserved for
+    //    a poach (owned card). Poaching awards +1 hire slot (same as regular
+    //    purchases), which grows the buyer's hire limit and prevents them from
+    //    getting stuck at the slot cap.
     const excludeSpecialSql = sql`${users.username} NOT IN ('Mass Hire', 'Agent', 'Goddess of Wealth', 'Goddess of Knowledge', 'Goddess of Fate', 'Goddess of Time', 'Goddess of War', 'Goddess')`;
+
+    const ownerlessCap = Math.max(0, maxHires - 1);
 
     const ownerlessCandidates = await db
       .select({
@@ -224,13 +227,13 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         )
       )
       .orderBy(asc(users.playerValue))
-      .limit(maxHires * 3);
+      .limit(ownerlessCap * 3);
 
-    // If we don't have enough ownerless candidates, fetch owned (poachable)
-    // candidates to fill the remaining slots. Exclude partnered/blocked players
-    // (those with an active blockSellUntil) and Goddess of Fate holders' teams.
+    // Always fetch owned (poachable) candidates to fill the remaining slots
+    // (at least 1). Exclude partnered/blocked players (those with an active
+    // blockSellUntil) and Goddess of Fate holders' teams.
     let ownedCandidates: typeof ownerlessCandidates = [];
-    if (ownerlessCandidates.length < maxHires) {
+    if (ownerlessCap < maxHires) {
       ownedCandidates = await db
         .select({
           id: users.id,
@@ -252,7 +255,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           )
         )
         .orderBy(asc(users.playerValue))
-        .limit((maxHires - ownerlessCandidates.length) * 3);
+        .limit((maxHires - Math.min(ownerlessCandidates.length, ownerlessCap)) * 3);
     }
 
     // Combine: ownerless first, then owned (poachable).
@@ -326,6 +329,26 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
 
         // Remove the previous owner's ownership.
         await db.delete(ownership).where(eq(ownership.id, currentOwner.id));
+
+        // Award +1 hire slot for poaching (same as regular purchases).
+        try {
+          await db
+            .update(users)
+            .set({ hireSlots: sql`${users.hireSlots} + 1`, updatedAt: new Date() })
+            .where(eq(users.id, buyerId));
+
+          await db.insert(rewardHistory).values({
+            userId: buyerId,
+            type: "slot_reward",
+            amount: 1,
+            details: JSON.stringify({
+              reason: "mass_hire_poach",
+              playerUsername: target.username,
+            }),
+          });
+        } catch (slotError) {
+          console.error("Mass Hire slot reward error:", slotError);
+        }
       }
 
       // Double the target's value (capped), pay the target.
