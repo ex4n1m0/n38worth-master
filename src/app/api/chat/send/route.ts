@@ -140,7 +140,7 @@ export async function POST(req: Request) {
         try {
           const agentId = await ensureAgent();
           if (senderId !== agentId) {
-            await maybeAgentChat(agentId);
+            await maybeAgentChat(agentId, { force: true });
           }
         } catch (e) {
           console.error("Agent fast-reply error:", e);

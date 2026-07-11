@@ -401,7 +401,7 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
  * Online-gating (only chat when humans are present) is enforced HERE as well as
  * by the caller — the Agent must never talk to an empty room.
  */
-export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> {
+export async function maybeAgentChat(agentId: number, opts: { force?: boolean } = {}): Promise<AgentChatResult> {
   if ((process.env.AGENT_ENABLED ?? "").trim() !== "true") {
     return { chatted: false, skipped: "disabled" };
   }
@@ -445,7 +445,8 @@ export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> 
   //               message on the next tick and dominate the chat), or
   //   (proactive) it's been a while (PROACTIVE_INTERVAL) since it last spoke —
   //               so it occasionally chimes in on the current standings.
-  // Humans are isNpc === 0 and not the Agent itself.
+  // When called with force=true (human just sent a message), skip the cooldown
+  // so the Agent replies immediately — the typing indicator is already showing.
   const triggerFloor = Math.max(lastAt, nowSec - TRIGGER_WINDOW_SECONDS);
   const hasHumanTrigger = recent.some(
     (m) =>
@@ -453,7 +454,7 @@ export async function maybeAgentChat(agentId: number): Promise<AgentChatResult> 
       m.senderId !== agentId &&
       Math.floor(new Date(m.createdAt).getTime() / 1000) > triggerFloor
   );
-  const cooldownElapsed = nowSec - lastAt >= REPLY_COOLDOWN_SECONDS;
+  const cooldownElapsed = opts.force || nowSec - lastAt >= REPLY_COOLDOWN_SECONDS;
   const proactiveDue = nowSec - lastAt >= PROACTIVE_INTERVAL_SECONDS;
   if (!(hasHumanTrigger && cooldownElapsed) && !proactiveDue) {
     return { chatted: false, skipped: "nothing to reply to & not due to speak" };
