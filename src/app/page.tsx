@@ -124,12 +124,6 @@ export default function Home() {
             n38worth
           </Link>
 
-          <p className="lp-fade-up max-w-xl text-base sm:text-lg text-gray-300" style={{ animationDelay: "0.2s" }}>
-            A massive multiplayer game of connection and ambition. Gather people
-            around you, grow your worth, and hunt the six legendary Goddesses
-            before time runs out.
-          </p>
-
           <div className="lp-fade-up flex flex-col sm:flex-row items-center gap-3" style={{ animationDelay: "0.3s" }}>
             <Link
               href="/register"
