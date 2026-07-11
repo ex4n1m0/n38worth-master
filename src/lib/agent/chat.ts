@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { messages, users, gameSettings, ownership } from "@/db/schema";
-import { desc, eq, sql, and, inArray } from "drizzle-orm";
+import { desc, eq, sql, and, inArray, ne } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { PROFESSIONS } from "@/lib/professions";
@@ -313,8 +313,10 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       db.select({ username: users.username, metric: users.playerValue }).from(users).where(humans).orderBy(desc(users.playerValue)).limit(3),
       db.select({ username: users.username, metric: users.credits }).from(users).where(humans).orderBy(desc(users.credits)).limit(3),
       db.select({ username: users.username, metric: blockedExpr.as("m") }).from(users).where(humans).orderBy(desc(blockedExpr)).limit(3),
-      // Online humans (last 5 min) — include their owned card count, credits, and profession
+      // Online humans (last 5 min) — include their owned card count, credits, and profession.
+      // Exclude the Agent itself (it has isNpc=0 but shouldn't see itself in the list).
       db.select({
+        id: users.id,
         username: users.username,
         playerValue: users.playerValue,
         credits: users.credits,
@@ -322,7 +324,12 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
         ownedCount: ownedExpr.as("owned_count"),
       })
         .from(users)
-        .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), sql`${users.lastOnlineAt} > NOW() - INTERVAL '5 minutes'`))
+        .where(and(
+          eq(users.isNpc, 0),
+          eq(users.isActive, 1),
+          sql`${users.lastOnlineAt} > NOW() - INTERVAL '10 minutes'`,
+          ne(users.username, "Agent")
+        ))
         .orderBy(desc(users.playerValue))
         .limit(10),
       // Goddess holders
@@ -640,6 +647,7 @@ async function generateChatReply(
     "- Be talkative, lively and opinionated \u2014 you love stirring the pot and reacting to who's climbing or falling on the ranks.\n" +
     "- Talk ONLY about this game: your trades/steals, the market, card values, professions, combos, goddesses, goddess powers (War/Fate/etc.), missions, sell blocks, breaks, the leaderboard/ranks, or friendly trash talk with rivals.\n" +
     "- Use real game terms (hire, steal, combo, goddess, mission, net worth, sell block, break, pump, fate seal), but sound human \u2014 never robotic or like you're explaining the rules.\n" +
+    "- IMPORTANT: Look at 'Players online now' — these are the real people currently playing. Reference their actual stats (how many cards they've hired, their value, their credits) when talking to or about them. E.g. 'IgorCarlier sitting on 3000 cards while I've only got 6? I need to step up my game.'\n" +
     "- If someone stole a card from you recently, react to it (be annoyed, vow revenge, etc.).\n" +
     "- If you have goddess powers, casually reference them (e.g. 'good luck breaking my Fate seals' or 'free breaks courtesy of War').\n" +
     "- If someone holds a goddess, call them out by name and talk about their power.\n" +
@@ -666,7 +674,7 @@ async function generateChatReply(
         // fast, direct one-line replies (like the old deepseek-chat).
         thinking: { type: "disabled" },
         temperature: 0.7,
-        max_tokens: 80,
+        max_tokens: 150,
         messages: [
           {
             role: "system",
