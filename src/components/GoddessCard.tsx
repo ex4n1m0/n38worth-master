@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Crown, User, ShoppingCart, Loader2, Shield, Lock, Clock } from "lucide-react";
+import { Crown, User, ShoppingCart, Loader2, Shield, Lock, Clock, Power } from "lucide-react";
 import Link from "next/link";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +35,7 @@ interface GoddessCardProps {
   ownerValue?: number | null;
   blockSellUntil?: string | null;
   currentUserId: number | null;
+  powerDisabled?: boolean;
 }
 
 function formatCountdown(ms: number): string {
@@ -81,6 +82,7 @@ export function GoddessCard({
   ownedCount,
   ownerName,
   blockSellUntil,
+  powerDisabled = false,
 }: GoddessCardProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -203,6 +205,44 @@ export function GoddessCard({
     extendMutation.mutate();
   };
 
+  // Power toggle — owner can turn the goddess power on/off.
+  const [powerOn, setPowerOn] = useState(!powerDisabled);
+  const toggleMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/toggle-goddess-power", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goddessName: username }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to toggle power");
+      return data;
+    },
+    onMutate: () => {
+      setPowerOn((prev) => !prev);
+    },
+    onSuccess: async (data) => {
+      setPowerOn(!data.disabled);
+      toast.success(
+        data.disabled
+          ? `${username} power turned OFF`
+          : `${username} power turned ON`
+      );
+      await queryClient.invalidateQueries({ queryKey: ["goddesses"] });
+    },
+    onError: (err: Error) => {
+      setPowerOn(!powerOn); // revert on error
+      toast.error(err.message);
+    },
+  });
+
+  const handleTogglePower = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    play("buttons");
+    toggleMutation.mutate();
+  };
+
   return (
     <Card className={`border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 transition-all duration-200 group overflow-hidden`}>
       <CardContent className="p-0">
@@ -245,8 +285,33 @@ export function GoddessCard({
 
           {/* Power description */}
           {GODDESS_POWERS[username] && (
-            <div className="bg-purple-900/20 border border-purple-500/20 rounded-lg p-2.5">
-              <p className="text-purple-300 text-[10px] font-semibold uppercase tracking-wider mb-1">Power</p>
+            <div className={`rounded-lg p-2.5 border ${
+              isViewerOwner && !powerOn
+                ? "bg-gray-800/30 border-gray-700/30 opacity-60"
+                : "bg-purple-900/20 border-purple-500/20"
+            }`}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-purple-300 text-[10px] font-semibold uppercase tracking-wider">Power</p>
+                {isViewerOwner && (
+                  <button
+                    onClick={handleTogglePower}
+                    disabled={toggleMutation.isPending}
+                    className={`flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full transition-all ${
+                      powerOn
+                        ? "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30"
+                        : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-700/80"
+                    }`}
+                    title={powerOn ? "Power is ON — click to disable" : "Power is OFF — click to enable"}
+                  >
+                    {toggleMutation.isPending ? (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    ) : (
+                      <Power className="h-2.5 w-2.5" />
+                    )}
+                    {powerOn ? "ON" : "OFF"}
+                  </button>
+                )}
+              </div>
               <p className="text-gray-300 text-xs leading-snug">{GODDESS_POWERS[username]}</p>
             </div>
           )}

@@ -10,6 +10,7 @@ import {
   MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
   MOST_EXPENSIVE_GODDESS_MIN_VALUE,
 } from "@/lib/goddesses";
+import { getDisabledPowers } from "@/lib/goddess-powers";
 
 export async function GET() {
   try {
@@ -89,9 +90,13 @@ export async function GET() {
       })
       .sort((a, b) => b.originalValue - a.originalValue);
 
+    // Fetch the viewer's disabled powers so the UI can show toggle state.
+    const disabledPowers = currentUserId ? await getDisabledPowers(currentUserId) : [];
+
     return NextResponse.json({
       goddesses: sortedGoddesses,
       currentUserId,
+      disabledPowers,
     });
   } catch (error) {
     console.error("Goddesses API error:", error);

@@ -52,6 +52,7 @@ export default function HallOfFamePage() {
   const { data: goddessData, isLoading: goddessLoading } = useQuery<{
     goddesses: GoddessData[];
     currentUserId: number | null;
+    disabledPowers: string[];
   }>({
     queryKey: ["goddesses"],
     queryFn: async () => {
@@ -125,6 +126,7 @@ export default function HallOfFamePage() {
                 key={goddess.id}
                 {...goddess}
                 currentUserId={goddessData.currentUserId}
+                powerDisabled={goddessData.disabledPowers?.includes(goddess.username) ?? false}
               />
             ))}
           </div>
