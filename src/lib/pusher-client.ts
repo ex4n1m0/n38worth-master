@@ -12,9 +12,11 @@ let pusherInstance: PusherClient | null = null;
 
 export function getPusherClient(): PusherClient | null {
   if (!PUSHER_KEY || !PUSHER_CLUSTER) {
+    console.warn("[Pusher] No key/cluster configured");
     return null;
   }
   if (!pusherInstance) {
+    console.log("[Pusher] Initializing with key", PUSHER_KEY.slice(0, 6) + "...", "cluster", PUSHER_CLUSTER);
     pusherInstance = new PusherClient(PUSHER_KEY, {
       cluster: PUSHER_CLUSTER,
     });
