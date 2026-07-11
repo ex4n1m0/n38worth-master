@@ -185,9 +185,14 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     }
     const maxHires = Math.min(hireLimit, availableSlots);
 
-    // 5. Find cheapest ownerless players (excluding self, the Mass Hire card,
-    //    goddesses, and the Agent). Sort by playerValue ascending.
-    const candidates = await db
+    // 5. Find cheapest ownerless players first (excluding self, the Mass Hire
+    //    card, goddesses, and the Agent). Sort by playerValue ascending.
+    //    If there aren't enough ownerless candidates to fill maxHires, also
+    //    fetch owned (poachable) candidates — cheapest first — so the card can
+    //    continue hiring even when the market is saturated.
+    const excludeSpecialSql = sql`${users.username} NOT IN ('Mass Hire', 'Agent', 'Goddess of Wealth', 'Goddess of Knowledge', 'Goddess of Fate', 'Goddess of Time', 'Goddess of War', 'Goddess')`;
+
+    const ownerlessCandidates = await db
       .select({
         id: users.id,
         username: users.username,
@@ -200,18 +205,52 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           ne(users.id, buyerId),
           eq(users.isActive, 1),
           sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`,
-          // Exclude special protected cards (goddesses, mass hire, agent).
-          sql`${users.username} NOT IN ('Mass Hire', 'Agent', 'Goddess of Wealth', 'Goddess of Knowledge', 'Goddess of Fate', 'Goddess of Time', 'Goddess of War', 'Goddess')`
+          excludeSpecialSql
         )
       )
       .orderBy(asc(users.playerValue))
-      .limit(maxHires * 3); // fetch extra in case some become owned between query and hire
+      .limit(maxHires * 3);
+
+    // If we don't have enough ownerless candidates, fetch owned (poachable)
+    // candidates to fill the remaining slots. Exclude partnered/blocked players
+    // (those with an active blockSellUntil) and Goddess of Fate holders' teams.
+    let ownedCandidates: typeof ownerlessCandidates = [];
+    if (ownerlessCandidates.length < maxHires) {
+      ownedCandidates = await db
+        .select({
+          id: users.id,
+          username: users.username,
+          playerValue: users.playerValue,
+          isNpc: users.isNpc,
+        })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, buyerId),
+            eq(users.isActive, 1),
+            sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) > 0`,
+            // Not already owned by the buyer.
+            sql`NOT EXISTS (SELECT 1 FROM ownership o2 WHERE o2.owner_id = ${buyerId} AND o2.owned_id = ${users.id})`,
+            // Not currently partnered (blockSellUntil in the future).
+            sql`NOT EXISTS (SELECT 1 FROM ownership o3 WHERE o3.owned_id = ${users.id} AND o3.block_sell_until IS NOT NULL AND o3.block_sell_until > NOW())`,
+            excludeSpecialSql
+          )
+        )
+        .orderBy(asc(users.playerValue))
+        .limit((maxHires - ownerlessCandidates.length) * 3);
+    }
+
+    // Combine: ownerless first, then owned (poachable).
+    const candidates = [...ownerlessCandidates, ...ownedCandidates];
 
     if (candidates.length === 0) {
-      return { error: "No ownerless players available to hire." };
+      return { error: "No players available to hire." };
     }
 
     // 6. Hire candidates from cheapest, while credits last.
+    //    Ownerless players are simple hires. Owned players are poached:
+    //    previous owner is paid cost × (1 + 1% per their owned count) and their
+    //    ownership row is removed before creating the buyer's.
     let remainingCredits = Number(buyer.credits);
     const hired: { id: number; username: string; cost: number }[] = [];
     let totalSpent = 0;
@@ -223,7 +262,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       const cost = Math.max(1, Math.round(Number(target.playerValue)));
       if (cost > remainingCredits) break;
 
-      // Check not already owned (race safety).
+      // Check not already owned by buyer (race safety).
       const [existing] = await db
         .select({ id: ownership.id })
         .from(ownership)
@@ -231,11 +270,48 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .limit(1);
       if (existing) continue;
 
+      // Check if this target is currently owned by someone else (poach).
+      const [currentOwner] = await db
+        .select({
+          id: ownership.id,
+          ownerId: ownership.ownerId,
+          blockSellUntil: ownership.blockSellUntil,
+        })
+        .from(ownership)
+        .where(eq(ownership.ownedId, target.id))
+        .limit(1);
+
+      // Skip partnered/blocked players (shouldn't happen due to query filter,
+      // but race safety).
+      if (currentOwner && currentOwner.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
+        continue;
+      }
+
       // Deduct credits from buyer.
       await db
         .update(users)
         .set({ credits: sql`GREATEST(credits - ${cost}, 0)`, updatedAt: new Date() })
         .where(eq(users.id, buyerId));
+
+      // If poaching, pay the previous owner (cost × (1 + 1% per owned player))
+      // and remove their ownership.
+      if (currentOwner && currentOwner.ownerId !== buyerId) {
+        const [prevOwnerOwnedRow] = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(ownership)
+          .where(eq(ownership.ownerId, currentOwner.ownerId));
+        const prevOwnedCount = Number(prevOwnerOwnedRow?.count ?? 0);
+        const bonusMultiplier = 1 + prevOwnedCount * 0.01;
+        const ownerShare = Math.floor(cost * bonusMultiplier);
+
+        await db
+          .update(users)
+          .set({ credits: sql`LEAST(credits + ${ownerShare}, ${sql.raw(MAX_CREDITS_SQL)})` })
+          .where(eq(users.id, currentOwner.ownerId));
+
+        // Remove the previous owner's ownership.
+        await db.delete(ownership).where(eq(ownership.id, currentOwner.id));
+      }
 
       // Double the target's value (capped), pay the target.
       const newValue = capPlayerValue(Math.round(Number(target.playerValue) * 2));
@@ -244,6 +320,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .set({
           playerValue: newValue,
           credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})`,
+          purchaseCount: sql`${users.purchaseCount} + 1`,
           updatedAt: new Date(),
         })
         .where(eq(users.id, target.id));
@@ -263,7 +340,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     }
 
     if (hired.length === 0) {
-      return { error: "Could not afford any ownerless players." };
+      return { error: "Could not afford any players." };
     }
 
     // 7. Set cooldown (stored as epoch seconds for int32 compatibility).
