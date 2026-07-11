@@ -87,7 +87,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
       {/* ===== Hero ===== */}
-      <section className="relative min-h-[140vh] sm:min-h-screen flex flex-col items-center justify-center px-6 py-24 text-center overflow-x-clip">
+      <section className="relative min-h-[140vh] sm:min-h-screen flex flex-col items-center justify-start px-6 pt-24 pb-24 text-center overflow-x-clip">
         {/* Background image */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -114,7 +114,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,black_85%)]" />
 
         {/* Hero content */}
-        <div className="relative z-10 flex flex-col items-center gap-6 mt-[100px] sm:mt-[200px]">
+        <div className="relative z-10 flex flex-col items-center gap-6">
 
           <Link
             href="/register"
