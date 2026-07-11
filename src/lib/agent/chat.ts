@@ -313,25 +313,19 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       db.select({ username: users.username, metric: users.playerValue }).from(users).where(humans).orderBy(desc(users.playerValue)).limit(3),
       db.select({ username: users.username, metric: users.credits }).from(users).where(humans).orderBy(desc(users.credits)).limit(3),
       db.select({ username: users.username, metric: blockedExpr.as("m") }).from(users).where(humans).orderBy(desc(blockedExpr)).limit(3),
-      // Online humans (last 10 min) — include their owned card count, credits, and profession.
-      // Exclude the Agent itself (it has isNpc=0 but shouldn't see itself in the list).
-      db.select({
-        id: users.id,
-        username: users.username,
-        playerValue: users.playerValue,
-        credits: users.credits,
-        profession: users.profession,
-        ownedCount: ownedExpr,
-      })
-        .from(users)
-        .where(and(
-          eq(users.isNpc, 0),
-          eq(users.isActive, 1),
-          sql`${users.lastOnlineAt} > NOW() - INTERVAL '10 minutes'`,
-          ne(users.username, "Agent")
-        ))
-        .orderBy(desc(users.playerValue))
-        .limit(10),
+      // Online humans (last 10 min) — use raw SQL to avoid Drizzle field mapping issues.
+      // Exclude the Agent itself.
+      db.execute(sql`
+        SELECT
+          u.id, u.username, u.player_value, u.credits, u.profession,
+          (SELECT COUNT(*) FROM ownership o WHERE o.owner_id = u.id) as owned_count
+        FROM users u
+        WHERE u.is_npc = 0 AND u.is_active = 1
+          AND u.last_online_at > NOW() - INTERVAL '10 minutes'
+          AND u.username != 'Agent'
+        ORDER BY u.player_value DESC
+        LIMIT 10
+      `),
       // Goddess holders
       db.select({ username: users.username, ownerId: ownership.ownerId })
         .from(users)
@@ -373,14 +367,12 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       credits: norm(credits),
       goddessHolders,
       blockedCount: norm(blockedCount),
-      onlineHumans: onlineRows.map((r) => {
-        const ownedCount = Number(r.ownedCount ?? 0);
-        if (r.username !== "Agent") {
-          console.log(`[Agent chat] Online player: ${r.username} | ownedCount field: ${JSON.stringify(r.ownedCount)} | parsed: ${ownedCount}`);
-        }
+      onlineHumans: (onlineRows as unknown as Array<{ username: string; player_value: number; credits: number; profession: string | null; owned_count: number }>).map((r) => {
+        const ownedCount = Number(r.owned_count ?? 0);
+        console.log(`[Agent chat] Online player: ${r.username} | owned_count: ${r.owned_count} | parsed: ${ownedCount}`);
         return {
           username: r.username,
-          playerValue: Number(r.playerValue),
+          playerValue: Number(r.player_value),
           ownedCount,
           credits: Number(r.credits),
           profession: r.profession,
