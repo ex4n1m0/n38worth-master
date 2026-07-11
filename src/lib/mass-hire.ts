@@ -4,7 +4,7 @@
  * - Locked by default; unlocks at 500 owned cards (mission threshold).
  * - When activated, hires the cheapest ownerless players the buyer can afford,
  *   up to (1 + 10% of the buyer's current owned count) hires per use.
- * - 10-minute cooldown between uses, shown as a progress bar on the card.
+ * - Dynamic cooldown between uses (1–5+ min based on owned card count).
  * - Pinned at the top-left of the market page regardless of sort/filter.
  * - Avatar: /masshire.png
  */
@@ -21,8 +21,23 @@ export const MASS_HIRE_AVATAR_URL = "/masshire.png";
 /** Mission threshold (owned cards) to unlock the Mass Hire card. */
 export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
-/** Cooldown between Mass Hire uses, in milliseconds. */
-export const MASS_HIRE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+/**
+ * Dynamic cooldown based on the buyer's owned card count:
+ *   50–100   → 1 min
+ *   100–500  → 2 min
+ *   500–1000 → 3 min
+ *   1000–2000 → 4 min
+ *   2000–3000 → 5 min
+ *   …each additional 1000 cards adds 1 minute.
+ */
+export function getMassHireCooldownMs(ownedCount: number): number {
+  if (ownedCount < 100) return 1 * 60 * 1000;
+  if (ownedCount < 500) return 2 * 60 * 1000;
+  if (ownedCount < 1000) return 3 * 60 * 1000;
+  // >= 1000: 3 min base + 1 min per additional 1000 cards.
+  const extraMinutes = Math.floor((ownedCount - 1000) / 1000) + 1;
+  return (3 + extraMinutes) * 60 * 1000;
+}
 
 /** game_settings key storing the buyer's last mass-hire timestamp (epoch ms). */
 function cooldownKey(buyerId: number) {
@@ -134,7 +149,7 @@ export interface MassHireResult {
  *   - mission progress is checked after all hires
  *
  * The buyer's `lastOnlineAt` is NOT touched here (the buyer is actively using
- * the card). A 10-minute cooldown is enforced via game_settings.
+ * the card). A dynamic cooldown is enforced via game_settings.
  */
 export async function executeMassHire(buyerId: number): Promise<MassHireResult> {
   try {
@@ -344,8 +359,9 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       return { error: "Could not afford any players." };
     }
 
-    // 7. Set cooldown (stored as epoch seconds for int32 compatibility).
-    const cooldownEndsAtSec = Math.floor(Date.now() / 1000) + Math.floor(MASS_HIRE_COOLDOWN_MS / 1000);
+    // 7. Set cooldown — duration depends on the buyer's current owned count.
+    const cooldownMs = getMassHireCooldownMs(currentOwned);
+    const cooldownEndsAtSec = Math.floor(Date.now() / 1000) + Math.floor(cooldownMs / 1000);
     await db
       .insert(gameSettings)
       .values({ settingKey: cooldownKey(buyerId), settingValue: cooldownEndsAtSec })

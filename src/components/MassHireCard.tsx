@@ -24,7 +24,7 @@ import {
  * - Locked until the viewer owns 500 cards.
  * - When unlocked, shows a MASS HIRE button that hires the cheapest ownerless
  *   players in bulk (1 + 10% of current owned count per use).
- * - 10-minute cooldown after each use, shown as a depleting progress bar.
+ * - Dynamic cooldown after each use (1–5+ min based on owned count).
  */
 export function MassHireCard({
   ownedCount,
@@ -46,10 +46,9 @@ export function MassHireCard({
 
   // Cooldown state. cooldownEnd is stored as epoch SECONDS (int32 in DB).
   const [cooldownEndSec, setCooldownEndSec] = useState(initialCooldownEnd ?? 0);
+  const [cooldownMs, setCooldownMs] = useState(5 * 60 * 1000); // fallback
   const [remainingMs, setRemainingMs] = useState(0);
   const [cooldownPct, setCooldownPct] = useState(0);
-
-  const COOLDOWN_MS = 5 * 60 * 1000;
 
   const updateCooldown = useCallback(() => {
     if (!cooldownEndSec) {
@@ -61,9 +60,9 @@ export function MassHireCard({
     const ms = Math.max(0, endMs - Date.now());
     setRemainingMs(ms);
     // Progress bar: 100% at start of cooldown, depleting to 0% when ready.
-    const pct = Math.min(100, (ms / COOLDOWN_MS) * 100);
+    const pct = Math.min(100, (ms / cooldownMs) * 100);
     setCooldownPct(pct);
-  }, [cooldownEndSec, COOLDOWN_MS]);
+  }, [cooldownEndSec, cooldownMs]);
 
   useEffect(() => {
     updateCooldown();
@@ -81,8 +80,13 @@ export function MassHireCard({
         const res = await fetch("/api/game/mass-hire-status");
         if (!res.ok) return;
         const data = await res.json();
-        if (!cancelled && data.cooldownEndsAt) {
-          setCooldownEndSec(data.cooldownEndsAt); // already in seconds
+        if (!cancelled) {
+          if (data.cooldownEndsAt) {
+            setCooldownEndSec(data.cooldownEndsAt); // already in seconds
+          }
+          if (data.cooldownMs) {
+            setCooldownMs(data.cooldownMs);
+          }
         }
       } catch {
         // silently fail
