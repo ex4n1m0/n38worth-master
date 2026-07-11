@@ -117,15 +117,16 @@ export async function POST(req: Request) {
           pusher.trigger(`chat-private-${recipientId}`, "new-message", messagePayload),
         ]);
       } else {
-        // Send the message AND the agent-typing indicator in the same batch
-        // so the typing bubble appears the instant the user's message does.
-        const events: Array<{ channel: string; name: string; data: unknown }> = [
-          { channel: "chat-public", name: "new-message", data: messagePayload },
-        ];
+        // Send the user's message
+        await pusher.trigger("chat-public", "new-message", messagePayload);
+        // Send agent-typing indicator immediately (non-blocking) so the user
+        // sees the typing bubble the instant their message appears.
         if (sender.isNpc === 0) {
-          events.push({ channel: "chat-public", name: "agent-typing", data: { typing: true } });
+          console.log("[chat] sending agent-typing event");
+          pusher.trigger("chat-public", "agent-typing", { typing: true }).catch((e: unknown) => {
+            console.error("[chat] agent-typing trigger failed:", e);
+          });
         }
-        await pusher.triggerBatch(events as Parameters<typeof pusher.triggerBatch>[0]);
       }
     } catch (pusherError) {
       console.error("Pusher error:", pusherError);

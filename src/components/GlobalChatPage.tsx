@@ -111,7 +111,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       });
     };
 
-    const handleAgentTyping = () => {
+    const handleAgentTyping = (data: unknown) => {
+      console.log("[chat] agent-typing event received", data);
       setAgentTyping(true);
       // Safety: auto-hide after 10s in case the LLM call fails silently
       setTimeout(() => setAgentTyping(false), 10000);
