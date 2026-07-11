@@ -117,7 +117,15 @@ export async function POST(req: Request) {
           pusher.trigger(`chat-private-${recipientId}`, "new-message", messagePayload),
         ]);
       } else {
-        await pusher.trigger("chat-public", "new-message", messagePayload);
+        // Send the message AND the agent-typing indicator in the same batch
+        // so the typing bubble appears the instant the user's message does.
+        const events: Array<{ channel: string; name: string; data: unknown }> = [
+          { channel: "chat-public", name: "new-message", data: messagePayload },
+        ];
+        if (sender.isNpc === 0) {
+          events.push({ channel: "chat-public", name: "agent-typing", data: { typing: true } });
+        }
+        await pusher.triggerBatch(events as Parameters<typeof pusher.triggerBatch>[0]);
       }
     } catch (pusherError) {
       console.error("Pusher error:", pusherError);
@@ -131,12 +139,6 @@ export async function POST(req: Request) {
         try {
           const agentId = await ensureAgent();
           if (senderId !== agentId) {
-            // Send "typing" indicator immediately so the user sees the Agent
-            // is about to reply — makes the chat feel responsive while the
-            // LLM generates the actual response (2-5 seconds).
-            try {
-              await pusher.trigger("chat-public", "agent-typing", {});
-            } catch {}
             await maybeAgentChat(agentId);
           }
         } catch (e) {

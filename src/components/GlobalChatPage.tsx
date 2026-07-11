@@ -101,8 +101,10 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type !== "public") return;
-      // Hide typing indicator when a new message arrives (likely the Agent's reply)
-      setAgentTyping(false);
+      // Hide typing indicator only when the Agent's message arrives
+      if (msg.sender.username === "Agent") {
+        setAgentTyping(false);
+      }
       setRealtimeMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
