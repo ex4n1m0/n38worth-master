@@ -49,7 +49,7 @@ export function MassHireCard({
   const [remainingMs, setRemainingMs] = useState(0);
   const [cooldownPct, setCooldownPct] = useState(0);
 
-  const COOLDOWN_MS = 10 * 60 * 1000;
+  const COOLDOWN_MS = 5 * 60 * 1000;
 
   const updateCooldown = useCallback(() => {
     if (!cooldownEndSec) {

@@ -22,7 +22,7 @@ export const MASS_HIRE_AVATAR_URL = "/masshire.png";
 export const MASS_HIRE_UNLOCK_THRESHOLD = 500;
 
 /** Cooldown between Mass Hire uses, in milliseconds. */
-export const MASS_HIRE_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+export const MASS_HIRE_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 /** game_settings key storing the buyer's last mass-hire timestamp (epoch ms). */
 function cooldownKey(buyerId: number) {
