@@ -321,6 +321,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           playerValue: newValue,
           credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})`,
           purchaseCount: sql`${users.purchaseCount} + 1`,
+          photoScore: sql`${users.photoScore} + 1`,
           updatedAt: new Date(),
         })
         .where(eq(users.id, target.id));

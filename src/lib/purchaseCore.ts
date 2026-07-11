@@ -327,15 +327,16 @@ export async function buyPlayerCore(
     }
 
     // 8. Update the target's player value after purchase (tiered increase based on current value, or keep it if at the cap)
-    // Also increment the purchase counter. For HUMAN players, `photoScore`
-    // doubles as their card "Score" = times purchased or pumped (NPCs use their
-    // Unsplash-likes score instead), so bump it on every hire.
+    // Also increment the purchase counter. `photoScore` doubles as the card
+    // "Score" — bumped +1 on every hire for all players (humans and NPCs).
+    // Goddesses are excluded (their score is not meaningful). NPCs keep their
+    // Unsplash-likes starting score and grow from there.
     await db
       .update(users)
       .set({
         playerValue: newValue,
         purchaseCount: sql`${users.purchaseCount} + 1`,
-        ...(targetIsHuman ? { photoScore: sql`${users.photoScore} + 1` } : {}),
+        ...(!isGoddess ? { photoScore: sql`${users.photoScore} + 1` } : {}),
         updatedAt: new Date(),
       })
       .where(eq(users.id, targetId));

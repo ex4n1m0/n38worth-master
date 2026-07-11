@@ -108,18 +108,17 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
       })
       .where(eq(users.id, ownerId));
 
-    // Pay the owned player + bump value — cap to prevent overflow. For HUMAN
-    // players, `photoScore` doubles as their card "Score" = times purchased or
-    // pumped (NPCs use their Unsplash-likes score), so bump it on every pump.
-    const pumpedIsHuman =
-      ownedPlayer.isNpc === 0 &&
-      !GODDESS_USERNAMES.includes(ownedPlayer.username);
+    // Pay the owned player + bump value — cap to prevent overflow. `photoScore`
+    // doubles as the card "Score" — bumped +1 on every pump for all players
+    // (humans and NPCs). Goddesses are excluded. NPCs keep their Unsplash-likes
+    // starting score and grow from here.
+    const pumpedIsGoddess = GODDESS_USERNAMES.includes(ownedPlayer.username);
     await db
       .update(users)
       .set({
         credits: sql`LEAST(credits + ${creditsToPlayer}, ${sql.raw(MAX_CREDITS_SQL)})`,
         playerValue: newValue,
-        ...(pumpedIsHuman ? { photoScore: sql`${users.photoScore} + 1` } : {}),
+        ...(!pumpedIsGoddess ? { photoScore: sql`${users.photoScore} + 1` } : {}),
       })
       .where(eq(users.id, record.ownedId));
 
