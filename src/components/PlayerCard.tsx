@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, Gem, ShoppingCart, Loader2, Coins, BadgeCheck, Shield, Eye, Crown, Users, Lock } from "lucide-react";
+import { Star, Gem, ShoppingCart, Loader2, Coins, BadgeCheck, Shield, Eye, Crown, Users, Lock, Clock } from "lucide-react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
-import { formatNumber, formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
+import { formatNumber, formatCompact, getDynamicFontSize, navbarBtnStyle, formatLastOnline } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
@@ -102,6 +102,7 @@ export function PlayerCard({
   isVerified,
   profession,
   playerType,
+  lastOnlineAt,
   avatarRevealUntil,
   onRevealed,
   actionsOnly = false,
@@ -708,14 +709,21 @@ export function PlayerCard({
                 >
                   {effectiveProfession}
                 </span>
-              ) : (
+              ) : effectiveProfession ? (
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {effectiveProfession || "Hidden"}
+                  {effectiveProfession}
                 </p>
-              )}
+              ) : null}
               <p className="text-xs font-semibold text-gray-300 mt-1">
                 {playerType === "human" ? "Human" : "NPC"}
               </p>
+              {/* Last online timestamp */}
+              {lastOnlineAt && (
+                <p className="flex items-center justify-center gap-1 text-[10px] text-gray-500 mt-0.5 leading-none">
+                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                  {formatLastOnline(lastOnlineAt)}
+                </p>
+              )}
               {/* Photo score (Unsplash likes proxy — "how good the photo looks"). */}
               <p className="mt-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-amber-300/90 leading-none">
                 <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
@@ -874,16 +882,23 @@ export function PlayerCard({
                 >
                   {effectiveProfession}
                 </span>
-              ) : (
+              ) : effectiveProfession ? (
                 <p className="text-xs text-gray-400 mt-0.5 text-left">
-                  {effectiveProfession || "Hidden"}
+                  {effectiveProfession}
                 </p>
-              )}
+              ) : null}
 
               <div className={`flex items-center gap-1 mt-1.5 ${getDynamicFontSize(playerValue)}`}>
                 <Coins className="h-3.5 w-3.5 text-t1-400 shrink-0" />
                 <span className="text-t1-400 font-bold">{formatCompact(playerValue)}¢</span>
               </div>
+              {/* Last online timestamp */}
+              {lastOnlineAt && (
+                <p className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5 leading-none">
+                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                  {formatLastOnline(lastOnlineAt)}
+                </p>
+              )}
             </div>
 
             {!isOwnProfile && (
