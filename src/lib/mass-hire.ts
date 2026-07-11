@@ -23,20 +23,21 @@ export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
 /**
  * Dynamic cooldown based on the buyer's owned card count:
- *   50–100    → 30 sec
- *   100–500   → 1 min
- *   500–1000  → 2 min
- *   1000–2000 → 3 min
- *   2000–3000 → 4 min
- *   …each additional 1000 cards adds 1 minute.
+ *   50–100    → 10 sec
+ *   100–500   → 20 sec
+ *   500–1000  → 30 sec
+ *   1000–2000 → 40 sec
+ *   2000–3000 → 50 sec
+ *   3000–4000 → 60 sec
+ *   …each additional 1000 cards adds 10 sec.
  */
 export function getMassHireCooldownMs(ownedCount: number): number {
-  if (ownedCount < 100) return 30 * 1000;
-  if (ownedCount < 500) return 1 * 60 * 1000;
-  if (ownedCount < 1000) return 2 * 60 * 1000;
-  // >= 1000: 2 min base + 1 min per additional 1000 cards.
-  const extraMinutes = Math.floor((ownedCount - 1000) / 1000) + 1;
-  return (2 + extraMinutes) * 60 * 1000;
+  if (ownedCount < 100) return 10 * 1000;
+  if (ownedCount < 500) return 20 * 1000;
+  if (ownedCount < 1000) return 30 * 1000;
+  // >= 1000: 30 sec base + 10 sec per additional 1000 cards.
+  const extraSecs = (Math.floor((ownedCount - 1000) / 1000) + 1) * 10;
+  return (30 + extraSecs) * 1000;
 }
 
 /** game_settings key storing the buyer's last mass-hire timestamp (epoch ms). */
