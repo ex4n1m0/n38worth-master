@@ -313,7 +313,7 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       db.select({ username: users.username, metric: users.playerValue }).from(users).where(humans).orderBy(desc(users.playerValue)).limit(3),
       db.select({ username: users.username, metric: users.credits }).from(users).where(humans).orderBy(desc(users.credits)).limit(3),
       db.select({ username: users.username, metric: blockedExpr.as("m") }).from(users).where(humans).orderBy(desc(blockedExpr)).limit(3),
-      // Online humans (last 5 min) — include their owned card count, credits, and profession.
+      // Online humans (last 10 min) — include their owned card count, credits, and profession.
       // Exclude the Agent itself (it has isNpc=0 but shouldn't see itself in the list).
       db.select({
         id: users.id,
@@ -321,7 +321,7 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
         playerValue: users.playerValue,
         credits: users.credits,
         profession: users.profession,
-        ownedCount: ownedExpr.as("owned_count"),
+        ownedCount: ownedExpr,
       })
         .from(users)
         .where(and(
@@ -373,13 +373,19 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       credits: norm(credits),
       goddessHolders,
       blockedCount: norm(blockedCount),
-      onlineHumans: onlineRows.map((r) => ({
-        username: r.username,
-        playerValue: Number(r.playerValue),
-        ownedCount: Number(r.ownedCount),
-        credits: Number(r.credits),
-        profession: r.profession,
-      })),
+      onlineHumans: onlineRows.map((r) => {
+        const ownedCount = Number(r.ownedCount ?? 0);
+        if (r.username !== "Agent") {
+          console.log(`[Agent chat] Online player: ${r.username} | ownedCount field: ${JSON.stringify(r.ownedCount)} | parsed: ${ownedCount}`);
+        }
+        return {
+          username: r.username,
+          playerValue: Number(r.playerValue),
+          ownedCount,
+          credits: Number(r.credits),
+          profession: r.profession,
+        };
+      }),
     };
   } catch {
     return empty;
