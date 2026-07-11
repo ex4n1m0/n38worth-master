@@ -674,7 +674,6 @@ async function generateChatReply(
         // fast, direct one-line replies (like the old deepseek-chat).
         thinking: { type: "disabled" },
         temperature: 0.7,
-        max_tokens: 150,
         messages: [
           {
             role: "system",
