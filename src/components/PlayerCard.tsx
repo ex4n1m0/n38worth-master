@@ -113,7 +113,7 @@ export function PlayerCard({
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
   const { ownedIds } = useOwnedPlayerIds();
-  const { hasKnowledge } = useKnowledgePower();
+  const { hasKnowledge, hasWar } = useKnowledgePower();
   const missionLevel = useMissionLevel();
   const isOwnProfile = session?.user?.name === username;
 
@@ -400,7 +400,7 @@ export function PlayerCard({
     },
   });
 
-  const breakCost = isHireBlocked ? Math.ceil(blockRemainingMs / (60 * 60 * 1000)) * playerValue : 0;
+  const breakCost = isHireBlocked && !hasWar ? Math.ceil(blockRemainingMs / (60 * 60 * 1000)) * playerValue : 0;
   const totalBreakCost = breakCost + playerValue;
 
   const breakMutation = useMutation({
@@ -458,10 +458,14 @@ export function PlayerCard({
     }
     const ok = window.confirm(
       `Break partnership on ${username}?\n\n` +
-      `• Break fee: ${formatNumber(breakCost)}¢ (paid to current owner)\n` +
+      (hasWar
+        ? `⚔️ Goddess of War: Break fee waived!\n`
+        : `• Break fee: ${formatNumber(breakCost)}¢ (paid to current owner)\n`) +
       `• Hire cost: ${formatNumber(playerValue)}¢\n` +
       `• Total: ${formatNumber(totalBreakCost)}¢\n\n` +
-      `The current owner will receive the break fee as compensation.`
+      (hasWar
+        ? `Only the hire cost will be charged.`
+        : `The current owner will receive the break fee as compensation.`)
     );
     if (!ok) return;
     play("hire");
@@ -545,7 +549,7 @@ export function PlayerCard({
               ) : (
                 <>
                   <Shield className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5" />
-                  <span className="text-[8px] sm:text-[9px] leading-none">Break</span>
+                  <span className="text-[8px] sm:text-[9px] leading-none">{hasWar ? "Free Break" : "Break"}</span>
                   <span className={`leading-none mt-0.5 ${getDynamicFontSize(totalBreakCost)}`}>
                     {formatCompact(totalBreakCost)}¢
                   </span>
