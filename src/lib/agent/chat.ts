@@ -293,7 +293,7 @@ interface RankSnapshot {
   credits: RankLine[]; // most credits
   goddessHolders: { username: string; goddesses: string[] }[]; // who holds which goddesses
   blockedCount: RankLine[]; // most sell-blocked cards (defensive players)
-  onlineHumans: { username: string; playerValue: number }[]; // currently online human players
+  onlineHumans: { username: string; playerValue: number; ownedCount: number; credits: number; profession: string | null }[]; // currently online human players with their stats
 }
 
 /**
@@ -313,8 +313,14 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       db.select({ username: users.username, metric: users.playerValue }).from(users).where(humans).orderBy(desc(users.playerValue)).limit(3),
       db.select({ username: users.username, metric: users.credits }).from(users).where(humans).orderBy(desc(users.credits)).limit(3),
       db.select({ username: users.username, metric: blockedExpr.as("m") }).from(users).where(humans).orderBy(desc(blockedExpr)).limit(3),
-      // Online humans (last 5 min)
-      db.select({ username: users.username, playerValue: users.playerValue })
+      // Online humans (last 5 min) — include their owned card count, credits, and profession
+      db.select({
+        username: users.username,
+        playerValue: users.playerValue,
+        credits: users.credits,
+        profession: users.profession,
+        ownedCount: ownedExpr.as("owned_count"),
+      })
         .from(users)
         .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), sql`${users.lastOnlineAt} > NOW() - INTERVAL '5 minutes'`))
         .orderBy(desc(users.playerValue))
@@ -360,7 +366,13 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       credits: norm(credits),
       goddessHolders,
       blockedCount: norm(blockedCount),
-      onlineHumans: onlineRows.map((r) => ({ username: r.username, playerValue: Number(r.playerValue) })),
+      onlineHumans: onlineRows.map((r) => ({
+        username: r.username,
+        playerValue: Number(r.playerValue),
+        ownedCount: Number(r.ownedCount),
+        credits: Number(r.credits),
+        profession: r.profession,
+      })),
     };
   } catch {
     return empty;
@@ -539,9 +551,9 @@ function formatRanks(ranks: RankSnapshot): string {
     out += "\nGoddess Holders: none yet";
   }
   if (ranks.onlineHumans.length > 0) {
-    out += "\nPlayers online now: " + ranks.onlineHumans
-      .map((h) => `${h.username} (${compactNum(h.playerValue)}\u00a2)`)
-      .join(", ");
+    out += "\nPlayers online now (with their stats):\n" + ranks.onlineHumans
+      .map((h) => `  ${h.username}: ${h.ownedCount} cards hired, ${compactNum(h.playerValue)}\u00a2 value, ${compactNum(h.credits)}\u00a2 credits${h.profession ? `, ${h.profession}` : ""}`)
+      .join("\n");
   }
   return out;
 }
