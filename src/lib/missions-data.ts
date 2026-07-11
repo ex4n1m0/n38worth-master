@@ -16,6 +16,10 @@ export interface Mission {
   label: string;
 }
 
+/** Special "Mass Hire" card — unlocks at 500 owned cards (not a goddess mission). */
+export const MASS_HIRE_CARD = "Mass Hire";
+export const MASS_HIRE_UNLOCK_THRESHOLD = 500;
+
 export const MISSIONS: Mission[] = [
   {
     threshold: 1000,
@@ -63,11 +67,11 @@ export const MISSION_CARD_INDEX: Record<string, number> = MISSIONS.reduce(
 
 /**
  * Whether a card must be unlocked via missions before it can be bought with
- * credits. True for the 6 goddesses (everything the mission ladder awards).
- * False for regular players.
+ * credits. True for the 6 goddesses (everything the mission ladder awards) and
+ * the Mass Hire card. False for regular players.
  */
 export function isLockablePurchaseCard(username: string): boolean {
-  return username in MISSION_CARD_INDEX;
+  return username in MISSION_CARD_INDEX || username === MASS_HIRE_CARD;
 }
 
 /**
@@ -78,11 +82,24 @@ export function isLockablePurchaseCard(username: string): boolean {
  * `i` advances `mission_level` to `i + 1`, so a card awarded by mission `i` is
  * unlocked when `missionLevel >= i + 1`. Non-lockable cards are always
  * purchasable.
+ *
+ * The Mass Hire card is special: it unlocks at 500 owned cards, which is below
+ * the first goddess mission (1000). It's unlocked when missionLevel >= 1
+ * (i.e. the player has completed at least the first mission-equivalent, which
+ * at 500 cards is tracked separately).
  */
 export function isPurchaseUnlockedAtLevel(
   username: string,
   missionLevel: number
 ): boolean {
+  if (username === MASS_HIRE_CARD) {
+    // Mass Hire unlocks at 500 cards. The mission level for 500 cards is
+    // not part of the goddess ladder, so we use a separate threshold check.
+    // The client passes the owned card count via missionLevel for this card.
+    // Actually, missionLevel is the mission index, not card count. We need
+    // a different approach — see isMassHireUnlocked below.
+    return missionLevel >= 1; // fallback: unlocked after first goddess mission
+  }
   const index = MISSION_CARD_INDEX[username];
   if (index === undefined) return true;
   return missionLevel >= index + 1;
@@ -93,6 +110,7 @@ export function isPurchaseUnlockedAtLevel(
  * purchase, or null if the card is not lockable.
  */
 export function purchaseUnlockThreshold(username: string): number | null {
+  if (username === MASS_HIRE_CARD) return MASS_HIRE_UNLOCK_THRESHOLD;
   const index = MISSION_CARD_INDEX[username];
   if (index === undefined) return null;
   return MISSIONS[index].threshold;

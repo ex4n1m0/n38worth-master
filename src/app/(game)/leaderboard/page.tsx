@@ -24,6 +24,7 @@ import {
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
+import { MassHireCard } from "@/components/MassHireCard";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
@@ -183,6 +184,22 @@ function BrowsePlayersSection({
     },
     staleTime: 5 * 1000,
     refetchInterval: 20 * 1000,
+  });
+
+  // Mass Hire card data (pinned, independent of sort/filter).
+  const { data: massHireData } = useQuery<{
+    cardId: number;
+    ownedCount: number;
+    cooldownEndsAt: number;
+  }>({
+    queryKey: ["mass-hire-card"],
+    queryFn: async () => {
+      const res = await fetch("/api/mass-hire-card");
+      if (!res.ok) return { cardId: 0, ownedCount: 0, cooldownEndsAt: 0 };
+      return res.json();
+    },
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
   });
 
   const totalPages = data?.totalPages ?? 1;
@@ -375,6 +392,13 @@ function BrowsePlayersSection({
         <>
           {/* ── Details View ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Pinned Mass Hire card — always top-left, regardless of sort/filter. */}
+            {massHireData?.cardId && page === 1 && (
+              <MassHireCard
+                ownedCount={massHireData.ownedCount}
+                cooldownEndsAt={massHireData.cooldownEndsAt}
+              />
+            )}
             {data?.players?.map(
               (player: {
                 id: number;

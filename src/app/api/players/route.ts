@@ -106,6 +106,10 @@ export async function GET(req: Request) {
       )`
     );
 
+    // Exclude the Mass Hire card from regular browse results — it's pinned
+    // separately at the top-left of the market page.
+    conditions.push(sql`"users"."username" <> 'Mass Hire'`);
+
     // Hide onboarding NPCs from other players until the creator completes onboarding
     if (currentUserId) {
       conditions.push(

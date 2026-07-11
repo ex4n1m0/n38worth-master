@@ -1,0 +1,291 @@
+/**
+ * "Mass Hire" — a special bonus card that mass-hires ownerless players.
+ *
+ * - Locked by default; unlocks at 500 owned cards (mission threshold).
+ * - When activated, hires the cheapest ownerless players the buyer can afford,
+ *   up to (1 + 10% of the buyer's current owned count) hires per use.
+ * - 10-minute cooldown between uses, shown as a progress bar on the card.
+ * - Pinned at the top-left of the market page regardless of sort/filter.
+ * - Avatar: /masshire.png
+ */
+
+import { db } from "@/db";
+import { users, gameSettings, ownership } from "@/db/schema";
+import { eq, and, sql, asc, ne } from "drizzle-orm";
+import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { checkAndAwardMissions } from "@/lib/missions";
+
+export const MASS_HIRE_USERNAME = "Mass Hire";
+export const MASS_HIRE_AVATAR_URL = "/masshire.png";
+
+/** Mission threshold (owned cards) to unlock the Mass Hire card. */
+export const MASS_HIRE_UNLOCK_THRESHOLD = 500;
+
+/** Cooldown between Mass Hire uses, in milliseconds. */
+export const MASS_HIRE_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
+/** game_settings key storing the buyer's last mass-hire timestamp (epoch ms). */
+function cooldownKey(buyerId: number) {
+  return `mass_hire_last_${buyerId}`;
+}
+
+/**
+ * Ensures the "Mass Hire" special NPC card exists in the database.
+ * Returns its user id. Like the Agent seed, the id is cached in game_settings.
+ */
+export async function ensureMassHireCard(): Promise<number> {
+  const CACHE_KEY = "mass_hire_card_id";
+
+  // 1. Try cached id.
+  const [cached] = await db
+    .select({ value: gameSettings.settingValue })
+    .from(gameSettings)
+    .where(eq(gameSettings.settingKey, CACHE_KEY))
+    .limit(1);
+
+  if (cached?.value) {
+    const [existing] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, cached.value))
+      .limit(1);
+    if (existing) return existing.id;
+  }
+
+  // 2. Fall back to username lookup.
+  const [byName] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.username, MASS_HIRE_USERNAME))
+    .limit(1);
+
+  let cardId: number;
+  if (byName) {
+    cardId = byName.id;
+    // Keep avatar/flags correct.
+    await db
+      .update(users)
+      .set({ avatarUrl: MASS_HIRE_AVATAR_URL, isNpc: 1, isProtected: 1, isActive: 1 })
+      .where(eq(users.id, cardId));
+  } else {
+    // 3. Create the card.
+    const [created] = await db
+      .insert(users)
+      .values({
+        username: MASS_HIRE_USERNAME,
+        passwordHash: null,
+        avatarUrl: MASS_HIRE_AVATAR_URL,
+        avatarCompleted: 1,
+        credits: 0,
+        playerValue: 1,
+        valueFloor: 1,
+        isActive: 1,
+        isVerified: 0,
+        isNpc: 1,
+        isProtected: 1,
+        onboardingComplete: 1,
+      })
+      .returning({ id: users.id });
+    cardId = created.id;
+  }
+
+  // Cache the id.
+  await db
+    .insert(gameSettings)
+    .values({ settingKey: CACHE_KEY, settingValue: cardId })
+    .onConflictDoUpdate({
+      target: gameSettings.settingKey,
+      set: { settingValue: cardId, updatedAt: new Date() },
+    });
+
+  return cardId;
+}
+
+/**
+ * Returns the epoch-ms timestamp of the buyer's last Mass Hire use, or 0.
+ */
+export async function getMassHireCooldownEnd(buyerId: number): Promise<number> {
+  const [row] = await db
+    .select({ value: gameSettings.settingValue })
+    .from(gameSettings)
+    .where(eq(gameSettings.settingKey, cooldownKey(buyerId)))
+    .limit(1);
+  return row ? Number(row.value) : 0;
+}
+
+export interface MassHireResult {
+  success?: boolean;
+  error?: string;
+  hired?: { id: number; username: string; cost: number }[];
+  totalSpent?: number;
+  cooldownEndsAt?: number;
+}
+
+/**
+ * Executes a Mass Hire: hires the cheapest ownerless players the buyer can
+ * afford, up to (1 + floor(10% of buyer's current owned count)) hires.
+ *
+ * Each individual hire follows the same mechanics as a normal purchase:
+ *   - cost = target's current playerValue
+ *   - target value doubles (capped at MAX_PLAYER_VALUE)
+ *   - 30-second sell block
+ *   - ownership limit is respected
+ *   - mission progress is checked after all hires
+ *
+ * The buyer's `lastOnlineAt` is NOT touched here (the buyer is actively using
+ * the card). A 10-minute cooldown is enforced via game_settings.
+ */
+export async function executeMassHire(buyerId: number): Promise<MassHireResult> {
+  try {
+    // 0. Cooldown check.
+    const cooldownEnd = await getMassHireCooldownEnd(buyerId);
+    const now = Date.now();
+    if (cooldownEnd > now) {
+      const remaining = Math.ceil((cooldownEnd - now) / 1000);
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      return { error: `Mass Hire is on cooldown (${mins}m ${secs}s remaining)` };
+    }
+
+    // 1. Get buyer.
+    const [buyer] = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        credits: users.credits,
+        hireSlots: users.hireSlots,
+      })
+      .from(users)
+      .where(eq(users.id, buyerId))
+      .limit(1);
+
+    if (!buyer) return { error: "Player not found" };
+
+    // 2. Check unlock: buyer must own >= MASS_HIRE_UNLOCK_THRESHOLD cards.
+    const [ownedCountRow] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(ownership)
+      .where(eq(ownership.ownerId, buyerId));
+    const currentOwned = Number(ownedCountRow?.count ?? 0);
+
+    if (currentOwned < MASS_HIRE_UNLOCK_THRESHOLD) {
+      return {
+        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} cards. You own ${currentOwned}.`,
+      };
+    }
+
+    // 3. Compute hire limit: 1 + floor(10% of owned count).
+    const hireLimit = 1 + Math.floor(currentOwned * 0.1);
+
+    // 4. Check ownership slots.
+    const availableSlots = buyer.hireSlots - currentOwned;
+    if (availableSlots <= 0) {
+      return { error: `You've reached your hire limit of ${buyer.hireSlots} players.` };
+    }
+    const maxHires = Math.min(hireLimit, availableSlots);
+
+    // 5. Find cheapest ownerless players (excluding self, the Mass Hire card,
+    //    goddesses, and the Agent). Sort by playerValue ascending.
+    const candidates = await db
+      .select({
+        id: users.id,
+        username: users.username,
+        playerValue: users.playerValue,
+        isNpc: users.isNpc,
+      })
+      .from(users)
+      .where(
+        and(
+          ne(users.id, buyerId),
+          eq(users.isActive, 1),
+          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`,
+          // Exclude special protected cards (goddesses, mass hire, agent).
+          sql`${users.username} NOT IN ('Mass Hire', 'Agent', 'Goddess of Wealth', 'Goddess of Knowledge', 'Goddess of Fate', 'Goddess of Time', 'Goddess of War', 'Goddess')`
+        )
+      )
+      .orderBy(asc(users.playerValue))
+      .limit(maxHires * 3); // fetch extra in case some become owned between query and hire
+
+    if (candidates.length === 0) {
+      return { error: "No ownerless players available to hire." };
+    }
+
+    // 6. Hire candidates from cheapest, while credits last.
+    let remainingCredits = Number(buyer.credits);
+    const hired: { id: number; username: string; cost: number }[] = [];
+    let totalSpent = 0;
+    const now30s = new Date(now + 30 * 1000);
+
+    for (const target of candidates) {
+      if (hired.length >= maxHires) break;
+
+      const cost = Math.max(1, Math.round(Number(target.playerValue)));
+      if (cost > remainingCredits) break;
+
+      // Check not already owned (race safety).
+      const [existing] = await db
+        .select({ id: ownership.id })
+        .from(ownership)
+        .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, target.id)))
+        .limit(1);
+      if (existing) continue;
+
+      // Deduct credits from buyer.
+      await db
+        .update(users)
+        .set({ credits: sql`GREATEST(credits - ${cost}, 0)`, updatedAt: new Date() })
+        .where(eq(users.id, buyerId));
+
+      // Double the target's value (capped), pay the target.
+      const newValue = capPlayerValue(Math.round(Number(target.playerValue) * 2));
+      await db
+        .update(users)
+        .set({
+          playerValue: newValue,
+          credits: sql`LEAST(credits + ${cost}, ${sql.raw(MAX_CREDITS_SQL)})`,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, target.id));
+
+      // Create ownership with a 30-second sell block.
+      await db.insert(ownership).values({
+        ownerId: buyerId,
+        ownedId: target.id,
+        purchasePrice: cost,
+        blockSellUntil: now30s,
+        blockSellBy: buyer.username,
+      });
+
+      remainingCredits -= cost;
+      totalSpent += cost;
+      hired.push({ id: target.id, username: target.username, cost });
+    }
+
+    if (hired.length === 0) {
+      return { error: "Could not afford any ownerless players." };
+    }
+
+    // 7. Set cooldown.
+    const cooldownEndsAt = now + MASS_HIRE_COOLDOWN_MS;
+    await db
+      .insert(gameSettings)
+      .values({ settingKey: cooldownKey(buyerId), settingValue: cooldownEndsAt })
+      .onConflictDoUpdate({
+        target: gameSettings.settingKey,
+        set: { settingValue: cooldownEndsAt, updatedAt: new Date() },
+      });
+
+    // 8. Check mission progress (mass hires count toward card count).
+    await checkAndAwardMissions(buyerId);
+
+    return {
+      success: true,
+      hired,
+      totalSpent,
+      cooldownEndsAt,
+    };
+  } catch (error) {
+    console.error("Mass Hire error:", error);
+    return { error: "Mass Hire failed. Please try again." };
+  }
+}
