@@ -102,7 +102,8 @@ export async function ensureMassHireCard(): Promise<number> {
 }
 
 /**
- * Returns the epoch-ms timestamp of the buyer's last Mass Hire use, or 0.
+ * Returns the epoch-SECONDS timestamp of the buyer's last Mass Hire cooldown end, or 0.
+ * Stored in seconds (not ms) because game_settings.setting_value is a 32-bit integer.
  */
 export async function getMassHireCooldownEnd(buyerId: number): Promise<number> {
   const [row] = await db
@@ -137,11 +138,11 @@ export interface MassHireResult {
  */
 export async function executeMassHire(buyerId: number): Promise<MassHireResult> {
   try {
-    // 0. Cooldown check.
+    // 0. Cooldown check. Timestamps are stored as epoch SECONDS (int32).
     const cooldownEnd = await getMassHireCooldownEnd(buyerId);
-    const now = Date.now();
-    if (cooldownEnd > now) {
-      const remaining = Math.ceil((cooldownEnd - now) / 1000);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (cooldownEnd > nowSec) {
+      const remaining = cooldownEnd - nowSec;
       const mins = Math.floor(remaining / 60);
       const secs = remaining % 60;
       return { error: `Mass Hire is on cooldown (${mins}m ${secs}s remaining)` };
@@ -214,7 +215,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     let remainingCredits = Number(buyer.credits);
     const hired: { id: number; username: string; cost: number }[] = [];
     let totalSpent = 0;
-    const now30s = new Date(now + 30 * 1000);
+    const now30s = new Date(Date.now() + 30 * 1000);
 
     for (const target of candidates) {
       if (hired.length >= maxHires) break;
@@ -265,14 +266,14 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       return { error: "Could not afford any ownerless players." };
     }
 
-    // 7. Set cooldown.
-    const cooldownEndsAt = now + MASS_HIRE_COOLDOWN_MS;
+    // 7. Set cooldown (stored as epoch seconds for int32 compatibility).
+    const cooldownEndsAtSec = Math.floor(Date.now() / 1000) + Math.floor(MASS_HIRE_COOLDOWN_MS / 1000);
     await db
       .insert(gameSettings)
-      .values({ settingKey: cooldownKey(buyerId), settingValue: cooldownEndsAt })
+      .values({ settingKey: cooldownKey(buyerId), settingValue: cooldownEndsAtSec })
       .onConflictDoUpdate({
         target: gameSettings.settingKey,
-        set: { settingValue: cooldownEndsAt, updatedAt: new Date() },
+        set: { settingValue: cooldownEndsAtSec, updatedAt: new Date() },
       });
 
     // 8. Check mission progress (mass hires count toward card count).
@@ -282,7 +283,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       success: true,
       hired,
       totalSpent,
-      cooldownEndsAt,
+      cooldownEndsAt: cooldownEndsAtSec,
     };
   } catch (error) {
     console.error("Mass Hire error:", error);

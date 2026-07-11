@@ -44,34 +44,34 @@ export function MassHireCard({
 
   const unlockThreshold = purchaseUnlockThreshold(MASS_HIRE_CARD);
 
-  // Cooldown state.
-  const [cooldownEnd, setCooldownEnd] = useState(initialCooldownEnd ?? 0);
+  // Cooldown state. cooldownEnd is stored as epoch SECONDS (int32 in DB).
+  const [cooldownEndSec, setCooldownEndSec] = useState(initialCooldownEnd ?? 0);
   const [remainingMs, setRemainingMs] = useState(0);
   const [cooldownPct, setCooldownPct] = useState(0);
 
   const COOLDOWN_MS = 10 * 60 * 1000;
 
   const updateCooldown = useCallback(() => {
-    const end = cooldownEnd;
-    if (!end) {
+    if (!cooldownEndSec) {
       setRemainingMs(0);
       setCooldownPct(0);
       return;
     }
-    const ms = Math.max(0, end - Date.now());
+    const endMs = cooldownEndSec * 1000;
+    const ms = Math.max(0, endMs - Date.now());
     setRemainingMs(ms);
     // Progress bar: 100% at start of cooldown, depleting to 0% when ready.
     const pct = Math.min(100, (ms / COOLDOWN_MS) * 100);
     setCooldownPct(pct);
-  }, [cooldownEnd, COOLDOWN_MS]);
+  }, [cooldownEndSec, COOLDOWN_MS]);
 
   useEffect(() => {
     updateCooldown();
-    if (cooldownEnd && cooldownEnd > Date.now()) {
+    if (cooldownEndSec && cooldownEndSec * 1000 > Date.now()) {
       const id = setInterval(updateCooldown, 1000);
       return () => clearInterval(id);
     }
-  }, [cooldownEnd, updateCooldown]);
+  }, [cooldownEndSec, updateCooldown]);
 
   // Fetch cooldown status on mount.
   useEffect(() => {
@@ -82,7 +82,7 @@ export function MassHireCard({
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && data.cooldownEndsAt) {
-          setCooldownEnd(data.cooldownEndsAt);
+          setCooldownEndSec(data.cooldownEndsAt); // already in seconds
         }
       } catch {
         // silently fail
@@ -91,7 +91,7 @@ export function MassHireCard({
     return () => { cancelled = true; };
   }, []);
 
-  const onCooldown = cooldownEnd > Date.now() && remainingMs > 0;
+  const onCooldown = cooldownEndSec > 0 && cooldownEndSec * 1000 > Date.now() && remainingMs > 0;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -105,7 +105,7 @@ export function MassHireCard({
       const spent = data.totalSpent ?? 0;
       toast.success(`Mass Hire! Hired ${count} player${count !== 1 ? "s" : ""} for ${formatCompact(spent)}¢`);
       if (data.cooldownEndsAt) {
-        setCooldownEnd(data.cooldownEndsAt);
+        setCooldownEndSec(data.cooldownEndsAt); // epoch seconds from server
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),

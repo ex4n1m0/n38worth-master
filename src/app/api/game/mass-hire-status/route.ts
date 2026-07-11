@@ -13,9 +13,9 @@ export async function GET() {
     const cooldownEnd = await getMassHireCooldownEnd(buyerId);
 
     return NextResponse.json({
-      cooldownEndsAt: cooldownEnd,
+      cooldownEndsAt: cooldownEnd, // epoch seconds
       cooldownMs: MASS_HIRE_COOLDOWN_MS,
-      onCooldown: cooldownEnd > Date.now(),
+      onCooldown: cooldownEnd > Math.floor(Date.now() / 1000),
     });
   } catch (error) {
     console.error("Mass Hire status error:", error);

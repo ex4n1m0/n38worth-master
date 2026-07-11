@@ -36,7 +36,7 @@ export async function GET() {
     return NextResponse.json({
       cardId,
       ownedCount: Number(ownedCountRow?.count ?? 0),
-      cooldownEndsAt: cooldownEnd,
+      cooldownEndsAt: cooldownEnd, // epoch seconds
     });
   } catch (error) {
     console.error("Mass Hire card fetch error:", error);
