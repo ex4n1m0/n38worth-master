@@ -24,6 +24,7 @@ import {
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
+import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { MassHireCard } from "@/components/MassHireCard";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
@@ -94,6 +95,9 @@ export default function LeaderboardPage() {
         <div className="sm:hidden">
           <CreditBalance />
         </div>
+
+        {/* Live Activity sidebars — 4 compact rank lists. */}
+        <LeaderboardSidebars />
 
         {/* Browse Players — the profession combo bar sits inside, just below
             the sort/filter buttons and above the card grid. */}
