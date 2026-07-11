@@ -821,16 +821,46 @@ export function PlayerCard({
               </Button>
             ) : null}
 
-            {/* Sell/hire block countdown — a pumped (or otherwise blocked)
-                player can't be sold or hired until this runs out. Mirrors the
-                goddess card's block indicator (timer + depleting bar). */}
+            {/* Sell/hire block countdown + break button — a pumped (or otherwise
+                blocked) player can't be sold or hired until this runs out.
+                Shows a break button so viewers can break the partnership. */}
             {isHireBlocked && blockSellUntil && (
-              <div className="w-[80%] flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
-                <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
-                  <Shield className="h-3 w-3" />
-                  {blockCountdown}
-                </span>
-                <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[85%]" />
+              <div className="w-[80%] flex flex-col items-center gap-1">
+                <div className="w-full flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
+                  <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
+                    <Shield className="h-3 w-3" />
+                    {blockCountdown}
+                  </span>
+                  <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[85%]" />
+                </div>
+                {!ownedIds.has(id) && (
+                  <Button
+                    onClick={handleBreakClick}
+                    disabled={breakMutation.isPending || (myCredits ?? 0) < totalBreakCost}
+                    className={`w-full rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                      (myCredits ?? 0) >= totalBreakCost
+                        ? hasWar
+                          ? "text-white bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 shadow-lg shadow-red-900/30"
+                          : "text-white bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 shadow-lg shadow-amber-900/30"
+                        : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                    }`}
+                    style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+                  >
+                    {breakMutation.isPending ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Shield className="h-3.5 w-3.5" />
+                          <span className="text-xs sm:text-sm leading-none">{hasWar ? "Free Break" : "Break"}</span>
+                        </div>
+                        <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                          {formatCompact(totalBreakCost)}¢
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
