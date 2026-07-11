@@ -246,6 +246,7 @@ export function PlayerCard({
           queryClient.invalidateQueries({ queryKey: ["player"] }),
           queryClient.invalidateQueries({ queryKey: ["players"] }),
           queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
         ]);
       }
@@ -294,6 +295,7 @@ export function PlayerCard({
         queryClient.invalidateQueries({ queryKey: ["player"] }),
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+        queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       ]);
     },
@@ -348,6 +350,7 @@ export function PlayerCard({
           queryClient.invalidateQueries({ queryKey: ["player"] }),
           queryClient.invalidateQueries({ queryKey: ["players"] }),
           queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
         ]);
       }
@@ -453,6 +456,7 @@ export function PlayerCard({
           queryClient.invalidateQueries({ queryKey: ["player"] }),
           queryClient.invalidateQueries({ queryKey: ["players"] }),
           queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
         ]);
       }
