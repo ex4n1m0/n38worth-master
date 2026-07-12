@@ -7,7 +7,22 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2, Briefcase, X, Check, Coins } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
-import { PROFESSIONS } from "@/lib/professions";
+
+interface ProfessionOption {
+  name: string;
+  imagePath: string;
+  count: number;
+  cost: number;
+  isCurrent: boolean;
+}
+
+interface ChangeProfessionData {
+  current: string | null;
+  credits: number;
+  paidChanges: number;
+  multiplier: number;
+  options: ProfessionOption[];
+}
 
 interface AssignProfessionDialogProps {
   /** The NPC card's user ID */
@@ -33,6 +48,8 @@ export function AssignProfessionDialog({
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<ChangeProfessionData | null>(null);
 
   useEffect(() => setMounted(true), []);
 
@@ -45,6 +62,30 @@ export function AssignProfessionDialog({
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  // Fetch profession cost data (same endpoint as change-profession — the cost
+  // logic is identical: based on how many others have each profession and the
+  // caller's paid change count).
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/profile/change-profession");
+      if (!res.ok) throw new Error("Failed to load profession options");
+      const json: ChangeProfessionData = await res.json();
+      setData(json);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to load profession options");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const openDialog = () => {
+    setSelected(null);
+    setOpen(true);
+    void load();
+  };
 
   const handleConfirm = async () => {
     if (!selected || submitting) return;
@@ -81,7 +122,7 @@ export function AssignProfessionDialog({
   return (
     <>
       <Button
-        onClick={() => { setSelected(null); setOpen(true); }}
+        onClick={openDialog}
         variant="outline"
         size="sm"
         className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 text-[8px] sm:text-[9px] h-6 px-1.5 leading-none"
@@ -110,48 +151,71 @@ export function AssignProfessionDialog({
                 {currentProfession ? `${targetUsername} is currently a ${currentProfession}.` : `${targetUsername} has no profession yet.`}
               </p>
               <p className="text-amber-300/70 mt-1 text-xs">
-                The card&apos;s value will reset to its floor value. Cost = (others with that profession) × 1,000¢ × your change #. A profession nobody else has is free.
+                The card&apos;s value will reset to its floor value. Cost = (others with that profession) × {formatCompact(1000)}¢ × your change #. A profession nobody else has is free.
               </p>
+              {data && (
+                <div className="mt-3 flex items-center justify-center gap-4 text-xs">
+                  <span className="inline-flex items-center gap-1 text-amber-300">
+                    <Coins className="h-3.5 w-3.5" />
+                    {formatCompact(Math.floor(data.credits))}¢
+                  </span>
+                  <span className="text-gray-500">
+                    Change #{data.multiplier} (×{data.multiplier} multiplier)
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-              {PROFESSIONS.map((opt) => {
-                const isSelected = selected === opt.name;
-                const isCurrent = currentProfession === opt.name;
-                return (
-                  <button
-                    key={opt.name}
-                    onClick={() => !isCurrent && setSelected(opt.name)}
-                    disabled={isCurrent}
-                    className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${
-                      isCurrent
-                        ? "border-gray-700 bg-gray-800/30 opacity-60 cursor-not-allowed"
-                        : isSelected
-                          ? "border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-105"
-                          : "border-gray-700 bg-gray-800/50 hover:border-gray-500 hover:bg-gray-800/80"
-                    }`}
-                  >
-                    {isSelected && !isCurrent && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
-                        <Check className="h-3.5 w-3.5 text-gray-900" strokeWidth={3} />
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
+              </div>
+            ) : !data ? (
+              <p className="text-center text-gray-400 py-8 text-sm">Could not load professions.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+                {data.options.map((opt) => {
+                  const isSelected = selected === opt.name;
+                  const isCurrent = currentProfession === opt.name;
+                  const affordable = opt.cost === 0 || data.credits >= opt.cost;
+                  return (
+                    <button
+                      key={opt.name}
+                      onClick={() => !isCurrent && setSelected(opt.name)}
+                      disabled={isCurrent}
+                      className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${
+                        isCurrent
+                          ? "border-gray-700 bg-gray-800/30 opacity-60 cursor-not-allowed"
+                          : isSelected
+                            ? "border-amber-400 bg-amber-500/10 shadow-lg shadow-amber-500/20 scale-105"
+                            : "border-gray-700 bg-gray-800/50 hover:border-gray-500 hover:bg-gray-800/80"
+                      }`}
+                    >
+                      {isSelected && !isCurrent && (
+                        <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-amber-400 flex items-center justify-center">
+                          <Check className="h-3.5 w-3.5 text-gray-900" strokeWidth={3} />
+                        </div>
+                      )}
+                      {isCurrent && (
+                        <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wide text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 rounded px-1.5 py-0.5">
+                          Current
+                        </span>
+                      )}
+                      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-950/50 border border-gray-700/50 flex-shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={opt.imagePath} alt={opt.name} className="w-full h-full object-contain p-1" />
                       </div>
-                    )}
-                    {isCurrent && (
-                      <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wide text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 rounded px-1.5 py-0.5">
-                        Current
+                      <span className={`text-xs font-semibold text-center leading-tight ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
+                        {opt.name}
                       </span>
-                    )}
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-950/50 border border-gray-700/50 flex-shrink-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={opt.imagePath} alt={opt.name} className="w-full h-full object-contain p-1" />
-                    </div>
-                    <span className={`text-xs font-semibold text-center leading-tight ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
-                      {opt.name}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span className={`text-[10px] font-bold tabular-nums ${opt.cost === 0 ? "text-green-400" : affordable ? "text-amber-400" : "text-red-400"}`}>
+                        {opt.cost === 0 ? "Free" : `${formatCompact(opt.cost)}¢`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="flex items-center justify-center gap-3">
               <Button
