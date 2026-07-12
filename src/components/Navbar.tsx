@@ -13,6 +13,7 @@ import { OwnershipLimit } from "./OwnershipLimit";
 import { ChatNotificationBell } from "./ChatNotificationBell";
 
 import { GlobalInfoBar } from "./GlobalInfoBar";
+import { MissionProgress } from "./MissionProgress";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -247,8 +248,15 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Credits + Player Value Bar */}
+      {/* Mission Progress Bar — sticky below nav, above credits */}
       <div className="sticky top-[72px] z-40 border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
+        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5">
+          <MissionProgress />
+        </div>
+      </div>
+
+      {/* Credits + Player Value Bar */}
+      <div className="sticky top-[108px] z-40 border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
         <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-1.5">
             <div className="flex items-center gap-2">
@@ -284,7 +292,7 @@ export function Navbar() {
 
       {/* Poach feed — own sticky row below credits bar */}
       {poachEvent && (
-        <div className="sticky top-[108px] z-39 border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
+        <div className="sticky top-[144px] z-39 border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
           <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
             <div
               key={poachEvent.id}

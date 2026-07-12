@@ -12,7 +12,6 @@ import { LoginReward } from "@/components/LoginReward";
 import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
 import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
-import { MissionProgress } from "@/components/MissionProgress";
 
 interface HallOfFameEntry {
   id: number;
@@ -100,9 +99,6 @@ export default function HallOfFamePage() {
           )}
         </div>
       )}
-
-      {/* Mission Progress */}
-      <MissionProgress />
 
       {/* Goddesses Section — the heading doubles as the win-condition explainer. */}
       <div className="mb-8">
