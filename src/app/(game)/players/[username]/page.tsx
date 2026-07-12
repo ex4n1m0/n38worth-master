@@ -16,6 +16,12 @@ import { LostPlayersGrid } from "@/components/LostPlayersGrid";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import { ResignButton } from "@/components/ResignButton";
 import { BlockSellButton } from "@/components/BlockSellButton";
+import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
+import { RankBonusCountdown } from "@/components/RankBonusCountdown";
+import { LoginReward } from "@/components/LoginReward";
+import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
+import { RewardHistory } from "@/components/RewardHistory";
+import { BossIncomeCard } from "@/components/BossIncomeCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
@@ -45,6 +51,8 @@ import {
   Search,
   Crown,
   MessageCircle,
+  Wallet,
+  ChevronDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
@@ -79,6 +87,8 @@ export default function PlayerProfilePage() {
   const [noPartnerFilter, setNoPartnerFilter] = useState(false);
   const [teamPage, setTeamPage] = useState(1);
   const [heroAvatarRevealUntil, setHeroAvatarRevealUntil] = useState<string | null>(null);
+  const [showRewards, setShowRewards] = useState(true);
+  const currentUserId = session?.user?.id ? Number(session.user.id) : null;
   const { ownedIds } = useOwnedPlayerIds();
   const TEAM_PER_PAGE = 18;
 
@@ -418,6 +428,38 @@ export default function PlayerProfilePage() {
 
       {isOwnProfile && !inOnboarding && (
         <>
+          {/* Rewards & Income — collapsible, open by default. */}
+          {currentUserId && (
+            <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+              <button
+                onClick={() => setShowRewards((v) => !v)}
+                className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
+              >
+                <span className="flex items-center gap-2 font-bold text-white">
+                  <Wallet className="h-5 w-5 text-t1-400" />
+                  Your Rewards &amp; Income
+                </span>
+                <span className="flex items-center gap-2">
+                  <HourlyRewardCountdown />
+                  <ChevronDown
+                    className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
+                  />
+                </span>
+              </button>
+              {showRewards && (
+                <div className="p-4 pt-0 space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <PortfolioRewardCountdown />
+                    <RankBonusCountdown />
+                    <BossIncomeCard userId={currentUserId} />
+                  </div>
+                  <LoginReward />
+                  <RewardHistory />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Global chat room */}
           <GlobalChatPage embedded />
           <div className="pt-4 border-t border-white/10"><DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} /></div>

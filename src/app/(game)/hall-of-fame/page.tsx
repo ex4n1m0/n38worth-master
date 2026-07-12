@@ -1,16 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
-import { useState } from "react";
-import { Crown, Calendar, Star, Loader2, Wallet, ChevronDown } from "lucide-react";
+import { Crown, Calendar, Star, Loader2 } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
-import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
-import { RankBonusCountdown } from "@/components/RankBonusCountdown";
-import { LoginReward } from "@/components/LoginReward";
-import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
-import { RewardHistory } from "@/components/RewardHistory";
-import { BossIncomeCard } from "@/components/BossIncomeCard";
 
 interface HallOfFameEntry {
   id: number;
@@ -34,10 +26,6 @@ interface GoddessData {
 
 
 export default function HallOfFamePage() {
-  const { data: session } = useSession();
-  const currentUserId = session?.user?.id ? Number(session.user.id) : null;
-  const [showRewards, setShowRewards] = useState(true);
-
   const { data: winners = [], isLoading } = useQuery<HallOfFameEntry[]>({
     queryKey: ["hall-of-fame"],
     queryFn: async () => {
@@ -63,39 +51,6 @@ export default function HallOfFamePage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
-      {/* Rewards & Income — collapsible, open by default, pinned to the top. */}
-      {currentUserId && (
-        <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
-          <button
-            onClick={() => setShowRewards((v) => !v)}
-            className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
-          >
-            <span className="flex items-center gap-2 font-bold text-white">
-              <Wallet className="h-5 w-5 text-t1-400" />
-              Your Rewards &amp; Income
-            </span>
-            <span className="flex items-center gap-2">
-              {/* One shared hourly counter for both the portfolio + rank payouts. */}
-              <HourlyRewardCountdown />
-              <ChevronDown
-                className={`h-5 w-5 text-gray-400 transition-transform ${showRewards ? "rotate-180" : ""}`}
-              />
-            </span>
-          </button>
-          {showRewards && (
-            <div className="p-4 pt-0 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <PortfolioRewardCountdown />
-                <RankBonusCountdown />
-                <BossIncomeCard userId={currentUserId} />
-              </div>
-              <LoginReward />
-              <RewardHistory />
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Goddesses Section — the heading doubles as the win-condition explainer. */}
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
