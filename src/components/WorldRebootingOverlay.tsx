@@ -23,7 +23,7 @@ export function triggerWorldReboot(winnerName?: string) {
   _activate?.(winnerName);
 }
 
-const DURATION_MS = 60 * 1000; // 1 minute
+const DURATION_MS = 10 * 1000; // 10 seconds
 
 export function WorldRebootingOverlay() {
   const [active, setActive] = useState(false);
