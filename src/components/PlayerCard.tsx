@@ -20,6 +20,7 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
+import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { isLockablePurchaseCard, isPurchaseUnlockedAtLevel, purchaseUnlockThreshold } from "@/lib/missions-data";
 
@@ -505,9 +506,18 @@ export function PlayerCard({
   };
 
   const professionBadge = effectiveProfession && professionImage ? (
-    <div className="rounded-md overflow-hidden ring-1 ring-amber-500/40 bg-black/50 shrink-0" style={{width:'clamp(3rem,8vw,5rem)',height:'clamp(3rem,8vw,5rem)'}} title={effectiveProfession}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={professionImage} alt={effectiveProfession} className="w-full h-full object-contain p-0.5" />
+    <div className="flex flex-col items-center gap-1">
+      <div className="rounded-md overflow-hidden ring-1 ring-amber-500/40 bg-black/50 shrink-0" style={{width:'clamp(3rem,8vw,5rem)',height:'clamp(3rem,8vw,5rem)'}} title={effectiveProfession}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={professionImage} alt={effectiveProfession} className="w-full h-full object-contain p-0.5" />
+      </div>
+      {ownedIds.has(id) && !isGoddess && !isOwnProfile && (
+        <AssignProfessionDialog targetId={id} targetUsername={username} currentProfession={effectiveProfession} />
+      )}
+    </div>
+  ) : ownedIds.has(id) && !isGoddess && !isOwnProfile ? (
+    <div className="flex flex-col items-center gap-1">
+      <AssignProfessionDialog targetId={id} targetUsername={username} currentProfession={null} />
     </div>
   ) : null;
 
@@ -802,6 +812,7 @@ export function PlayerCard({
                 )}
               </Button>
             ) : isPurchaseLocked ? (
+              // locked
               <div
                 className="w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
                 style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
