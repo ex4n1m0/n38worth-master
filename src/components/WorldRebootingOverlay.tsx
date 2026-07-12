@@ -7,17 +7,24 @@ import { getPusherClient } from "@/lib/pusher-client";
 /**
  * Full-screen "World is Rebooting" overlay.
  *
- * Triggered by a Pusher "world-rebooting" event on the "game-global" channel.
+ * Can be triggered by:
+ * 1. Pusher "world-rebooting" event (received by all connected clients)
+ * 2. Direct call via `triggerWorldReboot()` (used by the test reset button
+ *    to guarantee the overlay shows even if the Pusher event is missed)
+ *
  * Covers the entire screen with solid black, shows "The World is Rebooting"
  * message and a progress bar that animates from 0% to 100% over 60 seconds.
- *
- * Rendered via a portal to document.body so it escapes any parent stacking
- * contexts (e.g. the Navbar's sticky z-50) and truly sits on top of everything.
- *
- * The progress bar ALWAYS runs the full 60 seconds regardless of when the
- * server-side reset completes. When the bar reaches 100%, the overlay fades
- * out and the player is back in the game.
+ * Rendered via a portal to document.body so it escapes all stacking contexts.
  */
+
+// Global trigger so any component can activate the overlay without props
+let _activate: ((winnerName?: string) => void) | null = null;
+export function triggerWorldReboot(winnerName?: string) {
+  _activate?.(winnerName);
+}
+
+const DURATION_MS = 60 * 1000; // 1 minute
+
 export function WorldRebootingOverlay() {
   const [active, setActive] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
@@ -25,11 +32,23 @@ export function WorldRebootingOverlay() {
   const [winnerName, setWinnerName] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const startRef = useRef<number>(0);
-  const DURATION_MS = 60 * 1000; // 1 minute
 
   useEffect(() => setMounted(true), []);
 
-  // Dismiss the overlay (fade out then unmount)
+  const activate = (name?: string) => {
+    if (name) setWinnerName(name);
+    setProgress(0);
+    setFadingOut(false);
+    startRef.current = Date.now();
+    setActive(true);
+  };
+
+  // Register the global trigger
+  useEffect(() => {
+    _activate = activate;
+    return () => { _activate = null; };
+  }, []);
+
   const dismiss = () => {
     setFadingOut(true);
     setTimeout(() => {
@@ -40,37 +59,28 @@ export function WorldRebootingOverlay() {
     }, 600);
   };
 
-  // Set up Pusher listeners once on mount
+  // Pusher listeners
   useEffect(() => {
     const pusher = getPusherClient();
     if (!pusher) return;
 
     const channel = pusher.subscribe("game-global");
 
-    const handleRebooting = (data: { winnerUsername?: string }) => {
-      setWinnerName(data.winnerUsername ?? null);
-      setProgress(0);
-      setFadingOut(false);
-      startRef.current = Date.now();
-      setActive(true);
-    };
+    channel.bind("world-rebooting", (data: { winnerUsername?: string }) => {
+      activate(data.winnerUsername);
+    });
 
-    // game-won just confirms the reset is done, but we DON'T dismiss here.
-    // The progress bar runs the full 60s for the visual experience.
-    const handleGameWon = (data: { winnerUsername?: string }) => {
+    channel.bind("game-won", (data: { winnerUsername?: string }) => {
       if (data.winnerUsername) setWinnerName(data.winnerUsername);
-    };
-
-    channel.bind("world-rebooting", handleRebooting);
-    channel.bind("game-won", handleGameWon);
+    });
 
     return () => {
-      channel.unbind("world-rebooting", handleRebooting);
-      channel.unbind("game-won", handleGameWon);
+      channel.unbind_all();
+      pusher.unsubscribe("game-global");
     };
   }, []);
 
-  // Animate the progress bar over exactly 60 seconds, then dismiss
+  // Animate progress bar over 60 seconds
   useEffect(() => {
     if (!active) return;
 
@@ -81,7 +91,6 @@ export function WorldRebootingOverlay() {
 
       if (pct >= 100) {
         clearInterval(interval);
-        // Hold at 100% for 1 second, then fade out
         setTimeout(dismiss, 1000);
       }
     }, 50);
@@ -91,53 +100,91 @@ export function WorldRebootingOverlay() {
 
   if (!mounted || !active) return null;
 
-  // Portal to document.body — escapes all parent stacking contexts
   return createPortal(
     <div
-      className={`fixed inset-0 z-[2147483647] bg-black flex flex-col items-center justify-center transition-opacity duration-600 ${
-        fadingOut ? "opacity-0" : "opacity-100"
-      }`}
-      style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 2147483647,
+        backgroundColor: "#000",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: fadingOut ? 0 : 1,
+        transition: "opacity 600ms ease-out",
+      }}
     >
-      {/* Subtle radial glow that grows with progress */}
+      {/* Subtle radial glow */}
       <div
-        className="absolute inset-0 pointer-events-none"
         style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
           background: `radial-gradient(ellipse 60% 40% at center, rgba(34,211,238,${0.03 + (progress / 100) * 0.1}) 0%, transparent 70%)`,
         }}
       />
 
       {/* Title */}
-      <div className="relative text-center px-4 mb-10">
-        <h1 className="text-2xl sm:text-4xl font-black text-white tracking-[0.15em] uppercase">
+      <div style={{ position: "relative", textAlign: "center", padding: "0 1rem", marginBottom: "2.5rem" }}>
+        <h1 style={{
+          fontSize: "clamp(1.5rem, 5vw, 2.5rem)",
+          fontWeight: 900,
+          color: "#fff",
+          letterSpacing: "0.15em",
+          textTransform: "uppercase",
+          margin: 0,
+        }}>
           The World is Rebooting
         </h1>
         {winnerName && (
-          <p className="text-sm sm:text-base text-gray-500 mt-4">
+          <p style={{
+            fontSize: "clamp(0.875rem, 2vw, 1.125rem)",
+            color: "#6b7280",
+            marginTop: "1rem",
+          }}>
             {winnerName} collected all 6 Goddesses
           </p>
         )}
       </div>
 
-      {/* Progress bar — dead center */}
-      <div className="relative w-[70%] max-w-lg flex flex-col items-center gap-4">
-        <div className="w-full h-2 rounded-full bg-white/5 overflow-hidden">
+      {/* Progress bar */}
+      <div style={{ position: "relative", width: "70%", maxWidth: "32rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem" }}>
+        <div style={{
+          width: "100%",
+          height: "8px",
+          borderRadius: "9999px",
+          backgroundColor: "rgba(255,255,255,0.05)",
+          overflow: "hidden",
+        }}>
           <div
-            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.7)]"
             style={{
+              height: "100%",
+              borderRadius: "9999px",
+              background: "linear-gradient(to right, #06b6d4, #67e8f9)",
+              boxShadow: "0 0 15px rgba(34,211,238,0.7)",
               width: `${progress}%`,
               transition: "width 50ms linear",
             }}
           />
         </div>
-        <span className="text-xs font-mono text-gray-600 tabular-nums tracking-widest">
+        <span style={{
+          fontSize: "0.75rem",
+          fontFamily: "monospace",
+          color: "#4b5563",
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: "0.1em",
+        }}>
           {Math.round(progress)}%
         </span>
       </div>
 
       {/* Bottom hint */}
-      <div className="absolute bottom-[12%] left-0 right-0 text-center px-4">
-        <p className="text-xs text-gray-700 animate-pulse">
+      <div style={{ position: "absolute", bottom: "12%", left: 0, right: 0, textAlign: "center", padding: "0 1rem" }}>
+        <p style={{ fontSize: "0.75rem", color: "#374151", animation: "pulse 2s infinite" }}>
           Preparing a fresh start...
         </p>
       </div>

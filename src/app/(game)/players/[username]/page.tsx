@@ -24,6 +24,7 @@ import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
 import { ChangeProfessionDialog } from "@/components/ChangeProfessionDialog";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
+import { triggerWorldReboot } from "@/components/WorldRebootingOverlay";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
@@ -149,7 +150,8 @@ export default function PlayerProfilePage() {
       return data;
     },
     onSuccess: () => {
-      toast.success("World reset triggered! Rebooting...");
+      // Trigger the full-screen reboot overlay directly (don't rely on Pusher)
+      triggerWorldReboot(session?.user?.name ?? undefined);
     },
     onError: (err: Error) => {
       toast.error(err.message);
