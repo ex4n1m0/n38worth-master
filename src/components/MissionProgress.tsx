@@ -44,21 +44,21 @@ export function MissionProgress() {
   return (
     <div className="flex items-center gap-3">
       <div className="flex items-center gap-1.5 shrink-0">
-        <Trophy className="h-4 w-4 text-t1-400 shrink-0" />
-        <span className="text-xs font-semibold text-t1-300 whitespace-nowrap">
+        <Trophy className="h-8 w-8 text-t1-400 shrink-0" />
+        <span className="text-base sm:text-lg font-bold text-t1-300 whitespace-nowrap">
           {current.index + 1}/{totalMissions}
         </span>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2 mb-0.5">
-          <p className="text-[11px] sm:text-xs font-bold text-t1-100 truncate">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <p className="text-base sm:text-xl font-bold text-t1-100 truncate">
             {current.label}
           </p>
-          <span className="text-[10px] sm:text-[11px] font-bold text-t1-200 shrink-0 tabular-nums">
+          <span className="text-sm sm:text-base font-bold text-t1-200 shrink-0 tabular-nums">
             {formatCompact(current.progress)} / {formatCompact(current.threshold)}
           </span>
         </div>
-        <div className="relative h-2 w-full overflow-hidden rounded-full border border-t1-500/20 bg-gray-800/80">
+        <div className="relative h-4 w-full overflow-hidden rounded-full border border-t1-500/20 bg-gray-800/80">
           <div
             className="h-full rounded-full bg-gradient-to-r from-t1-500 to-t1-300 shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-500"
             style={{ width: `${pct}%` }}
