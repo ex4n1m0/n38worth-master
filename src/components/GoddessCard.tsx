@@ -325,6 +325,9 @@ export function GoddessCard({
                   <Lock className="h-3 w-3" />
                   Locked
                 </span>
+                <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono tabular-nums leading-tight">
+                  {formatCompact(effectiveCost)}¢
+                </span>
                 {unlockThreshold !== null && (
                   <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
                     Collect {formatCompact(unlockThreshold)} cards to unlock
