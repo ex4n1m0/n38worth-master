@@ -39,7 +39,7 @@ export default function RegisterPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/hall-of-fame");
+        router.push("/my-profile");
       });
     }
 
@@ -81,9 +81,9 @@ export default function RegisterPage() {
       } else {
         // Hard navigation so the freshly-created demo session is fully picked
         // up before the page loads. A soft router.push here raced with the
-        // session refresh. Demo players start on the End Game (Hall of Fame)
-        // page, where their daily reward auto-claims (see LoginReward).
-        window.location.href = "/hall-of-fame";
+        // session refresh. Demo players start on their profile page, where
+        // their daily reward auto-claims (see LoginReward).
+        window.location.href = "/my-profile";
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -141,7 +141,7 @@ export default function RegisterPage() {
         // New accounts still need onboarding (avatar + profession); the global
         // Navbar guard routes them to their profile until it's done, after which
         // OnboardingProfessionStep sends them to the End Game page.
-        router.push("/hall-of-fame");
+        router.push("/my-profile");
         router.refresh();
       }
     } catch {

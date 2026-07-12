@@ -39,7 +39,7 @@ export default function LoginPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/hall-of-fame");
+        router.push("/my-profile");
       });
     }
 
@@ -62,7 +62,7 @@ export default function LoginPage() {
     const password = formData.get("password") as string;
 
     // Re-arm the per-session daily-reward auto-claim for this fresh login so it
-    // fires again when the player lands on the End Game page.
+    // fires again when the player lands on their profile page.
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("auto-reward-claimed");
     }
@@ -77,7 +77,7 @@ export default function LoginPage() {
       if (result?.error) {
         setError("Invalid username or password");
       } else {
-        router.push("/hall-of-fame");
+        router.push("/my-profile");
         router.refresh();
       }
     } catch {
@@ -170,7 +170,7 @@ export default function LoginPage() {
                   }
                 } else {
                   // Use NextAuth signIn directly for web
-                  signIn("google", { callbackUrl: "/hall-of-fame" }).catch(() => {
+                  signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
                     setError("Google sign-in failed. Please try again.");
                     setGoogleLoading(false);
                   });

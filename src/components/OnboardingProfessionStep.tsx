@@ -60,9 +60,9 @@ export function OnboardingProfessionStep() {
 
       toast.success(`You are now a ${selectedProfession}! 🔮`);
       await refresh();
-      // Onboarding is complete — send the player to the End Game page, where the
-      // daily reward auto-claims. They then hire their roster from the market.
-      router.push("/hall-of-fame");
+      // Onboarding is complete — send the player to their profile page, where
+      // the daily reward auto-claims and they can see their rewards & income.
+      router.push("/my-profile");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to select profession"
