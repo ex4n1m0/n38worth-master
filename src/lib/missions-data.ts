@@ -14,8 +14,8 @@ export interface Mission {
   rewardCards: string[];
   /** Text shown on the progress bar */
   label: string;
-  /** If set, upgrade the player's hire slots to this value on completion */
-  upgradeHireSlots?: number;
+  /** Hire slots to ADD on completion (stacks with each mission). */
+  addHireSlots?: number;
 }
 
 /** Special "Mass Hire" card — unlocked by the second mission (50 owned cards). */
@@ -25,49 +25,57 @@ export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 /** Mission index that unlocks the full game UI (rankings, activity, filters, End Game). */
 export const UNLOCK_GAME_MISSION_INDEX = 0;
 export const UNLOCK_GAME_THRESHOLD = 20;
-/** Hire slots granted when the unlock-game mission completes. */
-export const UNLOCK_GAME_HIRE_SLOTS = 50;
+
+/** Hire slots added on each mission completion. */
+export const MISSION_HIRE_SLOTS_REWARD = 50;
 
 export const MISSIONS: Mission[] = [
   {
     threshold: 20,
     rewardCards: [],
-    upgradeHireSlots: 50,
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 20 cards to unlock the Game",
   },
   {
     threshold: 50,
     rewardCards: ["Mass Hire"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 50 cards to unlock Mass Hire",
   },
   {
     threshold: 1000,
     rewardCards: ["Goddess of Wealth"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 1,000 cards to unlock Goddess of Wealth",
   },
   {
     threshold: 2000,
     rewardCards: ["Goddess of Knowledge"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 2,000 cards to unlock Goddess of Knowledge",
   },
   {
     threshold: 3000,
     rewardCards: ["Goddess of Fate"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 3,000 cards to unlock Goddess of Fate",
   },
   {
     threshold: 4000,
     rewardCards: ["Goddess of Time"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 4,000 cards to unlock Goddess of Time",
   },
   {
     threshold: 5000,
     rewardCards: ["Goddess of War"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 5,000 cards to unlock Goddess of War",
   },
   {
     threshold: 6000,
     rewardCards: ["Goddess"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
     label: "Own 6,000 cards to unlock the Goddess",
   },
 ];
