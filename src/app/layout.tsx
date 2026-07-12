@@ -57,7 +57,7 @@ export default function RootLayout({
             position="top-center"
             richColors
             closeButton={false}
-            offset={112}
+            offset={150}
             visibleToasts={10}
             expand={true}
             gap={0}
