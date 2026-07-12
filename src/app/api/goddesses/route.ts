@@ -9,6 +9,8 @@ import {
 } from "@/lib/goddesses";
 import { getDisabledPowers } from "@/lib/goddess-powers";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const session = await auth();
