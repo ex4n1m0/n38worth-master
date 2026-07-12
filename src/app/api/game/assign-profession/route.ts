@@ -72,7 +72,9 @@ export async function POST(request: Request) {
     if (!npc) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    if (npc.isNpc !== 1) {
+    // Allow assigning professions to NPC cards and the Agent (which has isNpc=0
+    // but is a special AI player, not a regular human).
+    if (npc.isNpc !== 1 && npc.username !== "Agent") {
       return NextResponse.json({ error: "Can only assign professions to NPC cards" }, { status: 400 });
     }
     if (npc.profession === profession) {

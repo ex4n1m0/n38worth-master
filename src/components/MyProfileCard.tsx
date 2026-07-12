@@ -98,7 +98,7 @@ export function MyProfileCard() {
               {player.playerType === "human" ? (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border text-emerald-200 bg-emerald-500/15 border-emerald-400/30">
                   <User className="h-2.5 w-2.5" />
-                  Human
+                  {player.username === "Agent" ? "AGI" : "Human"}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border text-cyan-200 bg-cyan-500/15 border-cyan-400/30">

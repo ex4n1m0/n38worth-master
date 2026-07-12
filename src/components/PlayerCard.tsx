@@ -751,7 +751,7 @@ export function PlayerCard({
                 </p>
               ) : null}
               <p className="text-xs font-semibold text-gray-300 mt-1">
-                {playerType === "human" ? "Human" : "NPC"}
+                {username === "Agent" ? "AGI" : playerType === "human" ? "Human" : "NPC"}
               </p>
               {/* Last online timestamp */}
               {lastOnlineAt && (
