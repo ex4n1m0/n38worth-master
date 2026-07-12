@@ -118,13 +118,26 @@ export function WorldRebootingOverlay() {
         transition: "opacity 600ms ease-out",
       }}
     >
-      {/* Subtle radial glow */}
+      {/* Full-screen background image */}
+      <img
+        src="/WORLD_RESET.png"
+        alt="World Reset"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        }}
+      />
+
+      {/* Dark overlay on top of the image for readability */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          pointerEvents: "none",
-          background: `radial-gradient(ellipse 60% 40% at center, rgba(34,211,238,${0.03 + (progress / 100) * 0.1}) 0%, transparent 70%)`,
+          backgroundColor: "rgba(0,0,0,0.5)",
         }}
       />
 
@@ -137,14 +150,16 @@ export function WorldRebootingOverlay() {
           letterSpacing: "0.15em",
           textTransform: "uppercase",
           margin: 0,
+          textShadow: "0 2px 10px rgba(0,0,0,0.8)",
         }}>
           The World is Rebooting
         </h1>
         {winnerName && (
           <p style={{
             fontSize: "clamp(0.875rem, 2vw, 1.125rem)",
-            color: "#6b7280",
+            color: "#d1d5db",
             marginTop: "1rem",
+            textShadow: "0 2px 8px rgba(0,0,0,0.8)",
           }}>
             {winnerName} collected all 6 Goddesses
           </p>
@@ -157,7 +172,7 @@ export function WorldRebootingOverlay() {
           width: "100%",
           height: "8px",
           borderRadius: "9999px",
-          backgroundColor: "rgba(255,255,255,0.05)",
+          backgroundColor: "rgba(255,255,255,0.15)",
           overflow: "hidden",
         }}>
           <div
@@ -174,9 +189,10 @@ export function WorldRebootingOverlay() {
         <span style={{
           fontSize: "0.75rem",
           fontFamily: "monospace",
-          color: "#4b5563",
+          color: "#9ca3af",
           fontVariantNumeric: "tabular-nums",
           letterSpacing: "0.1em",
+          textShadow: "0 1px 4px rgba(0,0,0,0.8)",
         }}>
           {Math.round(progress)}%
         </span>
@@ -184,7 +200,7 @@ export function WorldRebootingOverlay() {
 
       {/* Bottom hint */}
       <div style={{ position: "absolute", bottom: "12%", left: 0, right: 0, textAlign: "center", padding: "0 1rem" }}>
-        <p style={{ fontSize: "0.75rem", color: "#374151", animation: "pulse 2s infinite" }}>
+        <p style={{ fontSize: "0.75rem", color: "#9ca3af", animation: "pulse 2s infinite", textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
           Preparing a fresh start...
         </p>
       </div>
