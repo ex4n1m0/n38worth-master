@@ -1,7 +1,7 @@
 /**
  * "Mass Hire" — a special bonus card that mass-hires ownerless players.
  *
- * - Locked by default; unlocks at 500 owned cards (mission threshold).
+ * - Locked by default; unlocks at 50 owned cards (mission 0 threshold).
  * - When activated, hires the cheapest ownerless players the buyer can afford,
  *   up to (1 + 10% of the buyer's current owned count) hires per use.
  * - Dynamic cooldown between uses (1–5+ min based on owned card count).
@@ -13,7 +13,7 @@ import { db } from "@/db";
 import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
 import { eq, and, sql, asc, ne } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
-import { checkAndAwardMissions } from "@/lib/missions";
+import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 
 export const MASS_HIRE_USERNAME = "Mass Hire";
 export const MASS_HIRE_AVATAR_URL = "/masshire.png";
@@ -178,18 +178,25 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
 
     if (!buyer) return { error: "Player not found" };
 
-    // 2. Check unlock: buyer must own >= MASS_HIRE_UNLOCK_THRESHOLD cards.
+    // 2. Check unlock: buyer must have completed mission 0 (50 cards) which
+    //    unlocks the Mass Hire feature. Uses the mission level check.
+    const unlocked = await canPurchaseCard(buyerId, MASS_HIRE_USERNAME);
+    if (!unlocked) {
+      const [ownedCountRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ownership)
+        .where(eq(ownership.ownerId, buyerId));
+      const currentOwned = Number(ownedCountRow?.count ?? 0);
+      return {
+        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} cards (Mission 1). You own ${currentOwned}.`,
+      };
+    }
+
     const [ownedCountRow] = await db
       .select({ count: sql<number>`count(*)` })
       .from(ownership)
       .where(eq(ownership.ownerId, buyerId));
     const currentOwned = Number(ownedCountRow?.count ?? 0);
-
-    if (currentOwned < MASS_HIRE_UNLOCK_THRESHOLD) {
-      return {
-        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} cards. You own ${currentOwned}.`,
-      };
-    }
 
     // 3. Compute hire limit: 1 + floor(10% of owned count).
     const hireLimit = 1 + Math.floor(currentOwned * 0.1);

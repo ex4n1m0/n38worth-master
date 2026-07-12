@@ -12,7 +12,6 @@ import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { formatCompact } from "@/lib/utils";
 import {
   MASS_HIRE_CARD,
-  MASS_HIRE_UNLOCK_THRESHOLD,
   isLockablePurchaseCard,
   isPurchaseUnlockedAtLevel,
   purchaseUnlockThreshold,
@@ -39,8 +38,7 @@ export function MassHireCard({
 
   const isLocked =
     isLockablePurchaseCard(MASS_HIRE_CARD) &&
-    !isPurchaseUnlockedAtLevel(MASS_HIRE_CARD, missionLevel) &&
-    ownedCount < MASS_HIRE_UNLOCK_THRESHOLD;
+    !isPurchaseUnlockedAtLevel(MASS_HIRE_CARD, missionLevel);
 
   const unlockThreshold = purchaseUnlockThreshold(MASS_HIRE_CARD);
 

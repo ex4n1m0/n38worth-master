@@ -20,7 +20,7 @@ import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
 // server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
-import { MISSIONS, type Mission, MASS_HIRE_CARD, MASS_HIRE_UNLOCK_THRESHOLD } from "@/lib/missions-data";
+import { MISSIONS, type Mission, MASS_HIRE_CARD } from "@/lib/missions-data";
 
 export { MISSIONS };
 export type { Mission };
@@ -82,12 +82,6 @@ export async function canPurchaseCard(
   buyerId: number,
   cardUsername: string
 ): Promise<boolean> {
-  // Mass Hire card: unlocked at 500 owned cards (separate from goddess ladder).
-  if (cardUsername === MASS_HIRE_CARD) {
-    const ownedCount = await getOwnedCount(buyerId);
-    return ownedCount >= MASS_HIRE_UNLOCK_THRESHOLD;
-  }
-
   const requiredIndex = MISSION_CARD_LEVEL[cardUsername];
   if (requiredIndex === undefined) return true; // not a lockable card
 
@@ -126,8 +120,8 @@ async function forceAwardCard(
     .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, card.id)));
   if (existing.length > 0) return true;
 
-  // Mission awards are goddesses now (bonus cards removed). The previous owner
-  // is paid the card's current value.
+  // Mission awards (Mass Hire + 6 goddesses). The previous owner is paid the
+  // card's current value.
   const cost = card.playerValue;
 
   // Pay the previous owner (if any) the card's current value, then remove their ownership.
