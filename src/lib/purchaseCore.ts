@@ -3,7 +3,7 @@ import { users, ownership, transactions, gameHistory, rewardHistory } from "@/db
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
-import { GODDESS_USERNAMES, GODDESS_VALUES, MOST_EXPENSIVE_GODDESS, MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE, MOST_EXPENSIVE_GODDESS_MIN_VALUE } from "@/lib/goddesses";
+import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
@@ -123,20 +123,10 @@ export async function buyPlayerCore(
     // is 1, so cost is simply the card's current value.)
     const costMultiplier = isBonusCard ? 1 : Math.max(1, blockDurationHours);
 
-    // The most expensive goddess costs a fixed share of the total economy
-    // (sum of non-NPC players' credits) instead of its stored player value.
-    const isMostExpensiveGoddess = target.username === MOST_EXPENSIVE_GODDESS;
+    // All goddesses: cost = value = GODDESS_VALUES. No dynamic pricing.
     let cost: number;
-    if (isMostExpensiveGoddess) {
-      const [econ] = await db
-        .select({
-          total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
-        })
-        .from(users);
-      cost = Math.max(
-        MOST_EXPENSIVE_GODDESS_MIN_VALUE,
-        Math.floor(Number(econ.total) * MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE)
-      );
+    if (isGoddess) {
+      cost = GODDESS_VALUES[target.username] ?? effectiveValue;
     } else {
       cost = effectiveValue * costMultiplier;
     }

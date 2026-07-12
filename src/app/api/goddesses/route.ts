@@ -6,9 +6,6 @@ import { auth } from "@/lib/auth";
 import {
   GODDESS_USERNAMES,
   GODDESS_VALUES,
-  MOST_EXPENSIVE_GODDESS,
-  MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
-  MOST_EXPENSIVE_GODDESS_MIN_VALUE,
 } from "@/lib/goddesses";
 import { getDisabledPowers } from "@/lib/goddess-powers";
 
@@ -54,28 +51,14 @@ export async function GET() {
       .from(users)
       .where(inArray(users.username, GODDESS_USERNAMES));
 
-    // Total economy = sum of non-NPC players' credits. Used to price the most
-    // expensive goddess as a share of the economy (see purchasePlayer.ts).
-    const [econ] = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
-      })
-      .from(users);
-    const totalEconomy = Number(econ.total);
-    const mostExpensiveGoddessCost = Math.max(
-      MOST_EXPENSIVE_GODDESS_MIN_VALUE,
-      Math.floor(totalEconomy * MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE)
-    );
-
     // Sort goddesses by their original values (descending)
     const sortedGoddesses = goddesses
       .map((goddess) => {
         const ownerCount = Number(goddess.ownerCount);
         const originalValue = GODDESS_VALUES[goddess.username] || 0;
-        const hireCost =
-          goddess.username === MOST_EXPENSIVE_GODDESS
-            ? mostExpensiveGoddessCost
-            : Number(goddess.playerValue);
+        // All goddesses: value = hire cost = floor value = GODDESS_VALUES.
+        // No dynamic pricing — simple and consistent.
+        const hireCost = originalValue;
 
         return {
           ...goddess,

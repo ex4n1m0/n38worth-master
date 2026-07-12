@@ -97,12 +97,9 @@ export function GoddessCard({
     !isPurchaseUnlockedAtLevel(username, missionLevel);
   const unlockThreshold = purchaseUnlockThreshold(username);
 
-  // The most expensive goddess is priced as a share of the total economy
-  // (provided via `hireCost`); all others cost their stored player value.
-  // The DISPLAY value is always the card's playerValue (pinned to GODDESS_VALUES),
-  // while the HIRE cost may be higher for the ultimate Goddess.
-  const effectiveCost = hireCost ?? playerValue;
-  const displayValue = playerValue;
+  // All goddesses: value = hire cost = floor = GODDESS_VALUES.
+  // Use originalValue as the single source of truth for display and hire.
+  const effectiveCost = originalValue;
   const isOwned = ownerCount > 0 && !!ownerName;
   const canAfford = (myCredits ?? 0) >= effectiveCost;
   const isOwnProfile = session?.user?.name === username;
@@ -329,7 +326,7 @@ export function GoddessCard({
                   Locked
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono tabular-nums leading-tight">
-                  {formatCompact(displayValue)}¢
+                  {formatCompact(effectiveCost)}¢
                 </span>
                 {unlockThreshold !== null && (
                   <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
@@ -387,7 +384,7 @@ export function GoddessCard({
               ) : (
                 <Clock className="h-3 w-3 mr-1 shrink-0" />
               )}
-              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatCompact(displayValue)}¢</span>
+              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatCompact(effectiveCost)}¢</span>
             </Button>
           )}
 
