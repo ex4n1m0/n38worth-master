@@ -5,7 +5,6 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { Crown, Calendar, Star, Loader2, Wallet, ChevronDown } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
-import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
 import { RankBonusCountdown } from "@/components/RankBonusCountdown";
 import { LoginReward } from "@/components/LoginReward";
@@ -64,9 +63,6 @@ export default function HallOfFamePage() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
-      {/* Rank category strips — pinned to the very top of the page. */}
-      <EmpireRankStrip />
-
       {/* Rewards & Income — collapsible, open by default, pinned to the top. */}
       {currentUserId && (
         <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">

@@ -25,6 +25,7 @@ import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
+import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
@@ -96,6 +97,9 @@ export default function LeaderboardPage() {
         <div className="sm:hidden">
           <CreditBalance />
         </div>
+
+        {/* Live Rankings — top players by empire, value, credits. */}
+        <EmpireRankStrip />
 
         {/* Live Activity sidebars — 4 compact rank lists. */}
         <LeaderboardSidebars />
