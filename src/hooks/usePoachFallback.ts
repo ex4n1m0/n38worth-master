@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
 import { getPusherClient } from "@/lib/pusher-client";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useSound } from "@/hooks/useSound";
-import { formatCompact } from "@/lib/utils";
 
 const POLL_MS = 4000;
 const MAX_BURST = 3; // cap simultaneous flashes to avoid flooding the screen
@@ -74,16 +72,14 @@ export function usePoachFallback(userId: string | undefined) {
           const timer = setTimeout(() => {
             if (cancelled) return;
             play("hire");
+            // Navbar poach feed only — no toast (the sticky feed row is the
+            // persistent confirmation).
             usePoachStore.getState().trigger({
               amount: p.amount,
               player: p.player,
               playerAvatar: null,
               buyer: p.buyer,
             });
-            toast.success(
-              `${p.buyer} hired ${p.player} — you earned +${formatCompact(p.amount)}¢ 💰`,
-              { duration: 6000 }
-            );
           }, i * 2200);
           pendingTimers.push(timer);
         });

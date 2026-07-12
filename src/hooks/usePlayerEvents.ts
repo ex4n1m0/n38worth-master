@@ -69,16 +69,14 @@ export function usePlayerEvents(userId: string | undefined) {
         console.log("[poach] revenue-received", data);
         queryClient.invalidateQueries({ queryKey: ["credits"] });
         play("hire");
-        // Eye-catching "POACHED!" flash + navbar credits bump.
+        // Eye-catching "POACHED!" flash + navbar poach feed + credits bump.
+        // (No toast — the sticky poach feed row in the Navbar is the
+        // persistent confirmation.)
         usePoachStore.getState().trigger({
           amount: data.amount,
           player: data.fromPlayer,
           playerAvatar: data.fromPlayerAvatar ?? null,
           buyer: data.buyer,
-        });
-        // Persistent confirmation in case the flash is missed.
-        toast.success(`${data.buyer} hired ${data.fromPlayer} — you earned +${data.amount}¢ 💰`, {
-          duration: 6000,
         });
       }
     );
