@@ -479,7 +479,7 @@ export default function Home() {
       {/* ═══ Profile Teaser ═══ */}
       {data?.topPlayer && (
         <section className="relative py-20 px-6 bg-gradient-to-b from-black to-gray-950 flex flex-col items-center gap-8">
-          <h2 className="text-2xl sm:text-3xl font-black text-white">This Could Be You</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-white">Top Player&apos;s Card</h2>
           <ProfileTeaser player={data.topPlayer} />
           <Link
             href="/register"
