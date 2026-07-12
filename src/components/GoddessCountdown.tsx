@@ -79,10 +79,9 @@ export function GoddessCountdown() {
     });
 
     channel.bind("game-won", (data: { winnerUsername: string }) => {
-      toast.success(`🏆 ${data.winnerUsername} WON THE GAME! 🏆`, {
-        description: "They held all 6 Goddesses for the full countdown! The world has been reset!",
-        duration: 30000,
-      });
+      // The WorldRebootingOverlay handles the full-screen reboot experience.
+      // We just clear the countdown state here — no toast (the overlay is
+      // already showing the "World is Rebooting" message).
       setLocalRemaining(null);
       queryClient.invalidateQueries();
     });

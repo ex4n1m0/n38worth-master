@@ -10,11 +10,9 @@ import { getPusherClient } from "@/lib/pusher-client";
  * Covers the entire screen with solid black, shows "The World is Rebooting"
  * message and a progress bar that animates from 0% to 100% over 60 seconds.
  *
- * When the progress bar reaches 100%, the overlay disappears and the player
- * is back in the game (the reset has already happened server-side).
- *
- * If "game-won" arrives before the bar completes (reset finished faster than
- * 60s), the bar jumps to 100% and then fades out.
+ * The progress bar ALWAYS runs the full 60 seconds regardless of when the
+ * server-side reset completes. When the bar reaches 100%, the overlay fades
+ * out and the player is back in the game.
  */
 export function WorldRebootingOverlay() {
   const [active, setActive] = useState(false);
@@ -22,7 +20,6 @@ export function WorldRebootingOverlay() {
   const [progress, setProgress] = useState(0);
   const [winnerName, setWinnerName] = useState<string | null>(null);
   const startRef = useRef<number>(0);
-  const wonRef = useRef<boolean>(false);
   const DURATION_MS = 60 * 1000; // 1 minute
 
   // Dismiss the overlay (fade out then unmount)
@@ -33,7 +30,6 @@ export function WorldRebootingOverlay() {
       setFadingOut(false);
       setProgress(0);
       setWinnerName(null);
-      wonRef.current = false;
     }, 600);
   };
 
@@ -48,16 +44,14 @@ export function WorldRebootingOverlay() {
       setWinnerName(data.winnerUsername ?? null);
       setProgress(0);
       setFadingOut(false);
-      wonRef.current = false;
       startRef.current = Date.now();
       setActive(true);
     };
 
+    // game-won just confirms the reset is done, but we DON'T dismiss here.
+    // The progress bar runs the full 60s for the visual experience.
     const handleGameWon = (data: { winnerUsername?: string }) => {
-      setWinnerName(data.winnerUsername ?? null);
-      wonRef.current = true;
-      // Jump to 100% — the progress bar animation will pick this up
-      setProgress(100);
+      if (data.winnerUsername) setWinnerName(data.winnerUsername);
     };
 
     channel.bind("world-rebooting", handleRebooting);
@@ -69,64 +63,43 @@ export function WorldRebootingOverlay() {
     };
   }, []);
 
-  // Animate the progress bar over 60 seconds, then dismiss
+  // Animate the progress bar over exactly 60 seconds, then dismiss
   useEffect(() => {
     if (!active) return;
 
     const interval = setInterval(() => {
-      // If game-won already arrived, we're at 100 — just dismiss
-      if (wonRef.current) {
-        clearInterval(interval);
-        // Brief moment at 100% then dismiss
-        setTimeout(dismiss, 800);
-        return;
-      }
-
       const elapsed = Date.now() - startRef.current;
       const pct = Math.min(100, (elapsed / DURATION_MS) * 100);
       setProgress(pct);
 
       if (pct >= 100) {
         clearInterval(interval);
-        // Safety: if game-won hasn't arrived yet, wait up to 30s then dismiss
-        setTimeout(() => {
-          if (!wonRef.current) {
-            // Force dismiss even without game-won
-            dismiss();
-          }
-        }, 30000);
+        // Hold at 100% for 1 second, then fade out
+        setTimeout(dismiss, 1000);
       }
-    }, 100);
+    }, 50);
 
     return () => clearInterval(interval);
   }, [active]);
-
-  // When game-won arrives, dismiss after showing 100%
-  useEffect(() => {
-    if (active && wonRef.current && progress >= 100) {
-      const t = setTimeout(dismiss, 800);
-      return () => clearTimeout(t);
-    }
-  }, [active, progress]);
 
   if (!active) return null;
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center transition-opacity duration-600 ${
         fadingOut ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* Subtle radial glow behind the progress bar */}
+      {/* Subtle radial glow behind the content that grows with progress */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          background: `radial-gradient(ellipse at center, rgba(34,211,238,${0.04 + (progress / 100) * 0.08}) 0%, transparent 60%)`,
+          background: `radial-gradient(ellipse 60% 40% at center, rgba(34,211,238,${0.03 + (progress / 100) * 0.1}) 0%, transparent 70%)`,
         }}
       />
 
-      {/* Title — center top area */}
-      <div className="relative text-center px-4 mb-12">
+      {/* Title */}
+      <div className="relative text-center px-4 mb-10">
         <h1 className="text-2xl sm:text-4xl font-black text-white tracking-[0.15em] uppercase">
           The World is Rebooting
         </h1>
@@ -144,7 +117,7 @@ export function WorldRebootingOverlay() {
             className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300 shadow-[0_0_15px_rgba(34,211,238,0.7)]"
             style={{
               width: `${progress}%`,
-              transition: "width 100ms linear",
+              transition: "width 50ms linear",
             }}
           />
         </div>
