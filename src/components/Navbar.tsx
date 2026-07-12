@@ -14,6 +14,7 @@ import { ChatNotificationBell } from "./ChatNotificationBell";
 
 import { GlobalInfoBar } from "./GlobalInfoBar";
 import { MissionProgress } from "./MissionProgress";
+import { WorldRebootingOverlay } from "./WorldRebootingOverlay";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import {
   DropdownMenu,
@@ -348,6 +349,9 @@ export function Navbar() {
 
         </div>
       </div>
+
+      {/* World Rebooting overlay — full-screen black + progress bar */}
+      <WorldRebootingOverlay />
     </>
   );
 }

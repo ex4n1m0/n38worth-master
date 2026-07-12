@@ -141,6 +141,21 @@ export default function PlayerProfilePage() {
     },
   });
 
+  const testResetMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/game/test-reset", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reset failed");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("World reset triggered! Rebooting...");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
   const { hasKnowledge } = useKnowledgePower();
 
   const isOwnProfileEarly =
@@ -476,7 +491,22 @@ export default function PlayerProfilePage() {
 
           {/* Global chat room — hidden until the player completes mission 0. */}
           {gameUnlocked && <GlobalChatPage embedded />}
-          <div className="pt-4 border-t border-white/10"><DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} /></div>
+          <div className="pt-4 border-t border-white/10 space-y-3">
+            {isOwnProfile && session?.user?.name === "IgorCarlier" && (
+              <button
+                onClick={() => {
+                  if (confirm("This will RESET THE ENTIRE GAME (test mode, no Hall of Fame entry). All ownership, credits, and progress will be wiped. Are you sure?")) {
+                    testResetMutation.mutate();
+                  }
+                }}
+                disabled={testResetMutation.isPending}
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 px-4 py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {testResetMutation.isPending ? "Resetting World..." : "Test World Reset (No HoF)"}
+              </button>
+            )}
+            <DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} />
+          </div>
         </>
       )}
 

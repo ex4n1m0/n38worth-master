@@ -47,7 +47,8 @@ import {
 export async function triggerGameReset(
   winnerId: number,
   winnerUsername: string,
-  countdownStart?: number
+  countdownStart?: number,
+  opts: { skipHallOfFame?: boolean } = {}
 ) {
   try {
     // 0a. Idempotency via processed-start marker (fast-path bail for retries)
@@ -83,11 +84,13 @@ export async function triggerGameReset(
       return { success: true, duplicate: true };
     }
 
-    // 1. Record the winner in the Hall of Fame
-    await db.insert(hallOfFame).values({
-      userId: winnerId,
-      username: winnerUsername,
-    });
+    // 1. Record the winner in the Hall of Fame (skip for test resets)
+    if (!opts.skipHallOfFame) {
+      await db.insert(hallOfFame).values({
+        userId: winnerId,
+        username: winnerUsername,
+      });
+    }
 
     // 2. Log to game history
     await db.insert(gameHistory).values({
@@ -99,6 +102,18 @@ export async function triggerGameReset(
         message: `${winnerUsername} collected all 6 goddesses and won the game!`,
       }),
     });
+
+    // 2b. Broadcast "world-rebooting" to all connected clients so they show
+    //     the full-screen reboot overlay with a progress bar.
+    try {
+      await pusher.trigger("game-global", "world-rebooting", {
+        winnerUsername,
+        winnerId,
+        durationSeconds: 60,
+      });
+    } catch (pusherError) {
+      console.error("Pusher error during world-rebooting broadcast:", pusherError);
+    }
 
     // 3. Delete all ownership records (wipes the economy graph)
     await db.delete(ownership);
