@@ -20,7 +20,7 @@ import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
 // server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
-import { MISSIONS, type Mission, MASS_HIRE_CARD } from "@/lib/missions-data";
+import { MISSIONS, type Mission, MASS_HIRE_CARD, UNLOCK_GAME_HIRE_SLOTS } from "@/lib/missions-data";
 
 export { MISSIONS };
 export type { Mission };
@@ -248,6 +248,14 @@ export async function checkAndAwardMissions(buyerId: number): Promise<void> {
     for (const cardName of mission.rewardCards) {
       const owned = await forceAwardCard(buyerId, buyer.username, cardName);
       if (owned && GODDESS_USERNAMES.includes(cardName)) awardedGoddess = true;
+    }
+
+    // Upgrade hire slots if the mission specifies it (e.g. unlock-game mission).
+    if (mission.upgradeHireSlots) {
+      await db
+        .update(users)
+        .set({ hireSlots: mission.upgradeHireSlots, updatedAt: new Date() })
+        .where(eq(users.id, buyerId));
     }
 
     currentLevel += 1;

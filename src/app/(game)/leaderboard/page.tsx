@@ -27,6 +27,7 @@ import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
+import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
@@ -56,6 +57,8 @@ export default function LeaderboardPage() {
   // survives browse pagination/filtering. Owned players in the browse grid can
   // be tapped to add them to the combo.
   const combo = useProfessionComboSelection();
+  const missionLevel = useMissionLevel();
+  const gameUnlocked = missionLevel >= 1;
 
   // Onboarding gate: until the user finishes the starter-NPC step, the
   // market/leaderboard is fully hidden. Send them back to their profile
@@ -98,23 +101,27 @@ export default function LeaderboardPage() {
           <CreditBalance />
         </div>
 
-        {/* Live Rankings — top players by empire, value, credits. */}
-        <EmpireRankStrip />
+        {/* Live Rankings — top players by empire, value, credits.
+            Hidden until the player completes mission 0 (Own 20 cards). */}
+        {gameUnlocked && <EmpireRankStrip />}
 
-        {/* Live Activity sidebars — 4 compact rank lists. */}
-        <LeaderboardSidebars />
+        {/* Live Activity sidebars — 4 compact rank lists.
+            Hidden until the player completes mission 0. */}
+        {gameUnlocked && <LeaderboardSidebars />}
 
         {/* Browse Players — the profession combo bar sits inside, just below
-            the sort/filter buttons and above the card grid. */}
+            the sort/filter buttons and above the card grid.
+            Profession filters + combo bar are hidden until mission 0. */}
         <BrowsePlayersSection
           search={search}
           onSearch={handleSearch}
           debouncedSearch={debouncedSearch}
-          comboSelection={{
+          gameUnlocked={gameUnlocked}
+          comboSelection={gameUnlocked ? {
             isSelected: combo.isSelected,
             onToggle: combo.toggleSelection,
-          }}
-          comboBar={<ProfessionComboBar combo={combo} />}
+          } : undefined}
+          comboBar={gameUnlocked ? <ProfessionComboBar combo={combo} /> : undefined}
         />
       </div>
     </ErrorBoundary>
@@ -127,6 +134,7 @@ function BrowsePlayersSection({
   debouncedSearch,
   comboSelection,
   comboBar,
+  gameUnlocked = true,
 }: {
   search: string;
   onSearch: (value: string) => void;
@@ -146,6 +154,7 @@ function BrowsePlayersSection({
     ) => boolean;
   };
   comboBar?: ReactNode;
+  gameUnlocked?: boolean;
 }) {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
@@ -244,6 +253,7 @@ function BrowsePlayersSection({
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
+        {gameUnlocked && (
         <div className="flex gap-2 flex-wrap items-center">
           <span className="text-xs text-gray-500 mr-1">Profession:</span>
           {PROFESSIONS.map((p) => (
@@ -264,6 +274,7 @@ function BrowsePlayersSection({
             </Button>
           ))}
         </div>
+        )}
         <div className="flex gap-2 flex-wrap">
           {SORT_OPTIONS.map((s) => (
             <Button
@@ -356,6 +367,8 @@ function BrowsePlayersSection({
             <CreditCard className="h-3.5 w-3.5 mr-1" />
             NPC
           </Button>
+          {gameUnlocked && (
+          <>
           {/* Profession: combo-friendly view — only carded players, ranked by
               value and interleaved across professions to build the 6-set. */}
           <Button
@@ -375,6 +388,8 @@ function BrowsePlayersSection({
             <Sparkles className="h-3.5 w-3.5 mr-1" />
             Profession
           </Button>
+          </>
+          )}
         </div>
       </div>
 

@@ -14,13 +14,27 @@ export interface Mission {
   rewardCards: string[];
   /** Text shown on the progress bar */
   label: string;
+  /** If set, upgrade the player's hire slots to this value on completion */
+  upgradeHireSlots?: number;
 }
 
-/** Special "Mass Hire" card — unlocked by the first mission (50 owned cards). */
+/** Special "Mass Hire" card — unlocked by the second mission (50 owned cards). */
 export const MASS_HIRE_CARD = "Mass Hire";
 export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
+/** Mission index that unlocks the full game UI (rankings, activity, filters, End Game). */
+export const UNLOCK_GAME_MISSION_INDEX = 0;
+export const UNLOCK_GAME_THRESHOLD = 20;
+/** Hire slots granted when the unlock-game mission completes. */
+export const UNLOCK_GAME_HIRE_SLOTS = 50;
+
 export const MISSIONS: Mission[] = [
+  {
+    threshold: 20,
+    rewardCards: [],
+    upgradeHireSlots: 50,
+    label: "Own 20 cards to unlock the Game",
+  },
   {
     threshold: 50,
     rewardCards: ["Mass Hire"],

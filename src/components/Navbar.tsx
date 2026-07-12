@@ -14,6 +14,7 @@ import { ChatNotificationBell } from "./ChatNotificationBell";
 
 import { GlobalInfoBar } from "./GlobalInfoBar";
 import { MissionProgress } from "./MissionProgress";
+import { useMissionLevel } from "@/hooks/useMissionLevel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,6 +56,9 @@ export function Navbar() {
   const { state: onboarding, loading: onboardingLoading } = useOnboarding();
   const { data: credits, isLoading: creditsLoading } = useCredits();
   const { data: playerValue, isLoading: playerValueLoading } = usePlayerValue();
+  const missionLevel = useMissionLevel();
+  // Game is unlocked after completing mission 0 (Own 20 cards).
+  const gameUnlocked = missionLevel >= 1;
 
   // Briefly "bump" the credits counter whenever a poach payday lands.
   const bumpKey = usePoachStore((s) => s.bumpKey);
@@ -67,12 +71,14 @@ export function Navbar() {
     return () => clearTimeout(t);
   }, [bumpKey]);
 
-  // Filter nav links based on onboarding state. The starter-NPC step now
-  // lives on the user's profile, so the entire leaderboard/market stays
-  // hidden until onboarding fully completes — no more half-locked nav.
+  // Filter nav links based on onboarding state and game unlock.
+  // - During onboarding: only Home is visible.
+  // - After onboarding but before 20 cards (mission 0): Home + Market (simple).
+  // - After mission 0: all links including End Game.
   const getVisibleLinks = () => {
-    if (onboarding.onboardingComplete) return mainNavLinks;
-    return mainNavLinks.filter((l) => l.href === "/my-profile");
+    if (!onboarding.onboardingComplete) return mainNavLinks.filter((l) => l.href === "/my-profile");
+    if (!gameUnlocked) return mainNavLinks.filter((l) => l.href !== "/hall-of-fame");
+    return mainNavLinks;
   };
 
   const allVisibleLinks = getVisibleLinks();
