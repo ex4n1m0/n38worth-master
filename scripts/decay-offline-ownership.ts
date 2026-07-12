@@ -1,10 +1,5 @@
 /**
- * One-off backfill for the idle-ownership-decay rule.
- *
- * For every human user offline > 24h, release / delete owned NPCs at a rate of
- * 1 per hour starting with the oldest purchase. Goddesses are released only;
- * other NPCs are hard-deleted. The anchor `last_ownership_decay_at` is
- * advanced so subsequent hourly cron runs pick up where this left off.
+ * Manual trigger / dry-run for the tiered offline ownership decay.
  *
  * Usage:
  *   npx tsx scripts/decay-offline-ownership.ts            # apply
@@ -20,39 +15,33 @@ async function main() {
   const dry = process.argv.includes("--dry");
   console.log(
     dry
-      ? "🟡 DRY RUN — no writes will be performed."
-      : "🔴 APPLYING — mutations will be written to the database."
+      ? "DRY RUN — no writes will be performed."
+      : "APPLYING — mutations will be written to the database."
   );
 
   const result = await runOwnershipDecay(dry);
 
   console.log("");
   console.log("================ SUMMARY ================");
-  console.log(`Users processed:           ${result.usersProcessed}`);
-  console.log(`NPCs hard-deleted:         ${result.totalDeleted}`);
-  console.log(`Goddesses released:        ${result.totalReleasedGoddesses}`);
+  console.log(`Users processed:  ${result.usersProcessed}`);
+  console.log(`Cards released:   ${result.totalReleased}`);
   console.log("");
 
   if (result.perUser.length === 0) {
-    console.log("No eligible idle users with NPC holdings.");
+    console.log("No eligible offline users with cards to decay.");
     return;
   }
 
-  const sorted = [...result.perUser].sort((a, b) => b.hoursToDecay - a.hoursToDecay);
+  const sorted = [...result.perUser].sort((a, b) => b.cardsReleased - a.cardsReleased);
   for (const u of sorted) {
     console.log(
-      `  • ${u.username} (id=${u.userId}) — offline ${u.hoursOffline}h, ownedNpcs=${u.ownedNpcs}, decaying ${u.hoursToDecay}`
+      `  ${u.username} (id=${u.userId}) — ${u.totalOwned} cards, tier: ${u.tier}, releasing ${u.cardsReleased}`
     );
-    if (u.deletedNpcUsernames.length > 0) {
+    if (u.releasedUsernames.length > 0) {
       console.log(
-        `       deleted (${u.deletedNpcUsernames.length}): ${u.deletedNpcUsernames.slice(0, 10).join(", ")}${
-          u.deletedNpcUsernames.length > 10 ? ", …" : ""
+        `       released (${u.releasedUsernames.length}): ${u.releasedUsernames.slice(0, 10).join(", ")}${
+          u.releasedUsernames.length > 10 ? ", ..." : ""
         }`
-      );
-    }
-    if (u.releasedGoddessUsernames.length > 0) {
-      console.log(
-        `       released goddesses (${u.releasedGoddessUsernames.length}): ${u.releasedGoddessUsernames.join(", ")}`
       );
     }
   }

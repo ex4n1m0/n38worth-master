@@ -14,9 +14,9 @@ export async function GET(req: Request) {
   try {
     const now = new Date();
 
-    // Idle-user ownership decay.
-    // Humans offline >24h lose 1 owned NPC per hour (oldest first).
-    // Goddesses are released (ownership removed, NPC kept); regular NPC ownership is simply released.
+    // Tiered offline ownership decay.
+    // Players lose their cheapest NPC cards at a rate based on total cards owned:
+    //   6000+ → 1 per 10 min, 5000-6000 → 1 per 20 min, ... 500-1000 → 1 per 6h, 0-500 → none.
     const decay = await runOwnershipDecay(false);
 
     return NextResponse.json({
@@ -24,8 +24,7 @@ export async function GET(req: Request) {
       timestamp: now.toISOString(),
       ownershipDecay: {
         usersProcessed: decay.usersProcessed,
-        totalReleased: decay.totalDeleted,
-        totalReleasedGoddesses: decay.totalReleasedGoddesses,
+        totalReleased: decay.totalReleased,
         perUser: decay.perUser,
       },
     });
