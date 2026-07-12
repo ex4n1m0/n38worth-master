@@ -43,40 +43,40 @@ export const MISSIONS: Mission[] = [
     label: "Own 50 cards to unlock Mass Hire",
   },
   {
-    threshold: 1000,
+    threshold: 100,
     rewardCards: ["Goddess of Wealth"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 1,000 cards to unlock Goddess of Wealth",
+    label: "Own 100 cards to unlock Goddess of Wealth",
+  },
+  {
+    threshold: 250,
+    rewardCards: ["Goddess of Knowledge"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
+    label: "Own 250 cards to unlock Goddess of Knowledge",
+  },
+  {
+    threshold: 500,
+    rewardCards: ["Goddess of Fate"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
+    label: "Own 500 cards to unlock Goddess of Fate",
+  },
+  {
+    threshold: 1000,
+    rewardCards: ["Goddess of Time"],
+    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
+    label: "Own 1,000 cards to unlock Goddess of Time",
   },
   {
     threshold: 2000,
-    rewardCards: ["Goddess of Knowledge"],
+    rewardCards: ["Goddess of War"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 2,000 cards to unlock Goddess of Knowledge",
-  },
-  {
-    threshold: 3000,
-    rewardCards: ["Goddess of Fate"],
-    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 3,000 cards to unlock Goddess of Fate",
+    label: "Own 2,000 cards to unlock Goddess of War",
   },
   {
     threshold: 4000,
-    rewardCards: ["Goddess of Time"],
-    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 4,000 cards to unlock Goddess of Time",
-  },
-  {
-    threshold: 5000,
-    rewardCards: ["Goddess of War"],
-    addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 5,000 cards to unlock Goddess of War",
-  },
-  {
-    threshold: 6000,
     rewardCards: ["Goddess"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Own 6,000 cards to unlock the Goddess",
+    label: "Own 4,000 cards to unlock the Goddess",
   },
 ];
 
