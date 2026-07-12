@@ -22,6 +22,7 @@ import { LoginReward } from "@/components/LoginReward";
 import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
 import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
+import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
@@ -89,6 +90,8 @@ export default function PlayerProfilePage() {
   const [heroAvatarRevealUntil, setHeroAvatarRevealUntil] = useState<string | null>(null);
   const [showRewards, setShowRewards] = useState(true);
   const currentUserId = session?.user?.id ? Number(session.user.id) : null;
+  const missionLevel = useMissionLevel();
+  const gameUnlocked = missionLevel >= 1;
   const { ownedIds } = useOwnedPlayerIds();
   const TEAM_PER_PAGE = 18;
 
@@ -428,8 +431,9 @@ export default function PlayerProfilePage() {
 
       {isOwnProfile && !inOnboarding && (
         <>
-          {/* Rewards & Income — collapsible, open by default. */}
-          {currentUserId && (
+          {/* Rewards & Income — collapsible, open by default.
+              Hidden until the player completes mission 0 (Own 20 cards). */}
+          {gameUnlocked && currentUserId && (
             <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
               <button
                 onClick={() => setShowRewards((v) => !v)}
@@ -460,8 +464,8 @@ export default function PlayerProfilePage() {
             </div>
           )}
 
-          {/* Global chat room */}
-          <GlobalChatPage embedded />
+          {/* Global chat room — hidden until the player completes mission 0. */}
+          {gameUnlocked && <GlobalChatPage embedded />}
           <div className="pt-4 border-t border-white/10"><DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} /></div>
         </>
       )}
