@@ -125,11 +125,10 @@ export function AssignProfessionDialog({
         onClick={openDialog}
         variant="outline"
         size="sm"
-        className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 text-[8px] sm:text-[9px] h-6 px-1.5 leading-none"
-        title={currentProfession ? "Change NPC profession" : "Add profession to NPC"}
+        className="border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-7 px-2 text-xs"
       >
-        <Briefcase className="h-3 w-3" />
-        {currentProfession ? "Change" : "+ Prof"}
+        <Briefcase className="h-3 w-3 mr-1" />
+        {currentProfession ? "Change Profession" : "Assign Profession"}
       </Button>
 
       {open && mounted && createPortal(
