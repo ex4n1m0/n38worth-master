@@ -977,10 +977,34 @@
   .lp-float,
   .lp-fade-up,
   .lp-shine::after,
-  .lp-pulse-glow {
+  .lp-pulse-glow,
+  .lp-ticker-track,
+  .lp-bounce {
     animation: none !important;
   }
   .lp-fade-up { opacity: 1 !important; }
+}
+
+/* Activity ticker — horizontal marquee */
+@keyframes lp-ticker {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.lp-ticker-track {
+  animation: lp-ticker 40s linear infinite;
+  will-change: transform;
+}
+.lp-ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* Bounce scroll hint */
+@keyframes lp-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%      { transform: translateY(8px); opacity: 1; }
+}
+.lp-bounce {
+  animation: lp-bounce 2s ease-in-out infinite;
 }
 
 /* Sonner toast stacking: all overlap at the same spot and grow in size + shift color */
