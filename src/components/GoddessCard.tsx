@@ -14,7 +14,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { getAvatarSrc } from "@/lib/avatar-utils";
-import { formatCompact } from "@/lib/utils";
+import { formatCompact, formatNumber } from "@/lib/utils";
 import { GODDESS_POWERS } from "@/lib/goddesses";
 import {
   isLockablePurchaseCard,
@@ -326,7 +326,7 @@ export function GoddessCard({
                   Locked
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono tabular-nums leading-tight">
-                  {formatCompact(effectiveCost)}¢
+                  {formatNumber(effectiveCost)}¢
                 </span>
                 {unlockThreshold !== null && (
                   <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
@@ -349,7 +349,7 @@ export function GoddessCard({
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    {formatCompact(effectiveCost)}¢
+                    {formatNumber(effectiveCost)}¢
                   </>
                 )}
               </Button>
@@ -384,7 +384,7 @@ export function GoddessCard({
               ) : (
                 <Clock className="h-3 w-3 mr-1 shrink-0" />
               )}
-              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatCompact(effectiveCost)}¢</span>
+              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatNumber(effectiveCost)}¢</span>
             </Button>
           )}
 

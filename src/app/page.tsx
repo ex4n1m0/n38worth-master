@@ -191,7 +191,7 @@ function GoddessFlipCard({ goddess, index }: { goddess: Goddess; index: number }
             {goddess.username}
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5">{power?.short ?? "Unknown power"}</p>
-          <p className="text-[10px] font-mono text-gray-500 mt-1">{formatCompact(goddess.value)}¢</p>
+          <p className="text-[10px] font-mono text-gray-500 mt-1">{goddess.value.toLocaleString()}¢</p>
         </div>
       </div>
     </div>
