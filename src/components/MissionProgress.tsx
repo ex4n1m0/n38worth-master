@@ -51,7 +51,9 @@ export function MissionProgress() {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <p className="text-base sm:text-xl font-bold text-t1-100 truncate">
+          <p className={`text-base sm:text-xl font-bold truncate ${
+            current.index === 0 ? "text-amber-300" : "text-t1-100"
+          }`}>
             {current.label}
           </p>
           <span className="text-sm sm:text-base font-bold text-t1-200 shrink-0 tabular-nums">
