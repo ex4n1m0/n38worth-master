@@ -23,6 +23,7 @@ import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
 import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
 import { ChangeProfessionDialog } from "@/components/ChangeProfessionDialog";
+import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useCredits } from "@/hooks/useCredits";
@@ -353,6 +354,13 @@ export default function PlayerProfilePage() {
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getOwnedRankColor(player.ownedCount)}`}><Swords className="h-3 w-3" />{getOwnedRank(player.ownedCount).title}</span>
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20"><Shield className="h-3 w-3" />{player.ownerCount} boss{player.ownerCount !== 1 ? "es" : ""}</span>
             {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
+            {!isOwnProfile && viewerOwnsTarget && !isSpecialCard && (
+              <AssignProfessionDialog
+                targetId={player.id}
+                targetUsername={player.username}
+                currentProfession={heroProfession}
+              />
+            )}
           </div>
           )}
 

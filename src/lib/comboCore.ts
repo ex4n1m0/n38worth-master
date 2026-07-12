@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users, ownership, transactions, gameHistory, messages, rewardHistory, avatarReveals } from "@/db/schema";
+import { users, ownership, transactions, gameHistory } from "@/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
@@ -14,10 +14,8 @@ export interface SellComboResult {
   error?: string;
   reward?: number;
   sumValue?: number;
-  deletedNpcCount?: number;
-  resetHumanCount?: number;
-  deletedNpcNames?: string;
-  resetHumanNames?: string;
+  resetPlayerCount?: number;
+  resetPlayerNames?: string;
   createdNpcCount?: number;
 }
 
@@ -106,69 +104,38 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
     const sumValue = targetPlayers.reduce((sum, p) => sum + p.playerValue, 0);
     const reward = sumValue * 10;
 
-    // 6. Separate NPCs and humans
-    const npcs = targetPlayers.filter((p) => p.isNpc === 1);
-    const humans = targetPlayers.filter((p) => p.isNpc !== 1);
-    const npcIds = npcs.map((p) => p.id);
-    const humanIds = humans.map((p) => p.id);
+    // 6. All 6 players (NPCs and humans) are treated the same way:
+    //    - Ownership is removed (they become ownerless)
+    //    - Value is reset to floor value
+    //    - They are NOT deleted — they stay in the game
+    const allPlayerIds = targetPlayers.map((p) => p.id);
 
-    // 7. Execute deletions in FK-safe order (Neon HTTP driver: no transactions)
-    //    a) Delete ALL ownership records referencing any of the 6 players
-    //    b) Clean up messages/transactions referencing NPCs
-    //    c) Delete reward history referencing NPCs
-    //    d) Delete NPC users (now no FKs point to them)
-    //    e) Reset humans to floor value
+    // 7. Execute cleanup (Neon HTTP driver: no transactions)
+    //    a) Delete ALL ownership records for these 6 players (as owned)
+    //    b) Reset all 6 players to their floor value
 
-    // 7a. Delete ownership: current user's these 6, NPCs as owned, NPCs as owner, humans as owned
+    // 7a. Delete ownership: the caller's 6 ownership records, plus any other
+    //     ownership where these players are the owned card (they may have been
+    //     stolen and re-owned by someone else — unlikely in a combo but safe).
     const ownershipIds = ownershipRecords.map((r) => r.id);
     if (ownershipIds.length > 0) {
       await db.delete(ownership).where(inArray(ownership.id, ownershipIds));
     }
-    if (npcIds.length > 0) {
-      await db.delete(ownership).where(inArray(ownership.ownedId, npcIds));
-      await db.delete(ownership).where(inArray(ownership.ownerId, npcIds));
-    }
-    if (humanIds.length > 0) {
-      await db.delete(ownership).where(inArray(ownership.ownedId, humanIds));
+    // Also remove any ownership where these players are owned by others
+    if (allPlayerIds.length > 0) {
+      await db.delete(ownership).where(inArray(ownership.ownedId, allPlayerIds));
     }
 
-    // 7b. Delete messages referencing NPCs
-    if (npcIds.length > 0) {
-      await db.delete(messages).where(inArray(messages.senderId, npcIds));
-      await db.delete(messages).where(inArray(messages.recipientId, npcIds));
-    }
-
-    // 7c. Delete transactions referencing NPCs
-    if (npcIds.length > 0) {
-      await db.delete(transactions).where(inArray(transactions.buyerId, npcIds));
-      await db.delete(transactions).where(inArray(transactions.targetId, npcIds));
-    }
-
-    // 7d. Delete reward history referencing NPCs
-    if (npcIds.length > 0) {
-      await db.delete(rewardHistory).where(inArray(rewardHistory.userId, npcIds));
-    }
-
-    // 7d-2. Delete avatar reveals referencing NPCs (as viewer or target)
-    if (npcIds.length > 0) {
-      await db.delete(avatarReveals).where(inArray(avatarReveals.viewerId, npcIds));
-      await db.delete(avatarReveals).where(inArray(avatarReveals.targetId, npcIds));
-    }
-
-    // 7e. Delete NPCs from users table (now no FKs point to them)
-    if (npcIds.length > 0) {
-      await db.delete(users).where(inArray(users.id, npcIds));
-    }
-
-    // 7f. Reset humans to floor value
-    for (const human of humans) {
+    // 7b. Reset ALL 6 players to their floor value (NPCs and humans alike)
+    for (const player of targetPlayers) {
       await db
         .update(users)
         .set({
-          playerValue: human.valueFloor ?? 1,
+          playerValue: player.valueFloor ?? 1,
+          ownerlessAt: new Date(),
           updatedAt: new Date(),
         })
-        .where(eq(users.id, human.id));
+        .where(eq(users.id, player.id));
     }
 
     // 8. Award credits to the owner
@@ -217,8 +184,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
     });
 
     // 10. Log to game history
-    const npcNames = npcs.map((p) => p.username).join(", ");
-    const humanNames = humans.map((p) => p.username).join(", ");
+    const allNames = targetPlayers.map((p) => p.username).join(", ");
 
     await db.insert(gameHistory).values({
       eventType: "sell_combo",
@@ -228,8 +194,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
         reward,
         sumValue,
         multiplier: 10,
-        deletedNpcs: npcNames,
-        resetHumans: humanNames,
+        resetPlayers: allNames,
         professions: professions,
         createdNpcCount,
       }),
@@ -257,10 +222,8 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
       success: true,
       reward,
       sumValue,
-      deletedNpcCount: npcs.length,
-      resetHumanCount: humans.length,
-      deletedNpcNames: npcNames,
-      resetHumanNames: humanNames,
+      resetPlayerCount: targetPlayers.length,
+      resetPlayerNames: allNames,
       createdNpcCount,
     };
   } catch (error) {

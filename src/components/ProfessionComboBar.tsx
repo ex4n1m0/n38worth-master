@@ -51,8 +51,8 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     },
     onSuccess: async (data) => {
       const humanMsg =
-        data.resetHumanCount > 0
-          ? `Reset ${data.resetHumanCount} player${data.resetHumanCount > 1 ? "s" : ""} to floor`
+        data.resetPlayerCount > 0
+          ? `Reset ${data.resetPlayerCount} player${data.resetPlayerCount > 1 ? "s" : ""} to floor`
           : "";
       const spawnMsg =
         data.createdNpcCount > 0
