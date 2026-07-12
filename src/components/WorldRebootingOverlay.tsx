@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { getPusherClient } from "@/lib/pusher-client";
 
 /**
@@ -9,6 +10,9 @@ import { getPusherClient } from "@/lib/pusher-client";
  * Triggered by a Pusher "world-rebooting" event on the "game-global" channel.
  * Covers the entire screen with solid black, shows "The World is Rebooting"
  * message and a progress bar that animates from 0% to 100% over 60 seconds.
+ *
+ * Rendered via a portal to document.body so it escapes any parent stacking
+ * contexts (e.g. the Navbar's sticky z-50) and truly sits on top of everything.
  *
  * The progress bar ALWAYS runs the full 60 seconds regardless of when the
  * server-side reset completes. When the bar reaches 100%, the overlay fades
@@ -19,8 +23,11 @@ export function WorldRebootingOverlay() {
   const [fadingOut, setFadingOut] = useState(false);
   const [progress, setProgress] = useState(0);
   const [winnerName, setWinnerName] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
   const startRef = useRef<number>(0);
   const DURATION_MS = 60 * 1000; // 1 minute
+
+  useEffect(() => setMounted(true), []);
 
   // Dismiss the overlay (fade out then unmount)
   const dismiss = () => {
@@ -82,15 +89,17 @@ export function WorldRebootingOverlay() {
     return () => clearInterval(interval);
   }, [active]);
 
-  if (!active) return null;
+  if (!mounted || !active) return null;
 
-  return (
+  // Portal to document.body — escapes all parent stacking contexts
+  return createPortal(
     <div
-      className={`fixed inset-0 z-[9999] bg-black flex flex-col items-center justify-center transition-opacity duration-600 ${
+      className={`fixed inset-0 z-[2147483647] bg-black flex flex-col items-center justify-center transition-opacity duration-600 ${
         fadingOut ? "opacity-0" : "opacity-100"
       }`}
+      style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0 }}
     >
-      {/* Subtle radial glow behind the content that grows with progress */}
+      {/* Subtle radial glow that grows with progress */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -132,6 +141,7 @@ export function WorldRebootingOverlay() {
           Preparing a fresh start...
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
