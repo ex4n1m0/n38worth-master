@@ -58,6 +58,24 @@ const PORTRAIT_QUERIES = [
   "beauty portrait",
   "candid portrait",
   "model photography",
+  "elderly portrait",
+  "young woman face",
+  "young man face",
+  "business headshot",
+  "casual portrait",
+  "outdoor portrait",
+  "smiling person",
+  "professional photo",
+  "street style portrait",
+  "vintage portrait",
+  "black and white portrait",
+  "artistic portrait",
+  "natural portrait",
+  "lifestyle portrait",
+  "close up face",
+  "person looking at camera",
+  "confident person",
+  "creative portrait",
 ];
 
 /**
@@ -146,7 +164,7 @@ export async function createRandomPlayer(): Promise<{
     // a unique one — while staying well within Unsplash's rate limit. (Looping
     // over every keyword previously fired dozens of requests per creation, which
     // exhausted the hourly limit and made every subsequent creation fail.)
-    const MAX_ATTEMPTS = Math.min(4, PORTRAIT_QUERIES.length);
+    const MAX_ATTEMPTS = Math.min(8, PORTRAIT_QUERIES.length);
     let rateLimited = false;
     let authError = false;
     let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
@@ -292,6 +310,32 @@ export async function createRandomPlayer(): Promise<{
       } catch (fetchError) {
         console.error(`Unsplash fetch error (attempt ${i + 1}/${MAX_ATTEMPTS}):`, fetchError);
         continue;
+      }
+    }
+
+    if (!avatarUrl) {
+      // Fallback: use picsum.photos with a random seed. This generates a
+      // unique image every time (no rate limits, no API key). Not a face,
+      // but ensures NPC creation never stalls when Unsplash is exhausted.
+      console.warn(
+        `Unsplash avatar fetch failed (${skipReason ?? "unknown"}). Falling back to picsum.photos.`
+      );
+      try {
+        const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        const compressed = await downloadAndCompressAvatar(
+          `https://picsum.photos/seed/${seed}/200/200`
+        );
+        if (compressed) {
+          avatarUrl = compressed;
+          photoAuthorName = "Lorem Picsum";
+          photoAuthorUrl = "https://picsum.photos/";
+          photoSourceUrl = `picsum-${seed}`;
+          photoMeta = null;
+          photoScore = 0;
+          console.log("NPC avatar created using picsum.photos fallback");
+        }
+      } catch (fallbackError) {
+        console.error("picsum.photos fallback also failed:", fallbackError);
       }
     }
 
