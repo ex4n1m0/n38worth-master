@@ -133,7 +133,7 @@ export async function GET() {
       topPlayerOwnedCount = Number(ownedRow?.count ?? 0);
     }
 
-    // 7. Top 4 NPCs by value (for the "Hire Cards" story section)
+    // 7. Top 36 NPCs by value (for the "Hire Cards" story section — 6x6 grid)
     const topNpcs = await db
       .select({
         username: users.username,
@@ -143,7 +143,7 @@ export async function GET() {
       .from(users)
       .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), ne(users.username, AGENT_USERNAME), sql`${users.username} NOT LIKE 'Goddess%'`))
       .orderBy(desc(users.playerValue))
-      .limit(4);
+      .limit(36);
 
     // 6. Goddess data for flip cards
     const goddesses = await db

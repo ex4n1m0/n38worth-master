@@ -428,7 +428,7 @@ export default function Home() {
 
         {/* 2. Build your circle */}
         <StorySection step={2} title="Hire Cards. Build Your Empire." body="Spend credits to hire NPC cards and other players. Each hire increases their value. Steal cards from rivals by hiring them away. Protect your best cards with sell blocks.">
-          <div className="flex gap-3 flex-wrap justify-center max-w-md">
+          <div className="grid grid-cols-6 gap-3 justify-center max-w-xl">
             {(data?.topNpcs ?? []).map((npc) => (
               <div key={npc.username} className="h-28 w-20 rounded-xl border border-white/10 overflow-hidden shadow-lg relative group">
                 {npc.avatarUrl ? (
