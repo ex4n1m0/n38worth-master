@@ -197,7 +197,8 @@ export async function runAgentTurn(
   const nowSec = Math.floor(Date.now() / 1000);
   let cycleStart = (await getSetting(CYCLE_START_KEY)) ?? 0;
   // Initialize or rotate cycle if the current one has expired.
-  if (cycleStart === 0 || nowSec - cycleStart >= CYCLE_DURATION_SECONDS) {
+  const isNewCycle = cycleStart === 0 || nowSec - cycleStart >= CYCLE_DURATION_SECONDS;
+  if (isNewCycle) {
     cycleStart = nowSec;
     await setSetting(CYCLE_START_KEY, cycleStart);
   }
@@ -226,6 +227,17 @@ export async function runAgentTurn(
 
   const now = new Date();
   const agentId = await ensureAgent();
+
+  // At the start of each new cycle, refill the Agent's credits so it can play
+  // aggressively. The Agent earns no passive income, so without a refill it
+  // would run dry and stall. Give it enough to buy several cards per burst.
+  if (isNewCycle) {
+    const refillAmount = Number(process.env.AGENT_REFILL_CREDITS ?? 100000);
+    await db.update(users)
+      .set({ credits: sql`LEAST(credits + ${refillAmount}, ${sql.raw(MAX_CREDITS_SQL)})`, updatedAt: now })
+      .where(eq(users.id, agentId));
+    console.log(`Agent refilled with ${refillAmount} credits for new aggressive cycle`);
+  }
 
   // Spend-cap bookkeeping (only when the cap is enabled).
   let spentToday = 0;
