@@ -133,6 +133,18 @@ export async function GET() {
       topPlayerOwnedCount = Number(ownedRow?.count ?? 0);
     }
 
+    // 7. Top 4 NPCs by value (for the "Hire Cards" story section)
+    const topNpcs = await db
+      .select({
+        username: users.username,
+        avatarUrl: users.avatarUrl,
+        playerValue: users.playerValue,
+      })
+      .from(users)
+      .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), ne(users.username, AGENT_USERNAME)))
+      .orderBy(desc(users.playerValue))
+      .limit(4);
+
     // 6. Goddess data for flip cards
     const goddesses = await db
       .select({
@@ -172,6 +184,11 @@ export async function GET() {
         ownedCount: topPlayerOwnedCount,
       } : null,
       goddesses: goddessData,
+      topNpcs: topNpcs.map((n) => ({
+        username: n.username,
+        avatarUrl: n.avatarUrl,
+        playerValue: Number(n.playerValue),
+      })),
     });
   } catch (error) {
     console.error("Landing data error:", error);

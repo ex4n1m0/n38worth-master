@@ -18,6 +18,7 @@ type Winner = { username: string; wonAt: string };
 type Countdown = { active: boolean; username: string | null; remainingSeconds: number };
 type TopPlayer = { username: string; playerValue: number; avatarUrl: string | null; profession: string | null; ownedCount: number } | null;
 type Goddess = { username: string; value: number; avatarUrl: string | null };
+type TopNpc = { username: string; avatarUrl: string | null; playerValue: number };
 type LandingData = {
   stats: Stats;
   activity: ActivityItem[];
@@ -25,6 +26,7 @@ type LandingData = {
   countdown: Countdown;
   topPlayer: TopPlayer;
   goddesses: Goddess[];
+  topNpcs: TopNpc[];
 };
 
 const GODDESS_POWERS: Record<string, { short: string; icon: typeof Crown }> = {
@@ -427,9 +429,20 @@ export default function Home() {
         {/* 2. Build your circle */}
         <StorySection step={2} title="Hire Cards. Build Your Empire." body="Spend credits to hire NPC cards and other players. Each hire increases their value. Steal cards from rivals by hiring them away. Protect your best cards with sell blocks.">
           <div className="flex gap-3 flex-wrap justify-center max-w-md">
-            {["Card 1", "Card 2", "Card 3", "Card 4"].map((c, i) => (
-              <div key={c} className="h-28 w-20 rounded-xl border border-white/10 bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center text-xs text-gray-500 shadow-lg">
-                {c}
+            {(data?.topNpcs ?? []).map((npc) => (
+              <div key={npc.username} className="h-28 w-20 rounded-xl border border-white/10 overflow-hidden shadow-lg relative group">
+                {npc.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={npc.avatarUrl} alt={npc.username} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center text-xs text-gray-500">
+                    {npc.username.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-1.5">
+                  <p className="text-[9px] text-white font-medium truncate">{npc.username}</p>
+                  <p className="text-[8px] text-t1-300 font-mono">{formatCompact(npc.playerValue)}¢</p>
+                </div>
               </div>
             ))}
           </div>
