@@ -45,38 +45,10 @@ const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 // and almost never hit a 404/empty result. Narrow multi-word "vibe" queries
 // (e.g. "space age fashion") were removed — they matched tiny pools, 404'd
 // often, and exhausted the unique-photo pool quickly.
-const PORTRAIT_QUERIES = [
-  "portrait",
-  "portrait photography",
-  "headshot",
-  "face portrait",
-  "person face",
-  "fashion model",
-  "woman portrait",
-  "man portrait",
-  "studio portrait",
-  "beauty portrait",
-  "candid portrait",
-  "model photography",
-  "elderly portrait",
-  "young woman face",
-  "young man face",
-  "business headshot",
-  "casual portrait",
-  "outdoor portrait",
-  "smiling person",
-  "professional photo",
-  "street style portrait",
-  "vintage portrait",
-  "black and white portrait",
-  "artistic portrait",
-  "natural portrait",
-  "lifestyle portrait",
-  "close up face",
-  "person looking at camera",
-  "confident person",
-  "creative portrait",
-];
+// No query keywords — we fetch completely random photos from Unsplash's entire
+// library. This gives us access to millions of photos instead of a narrow pool
+// of portrait results that gets exhausted after a few thousand NPCs.
+// See: https://unsplash.com/documentation#get-a-random-photo
 
 /**
  * Counts active human users whose `lastOnlineAt` heartbeat is within the
@@ -158,28 +130,25 @@ export async function createRandomPlayer(): Promise<{
     let photoMeta: NpcPhotoMeta | null = null;
     let photoScore = 0;
 
-    const queryOffset = Math.floor(Math.random() * PORTRAIT_QUERIES.length);
     // Cap Unsplash requests per creation. Each request fetches a batch of 30
-    // candidates, so a handful of attempts covers ~120 photos — plenty to find
-    // a unique one — while staying well within Unsplash's rate limit. (Looping
-    // over every keyword previously fired dozens of requests per creation, which
-    // exhausted the hourly limit and made every subsequent creation fail.)
-    const MAX_ATTEMPTS = Math.min(8, PORTRAIT_QUERIES.length);
+    // completely random photos (no query filter), so a few attempts covers
+    // ~120 photos from Unsplash's entire library — plenty to find a unique one.
+    const MAX_ATTEMPTS = 4;
     let rateLimited = false;
     let authError = false;
     let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
 
     for (let i = 0; i < MAX_ATTEMPTS && !avatarUrl; i++) {
-      const query = PORTRAIT_QUERIES[(i + queryOffset) % PORTRAIT_QUERIES.length];
       try {
         // Add timeout to prevent hanging requests
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000);
 
-        // Fetch a BATCH of random photos in a single request (same rate-limit
-        // cost as one) so we can prefer the best-looking / highest-liked one.
+        // Fetch a BATCH of 30 completely random photos (no query parameter).
+        // This pulls from Unsplash's entire library instead of a narrow keyword
+        // pool, making it virtually impossible to exhaust all unique photos.
         const unsplashRes = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=squarish&count=30`,
+          `https://api.unsplash.com/photos/random?count=30`,
           {
             headers: {
               Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
@@ -303,7 +272,7 @@ export async function createRandomPlayer(): Promise<{
             }
           }
           console.log(
-            `Unsplash avatar selected using query "${query}" (likes=${photoScore}) on attempt ${i + 1}/${MAX_ATTEMPTS}`
+            `Unsplash random avatar selected (likes=${photoScore}) on attempt ${i + 1}/${MAX_ATTEMPTS}`
           );
           break;
         }
