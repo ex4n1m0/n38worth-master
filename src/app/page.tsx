@@ -400,7 +400,7 @@ export default function Home() {
             <div className="h-8 w-px bg-white/15" />
             <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
             <div className="h-8 w-px bg-white/15" />
-            <Stat label="Online" value={stats?.onlineHumans ?? 0} />
+            <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
         </div>
 
@@ -470,25 +470,6 @@ export default function Home() {
           </div>
         </StorySection>
       </section>
-
-      {/* ═══ Hall of Champions ═══ */}
-      <section className="relative py-20 px-6 bg-black">
-        <HallOfChampions winners={data?.winners ?? []} />
-      </section>
-
-      {/* ═══ Profile Teaser ═══ */}
-      {data?.topPlayer && (
-        <section className="relative py-20 px-6 bg-gradient-to-b from-black to-gray-950 flex flex-col items-center gap-8">
-          <h2 className="text-2xl sm:text-3xl font-black text-white">Top Player&apos;s Card</h2>
-          <ProfileTeaser player={data.topPlayer} />
-          <Link
-            href="/register"
-            className="inline-flex items-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-8 py-3 text-base font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 transition-all"
-          >
-            Start Playing
-          </Link>
-        </section>
-      )}
 
       {/* ═══ Footer ═══ */}
       <footer className="relative py-8 px-8 bg-black border-t border-white/5 flex justify-between items-center">
