@@ -141,7 +141,7 @@ export async function GET() {
         playerValue: users.playerValue,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), ne(users.username, AGENT_USERNAME)))
+      .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), ne(users.username, AGENT_USERNAME), sql`${users.username} NOT LIKE 'Goddess%'`))
       .orderBy(desc(users.playerValue))
       .limit(4);
 
