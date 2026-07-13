@@ -21,19 +21,34 @@ export type AgentDecision =
  * when low.
  */
 export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
-  const affordableBuy = strategy.buyCandidates
-    .filter((c) => c.value <= strategy.credits)
-    .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value); // prettiest photo first, value tie-break
-  const affordableGrowth = strategy.growthCandidates
-    .filter((c) => c.value <= strategy.credits)
-    .sort((a, b) => b.photoScore - a.photoScore || b.value - a.value);
+  // ── AGGRESSIVE MODE ──
+  // Priority: STEAL from other players first (owned cards), then BREAK sell
+  // blocks to steal by force, then accumulate any card. Focus on cards owned
+  // by humans (stealing from real players creates the most dynamic gameplay).
+  // Sort: steals (hasOwner) first, then highest value, then best photo.
+
+  // Steal-first: buy candidates that are owned by someone else, sorted by value
+  const stealBuy = strategy.buyCandidates
+    .filter((c) => c.hasOwner && c.value <= strategy.credits)
+    .sort((a, b) => b.value - a.value || b.photoScore - a.photoScore);
+
+  const stealGrowth = strategy.growthCandidates
+    .filter((c) => c.hasOwner && c.value <= strategy.credits)
+    .sort((a, b) => b.value - a.value || b.photoScore - a.photoScore);
+
   const affordableBreaks = strategy.breakCandidates
     .filter((c) => c.breakCost <= strategy.credits)
     .sort((a, b) => b.value - a.value); // most valuable first
 
-  // Every BUY/BREAK consumes a hire slot. The hire cap is fixed (slot-buying was
-  // removed with the bonus cards), so when the roster is full the Agent can only
-  // refuel by selling a combo, else wait.
+  const ownerlessBuy = strategy.buyCandidates
+    .filter((c) => !c.hasOwner && c.value <= strategy.credits)
+    .sort((a, b) => b.value - a.value || b.photoScore - a.photoScore);
+
+  const ownerlessGrowth = strategy.growthCandidates
+    .filter((c) => !c.hasOwner && c.value <= strategy.credits)
+    .sort((a, b) => b.value - a.value || b.photoScore - a.photoScore);
+
+  // Every BUY/BREAK consumes a hire slot. When roster is full, sell combo or wait.
   if (strategy.atHireLimit) {
     if (strategy.comboCandidate) {
       return {
@@ -45,21 +60,26 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
     return { action: "WAIT", reason: "heuristic: at hire limit, nothing to sell" };
   }
 
-  // 1) Fill a missing profession (enables combo income).
-  if (affordableBuy.length > 0) {
-    const c = affordableBuy[0];
+  // 1) STEAL: buy a card owned by another player (highest value first).
+  if (stealBuy.length > 0) {
+    const c = stealBuy[0];
     return {
       action: "BUY",
       targetId: c.targetId,
-      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} ${c.profession}`,
+      reason: `AGGRESSIVE: steal ${c.profession} from ${c.ownerIsHuman ? "human" : "player"} (${c.username}, value=${c.value})`,
+    };
+  }
+  if (stealGrowth.length > 0) {
+    const c = stealGrowth[0];
+    return {
+      action: "BUY",
+      targetId: c.targetId,
+      reason: `AGGRESSIVE: steal ${c.username} from ${c.ownerIsHuman ? "human" : "player"} (value=${c.value})`,
     };
   }
 
-  // 2) Break a sell block to steal a valuable card (especially if it fills a
-  //    missing profession). Skip Fate-sealed cards unless we're rich.
+  // 2) BREAK: break a sell block to steal a valuable card by force.
   if (affordableBreaks.length > 0) {
-    // Prefer non-Fate-sealed breaks (cheaper). Only break Fate seals if we
-    // have plenty of credits (break cost is 1000x value).
     const nonFateBreaks = affordableBreaks.filter((c) => !c.isFateSealed);
     const pool = nonFateBreaks.length > 0 ? nonFateBreaks : affordableBreaks;
     if (pool.length > 0) {
@@ -69,34 +89,42 @@ export function heuristicDecision(strategy: AgentStrategy): AgentDecision {
         return {
           action: "BREAK",
           targetId: c.targetId,
-          reason: `heuristic: break ${c.isFateSealed ? "Fate seal" : "sell block"} on ${c.username} (value=${c.value})`,
+          reason: `AGGRESSIVE: break ${c.isFateSealed ? "Fate seal" : "sell block"} on ${c.username} (value=${c.value}, from ${c.ownerName})`,
         };
       }
     }
   }
 
-  // 3) Accumulate any affordable card to grow the owned-card count toward the
-  // mission ladder, which AWARDS goddesses/bonus cards for free. Most-expensive-
-  // first to also pump card values and keep things lively.
-  if (affordableGrowth.length > 0) {
-    const c = affordableGrowth[0];
+  // 3) BUY ownerless cards to fill missing professions (still useful for combos).
+  if (ownerlessBuy.length > 0) {
+    const c = ownerlessBuy[0];
     return {
       action: "BUY",
       targetId: c.targetId,
-      reason: `heuristic: ${c.hasOwner ? "steal" : "acquire"} to grow roster (earn mission goddesses)`,
+      reason: `AGGRESSIVE: acquire ${c.profession} (ownerless, value=${c.value})`,
     };
   }
 
-  // 4) Broke -> cash in a combo to refuel.
+  // 4) ACCUMULATE any ownerless card to grow roster toward mission ladder.
+  if (ownerlessGrowth.length > 0) {
+    const c = ownerlessGrowth[0];
+    return {
+      action: "BUY",
+      targetId: c.targetId,
+      reason: `AGGRESSIVE: acquire ${c.username} to grow roster (value=${c.value})`,
+    };
+  }
+
+  // 5) Broke -> cash in a combo to refuel.
   if (strategy.comboCandidate) {
     return {
       action: "SELL_COMBO",
       playerIds: strategy.comboCandidate.playerIds,
-      reason: "heuristic: low credits, cashing combo",
+      reason: "AGGRESSIVE: low credits, cashing combo to refuel",
     };
   }
 
-  return { action: "WAIT", reason: "heuristic: nothing affordable/sellable" };
+  return { action: "WAIT", reason: "AGGRESSIVE: nothing affordable/sellable" };
 }
 
 interface DecideOptions {

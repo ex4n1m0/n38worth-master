@@ -50,10 +50,11 @@ export async function GET(req: Request) {
     }
 
     // Play whenever at least one human is online — the Agent competes
-    // alongside real players in the market.
+    // alongside real players in the market. During the aggressive 5-min burst,
+    // it does up to 10 actions per tick (buy/steal/break as much as possible).
     let result: AgentRunResult;
     if (onlineHumans >= 1) {
-      const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 3);
+      const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 10);
       result = await runAgentTurn({ maxActions });
     } else {
       result = { ran: false, skipped: "no humans online" };

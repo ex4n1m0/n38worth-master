@@ -3,7 +3,7 @@ import { users, gameSettings, gameHistory, ownership } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { ensureAgent } from "@/lib/agent/seed";
 import { buildStrategy } from "@/lib/agent/strategy";
-import { decideAction } from "@/lib/agent/llm";
+import { heuristicDecision } from "@/lib/agent/llm";
 import { buyPlayerCore, breakPartnershipCore, blockSellCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
 import { countOnlineHumans } from "@/lib/random-player";
@@ -13,16 +13,22 @@ import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
 const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the Agent's last play turn
+const CYCLE_START_KEY = "agent_cycle_start"; // epoch seconds of the current 15-min cycle
 
-// The Agent plays (buys/sells/pumps) once every 5 minutes, even though the
-// cron runs every minute (so it can chat very frequently). Faster than the
-// old 15-min interval so the Agent reacts to market changes more quickly.
-const PLAY_INTERVAL_SECONDS = 5 * 60;
+// ── Aggressive cycle: 5 minutes ON, 10 minutes OFF ──
+// The Agent plays aggressively (buys/steals/pumps as much as possible) for 5
+// minutes, then rests for 10 minutes, then repeats. This makes it a bursty,
+// aggressive competitor rather than a slow drip.
+const AGGRESSIVE_DURATION_SECONDS = 5 * 60;   // 5 min of aggressive play
+const REST_DURATION_SECONDS = 10 * 60;        // 10 min of rest
+const CYCLE_DURATION_SECONDS = AGGRESSIVE_DURATION_SECONDS + REST_DURATION_SECONDS; // 15 min
+// During aggressive phase, play every tick (cron runs every minute).
+const AGGRESSIVE_PLAY_INTERVAL_SECONDS = 60;  // 1 min between actions during burst
 
 // Pump tuning — mirrors pumpPlayer (100% cost, value x2, +10 min block, 12h cap).
 const PUMP_BLOCK_MS = 10 * 60 * 1000;
 const PUMP_MAX_BLOCK_MS = 12 * 60 * 60 * 1000;
-const MAX_PUMPS_PER_TURN = 2;
+const MAX_PUMPS_PER_TURN = 5; // increased from 2 — pump aggressively during burst
 
 /**
  * Once per play turn, the Agent pumps the 1-2 most valuable cards it owns —
@@ -186,17 +192,32 @@ export async function runAgentTurn(
     return { ran: false, skipped: "no humans online" };
   }
 
-  // Play at most once every 15 minutes. The cron runs every minute (so the Agent
-  // can chat often), but actual gameplay is rate-limited here via a persistent
-  // timestamp so it survives cold serverless instances.
+  // ── Aggressive cycle: 5 min ON / 10 min OFF ──
+  // Determine where we are in the 15-minute cycle.
   const nowSec = Math.floor(Date.now() / 1000);
+  let cycleStart = (await getSetting(CYCLE_START_KEY)) ?? 0;
+  // Initialize or rotate cycle if the current one has expired.
+  if (cycleStart === 0 || nowSec - cycleStart >= CYCLE_DURATION_SECONDS) {
+    cycleStart = nowSec;
+    await setSetting(CYCLE_START_KEY, cycleStart);
+  }
+  const elapsedInCycle = nowSec - cycleStart;
+  const isAggressivePhase = elapsedInCycle < AGGRESSIVE_DURATION_SECONDS;
+
+  if (!isAggressivePhase) {
+    return { ran: false, skipped: `rest phase (${Math.floor((REST_DURATION_SECONDS - (elapsedInCycle - AGGRESSIVE_DURATION_SECONDS)) / 60)} min remaining)` };
+  }
+
+  // During aggressive phase, play every ~1 minute (cron runs every minute).
   const lastPlay = (await getSetting(LAST_PLAY_KEY)) ?? 0;
-  if (nowSec - lastPlay < PLAY_INTERVAL_SECONDS) {
-    return { ran: false, skipped: "play cooldown (15 min)" };
+  if (nowSec - lastPlay < AGGRESSIVE_PLAY_INTERVAL_SECONDS) {
+    return { ran: false, skipped: "aggressive cooldown (1 min)" };
   }
   await setSetting(LAST_PLAY_KEY, nowSec);
 
-  const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 1));
+  // During aggressive phase, allow many actions per tick to buy/steal as much
+  // as possible. The caller may override, but defaults are high for aggression.
+  const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 8));
 
   // Optional daily spend cap. Unset or <= 0 means UNLIMITED.
   const rawCap = process.env.AGENT_DAILY_SPEND_CAP;
@@ -231,7 +252,9 @@ export async function runAgentTurn(
     }
 
     const strategy = await buildStrategy(agentId);
-    const { decision, source } = await decideAction(strategy);
+    // During aggressive phase, skip the LLM and use the fast aggressive
+    // heuristic directly — no network calls, maximum speed for burst buying.
+    const { decision, source } = { decision: heuristicDecision(strategy), source: "heuristic" as const };
 
     if (decision.action === "WAIT") {
       moves.push({ action: "WAIT", source, reason: decision.reason });
@@ -315,7 +338,7 @@ export async function runAgentTurn(
   return { ran: moves.some((m) => m.action !== "WAIT"), moves };
 }
 
-const MAX_BLOCKS_PER_TURN = 2;
+const MAX_BLOCKS_PER_TURN = 5; // increased from 2 — protect aggressively during burst
 
 /**
  * Protects the Agent's most valuable unblocked owned cards by extending their
