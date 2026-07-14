@@ -1,0 +1,11 @@
+Cap Agent buying: stop when 50+ players ahead of top human.
+
+- Added getTopHumanOwnedCount() helper to find the max owned count among humans.
+- Agent now checks its owned count vs the top human's before each BUY/BREAK.
+- If Agent owns >= topHumanOwned + 50, it stops buying (still pumps/blocks/sells).
+- If all humans have 0 players, Agent caps at 50 owned players.
+- Agent already only plays when humans are online (existing hard gate).
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>

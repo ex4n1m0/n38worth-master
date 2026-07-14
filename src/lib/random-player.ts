@@ -76,6 +76,19 @@ export async function countOnlineHumans(): Promise<number> {
 }
 
 /**
+ * Returns the highest owned-player count among all humans (excluding NPCs and
+ * the Agent). Used by the Agent to avoid getting too far ahead of real players.
+ */
+export async function getTopHumanOwnedCount(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`COALESCE(MAX(sub.cnt), 0)::int` })
+    .from(
+      sql`(SELECT COUNT(*)::int AS cnt FROM ownership o JOIN users u ON o.owner_id = u.id WHERE u.is_npc = 0 AND u.username <> ${AGENT_USERNAME} GROUP BY u.id) AS sub`
+    );
+  return Number(row?.count ?? 0);
+}
+
+/**
  * Resolves the NPC-creation cadence based on whether any real humans are online:
  *   - online (>= 1 human): one NPC every ~3 minutes (`ACTIVE_INTERVAL_MINUTES`).
  *   - idle (nobody online): one NPC every 30 minutes (`IDLE_INTERVAL_MINUTES`).

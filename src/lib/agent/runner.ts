@@ -6,7 +6,7 @@ import { buildStrategy } from "@/lib/agent/strategy";
 import { heuristicDecision } from "@/lib/agent/llm";
 import { buyPlayerCore, breakPartnershipCore, blockSellCore } from "@/lib/purchaseCore";
 import { sellComboCore } from "@/lib/comboCore";
-import { countOnlineHumans } from "@/lib/random-player";
+import { countOnlineHumans, getTopHumanOwnedCount } from "@/lib/random-player";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 
@@ -24,6 +24,11 @@ const REST_DURATION_SECONDS = 10 * 60;        // 10 min of rest
 const CYCLE_DURATION_SECONDS = AGGRESSIVE_DURATION_SECONDS + REST_DURATION_SECONDS; // 15 min
 // During aggressive phase, play every tick (cron runs every minute).
 const AGGRESSIVE_PLAY_INTERVAL_SECONDS = 60;  // 1 min between actions during burst
+
+// The Agent stops buying once it owns this many more players than the top human.
+// If all humans have 0 players, the Agent caps at this number. This keeps the
+// Agent competitive without letting it run away from real players.
+const AGENT_OWNED_CAP_AHEAD = 50;
 
 // Pump tuning — mirrors pumpPlayer (100% cost, value x2, +10 min block, 12h cap).
 const PUMP_BLOCK_MS = 10 * 60 * 1000;
@@ -257,6 +262,18 @@ export async function runAgentTurn(
 
   const moves: AgentMove[] = [];
 
+  // Check how far ahead the Agent is vs the top human. If the Agent already owns
+  // 50+ more players than the best human, skip buying (but still allow breaks,
+  // combos, pumps, and block-sells). This prevents the Agent from snowballing
+  // out of reach when humans aren't buying as fast.
+  const topHumanOwned = await getTopHumanOwnedCount();
+  const [agentOwnedRow] = await db
+    .select({ count: sql<number>`COUNT(*)::int` })
+    .from(ownership)
+    .where(eq(ownership.ownerId, agentId));
+  const agentOwned = Number(agentOwnedRow?.count ?? 0);
+  const buyCapReached = agentOwned >= topHumanOwned + AGENT_OWNED_CAP_AHEAD;
+
   for (let i = 0; i < maxActions; i++) {
     if (capEnabled && spentToday >= dailySpendCap) {
       moves.push({ action: "WAIT", source: "heuristic", reason: "daily spend cap reached" });
@@ -278,6 +295,10 @@ export async function runAgentTurn(
     let success = false;
 
     if (decision.action === "BUY") {
+      if (buyCapReached) {
+        moves.push({ action: "WAIT", source, reason: `owned cap reached (${agentOwned} vs top human ${topHumanOwned}, cap +${AGENT_OWNED_CAP_AHEAD})` });
+        break;
+      }
       // Safety net: the Agent may NEVER buy goddesses or bonus cards. Those are
       // never included in buyCandidates/growthCandidates, so a legal BUY target
       // must be present in one of them. Reject anything else outright.
@@ -294,6 +315,10 @@ export async function runAgentTurn(
         if (success && typeof result.cost === "number") spent = result.cost;
       }
     } else if (decision.action === "BREAK") {
+      if (buyCapReached) {
+        moves.push({ action: "WAIT", source, reason: `owned cap reached — skip break` });
+        break;
+      }
       // Break a sell block on a target card to steal it. The break cost includes
       // the break fee + the hire cost. Validated against breakCandidates.
       const allowedTarget = strategy.breakCandidates.some((c) => c.targetId === decision.targetId);
