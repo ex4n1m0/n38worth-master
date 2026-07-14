@@ -709,7 +709,7 @@ export function PlayerCard({
           <CardContent className="p-3 relative flex flex-col items-center gap-2">
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-[4/3] rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={displayedAvatarSrc} alt={username} className="object-contain bg-black/30" />
+                <AvatarImage src={displayedAvatarSrc} alt={username} className="object-cover" />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-3xl sm:text-4xl">
                   {username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>

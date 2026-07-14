@@ -394,7 +394,7 @@ function OwnershipCard({
           <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-contain bg-black/30" />
+                <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-cover" />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                   {item.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
