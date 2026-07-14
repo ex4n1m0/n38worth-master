@@ -96,6 +96,13 @@ export async function GET(req: Request) {
 
     const playerTypeSql = sql<string>`CASE WHEN ${users.isNpc} = 1 THEN 'card' ELSE 'human' END`;
 
+    // Get current viewer's ID for perm block lookup (their own perm blocks on displayed players)
+    const viewerId = session?.user?.id ? Number(session.user.id) : null;
+    const permBlockExpr = viewerId
+      ? sql<string | null>`(SELECT to_char(o.perm_block_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${viewerId} AND o.perm_block_until IS NOT NULL LIMIT 1)`.as("perm_block_until")
+      : sql<string | null>`NULL`.as("perm_block_until");
+    const blockSellUntilExpr = sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.block_sell_until DESC LIMIT 1)`.as("block_sell_until");
+
     if (type === "value") {
       const topPlayers = await db
         .select({
@@ -115,6 +122,8 @@ export async function GET(req: Request) {
           portfolioValue: portfolioSql.as("portfolio_value"),
           ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o5 WHERE o5.owned_id = "users"."id")`.as("owner_count"),
           ownerName: ownerNameSql,
+          blockSellUntil: blockSellUntilExpr,
+          permBlockUntil: permBlockExpr,
         })
         .from(users)
         .where(and(eq(users.isNpc, 0), humanVisibleSql))
@@ -152,6 +161,8 @@ export async function GET(req: Request) {
             ),
           ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o5 WHERE o5.owned_id = "users"."id")`.as("owner_count"),
           ownerName: ownerNameSql,
+          blockSellUntil: blockSellUntilExpr,
+          permBlockUntil: permBlockExpr,
         })
         .from(users)
         .where(and(eq(users.isNpc, 0), humanVisibleSql))
@@ -190,6 +201,8 @@ export async function GET(req: Request) {
           ownerCount: sql<number>`count(${ownership.id})`.as("owner_count"),
           portfolioValue: sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as("portfolio_value"),
           ownerName: ownerNameSql,
+          blockSellUntil: blockSellUntilExpr,
+          permBlockUntil: permBlockExpr,
         })
         .from(users)
         .leftJoin(ownership, eq(users.id, ownership.ownedId))

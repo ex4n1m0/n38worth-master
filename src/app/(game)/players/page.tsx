@@ -157,6 +157,8 @@ export default function PlayersPage() {
                 ownerValue?: number | null;
                 purchaseCount?: number;
                 bio?: string | null;
+                blockSellUntil?: string | null;
+                permBlockUntil?: string | null;
               }) => (
                 <PlayerCard key={player.id} {...player} />
               )

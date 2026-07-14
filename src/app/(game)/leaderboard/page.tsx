@@ -446,6 +446,8 @@ function BrowsePlayersSection({
                 photoAuthorName?: string | null;
                 photoAuthorUrl?: string | null;
                 photoSourceUrl?: string | null;
+                blockSellUntil?: string | null;
+                permBlockUntil?: string | null;
               }) => (
                 <PlayerCard key={player.id} {...player} leaderboardMode comboSelection={comboSelection} />
               )

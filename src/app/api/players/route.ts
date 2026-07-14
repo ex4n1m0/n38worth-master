@@ -152,6 +152,9 @@ export async function GET(req: Request) {
       valueFloor: users.valueFloor,
       credits: users.credits,
       blockSellUntil: sql<string | null>`(SELECT to_char(o.block_sell_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW() ORDER BY o.block_sell_until DESC LIMIT 1)`.as("block_sell_until"),
+      permBlockUntil: currentUserId
+        ? sql<string | null>`(SELECT to_char(o.perm_block_until, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId} AND o.perm_block_until IS NOT NULL LIMIT 1)`.as("perm_block_until")
+        : sql<string | null>`NULL`.as("perm_block_until"),
       estimatedDeletionAt: users.estimatedDeletionAt,
       isActive: users.isActive,
       createdAt: users.createdAt,
