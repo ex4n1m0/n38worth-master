@@ -6,7 +6,7 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield, ChevronDown } from "lucide-react";
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
 
@@ -24,7 +24,8 @@ export default function PlayersPage() {
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [pageSize, setPageSize] = useState(99);
+  // Always 99 cards per page.
+  const pageSize = 99;
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -190,19 +191,6 @@ export default function PlayersPage() {
                 {t.next}
                 <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
-              <div className="relative">
-                <select
-                  value={pageSize}
-                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
-                  className="appearance-none bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-md pl-3 pr-8 py-1.5 cursor-pointer hover:border-gray-500 focus:outline-none focus:border-t1-500"
-                  title="Cards per page"
-                >
-                  {[99, 20, 40, 60, 80, 100].map((n) => (
-                    <option key={n} value={n}>{n} / page</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
-              </div>
             </div>
           )}
         </>

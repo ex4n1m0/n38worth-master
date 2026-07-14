@@ -19,7 +19,6 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
-  ChevronDown,
 } from "lucide-react";
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
@@ -159,7 +158,8 @@ function BrowsePlayersSection({
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
-  const [pageSize, setPageSize] = useState(20);
+  // Always 99 cards per page — the pinned Mass Hire card makes it an even 100.
+  const pageSize = 99;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
@@ -416,8 +416,8 @@ function BrowsePlayersSection({
         <>
           {/* ── Details View ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Pinned Mass Hire card — always top-left, regardless of sort/filter. */}
-            {massHireData?.cardId && page === 1 && (
+            {/* Pinned Mass Hire card — always top-left on every page. */}
+            {massHireData?.cardId && (
               <MassHireCard
                 ownedCount={massHireData.ownedCount}
                 cooldownEndsAt={massHireData.cooldownEndsAt}
@@ -495,19 +495,6 @@ function BrowsePlayersSection({
               <span className="text-xs text-gray-500 ml-2">
                 {data?.total ?? 0} players
               </span>
-              <div className="relative ml-2">
-                <select
-                  value={pageSize}
-                  onChange={(e) => { play("buttons"); setPageSize(Number(e.target.value)); setPage(1); }}
-                  className="appearance-none bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg pl-3 pr-8 py-1.5 cursor-pointer hover:border-gray-500 focus:outline-none focus:border-t1-500"
-                  title="Cards per page"
-                >
-                  {[20, 40, 60, 80, 100].map((n) => (
-                    <option key={n} value={n}>{n} / page</option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500 pointer-events-none" />
-              </div>
             </div>
           )}
         </>
