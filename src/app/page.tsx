@@ -9,11 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Volume2, VolumeX, ShoppingCart, Rocket, Crown, Zap, Shield, Eye, Clock, Swords, Sparkles, Trophy } from "lucide-react";
+import { Loader2, Volume2, VolumeX, ShoppingCart, Crown, Zap, Shield, Eye, Clock, Swords, Sparkles, Trophy } from "lucide-react";
 
 /* ─── Types ─── */
 type Stats = { totalPlayers: number; totalEconomy: number; totalNpcs: number; totalHumans: number; onlineHumans: number };
-type ActivityItem = { id: number; text: string; type: string; createdAt: string };
 type Winner = { username: string; wonAt: string };
 type Countdown = { active: boolean; username: string | null; remainingSeconds: number };
 type TopPlayer = { username: string; playerValue: number; avatarUrl: string | null; profession: string | null; ownedCount: number } | null;
@@ -21,7 +20,6 @@ type Goddess = { username: string; value: number; avatarUrl: string | null };
 type TopNpc = { username: string; avatarUrl: string | null; playerValue: number };
 type LandingData = {
   stats: Stats;
-  activity: ActivityItem[];
   winners: Winner[];
   countdown: Countdown;
   topPlayer: TopPlayer;
@@ -96,28 +94,6 @@ function Stat({ label, value, suffix, compact }: { label: string; value: number;
   );
 }
 
-/* ─── Activity Ticker ─── */
-function ActivityTicker({ items }: { items: ActivityItem[] }) {
-  if (!items || items.length === 0) return null;
-  // Duplicate for seamless loop
-  const doubled = [...items, ...items];
-  return (
-    <div className="relative overflow-hidden h-9 border-t border-white/5 bg-black/60 backdrop-blur-sm">
-      <div className="lp-ticker-track flex items-center gap-8 h-full whitespace-nowrap">
-        {doubled.map((item, i) => (
-          <span key={`${item.id}-${i}`} className="text-xs text-gray-400 flex items-center gap-1.5">
-            {item.type === "game_won" ? <Crown className="h-3 w-3 text-yellow-400" /> :
-             item.type === "sell_combo" ? <Zap className="h-3 w-3 text-cyan-400" /> :
-             item.type === "mission_reward" ? <Trophy className="h-3 w-3 text-purple-400" /> :
-             item.type === "pump" ? <Rocket className="h-3 w-3 text-fuchsia-400" /> :
-             <ShoppingCart className="h-3 w-3 text-green-400" />}
-            <span className="text-gray-300 font-medium">{item.text}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /* ─── Countdown Display ─── */
 function CountdownBanner({ countdown }: { countdown: Countdown }) {
@@ -409,11 +385,6 @@ export default function Home() {
         {/* Scroll hint */}
         <div className="relative z-10 pb-2">
           <div className="lp-bounce text-t1-400 text-xs tracking-widest uppercase">Scroll to explore</div>
-        </div>
-
-        {/* Activity ticker — bottom of hero */}
-        <div className="relative z-10 w-full">
-          <ActivityTicker items={data?.activity ?? []} />
         </div>
       </section>
 
