@@ -21,6 +21,7 @@ import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
+import { PermBlockButton } from "@/components/PermBlockButton";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { isLockablePurchaseCard, isPurchaseUnlockedAtLevel, purchaseUnlockThreshold } from "@/lib/missions-data";
 
@@ -46,6 +47,7 @@ interface PlayerCardProps {
   credits?: number;
   portfolioValue?: number;
   blockSellUntil?: string | Date | null;
+  permBlockUntil?: string | Date | null;
   estimatedDeletionAt?: string | Date | null;
   isActive?: number;
   lastOnlineAt?: string | Date | null;
@@ -99,6 +101,7 @@ export function PlayerCard({
   photoAuthorUrl,
   photoSourceUrl,
   blockSellUntil,
+  permBlockUntil,
   isActive,
   isVerified,
   profession,
@@ -130,22 +133,29 @@ export function PlayerCard({
 
   const isAvatarRevealed = avatarRevealUntil ? new Date(avatarRevealUntil) > new Date() : false;
 
-  const isHireBlocked = blockSellUntil ? new Date(blockSellUntil) > new Date() : false;
+  const getBlockEnd = () => {
+    const blockEnd = blockSellUntil ? new Date(blockSellUntil).getTime() : 0;
+    const permEnd = permBlockUntil ? new Date(permBlockUntil).getTime() : 0;
+    return Math.max(blockEnd, permEnd);
+  };
+
+  const isHireBlocked = getBlockEnd() > Date.now();
+  const isPermBlocked = permBlockUntil ? new Date(permBlockUntil) > new Date() : false;
   const [blockCountdown, setBlockCountdown] = useState<string>("");
   const [blockRemainingMs, setBlockRemainingMs] = useState<number>(0);
   // Fate seals use a far-future timestamp (year 2099). Normal blocks max at 12h.
   const isFateSealed = isHireBlocked && blockRemainingMs > 30 * 24 * 60 * 60 * 1000;
   useEffect(() => {
-    if (!isHireBlocked || !blockSellUntil) return;
+    if (!isHireBlocked) return;
     const update = () => {
-      const ms = Math.max(0, new Date(blockSellUntil).getTime() - Date.now());
+      const ms = Math.max(0, getBlockEnd() - Date.now());
       setBlockRemainingMs(ms);
-      setBlockCountdown(formatTimeRemaining(blockSellUntil) ?? "");
+      setBlockCountdown(formatTimeRemaining(new Date(getBlockEnd())) ?? "");
     };
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
-  }, [blockSellUntil, isHireBlocked]);
+  }, [blockSellUntil, permBlockUntil, isHireBlocked]);
   
   // Bonus cards have been removed from the game — no player is ever a bonus card.
   const isBonusCard = false;
@@ -408,14 +418,15 @@ export function PlayerCard({
 
   // Break cost: 1000× value for Fate-sealed players (War does NOT waive this).
   // Normal: ceil(hoursRemaining) × playerValue. War: 0.
-  const breakCost = isHireBlocked
+  // Perm blocks are unbreakable, so the break button is disabled.
+  const breakCost = isHireBlocked && !isPermBlocked
     ? isFateSealed
       ? playerValue * 1000
       : hasWar
         ? 0
         : Math.ceil(blockRemainingMs / (60 * 60 * 1000)) * playerValue
     : 0;
-  const totalBreakCost = breakCost + playerValue;
+  const totalBreakCost = isPermBlocked ? 0 : breakCost + playerValue;
 
   const breakMutation = useMutation({
     mutationFn: async () => {
@@ -467,6 +478,10 @@ export function PlayerCard({
   const handleBreakClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isPermBlocked) {
+      toast.error("This partnership is unbreakable.");
+      return;
+    }
     if ((myCredits ?? 0) < totalBreakCost) {
       toast.error(`Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(playerValue)}¢ hire)`);
       return;
@@ -529,10 +544,12 @@ export function PlayerCard({
           <div className={`px-2 rounded-md flex flex-col items-center justify-center gap-0.5 text-center ${
             isFateSealed
               ? "bg-purple-950/60 border border-purple-500/40 text-purple-400"
-              : "bg-amber-950/60 border border-amber-500/40 text-amber-400"
+              : isPermBlocked
+                ? "bg-red-950/60 border border-red-500/40 text-red-400"
+                : "bg-amber-950/60 border border-amber-500/40 text-amber-400"
           }`} style={{height:'clamp(3rem,8vw,5rem)'}}>
             <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="text-[8px] sm:text-[9px] leading-none font-bold">{isFateSealed ? "Fate Seal" : "Partnered"}</span>
+            <span className="text-[8px] sm:text-[9px] leading-none font-bold">{isFateSealed ? "Fate Seal" : isPermBlocked ? "Unbreakable" : "Partnered"}</span>
             <span className="text-[8px] sm:text-[9px] leading-none tabular-nums">{isFateSealed ? "🔒" : blockCountdown}</span>
           </div>
           <div className="flex flex-row flex-wrap justify-end gap-2">
@@ -562,13 +579,13 @@ export function PlayerCard({
             )}
             <Button
               onClick={handleBreakClick}
-              disabled={breakMutation.isPending || (myCredits ?? 0) < totalBreakCost || isBonusCard}
+              disabled={breakMutation.isPending || isPermBlocked || (myCredits ?? 0) < totalBreakCost || isBonusCard}
               className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
-                (myCredits ?? 0) >= totalBreakCost && !isBonusCard
+                (myCredits ?? 0) >= totalBreakCost && !isBonusCard && !isPermBlocked
                   ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
-              style={{...((myCredits ?? 0) >= totalBreakCost && !isBonusCard ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...((myCredits ?? 0) >= totalBreakCost && !isBonusCard && !isPermBlocked ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
             >
               {breakMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -577,6 +594,12 @@ export function PlayerCard({
                   <Shield className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5" />
                   <span className="text-[8px] sm:text-[9px] leading-none">Unbreakable</span>
                   <span className="text-[8px] sm:text-[9px] leading-none">Block</span>
+                </>
+              ) : isPermBlocked ? (
+                <>
+                  <Shield className="h-3 w-3 sm:h-4 sm:w-4 mb-0.5" />
+                  <span className="text-[8px] sm:text-[9px] leading-none">Unbreakable</span>
+                  <span className="text-[8px] sm:text-[9px] leading-none">{blockCountdown}</span>
                 </>
               ) : (
                 <>
@@ -790,27 +813,36 @@ export function PlayerCard({
             </div>
 
             {ownedIds.has(id) ? (
-              <Button
-                onClick={handlePumpClick}
-                disabled={(myCredits ?? 0) < playerValue || pumpMutation.isPending}
-                className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
-                  (myCredits ?? 0) >= playerValue
-                    ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
-                    : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                }`}
-                style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
-              >
-                {pumpMutation.isPending ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                ) : (
-                  <>
-                    <span className="text-sm sm:text-lg leading-none">PUMP</span>
-                    <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
-                      {formatCompact(playerValue)}¢
-                    </span>
-                  </>
-                )}
-              </Button>
+              <>
+                <Button
+                  onClick={handlePumpClick}
+                  disabled={(myCredits ?? 0) < playerValue || pumpMutation.isPending}
+                  className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                    (myCredits ?? 0) >= playerValue
+                      ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
+                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                  }`}
+                  style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+                >
+                  {pumpMutation.isPending ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <>
+                      <span className="text-sm sm:text-lg leading-none">PUMP</span>
+                      <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                        {formatCompact(playerValue)}¢
+                      </span>
+                    </>
+                  )}
+                </Button>
+                <PermBlockButton
+                  targetId={id}
+                  targetUsername={username}
+                  permBlockUntil={permBlockUntil}
+                  size="sm"
+                  className="w-[80%]"
+                />
+              </>
             ) : isPurchaseLocked ? (
               // locked
               <div
@@ -857,29 +889,31 @@ export function PlayerCard({
             {/* Sell/hire block countdown + break button — a pumped (or otherwise
                 blocked) player can't be sold or hired until this runs out.
                 Shows a break button so viewers can break the partnership. */}
-            {isHireBlocked && blockSellUntil && (
+            {isHireBlocked && (blockSellUntil || permBlockUntil) && (
               <div className="w-[80%] flex flex-col items-center gap-1">
                 <div className={`w-full flex flex-col items-center gap-1 rounded-md border py-1.5 px-2 ${
                   isFateSealed
                     ? "bg-purple-950/50 border-purple-500/30"
-                    : "bg-amber-950/50 border-amber-500/30"
+                    : isPermBlocked
+                      ? "bg-red-950/50 border-red-500/30"
+                      : "bg-amber-950/50 border-amber-500/30"
                 }`}>
                   <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-bold leading-none tabular-nums ${
-                    isFateSealed ? "text-purple-400" : "text-amber-400"
+                    isFateSealed ? "text-purple-400" : isPermBlocked ? "text-red-400" : "text-amber-400"
                   }`}>
                     <Shield className="h-3 w-3" />
-                    {isFateSealed ? "Fate Seal" : blockCountdown}
+                    {isFateSealed ? "Fate Seal" : isPermBlocked ? "Unbreakable" : blockCountdown}
                   </span>
-                  {!isFateSealed && (
+                  {!isFateSealed && !isPermBlocked && blockSellUntil && (
                     <BlockCountdownBar blockSellUntil={blockSellUntil} className="w-[85%]" />
                   )}
                 </div>
                 {!ownedIds.has(id) && (
                   <Button
                     onClick={handleBreakClick}
-                    disabled={breakMutation.isPending || (myCredits ?? 0) < totalBreakCost}
+                    disabled={breakMutation.isPending || isPermBlocked || (myCredits ?? 0) < totalBreakCost}
                     className={`w-full rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
-                      (myCredits ?? 0) >= totalBreakCost
+                      (myCredits ?? 0) >= totalBreakCost && !isPermBlocked
                         ? isFateSealed
                           ? "text-white bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-900/30"
                           : hasWar
@@ -891,6 +925,16 @@ export function PlayerCard({
                   >
                     {breakMutation.isPending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : isPermBlocked ? (
+                      <>
+                        <div className="flex items-center gap-1">
+                          <Shield className="h-3.5 w-3.5" />
+                          <span className="text-xs sm:text-sm leading-none">Unbreakable</span>
+                        </div>
+                        <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                          {blockCountdown}
+                        </span>
+                      </>
                     ) : (
                       <>
                         <div className="flex items-center gap-1">

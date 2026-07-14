@@ -1,12 +1,13 @@
 import { db } from "@/db";
 import { users, ownership, transactions, gameHistory, rewardHistory } from "@/db/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, isNotNull } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -19,6 +20,8 @@ function getValueMultiplier(value: number): number {
 
 const BLOCK_SELL_DURATION_MS = 30 * 1000; // 30 seconds in milliseconds
 const UNBREAKABLE_BLOCK_MS = 30 * 60 * 1000; // 30 minutes for bonus cards & goddesses
+const PERM_BLOCK_MS = 24 * 60 * 60 * 1000; // 24 hours for permanent starter blocks
+const MAX_PERM_BLOCKS = 10;
 
 export interface BuyPlayerResult {
   success?: boolean;
@@ -196,12 +199,14 @@ export async function buyPlayerCore(
       // Onboarding columns may not exist — ignore
     }
 
-    if (
-      currentOwner?.blockSellUntil &&
-      new Date(currentOwner.blockSellUntil) > new Date() &&
-      !isOnboardingNpc
-    ) {
-      const expiresAt = new Date(currentOwner.blockSellUntil);
+    const currentBlockEnd = currentOwner?.blockSellUntil
+      ? new Date(currentOwner.blockSellUntil).getTime()
+      : 0;
+    const permBlockEnd = currentOwner?.permBlockUntil
+      ? new Date(currentOwner.permBlockUntil).getTime()
+      : 0;
+    if ((currentBlockEnd > Date.now() || permBlockEnd > Date.now()) && !isOnboardingNpc) {
+      const expiresAt = new Date(Math.max(currentBlockEnd, permBlockEnd));
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
       return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }
@@ -331,6 +336,7 @@ export async function buyPlayerCore(
     // 9. Create ownership record — set block sell based on card type:
     //    - Bonus cards & goddesses: fixed 30-min UNBREAKABLE block (no break, even by War/Creation)
     //    - All other players: buyer-chosen hours, fully breakable
+    //    - First 10 players a non-Agent user acquires get a 24h unbreakable perm block
     const nowMs = Date.now();
     const blockExpiry = usesUnbreakableInitialBlock
       ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
@@ -339,6 +345,17 @@ export async function buyPlayerCore(
       ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
       : null;
 
+    let permBlockUntil = null;
+    if (buyer.username !== AGENT_USERNAME) {
+      const [permCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ownership)
+        .where(and(eq(ownership.ownerId, buyerId), isNotNull(ownership.permBlockUntil)));
+      if (permCount.count < MAX_PERM_BLOCKS) {
+        permBlockUntil = new Date(nowMs + PERM_BLOCK_MS);
+      }
+    }
+
     await db.insert(ownership).values({
       ownerId: buyerId,
       ownedId: targetId,
@@ -346,6 +363,7 @@ export async function buyPlayerCore(
       blockSellUntil: blockExpiry,
       blockSellBy: buyer.username,
       blockUnbreakableUntil: unbreakableUntil,
+      permBlockUntil,
     });
 
     // 9b. Award +1 hire slot when hiring a player that already had a boss (economy incentive)
@@ -692,24 +710,27 @@ export async function breakPartnershipCore(
     ownerHasFate = ownerPowers.hasFate;
   }
 
-  // Verify there is actually an active sell block
+  // Check for an active unbreakable window first (perm block counts as unbreakable)
   const now = Date.now();
+  const unbreakableEnd = ownershipRecord.blockUnbreakableUntil
+    ? new Date(ownershipRecord.blockUnbreakableUntil).getTime()
+    : 0;
+  const permBlockEnd = ownershipRecord.permBlockUntil
+    ? new Date(ownershipRecord.permBlockUntil).getTime()
+    : 0;
+  if (unbreakableEnd > now || permBlockEnd > now) {
+    const minutesLeft = Math.ceil((Math.max(unbreakableEnd, permBlockEnd) - now) / 60000);
+    return {
+      error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
+    };
+  }
+
+  // Verify there is actually an active sell block
   const blockEnd = ownershipRecord.blockSellUntil ? new Date(ownershipRecord.blockSellUntil).getTime() : 0;
   const remainingMs = Math.max(0, blockEnd - now);
 
   if (remainingMs <= 0) {
     return { error: "No active sell block — use the regular hire button" };
-  }
-
-  // Check for an active unbreakable window
-  const unbreakableEnd = ownershipRecord.blockUnbreakableUntil
-    ? new Date(ownershipRecord.blockUnbreakableUntil).getTime()
-    : 0;
-  if (unbreakableEnd > now) {
-    const minutesLeft = Math.ceil((unbreakableEnd - now) / 60000);
-    return {
-      error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
-    };
   }
 
   // Load target value

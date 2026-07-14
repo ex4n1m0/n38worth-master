@@ -156,6 +156,7 @@ export async function GET(
         totalOnlineMinutes: users.totalOnlineMinutes,
         blockSellUntil: blockSellUntilExpr.as("block_sell_until"),
         blockSellBy: ownership.blockSellBy,
+        permBlockUntil: ownership.permBlockUntil,
         lastBoostAt: ownership.lastBoostAt,
         avatarRevealUntil: avatarRevealUntilExpr.as("avatar_reveal_until"),
         isVerified: users.isVerified,

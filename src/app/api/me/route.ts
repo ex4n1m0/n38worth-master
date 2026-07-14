@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, isNotNull, and } from "drizzle-orm";
 import { safePortfolioValue, safeReward } from "@/lib/safeguards";
 // import { extractIp, checkMultiAccount } from "@/lib/multi-account";
+
+const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -50,6 +52,13 @@ export async function GET(request: NextRequest) {
       totalOnlineMinutes: sql`${users.totalOnlineMinutes} + ${onlineIncrement}`,
     })
     .where(eq(users.id, userId));
+
+  // Restart the 24-hour timer on every assigned permanent block while the user is online.
+  const newPermBlockUntil = new Date(now.getTime() + PERM_BLOCK_MS);
+  await db
+    .update(ownership)
+    .set({ permBlockUntil: newPermBlockUntil })
+    .where(and(eq(ownership.ownerId, userId), isNotNull(ownership.permBlockUntil)));
 
   const [user] = await db
     .select({

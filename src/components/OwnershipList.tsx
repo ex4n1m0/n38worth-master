@@ -33,6 +33,7 @@ import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
+import { PermBlockButton } from "@/components/PermBlockButton";
 
 function formatTimeRemaining(date: string | Date | null | undefined): string | null {
   if (!date) return null;
@@ -62,6 +63,7 @@ interface OwnershipItem {
   lastOnlineAt?: string | null;
   blockSellUntil?: string | null;
   blockSellBy?: string | null;
+  permBlockUntil?: string | null;
   lastBoostAt?: string | null;
   avatarRevealUntil?: string | null;
   estimatedDeletionAt?: string | null;
@@ -131,11 +133,17 @@ function useRevealCountdown(avatarRevealUntil?: string | null): string | null {
   return timeLeft;
 }
 
-function usePumpBlockCountdown(blockSellUntil?: string | null): string | null {
+function usePumpBlockCountdown(blockSellUntil?: string | null, permBlockUntil?: string | null): string | null {
+  const getEnd = () => {
+    const blockEnd = blockSellUntil ? new Date(blockSellUntil).getTime() : 0;
+    const permEnd = permBlockUntil ? new Date(permBlockUntil).getTime() : 0;
+    return Math.max(blockEnd, permEnd);
+  };
+
   const [timeLeft, setTimeLeft] = useState<string | null>(() => {
-    if (!blockSellUntil) return null;
-    const d = new Date(blockSellUntil);
-    const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
+    const end = getEnd();
+    if (!end) return null;
+    const seconds = Math.floor((end - Date.now()) / 1000);
     if (seconds <= 0) return null;
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m`;
@@ -145,10 +153,10 @@ function usePumpBlockCountdown(blockSellUntil?: string | null): string | null {
   });
 
   useEffect(() => {
-    if (!blockSellUntil) { setTimeLeft(null); return; }
     const update = () => {
-      const d = new Date(blockSellUntil);
-      const seconds = Math.floor((d.getTime() - Date.now()) / 1000);
+      const end = getEnd();
+      if (!end) { setTimeLeft(null); return; }
+      const seconds = Math.floor((end - Date.now()) / 1000);
       if (seconds <= 0) { setTimeLeft(null); return; }
       const minutes = Math.floor(seconds / 60);
       if (minutes < 60) { setTimeLeft(`${minutes}m`); return; }
@@ -159,7 +167,7 @@ function usePumpBlockCountdown(blockSellUntil?: string | null): string | null {
     update();
     const id = setInterval(update, 10000);
     return () => clearInterval(id);
-  }, [blockSellUntil]);
+  }, [blockSellUntil, permBlockUntil]);
 
   return timeLeft;
 }
@@ -276,7 +284,7 @@ function OwnershipCard({
     buyMutation.mutate();
   };
 
-  const pumpBlockCountdown = usePumpBlockCountdown(item.blockSellUntil);
+  const pumpBlockCountdown = usePumpBlockCountdown(item.blockSellUntil, item.permBlockUntil);
   const pumpCost = item.playerValue;
   const canAffordPump = (myCredits ?? 0) >= pumpCost;
 
@@ -451,6 +459,14 @@ function OwnershipCard({
               </>
             )}
           </Button>
+
+          <PermBlockButton
+            targetId={item.id}
+            targetUsername={item.username}
+            permBlockUntil={item.permBlockUntil}
+            size="sm"
+            className="w-[80%]"
+          />
         </CardContent>
       </Card>
     );

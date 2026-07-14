@@ -166,6 +166,7 @@ export default function DashboardPage() {
                   lastOnlineAt?: string | null;
                   blockSellUntil?: string | null;
                   blockSellBy?: string | null;
+                  permBlockUntil?: string | null;
                   estimatedDeletionAt?: string | null;
                   profession?: string | null;
                   playerType?: string;
