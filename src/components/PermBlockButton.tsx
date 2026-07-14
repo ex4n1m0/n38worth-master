@@ -114,13 +114,15 @@ export function PermBlockButton({
         className={`rounded-md flex items-center justify-center gap-1.5 font-bold ${sizeClasses} ${className} ${
           isActive
             ? "border border-amber-500/50 text-amber-300 bg-amber-950/20 hover:bg-amber-950/30"
-            : "border border-gray-700 text-gray-300 bg-gray-900/50 hover:bg-gray-800"
+            : isAssigned
+              ? "border border-amber-600/40 text-amber-300/80 bg-amber-950/10 hover:bg-amber-950/20"
+              : "border border-gray-700 text-gray-300 bg-gray-900/50 hover:bg-gray-800"
         }`}
       >
         {mutation.isPending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-amber-400 text-amber-400" : ""}`} />
+          <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-amber-400 text-amber-400" : isAssigned ? "text-amber-400/70" : ""}`} />
         )}
         {isAssigned ? "Remove Perm Block" : "Assign Perm Block"}
       </Button>
