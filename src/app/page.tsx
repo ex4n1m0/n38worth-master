@@ -145,7 +145,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
       {/* ═══ Hero ═══ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-start px-6 pt-20 pb-0 text-center overflow-x-clip">
+      <section className="relative min-h-screen flex flex-col items-center justify-start px-6 pt-24 pb-0 text-center overflow-x-clip">
         {/* Parallax background */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -205,13 +205,6 @@ export default function Home() {
             >
               {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Try as Guest"}
             </button>
-            <button
-              type="button"
-              onClick={() => setGameplayOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-gray-100 backdrop-blur-sm hover:bg-white/10 hover:scale-105 active:scale-100 transition-all"
-            >
-              How to Play
-            </button>
           </div>
 
           {/* Active countdown */}
@@ -228,7 +221,7 @@ export default function Home() {
         </div>
 
         {/* Avatar grid */}
-        <div className="relative z-10 w-full max-w-7xl px-4 pb-8">
+        <div className="relative z-10 w-full max-w-7xl px-4 pt-10 pb-12">
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
             {(data?.topNpcs ?? []).map((npc) => (
               <div key={npc.username} className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group">
@@ -245,6 +238,20 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* ═══ Footer ═══ */}
+      <footer className="relative py-10 px-8 bg-black border-t border-white/5 flex justify-center items-center gap-8">
+        <button
+          type="button"
+          onClick={() => setGameplayOpen(true)}
+          className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
+        >
+          How to Play
+        </button>
+        <a href="https://n38worth.com/chat" target="_blank" rel="noopener noreferrer" className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all">
+          Support
+        </a>
+      </footer>
 
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
