@@ -9,31 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Volume2, VolumeX, ShoppingCart, Crown, Zap, Shield, Eye, Clock, Swords, Sparkles, Trophy } from "lucide-react";
+import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
 
 /* ─── Types ─── */
 type Stats = { totalPlayers: number; totalEconomy: number; totalNpcs: number; totalHumans: number; onlineHumans: number };
-type Winner = { username: string; wonAt: string };
 type Countdown = { active: boolean; username: string | null; remainingSeconds: number };
-type TopPlayer = { username: string; playerValue: number; avatarUrl: string | null; profession: string | null; ownedCount: number } | null;
-type Goddess = { username: string; value: number; avatarUrl: string | null };
 type TopNpc = { username: string; avatarUrl: string | null; playerValue: number };
 type LandingData = {
   stats: Stats;
-  winners: Winner[];
   countdown: Countdown;
-  topPlayer: TopPlayer;
-  goddesses: Goddess[];
   topNpcs: TopNpc[];
-};
-
-const GODDESS_POWERS: Record<string, { short: string; icon: typeof Crown }> = {
-  "Goddess of Wealth": { short: "Double rewards", icon: Sparkles },
-  "Goddess of Knowledge": { short: "See all avatars", icon: Eye },
-  "Goddess of Fate": { short: "Permanent sell blocks", icon: Shield },
-  "Goddess of Time": { short: "2× faster payouts", icon: Clock },
-  "Goddess of War": { short: "Free breaks", icon: Swords },
-  "Goddess": { short: "All powers combined", icon: Crown },
 };
 
 /* ─── Count-up hook ─── */
@@ -56,30 +41,10 @@ function useCountUp(target: number, duration = 1400) {
   return value;
 }
 
-/* ─── Scroll reveal hook ─── */
-function useScrollReveal<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-      { threshold: 0.15 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-  return { ref, visible };
-}
 
 /* ─── Format helpers ─── */
 function formatCompact(n: number) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(n);
-}
-function formatTime(date: string) {
-  const d = new Date(date);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 /* ─── Stat component ─── */
@@ -106,126 +71,6 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
       <span className="text-sm sm:text-base font-bold text-yellow-200">
         {countdown.username} is <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span> away from winning the world
       </span>
-    </div>
-  );
-}
-
-/* ─── Story Section ─── */
-function StorySection({ step, title, body, children }: { step: number; title: string; body: string; children?: React.ReactNode }) {
-  const { ref, visible } = useScrollReveal<HTMLDivElement>();
-  return (
-    <div
-      ref={ref}
-      className={`relative flex flex-col items-center text-center py-20 px-6 transition-all duration-1000 ${
-        visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
-      }`}
-    >
-      <div className="flex items-center gap-3 mb-6">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-lg font-bold text-white shadow-lg">
-          {step}
-        </span>
-        <h2 className="text-2xl sm:text-4xl font-black text-white">{title}</h2>
-      </div>
-      <p className="text-base sm:text-lg text-gray-400 max-w-xl leading-relaxed mb-8">{body}</p>
-      {children}
-    </div>
-  );
-}
-
-/* ─── Goddess Flip Card ─── */
-function GoddessFlipCard({ goddess, index }: { goddess: Goddess; index: number }) {
-  const { ref, visible } = useScrollReveal<HTMLDivElement>();
-  const power = GODDESS_POWERS[goddess.username];
-  const Icon = power?.icon ?? Crown;
-  const isUltimate = goddess.username === "Goddess";
-
-  return (
-    <div
-      ref={ref}
-      className={`relative h-64 w-48 cursor-pointer transition-all duration-700 ${
-        visible ? "opacity-100 rotate-y-0" : "opacity-30 rotate-y-180"
-      }`}
-      style={{ transitionDelay: `${index * 150}ms` }}
-    >
-      <div className={`relative h-full w-full rounded-2xl border-2 overflow-hidden ${
-        isUltimate ? "border-yellow-500/60 shadow-[0_0_30px_rgba(250,204,21,0.3)]" : "border-t1-500/40 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
-      }`}>
-        {/* Goddess image */}
-        {goddess.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={goddess.avatarUrl} alt={goddess.username} className="absolute inset-0 h-full w-full object-fill" />
-        ) : (
-          <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
-            isUltimate ? "from-yellow-900 to-amber-950" : "from-t1-900 to-t2-900"
-          }`}>
-            <Icon className={`h-16 w-16 ${isUltimate ? "text-yellow-400" : "text-t1-400"}`} />
-          </div>
-        )}
-        {/* Dark gradient for readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-        {/* Info */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 text-center">
-          <p className={`text-sm font-bold ${isUltimate ? "text-yellow-300" : "text-t1-200"}`}>
-            {goddess.username}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5">{power?.short ?? "Unknown power"}</p>
-          <p className="text-[10px] font-mono text-gray-500 mt-1">{goddess.value.toLocaleString()}¢</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Hall of Champions ─── */
-function HallOfChampions({ winners }: { winners: Winner[] }) {
-  if (!winners || winners.length === 0) return null;
-  return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-2">
-        <Trophy className="h-6 w-6 text-yellow-400" />
-        <h2 className="text-2xl sm:text-3xl font-black text-white">Hall of Champions</h2>
-      </div>
-      <div className="flex flex-wrap justify-center gap-3 max-w-2xl">
-        {winners.map((w, i) => (
-          <div key={i} className="flex items-center gap-2 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-2">
-            <span className="text-xs font-bold text-yellow-400">{w.username}</span>
-            <span className="text-[10px] text-gray-500">{formatTime(w.wonAt)}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Profile Teaser ─── */
-function ProfileTeaser({ player }: { player: TopPlayer }) {
-  if (!player) return null;
-  return (
-    <div className="relative w-72 rounded-2xl border border-white/10 bg-gray-900/60 backdrop-blur-sm overflow-hidden">
-      {/* Avatar area */}
-      <div className="relative h-48 bg-gradient-to-br from-t1-900/40 to-t2-900/40">
-        {player.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={player.avatarUrl} alt={player.username} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <span className="text-4xl font-black text-t1-400">{player.username.slice(0, 2).toUpperCase()}</span>
-          </div>
-        )}
-      </div>
-      {/* Info */}
-      <div className="p-4 space-y-2">
-        <h3 className="text-lg font-bold text-white">{player.username}</h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-cyan-300 bg-cyan-500/10 border-cyan-500/30">
-            <Zap className="h-3 w-3" /> {formatCompact(player.playerValue)}¢
-          </span>
-          {player.profession && (
-            <span className="text-xs text-gray-400">{player.profession}</span>
-          )}
-          <span className="text-xs text-gray-500">{player.ownedCount} cards</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -382,26 +227,11 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Scroll hint */}
-        <div className="relative z-10 pb-2">
-          <div className="lp-bounce text-t1-400 text-xs tracking-widest uppercase">Scroll to explore</div>
-        </div>
-      </section>
-
-      {/* ═══ Scroll Story Sections ═══ */}
-      <section className="relative bg-gradient-to-b from-black via-gray-950 to-black">
-        {/* 1. Start small */}
-        <StorySection step={1} title="Start with 100¢" body="Everyone begins equal — just 100 credits and a profile. Upload your avatar, pick a profession, and your journey begins. Your first 20 cards unlock the full game.">
-          <div className="flex items-center gap-2">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-2xl font-black text-white shadow-[0_0_25px_var(--t1-600)] animate-pulse">100¢</div>
-          </div>
-        </StorySection>
-
-        {/* 2. Build your circle */}
-        <StorySection step={2} title="Hire Cards. Build Your Empire." body="Spend credits to hire NPC cards and other players. Each hire increases their value. Steal cards from rivals by hiring them away. Protect your best cards with sell blocks.">
-          <div className="grid grid-cols-6 gap-3 justify-center max-w-xl">
+        {/* Avatar grid */}
+        <div className="relative z-10 w-full max-w-7xl px-4 pb-8">
+          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
             {(data?.topNpcs ?? []).map((npc) => (
-              <div key={npc.username} className="h-28 w-20 rounded-xl border border-white/10 overflow-hidden shadow-lg relative group">
+              <div key={npc.username} className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group">
                 {npc.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={npc.avatarUrl} alt={npc.username} className="h-full w-full object-cover" />
@@ -410,64 +240,11 @@ export default function Home() {
                     {npc.username.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-1.5">
-                  <p className="text-[9px] text-white font-medium truncate">{npc.username}</p>
-                  <p className="text-[8px] text-t1-300 font-mono">{formatCompact(npc.playerValue)}¢</p>
-                </div>
               </div>
             ))}
           </div>
-        </StorySection>
-
-        {/* 3. Steal from rivals */}
-        <StorySection step={3} title="Steal from Rivals" body="Someone owns a card you want? Hire it from them — they get paid the card's value, you get the card. Break sell blocks for a fee. With the Goddess of War, breaks are free.">
-          <div className="flex items-center gap-4 text-sm text-gray-400">
-            <div className="rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2">
-              <span className="text-red-400 font-bold">Player A</span>
-            </div>
-            <ShoppingCart className="h-5 w-5 text-t1-400 animate-bounce" />
-            <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-2">
-              <span className="text-green-400 font-bold">You</span>
-            </div>
-          </div>
-        </StorySection>
-
-        {/* 4. Goddesses */}
-        <StorySection step={4} title="Collect 6 Goddesses" body="Six legendary cards, each with a unique power. Earn them through missions — not by buying. Collect all 6 and hold them for one hour to win the game and reset the world.">
-          <div className="flex flex-wrap justify-center gap-4 max-w-3xl">
-            {(data?.goddesses ?? []).map((g, i) => (
-              <GoddessFlipCard key={g.username} goddess={g} index={i} />
-            ))}
-          </div>
-        </StorySection>
-
-        {/* 5. Win */}
-        <StorySection step={5} title="Hold for 1 Hour. Win. Reset." body="Keep all 6 Goddesses for one full hour. The world reboots. Your name is carved into the Hall of Champions forever. Everyone starts fresh. A new world begins.">
-          <div className="relative w-full max-w-sm">
-            <div className="rounded-2xl border border-t1-500/40 bg-black/80 overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/WORLD_RESET.png" alt="World Reset" className="w-full h-40 object-cover opacity-60" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-black text-white tracking-widest uppercase">The World is Rebooting</span>
-              </div>
-            </div>
-          </div>
-        </StorySection>
+        </div>
       </section>
-
-      {/* ═══ Footer ═══ */}
-      <footer className="relative py-8 px-8 bg-black border-t border-white/5 flex justify-between items-center">
-        <button
-          type="button"
-          onClick={() => setGameplayOpen(true)}
-          className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
-        >
-          About
-        </button>
-        <a href="https://n38worth.com/chat" target="_blank" rel="noopener noreferrer" className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all">
-          Support
-        </a>
-      </footer>
 
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
