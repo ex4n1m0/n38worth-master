@@ -1,0 +1,9 @@
+Make Perm Block button colors much more visible.
+
+- Active block: solid amber background with dark text.
+- Assigned (but offline/expired): amber tint.
+- Unassigned: unchanged gray.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
