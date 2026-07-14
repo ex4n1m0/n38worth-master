@@ -24,7 +24,7 @@ export default function PlayersPage() {
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(99);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -197,7 +197,7 @@ export default function PlayersPage() {
                   className="appearance-none bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-md pl-3 pr-8 py-1.5 cursor-pointer hover:border-gray-500 focus:outline-none focus:border-t1-500"
                   title="Cards per page"
                 >
-                  {[20, 40, 60, 80, 100].map((n) => (
+                  {[99, 20, 40, 60, 80, 100].map((n) => (
                     <option key={n} value={n}>{n} / page</option>
                   ))}
                 </select>
