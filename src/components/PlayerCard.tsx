@@ -486,22 +486,6 @@ export function PlayerCard({
       toast.error(`Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(playerValue)}¢ hire)`);
       return;
     }
-    const ok = window.confirm(
-      `Break partnership on ${username}?\n\n` +
-      (isFateSealed
-        ? `🛡️ Goddess of Fate seal: 1000× break fee!\n`
-        : hasWar
-          ? `⚔️ Goddess of War: Break fee waived!\n`
-          : `• Break fee: ${formatNumber(breakCost)}¢ (paid to current owner)\n`) +
-      `• Hire cost: ${formatNumber(playerValue)}¢\n` +
-      `• Total: ${formatNumber(totalBreakCost)}¢\n\n` +
-      (isFateSealed
-        ? `The break fee + hire cost will be charged, and you'll hire ${username}.`
-        : hasWar
-          ? `Only the hire cost will be charged.`
-          : `The current owner will receive the break fee as compensation.`)
-    );
-    if (!ok) return;
     play("hire");
     breakMutation.mutate(undefined);
   };
