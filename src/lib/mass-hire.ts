@@ -11,9 +11,13 @@
 
 import { db } from "@/db";
 import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
-import { eq, and, sql, asc, ne } from "drizzle-orm";
+import { eq, and, sql, asc, ne, isNotNull } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
+
+const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
+const MAX_PERM_BLOCKS = 10;
 
 export const MASS_HIRE_USERNAME = "Mass Hire";
 export const MASS_HIRE_AVATAR_URL = "/masshire.png";
@@ -257,8 +261,8 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
             sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) > 0`,
             // Not already owned by the buyer.
             sql`NOT EXISTS (SELECT 1 FROM ownership o2 WHERE o2.owner_id = ${buyerId} AND o2.owned_id = ${users.id})`,
-            // Not currently partnered (blockSellUntil in the future).
-            sql`NOT EXISTS (SELECT 1 FROM ownership o3 WHERE o3.owned_id = ${users.id} AND o3.block_sell_until IS NOT NULL AND o3.block_sell_until > NOW())`,
+            // Not currently partnered (blockSellUntil or permBlockUntil in the future).
+            sql`NOT EXISTS (SELECT 1 FROM ownership o3 WHERE o3.owned_id = ${users.id} AND ((o3.block_sell_until IS NOT NULL AND o3.block_sell_until > NOW()) OR (o3.perm_block_until IS NOT NULL AND o3.perm_block_until > NOW())))`,
             excludeSpecialSql
           )
         )
@@ -282,6 +286,15 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     let totalSpent = 0;
     const now30s = new Date(Date.now() + 30 * 1000);
 
+    let remainingPermBlocks = 0;
+    if (buyer.username !== AGENT_USERNAME) {
+      const [permCount] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(ownership)
+        .where(and(eq(ownership.ownerId, buyerId), isNotNull(ownership.permBlockUntil)));
+      remainingPermBlocks = Math.max(0, MAX_PERM_BLOCKS - permCount.count);
+    }
+
     for (const target of candidates) {
       if (hired.length >= maxHires) break;
 
@@ -302,15 +315,20 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           id: ownership.id,
           ownerId: ownership.ownerId,
           blockSellUntil: ownership.blockSellUntil,
+          permBlockUntil: ownership.permBlockUntil,
         })
         .from(ownership)
         .where(eq(ownership.ownedId, target.id))
         .limit(1);
 
       // Skip partnered/blocked players (shouldn't happen due to query filter,
-      // but race safety).
-      if (currentOwner && currentOwner.blockSellUntil && new Date(currentOwner.blockSellUntil) > new Date()) {
-        continue;
+      // but race safety). Perm blocks are unbreakable.
+      if (currentOwner) {
+        const blockEnd = currentOwner.blockSellUntil ? new Date(currentOwner.blockSellUntil).getTime() : 0;
+        const permEnd = currentOwner.permBlockUntil ? new Date(currentOwner.permBlockUntil).getTime() : 0;
+        if (Math.max(blockEnd, permEnd) > Date.now()) {
+          continue;
+        }
       }
 
       // Deduct credits from buyer.
@@ -372,13 +390,21 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         })
         .where(eq(users.id, target.id));
 
-      // Create ownership with a 30-second sell block.
+      // Create ownership with a 30-second sell block. Grant a permanent 24h block
+      // for the first 10 players this user acquires (excluding the Agent).
+      let permBlockUntil = null;
+      if (remainingPermBlocks > 0) {
+        permBlockUntil = new Date(Date.now() + PERM_BLOCK_MS);
+        remainingPermBlocks--;
+      }
+
       await db.insert(ownership).values({
         ownerId: buyerId,
         ownedId: target.id,
         purchasePrice: cost,
         blockSellUntil: now30s,
         blockSellBy: buyer.username,
+        permBlockUntil,
       });
 
       remainingCredits -= cost;
