@@ -145,7 +145,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
       {/* ═══ Hero ═══ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-start px-6 pt-24 pb-0 text-center overflow-x-clip">
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-x-clip">
         {/* Parallax background */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -176,8 +176,27 @@ export default function Home() {
           {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
 
-        {/* Hero content */}
-        <div className="relative z-10 flex flex-col items-center gap-6 flex-1 justify-center">
+        {/* How to Play — bottom left */}
+        <button
+          type="button"
+          onClick={() => setGameplayOpen(true)}
+          className="absolute bottom-6 left-6 z-20 text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
+        >
+          How to Play
+        </button>
+
+        {/* Support — bottom right */}
+        <a
+          href="https://n38worth.com/chat"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-6 right-6 z-20 text-t1-400 text-sm font-medium hover:brightness-125 transition-all"
+        >
+          Support
+        </a>
+
+        {/* Hero content — centered in the viewport */}
+        <div className="relative z-10 flex flex-col items-center gap-6">
           <Link
             href="/register"
             className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
@@ -219,9 +238,11 @@ export default function Home() {
             <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
         </div>
+      </section>
 
-        {/* Avatar grid */}
-        <div className="relative z-10 w-full max-w-7xl px-4 pt-10 pb-12">
+      {/* ═══ Avatar Grid ═══ */}
+      <section className="relative bg-black px-6 py-20">
+        <div className="relative z-10 w-full max-w-7xl mx-auto">
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
             {(data?.topNpcs ?? []).map((npc) => (
               <div key={npc.username} className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group">
@@ -238,20 +259,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ═══ Footer ═══ */}
-      <footer className="relative py-10 px-8 bg-black border-t border-white/5 flex justify-center items-center gap-8">
-        <button
-          type="button"
-          onClick={() => setGameplayOpen(true)}
-          className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
-        >
-          How to Play
-        </button>
-        <a href="https://n38worth.com/chat" target="_blank" rel="noopener noreferrer" className="text-t1-400 text-sm font-medium hover:brightness-125 transition-all">
-          Support
-        </a>
-      </footer>
 
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
