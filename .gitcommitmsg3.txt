@@ -1,9 +1,0 @@
-Make Perm Block button amber whenever a block is assigned.
-
-- Active blocks: bright amber.
-- Assigned but expired blocks: dim amber.
-- Unassigned: gray.
-
-Generated with [Devin](https://devin.ai)
-
-Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
