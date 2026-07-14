@@ -252,7 +252,7 @@ export function GoddessCard({
           <img
             src={goddessAvatarSrc}
             alt={username}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-fill"
           />
         </div>
         

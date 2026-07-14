@@ -177,7 +177,7 @@ function GoddessFlipCard({ goddess, index }: { goddess: Goddess; index: number }
         {/* Goddess image */}
         {goddess.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={goddess.avatarUrl} alt={goddess.username} className="absolute inset-0 h-full w-full object-cover" />
+          <img src={goddess.avatarUrl} alt={goddess.username} className="absolute inset-0 h-full w-full object-fill" />
         ) : (
           <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br ${
             isUltimate ? "from-yellow-900 to-amber-950" : "from-t1-900 to-t2-900"

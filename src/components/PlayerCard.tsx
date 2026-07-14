@@ -17,6 +17,7 @@ import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatNumber, formatCompact, getDynamicFontSize, navbarBtnStyle, formatLastOnline } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
 import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
@@ -160,6 +161,11 @@ export function PlayerCard({
   // Bonus cards have been removed from the game — no player is ever a bonus card.
   const isBonusCard = false;
   const isGoddess = GODDESS_USERNAMES.includes(username);
+  const isAgent = username === AGENT_USERNAME;
+  // Special cards (Agent, Goddesses, bonus) use fill to stretch their art to
+  // fill the avatar space without cropping — distortion is acceptable.
+  const isSpecialCard = isAgent || isGoddess || isBonusCard;
+  const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const effectiveAvatarUrl = tempRevealedAvatarUrl ?? avatarUrl;
 
   // Owned (acquired) players get a purple card background to stand out from the
@@ -709,7 +715,7 @@ export function PlayerCard({
           <CardContent className="p-3 relative flex flex-col items-center gap-2">
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-[4/3] rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={displayedAvatarSrc} alt={username} className="object-cover" />
+                <AvatarImage src={displayedAvatarSrc} alt={username} className={avatarFitClass} />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-3xl sm:text-4xl">
                   {username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -953,7 +959,7 @@ export function PlayerCard({
         <CardContent className="p-3 relative">
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-[4/3] rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-              <AvatarImage src={displayedAvatarSrc} alt={username} className="object-cover" />
+              <AvatarImage src={displayedAvatarSrc} alt={username} className={avatarFitClass} />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-3xl sm:text-4xl">
                 {username.slice(0, 2).toUpperCase()}
               </AvatarFallback>

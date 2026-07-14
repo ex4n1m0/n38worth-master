@@ -31,6 +31,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
@@ -116,7 +117,8 @@ export default function PlayerProfilePage() {
 
   const { data: credits } = useCredits();
   const isSpecialCard =
-    !!player?.username && GODDESS_USERNAMES.includes(player.username);
+    !!player?.username && (GODDESS_USERNAMES.includes(player.username) || player.username === AGENT_USERNAME);
+  const heroAvatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const heroProfession = isSpecialCard ? null : player?.profession ?? null;
   const professionImage = getProfessionImage(heroProfession);
 
@@ -339,7 +341,7 @@ export default function PlayerProfilePage() {
             {isOwnProfile ? (
               <SquareAvatarUpload currentUrl={player.avatarUrl ?? null} username={player.username} avatarCompleted={onboarding.avatarCompleted} variant="banner" />
             ) : (
-              <img src={heroAvatarSrc} alt={player.username} className="w-full h-full object-cover" />
+              <img src={heroAvatarSrc} alt={player.username} className={`w-full h-full ${heroAvatarFitClass}`} />
             )}
             {!isOwnProfile && player.isActive === 0 && (
               <div className="absolute top-3 left-3 bg-red-500/80 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">Inactive</div>

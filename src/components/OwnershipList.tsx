@@ -31,6 +31,7 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAME } from "@/lib/agent/seed";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PermBlockButton } from "@/components/PermBlockButton";
@@ -211,6 +212,9 @@ function OwnershipCard({
   const isOwnCard = session?.user?.name === item.username;
   const isBonus = false; // Bonus cards removed from the game.
   const isGoddess = GODDESS_USERNAMES.includes(item.username);
+  const isAgent = item.username === AGENT_USERNAME;
+  const isSpecialCard = isAgent || isGoddess || isBonus;
+  const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
   const revealTime = useRevealCountdown(item.avatarRevealUntil);
@@ -394,7 +398,7 @@ function OwnershipCard({
           <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-cover" />
+                <AvatarImage src={cardAvatarSrc} alt={item.username} className={avatarFitClass} />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                   {item.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -494,7 +498,7 @@ function OwnershipCard({
           {/* TOP: Full-width avatar with overlayed square Hire button */}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-              <AvatarImage src={cardAvatarSrc} alt={item.username} className="object-cover" />
+              <AvatarImage src={cardAvatarSrc} alt={item.username} className={avatarFitClass} />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                 {item.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
