@@ -163,8 +163,8 @@ function BrowsePlayersSection({
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
-  // Always 99 cards per page — the pinned Mass Hire card makes it an even 100.
-  const pageSize = 99;
+  // Always 90 cards per page — plus the pinned Mass Hire and 10 Slots cards.
+  const pageSize = 90;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");

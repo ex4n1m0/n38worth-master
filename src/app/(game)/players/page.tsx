@@ -24,8 +24,8 @@ export default function PlayersPage() {
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  // Always 99 cards per page.
-  const pageSize = 99;
+  // Always 90 cards per page.
+  const pageSize = 90;
 
   const handleSearch = (value: string) => {
     setSearch(value);
