@@ -176,25 +176,6 @@ export default function Home() {
           {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
         </button>
 
-        {/* How to Play — bottom left */}
-        <button
-          type="button"
-          onClick={() => setGameplayOpen(true)}
-          className="absolute bottom-6 left-6 z-20 text-t1-400 text-sm font-medium hover:brightness-125 transition-all bg-transparent border-0 p-0 cursor-pointer"
-        >
-          How to Play
-        </button>
-
-        {/* Support — bottom right */}
-        <a
-          href="https://n38worth.com/chat"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="absolute bottom-6 right-6 z-20 text-t1-400 text-sm font-medium hover:brightness-125 transition-all"
-        >
-          Support
-        </a>
-
         {/* Hero content — centered in the viewport */}
         <div className="relative z-10 flex flex-col items-center gap-6">
           <Link
@@ -211,6 +192,13 @@ export default function Home() {
 
           {/* Buttons */}
           <div className="lp-fade-up flex flex-col sm:flex-row items-center gap-3" style={{ animationDelay: "0.3s" }}>
+            <button
+              type="button"
+              onClick={() => setGameplayOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-gray-100 backdrop-blur-sm hover:bg-white/10 hover:scale-105 active:scale-100 transition-all"
+            >
+              How to Play
+            </button>
             <Link
               href="/register"
               className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_30px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
@@ -225,6 +213,17 @@ export default function Home() {
               {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Try as Guest"}
             </button>
           </div>
+
+          {/* Support — under Play Now */}
+          <a
+            href="https://n38worth.com/chat"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="lp-fade-up inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-semibold text-gray-300 backdrop-blur-sm hover:bg-white/10 hover:text-white hover:scale-105 active:scale-100 transition-all"
+            style={{ animationDelay: "0.35s" }}
+          >
+            Support
+          </a>
 
           {/* Active countdown */}
           {countdown && <CountdownBanner countdown={countdown} />}
