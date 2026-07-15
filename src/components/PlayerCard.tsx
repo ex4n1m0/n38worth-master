@@ -776,43 +776,6 @@ export function PlayerCard({
                   </span>
                 )
               ) : null}
-              <p className="text-xs font-semibold text-gray-300 mt-1">
-                {username === "Agent" ? "AGI" : playerType === "human" ? "Human" : "NPC"}
-              </p>
-              {/* Last online timestamp */}
-              {lastOnlineAt && (
-                <p className="flex items-center justify-center gap-1 text-[10px] text-gray-500 mt-0.5 leading-none">
-                  <Clock className="h-2.5 w-2.5 shrink-0" />
-                  {formatLastOnline(lastOnlineAt)}
-                </p>
-              )}
-              {/* Photo score (Unsplash likes proxy — "how good the photo looks"). */}
-              <p className="mt-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-amber-300/90 leading-none">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
-                Score {formatCompact(photoScore)}
-              </p>
-              {/* Owner name (their boss) + how many players this card owns. */}
-              {(ownerName || ownedCount > 0) && (
-                <div className="mt-1.5 flex flex-col items-center gap-0.5 text-[11px] leading-tight">
-                  {ownerName && (
-                    <span className="flex items-center gap-1 text-yellow-300/90 max-w-full min-w-0">
-                      <Crown className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {ownerName}
-                        {ownerValue !== null && ownerValue !== undefined
-                          ? ` (${formatCompact(ownerValue)}¢)`
-                          : ""}
-                      </span>
-                    </span>
-                  )}
-                  {ownedCount > 0 && (
-                    <span className="flex items-center gap-1 text-t2-400 text-[22px] font-bold">
-                      <Users className="h-5 w-5 shrink-0" />
-                      Owns {formatCompact(ownedCount)}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
             {ownedIds.has(id) ? (
@@ -949,6 +912,48 @@ export function PlayerCard({
                 )}
               </div>
             )}
+
+            {/* Remaining info — below the action buttons so buttons stay aligned
+                across cards regardless of how much extra info each card has. */}
+            <div className="w-full text-center">
+              <p className="text-xs font-semibold text-gray-300">
+                {username === "Agent" ? "AGI" : playerType === "human" ? "Human" : "NPC"}
+              </p>
+              {/* Last online timestamp */}
+              {lastOnlineAt && (
+                <p className="flex items-center justify-center gap-1 text-[10px] text-gray-500 mt-0.5 leading-none">
+                  <Clock className="h-2.5 w-2.5 shrink-0" />
+                  {formatLastOnline(lastOnlineAt)}
+                </p>
+              )}
+              {/* Photo score (Unsplash likes proxy — "how good the photo looks"). */}
+              <p className="mt-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-amber-300/90 leading-none">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
+                Score {formatCompact(photoScore)}
+              </p>
+              {/* Owner name (their boss) + how many players this card owns. */}
+              {(ownerName || ownedCount > 0) && (
+                <div className="mt-1.5 flex flex-col items-center gap-0.5 text-[11px] leading-tight">
+                  {ownerName && (
+                    <span className="flex items-center gap-1 justify-center text-yellow-300/90 max-w-full min-w-0">
+                      <Crown className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {ownerName}
+                        {ownerValue !== null && ownerValue !== undefined
+                          ? ` (${formatCompact(ownerValue)}¢)`
+                          : ""}
+                      </span>
+                    </span>
+                  )}
+                  {ownedCount > 0 && (
+                    <span className="flex items-center gap-1 justify-center text-t2-400 text-[22px] font-bold">
+                      <Users className="h-5 w-5 shrink-0" />
+                      Owns {formatCompact(ownedCount)}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </Link>
