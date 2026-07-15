@@ -447,8 +447,8 @@ function OwnershipCard({
             disabled={!canAffordPump || pumpMutation.isPending}
             className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
               canAffordPump
-                ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
-                : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                ? "text-white bg-transparent border-2 border-fuchsia-500 hover:bg-fuchsia-500/15 shadow-lg shadow-purple-900/30"
+                : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
             }`}
           >
             {pumpMutation.isPending ? (

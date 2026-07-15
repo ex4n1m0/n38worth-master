@@ -822,8 +822,8 @@ export function PlayerCard({
                   disabled={(myCredits ?? 0) < playerValue || pumpMutation.isPending}
                   className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                     (myCredits ?? 0) >= playerValue
-                      ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
-                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                      ? "text-white bg-transparent border-2 border-fuchsia-500 hover:bg-fuchsia-500/15 shadow-lg shadow-purple-900/30"
+                      : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
                   }`}
                 >
                   {pumpMutation.isPending ? (
@@ -867,8 +867,8 @@ export function PlayerCard({
                 disabled={!canAfford || mutation.isPending}
                 className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                   canAfford
-                    ? "text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-900/30"
-                    : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                    ? "text-white bg-transparent border-2 border-green-500 hover:bg-green-500/15 shadow-lg shadow-green-900/30"
+                    : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
                 {mutation.isPending ? (
@@ -915,11 +915,11 @@ export function PlayerCard({
                     className={`w-full aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                       (myCredits ?? 0) >= totalBreakCost && !isPermBlocked
                         ? isFateSealed
-                          ? "text-white bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 shadow-lg shadow-blue-900/30"
+                          ? "text-white bg-transparent border-2 border-blue-500 hover:bg-blue-500/15 shadow-lg shadow-blue-900/30"
                           : hasWar
-                            ? "text-white bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 shadow-lg shadow-red-900/30"
-                            : "text-white bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 shadow-lg shadow-amber-900/30"
-                        : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                            ? "text-white bg-transparent border-2 border-orange-500 hover:bg-orange-500/15 shadow-lg shadow-red-900/30"
+                            : "text-white bg-transparent border-2 border-red-500 hover:bg-red-500/15 shadow-lg shadow-amber-900/30"
+                        : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
                     }`}
                   >
                     {breakMutation.isPending ? (

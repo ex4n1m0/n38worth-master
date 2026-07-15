@@ -121,8 +121,8 @@ export function MarketActionButton({
           disabled={!canAfford || pumpMutation.isPending}
           className={`rounded-md flex flex-col items-center justify-center gap-0.5 font-bold py-2 h-auto min-h-[2.75rem] ${
             canAfford
-              ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
-              : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              ? "text-white bg-transparent border-2 border-fuchsia-500 hover:bg-fuchsia-500/15 shadow-lg shadow-purple-900/30"
+              : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
           }`}
         >
           {pumpMutation.isPending ? (
@@ -143,8 +143,8 @@ export function MarketActionButton({
           disabled={!canAfford || buyMutation.isPending}
           className={`rounded-md flex flex-col items-center justify-center gap-0.5 font-bold py-2 h-auto min-h-[2.75rem] ${
             canAfford
-              ? "text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-900/30"
-              : "bg-gray-700 text-gray-400 cursor-not-allowed"
+              ? "text-white bg-transparent border-2 border-green-500 hover:bg-green-500/15 shadow-lg shadow-green-900/30"
+              : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
           }`}
         >
           {buyMutation.isPending ? (

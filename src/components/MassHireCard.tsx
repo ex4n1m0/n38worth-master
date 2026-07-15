@@ -189,7 +189,7 @@ export function MassHireCard({
           <Button
             onClick={handleClick}
             disabled={mutation.isPending}
-            className="w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 shadow-lg shadow-amber-900/30"
+            className="w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-transparent border-2 border-amber-500 hover:bg-amber-500/15 shadow-lg shadow-amber-900/30"
           >
             {mutation.isPending ? (
               <Loader2 className="h-6 w-6 animate-spin" />
