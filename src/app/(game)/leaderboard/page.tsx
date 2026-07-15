@@ -28,6 +28,7 @@ import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
+import { RevealCard } from "@/components/RevealCard";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
@@ -454,6 +455,8 @@ function BrowsePlayersSection({
             )}
             {/* Pinned 10 Slots card — +10 hire slots for 10% of credits. */}
             {gameUnlocked && <TenSlotsCard />}
+            {/* Pinned Reveal card — see all avatars for 10 min, 10% of credits. */}
+            {gameUnlocked && <RevealCard />}
             {data?.players?.map(
               (player: {
                 id: number;
