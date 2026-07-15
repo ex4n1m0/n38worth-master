@@ -9,6 +9,7 @@ import { MAX_PLAYER_VALUE, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
+import { getProfessionPerks } from "@/lib/professionPerks";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -135,8 +136,11 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       return { error: "You already own this player" };
     }
 
-    // 4b. Check ownership limit (dynamic per-player hire_slots cap)
-    const ownershipLimit = buyer.hireSlots;
+    // 4b. Check ownership limit (dynamic per-player hire_slots cap).
+    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    const buyerPerksForSlots = await getProfessionPerks(buyerId);
+    const marshalBonus = buyerPerksForSlots.has("Iron Choir Marshal") ? 2 : 0;
+    const ownershipLimit = buyer.hireSlots + marshalBonus;
 
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })

@@ -14,6 +14,7 @@ import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
 import { eq, and, sql, asc, ne, isNotNull } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
+import { getProfessionPerks } from "@/lib/professionPerks";
 import { AGENT_USERNAME } from "@/lib/agent/seed";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
@@ -203,12 +204,18 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const currentOwned = Number(ownedCountRow?.count ?? 0);
 
     // 3. Compute hire limit: 1 + floor(10% of owned count).
-    const hireLimit = 1 + Math.floor(currentOwned * 0.1);
+    // Plague Cartographer perk (Charted Spread): Mass Hire grabs +1 extra card.
+    const buyerPerks = await getProfessionPerks(buyerId);
+    const cartographerBonus = buyerPerks.has("Plague Cartographer") ? 1 : 0;
+    const hireLimit = 1 + Math.floor(currentOwned * 0.1) + cartographerBonus;
 
     // 4. Check ownership slots.
-    const availableSlots = buyer.hireSlots - currentOwned;
+    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    const marshalBonus = buyerPerks.has("Iron Choir Marshal") ? 2 : 0;
+    const slotLimit = buyer.hireSlots + marshalBonus;
+    const availableSlots = slotLimit - currentOwned;
     if (availableSlots <= 0) {
-      return { error: `You've reached your hire limit of ${buyer.hireSlots} players.` };
+      return { error: `You've reached your hire limit of ${slotLimit} players.` };
     }
     const maxHires = Math.min(hireLimit, availableSlots);
 

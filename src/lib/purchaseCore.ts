@@ -7,6 +7,7 @@ import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess-countdown";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
+import { getProfessionPerks } from "@/lib/professionPerks";
 import { AGENT_USERNAME } from "@/lib/agent/seed";
 
 // Helper function to determine value multiplier based on current player value
@@ -158,8 +159,11 @@ export async function buyPlayerCore(
       return { error: "You already own this player" };
     }
 
-    // 4b. Check ownership limit (dynamic per-player hire_slots cap)
-    const ownershipLimit = buyer.hireSlots;
+    // 4b. Check ownership limit (dynamic per-player hire_slots cap).
+    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    const buyerPerksForSlots = await getProfessionPerks(buyerId);
+    const marshalBonus = buyerPerksForSlots.has("Iron Choir Marshal") ? 2 : 0;
+    const ownershipLimit = buyer.hireSlots + marshalBonus;
 
     const [ownershipCount] = await db
       .select({ count: sql<number>`count(*)` })
@@ -773,6 +777,12 @@ export async function breakPartnershipCore(
   } else {
     const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
     breakCost = hoursRemaining * Number(target.playerValue);
+    // Hexblade Courier perk (Severing Blade): normal break fees are 20%
+    // cheaper. Does not touch the Fate 1000× fee or War's free breaks.
+    const buyerPerks = await getProfessionPerks(buyerId);
+    if (buyerPerks.has("Hexblade Courier")) {
+      breakCost = Math.round(breakCost * 0.8);
+    }
   }
 
   // Buyer must afford break fee + normal purchase price
@@ -891,7 +901,13 @@ export async function blockSellCore(
       return { error: "Sell block already at 12h max" };
     }
 
-    const newExpiresAt = new Date(currentBlockEnd + SELL_BLOCK_DURATION_MS);
+    // Rift Binder perk (Warding Rift): sell blocks last +50% longer per press.
+    const perks = await getProfessionPerks(ownerId);
+    const durationMs = perks.has("Rift Binder")
+      ? Math.round(SELL_BLOCK_DURATION_MS * 1.5)
+      : SELL_BLOCK_DURATION_MS;
+
+    const newExpiresAt = new Date(currentBlockEnd + durationMs);
     const totalHoursRemaining = Math.ceil((newExpiresAt.getTime() - Date.now()) / (1000 * 60 * 60));
 
     await db

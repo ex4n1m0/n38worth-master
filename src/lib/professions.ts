@@ -80,3 +80,35 @@ export function getProfessionImage(professionName: string | null | undefined): s
   const profession = PROFESSIONS.find((p) => p.name === professionName);
   return profession?.imagePath ?? null;
 }
+
+/**
+ * Profession perks ("Guild Perks") — display metadata. A perk is active for a
+ * player while they either ARE that profession or OWN at least one card with
+ * it. Server-side checks live in src/lib/professionPerks.ts.
+ */
+export const PROFESSION_PERKS: Record<string, { name: string; description: string }> = {
+  "Rift Binder": {
+    name: "Warding Rift",
+    description: "Your sell blocks last 50% longer (1.5h per press).",
+  },
+  "Hexblade Courier": {
+    name: "Severing Blade",
+    description: "Break fees you pay are 20% cheaper.",
+  },
+  "Scrap Alchemist": {
+    name: "Transmutation",
+    description: "Pumping costs 10% less but still doubles the card's value.",
+  },
+  "Spirit Archivist": {
+    name: "Recorded Fortunes",
+    description: "Your daily login reward is 25% bigger.",
+  },
+  "Iron Choir Marshal": {
+    name: "Rally the Choir",
+    description: "+2 hire slots.",
+  },
+  "Plague Cartographer": {
+    name: "Charted Spread",
+    description: "Mass Hire grabs +1 extra card.",
+  },
+};

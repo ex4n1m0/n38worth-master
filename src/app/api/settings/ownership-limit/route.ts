@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { ownership, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { getProfessionPerks } from "@/lib/professionPerks";
 
 export async function GET() {
   const session = await auth();
@@ -24,7 +25,11 @@ export async function GET() {
       .from(ownership)
       .where(eq(ownership.ownerId, userId));
 
-    const limit = user?.hireSlots ?? 20;
+    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    const perks = await getProfessionPerks(userId);
+    const marshalBonus = perks.has("Iron Choir Marshal") ? 2 : 0;
+
+    const limit = (user?.hireSlots ?? 20) + marshalBonus;
     const currentOwned = ownershipCount.count;
 
     return NextResponse.json({

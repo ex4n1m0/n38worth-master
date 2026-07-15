@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users, rewardHistory } from "@/db/schema";
 import { and, eq, lte, or, isNull, sql, desc } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { getProfessionPerks } from "@/lib/professionPerks";
 
 const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
 const GODDESS_OF_WEALTH_USERNAME = "Goddess of Wealth";
@@ -118,13 +119,22 @@ export async function POST(req: Request) {
       });
     }
 
+    // Spirit Archivist perk (Recorded Fortunes): +25% login reward. The bonus
+    // is minted on top — only the base amount is deducted from the source, so
+    // the richest player isn't drained extra.
+    const perks = await getProfessionPerks(userId);
+    const archivistBonus = perks.has("Spirit Archivist")
+      ? Math.round(rewardAmount * 0.25 * 100) / 100
+      : 0;
+    const totalReward = rewardAmount + archivistBonus;
+
     // Atomic claim: only awards + stamps the timestamp if the 24h window has
     // actually elapsed. Two concurrent requests can't both match this WHERE
     // clause, so double-claims are impossible even without a transaction.
     const claimed = await db
       .update(users)
       .set({
-        credits: sql`LEAST(${users.credits} + ${rewardAmount}, ${sql.raw(
+        credits: sql`LEAST(${users.credits} + ${totalReward}, ${sql.raw(
           MAX_CREDITS_SQL
         )})`,
         lastLoginRewardAt: now,
@@ -173,8 +183,8 @@ export async function POST(req: Request) {
       await db.insert(rewardHistory).values({
         userId,
         type: "login_reward",
-        amount: rewardAmount,
-        details: JSON.stringify({ sourceUserId, source: "goddess_of_wealth_value" }),
+        amount: totalReward,
+        details: JSON.stringify({ sourceUserId, source: "goddess_of_wealth_value", archivistBonus }),
       });
     } catch (historyError) {
       console.error("Reward history insert error (login):", historyError);
@@ -183,7 +193,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       message: "Login reward claimed!",
-      reward: rewardAmount,
+      reward: totalReward,
       newBalance: Number(claimed[0].credits),
       claimedAt: now,
       nextRewardAt: new Date(now.getTime() + HOURS_24_IN_MS),

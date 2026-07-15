@@ -7,6 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { getProfessionPerks } from "@/lib/professionPerks";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of player value per press
 const PUMP_BLOCK_DURATION_MS = 10 * 60 * 1000; // 10 minutes per press
@@ -75,8 +76,13 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
       return { error: "Player not found" };
     }
 
-    // Calculate cost: 100% of owned player's value
-    const cost = Math.max(1, Math.round(BLOCK_SELL_COST_PERCENT * ownedPlayer.playerValue));
+    // Calculate cost: 100% of owned player's value.
+    // Scrap Alchemist perk (Transmutation): pump costs 10% less, same effect.
+    const perks = await getProfessionPerks(ownerId);
+    const costPercent = perks.has("Scrap Alchemist")
+      ? BLOCK_SELL_COST_PERCENT * 0.9
+      : BLOCK_SELL_COST_PERCENT;
+    const cost = Math.max(1, Math.round(costPercent * ownedPlayer.playerValue));
     const newValue = capPlayerValue(Math.round(ownedPlayer.playerValue * VALUE_MULTIPLIER));
     const creditsToPlayer = cost; // 100% of cost goes to player
 

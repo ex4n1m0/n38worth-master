@@ -17,6 +17,7 @@ import {
   User,
   CreditCard,
   Sparkles,
+  Zap,
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
@@ -30,7 +31,7 @@ import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
-import { PROFESSIONS } from "@/lib/professions";
+import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 const SORT_OPTIONS = [
   { key: "last-online", label: "Last Online" },
@@ -170,6 +171,20 @@ function BrowsePlayersSection({
 
   const limit = pageSize;
 
+  // Active profession perks — used to light up filter buttons and show what
+  // each profession's perk does.
+  const { data: perksData } = useQuery({
+    queryKey: ["profession-perks"],
+    queryFn: async () => {
+      const res = await fetch("/api/game/profession-perks");
+      if (!res.ok) throw new Error("Failed to fetch perks");
+      return res.json() as Promise<{ activeProfessions: string[] }>;
+    },
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  });
+  const activePerks = new Set(perksData?.activeProfessions ?? []);
+
   const { data, isLoading } = useQuery({
     queryKey: [
       "players",
@@ -261,12 +276,15 @@ function BrowsePlayersSection({
           <span className="text-xs text-gray-500 mr-1">Profession:</span>
           {PROFESSIONS.map((p) => {
             const inCombo = comboFilledProfessions.includes(p.name);
+            const perk = PROFESSION_PERKS[p.name];
+            const perkActive = activePerks.has(p.name);
             return (
             <Button
               key={p.name}
               variant="ghost"
               size="sm"
               onClick={() => { play("buttons"); setProfession(profession === p.name ? "" : p.name); setPage(1); }}
+              title={perk ? `${perk.name}${perkActive ? " (ACTIVE)" : ""} — ${perk.description}` : undefined}
               className={
                 profession === p.name
                   ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
@@ -278,6 +296,7 @@ function BrowsePlayersSection({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
               {p.name}
+              {perkActive && <Zap className="h-3 w-3 ml-1 text-green-400 fill-green-400" />}
               {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
             </Button>
             );
