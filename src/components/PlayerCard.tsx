@@ -533,7 +533,7 @@ export function PlayerCard({
         <>
           <div className={`px-2 rounded-md flex flex-col items-center justify-center gap-0.5 text-center ${
             isFateSealed
-              ? "bg-purple-950/60 border border-purple-500/40 text-purple-400"
+              ? "bg-indigo-950/60 border border-indigo-500/40 text-indigo-400"
               : isPermBlocked
                 ? "bg-red-950/60 border border-red-500/40 text-red-400"
                 : "bg-amber-950/60 border border-amber-500/40 text-amber-400"
@@ -883,13 +883,13 @@ export function PlayerCard({
               <div className="w-[80%] flex flex-col items-center gap-1">
                 <div className={`w-full flex flex-col items-center gap-1 rounded-md border py-1.5 px-2 ${
                   isFateSealed
-                    ? "bg-purple-950/50 border-purple-500/30"
+                    ? "bg-indigo-950/50 border-indigo-500/30"
                     : isPermBlocked
                       ? "bg-red-950/50 border-red-500/30"
                       : "bg-amber-950/50 border-amber-500/30"
                 }`}>
                   <span className={`flex items-center gap-1 text-[10px] sm:text-xs font-bold leading-none tabular-nums ${
-                    isFateSealed ? "text-purple-400" : isPermBlocked ? "text-red-400" : "text-amber-400"
+                    isFateSealed ? "text-indigo-400" : isPermBlocked ? "text-red-400" : "text-amber-400"
                   }`}>
                     <Shield className="h-3 w-3" />
                     {isFateSealed ? "Fate Seal" : isPermBlocked ? "Unbreakable" : blockCountdown}
@@ -905,7 +905,7 @@ export function PlayerCard({
                     className={`w-full rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                       (myCredits ?? 0) >= totalBreakCost && !isPermBlocked
                         ? isFateSealed
-                          ? "text-white bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-500 hover:to-fuchsia-500 shadow-lg shadow-purple-900/30"
+                          ? "text-white bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 shadow-lg shadow-blue-900/30"
                           : hasWar
                             ? "text-white bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-500 hover:to-orange-400 shadow-lg shadow-red-900/30"
                             : "text-white bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 shadow-lg shadow-amber-900/30"
