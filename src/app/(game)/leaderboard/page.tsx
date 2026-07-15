@@ -27,6 +27,7 @@ import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
+import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
@@ -451,6 +452,8 @@ function BrowsePlayersSection({
                 cooldownEndsAt={massHireData.cooldownEndsAt}
               />
             )}
+            {/* Pinned 10 Slots card — +10 hire slots for 10% of credits. */}
+            {gameUnlocked && <TenSlotsCard />}
             {data?.players?.map(
               (player: {
                 id: number;
