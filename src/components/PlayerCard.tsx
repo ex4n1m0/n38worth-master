@@ -807,12 +807,11 @@ export function PlayerCard({
                 <Button
                   onClick={handlePumpClick}
                   disabled={(myCredits ?? 0) < playerValue || pumpMutation.isPending}
-                  className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                  className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                     (myCredits ?? 0) >= playerValue
                       ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
                       : "bg-gray-700 text-gray-400 cursor-not-allowed"
                   }`}
-                  style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
                 >
                   {pumpMutation.isPending ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -836,8 +835,7 @@ export function PlayerCard({
             ) : isPurchaseLocked ? (
               // locked
               <div
-                className="w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
-                style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+                className="w-[80%] aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
                 title={unlockThreshold !== null ? `Own ${formatCompact(unlockThreshold)} cards to unlock` : "Locked"}
               >
                 <span className="flex items-center gap-1 text-sm sm:text-base font-bold leading-none">
@@ -854,12 +852,11 @@ export function PlayerCard({
               <Button
                 onClick={handleBuyClick}
                 disabled={!canAfford || mutation.isPending}
-                className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                   canAfford
                     ? "text-white bg-gradient-to-r from-emerald-600 to-green-500 hover:from-emerald-500 hover:to-green-400 shadow-lg shadow-green-900/30"
                     : "bg-gray-700 text-gray-400 cursor-not-allowed"
                 }`}
-                style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
               >
                 {mutation.isPending ? (
                   <Loader2 className="h-6 w-6 animate-spin" />
@@ -902,7 +899,7 @@ export function PlayerCard({
                   <Button
                     onClick={handleBreakClick}
                     disabled={breakMutation.isPending || isPermBlocked || (myCredits ?? 0) < totalBreakCost}
-                    className={`w-full rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                    className={`w-full aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                       (myCredits ?? 0) >= totalBreakCost && !isPermBlocked
                         ? isFateSealed
                           ? "text-white bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 shadow-lg shadow-blue-900/30"
@@ -911,7 +908,6 @@ export function PlayerCard({
                             : "text-white bg-gradient-to-r from-amber-600 to-red-600 hover:from-amber-500 hover:to-red-500 shadow-lg shadow-amber-900/30"
                         : "bg-gray-700 text-gray-400 cursor-not-allowed"
                     }`}
-                    style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
                   >
                     {breakMutation.isPending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />

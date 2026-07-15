@@ -156,8 +156,7 @@ export function MassHireCard({
 
         {isLocked ? (
           <div
-            className="w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
-            style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+            className="w-[80%] aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
             title={unlockThreshold !== null ? `Own ${formatCompact(unlockThreshold)} cards to unlock` : "Locked"}
           >
             <span className="flex items-center gap-1 text-sm sm:text-base font-bold leading-none">
@@ -190,8 +189,7 @@ export function MassHireCard({
           <Button
             onClick={handleClick}
             disabled={mutation.isPending}
-            className="w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 shadow-lg shadow-amber-900/30"
-            style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
+            className="w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-500 hover:to-yellow-400 shadow-lg shadow-amber-900/30"
           >
             {mutation.isPending ? (
               <Loader2 className="h-6 w-6 animate-spin" />

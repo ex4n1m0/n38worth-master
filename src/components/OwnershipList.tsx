@@ -445,12 +445,11 @@ function OwnershipCard({
               handlePumpClick(e);
             }}
             disabled={!canAffordPump || pumpMutation.isPending}
-            className={`w-[80%] rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+            className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
               canAffordPump
                 ? "text-white bg-gradient-to-r from-fuchsia-600 to-purple-500 hover:from-fuchsia-500 hover:to-purple-400 shadow-lg shadow-purple-900/30"
                 : "bg-gray-700 text-gray-400 cursor-not-allowed"
             }`}
-            style={{ height: "clamp(2.5rem, 6vw, 4rem)" }}
           >
             {pumpMutation.isPending ? (
               <Loader2 className="h-6 w-6 animate-spin" />
