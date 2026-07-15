@@ -749,7 +749,7 @@ export function PlayerCard({
                   role="button"
                   tabIndex={0}
                   onClick={handleComboToggle}
-                  className={`inline-flex items-center gap-1 text-xs mt-0.5 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+                  className={`inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border px-4 py-1.5 cursor-pointer transition-colors ${
                     isComboSelected
                       ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
                       : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
@@ -759,9 +759,22 @@ export function PlayerCard({
                   {effectiveProfession}
                 </span>
               ) : effectiveProfession ? (
-                <p className="text-xs text-gray-400 mt-0.5">
+                <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700 px-4 py-1.5 text-gray-400">
                   {effectiveProfession}
-                </p>
+                </span>
+              ) : !isGoddess && !isBonusCard && !isOwnProfile ? (
+                ownedIds.has(id) ? (
+                  <AssignProfessionDialog
+                    targetId={id}
+                    targetUsername={username}
+                    currentProfession={null}
+                    triggerClassName="mt-1 rounded-full border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-auto px-4 py-1.5 text-sm"
+                  />
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700/70 px-4 py-1.5 text-gray-500">
+                    No Profession
+                  </span>
+                )
               ) : null}
               <p className="text-xs font-semibold text-gray-300 mt-1">
                 {username === "Agent" ? "AGI" : playerType === "human" ? "Human" : "NPC"}
@@ -980,7 +993,7 @@ export function PlayerCard({
                   role="button"
                   tabIndex={0}
                   onClick={handleComboToggle}
-                  className={`inline-flex items-center gap-1 text-xs mt-0.5 rounded-full border px-2 py-0.5 cursor-pointer transition-colors ${
+                  className={`inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border px-4 py-1.5 cursor-pointer transition-colors ${
                     isComboSelected
                       ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
                       : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
@@ -990,9 +1003,22 @@ export function PlayerCard({
                   {effectiveProfession}
                 </span>
               ) : effectiveProfession ? (
-                <p className="text-xs text-gray-400 mt-0.5 text-left">
+                <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700 px-4 py-1.5 text-gray-400">
                   {effectiveProfession}
-                </p>
+                </span>
+              ) : !isGoddess && !isBonusCard && !isOwnProfile ? (
+                ownedIds.has(id) ? (
+                  <AssignProfessionDialog
+                    targetId={id}
+                    targetUsername={username}
+                    currentProfession={null}
+                    triggerClassName="mt-1 rounded-full border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-auto px-4 py-1.5 text-sm"
+                  />
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700/70 px-4 py-1.5 text-gray-500">
+                    No Profession
+                  </span>
+                )
               ) : null}
 
               <div className={`flex items-center gap-1 mt-1.5 ${getDynamicFontSize(playerValue)}`}>

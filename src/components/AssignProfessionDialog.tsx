@@ -31,6 +31,8 @@ interface AssignProfessionDialogProps {
   targetUsername: string;
   /** The NPC's current profession (if any) */
   currentProfession: string | null;
+  /** Optional override for the trigger button styling (e.g. pill look on cards). */
+  triggerClassName?: string;
 }
 
 /**
@@ -42,6 +44,7 @@ export function AssignProfessionDialog({
   targetId,
   targetUsername,
   currentProfession,
+  triggerClassName,
 }: AssignProfessionDialogProps) {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
@@ -122,17 +125,20 @@ export function AssignProfessionDialog({
   return (
     <>
       <Button
-        onClick={openDialog}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
         variant="outline"
         size="sm"
-        className="border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-7 px-2 text-xs"
+        className={triggerClassName ?? "border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-7 px-2 text-xs"}
       >
         <Briefcase className="h-3 w-3 mr-1" />
         {currentProfession ? "Change Profession" : "Assign Profession"}
       </Button>
 
       {open && mounted && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900/95 p-5 sm:p-7 shadow-2xl">
             <button
               onClick={() => !submitting && setOpen(false)}
