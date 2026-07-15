@@ -261,7 +261,7 @@ export default function Home() {
 
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-gray-950 border-gray-800 text-gray-100">
+        <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto bg-gray-950 border-gray-800 text-gray-100">
           <DialogHeader>
             <DialogTitle className="text-center text-3xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent">
               How to Play
