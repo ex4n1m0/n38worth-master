@@ -432,13 +432,6 @@ function OwnershipCard({
 
           <CardProfileMeta username={item.username} ownedCount={item.ownedCount} className="w-[80%]" />
 
-          <PhotoAttribution
-            authorName={item.photoAuthorName}
-            authorUrl={item.photoAuthorUrl}
-            sourceUrl={item.photoSourceUrl}
-            className="w-[80%]"
-          />
-
           <Button
             onClick={(e) => {
               e.stopPropagation();
@@ -468,6 +461,14 @@ function OwnershipCard({
             targetUsername={item.username}
             permBlockUntil={item.permBlockUntil}
             size="sm"
+            className="w-[80%]"
+          />
+
+          {/* Unsplash photo credit — at the very bottom of the card. */}
+          <PhotoAttribution
+            authorName={item.photoAuthorName}
+            authorUrl={item.photoAuthorUrl}
+            sourceUrl={item.photoSourceUrl}
             className="w-[80%]"
           />
         </CardContent>
@@ -563,13 +564,6 @@ function OwnershipCard({
             </div>
 
             <CardProfileMeta username={item.username} ownedCount={item.ownedCount} className="mt-1.5" />
-
-            <PhotoAttribution
-              authorName={item.photoAuthorName}
-              authorUrl={item.photoAuthorUrl}
-              sourceUrl={item.photoSourceUrl}
-              className="mt-1"
-            />
           </div>
         </Link>
 
@@ -601,6 +595,14 @@ function OwnershipCard({
         {!ownedMode && showChat && !isBonus && chatOpen && (
           <div className="mt-3 pt-3 border-t border-gray-800/60"><InlineDMChat targetId={item.id} targetUsername={item.username} targetAvatarUrl={cardAvatarSrc} /></div>
         )}
+
+        {/* Unsplash photo credit — at the very bottom of the card. */}
+        <PhotoAttribution
+          authorName={item.photoAuthorName}
+          authorUrl={item.photoAuthorUrl}
+          sourceUrl={item.photoSourceUrl}
+          className="mt-2"
+        />
       </CardContent>
     </Card>
   );

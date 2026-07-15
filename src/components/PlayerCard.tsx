@@ -727,14 +727,6 @@ export function PlayerCard({
               )}
             </div>
 
-            {/* Unsplash photo credit, shown small just below the avatar. */}
-            <PhotoAttribution
-              authorName={photoAuthorName}
-              authorUrl={photoAuthorUrl}
-              sourceUrl={photoSourceUrl}
-              className="max-w-full -mt-1"
-            />
-
             <div className="w-full text-center">
               <h3 className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words flex items-center justify-center gap-1.5 flex-wrap" style={{ fontSize: "clamp(0.7rem, 1.3vw, 1.05rem)" }}>
                 {username}
@@ -954,6 +946,14 @@ export function PlayerCard({
                 </div>
               )}
             </div>
+
+            {/* Unsplash photo credit — at the very bottom of the card. */}
+            <PhotoAttribution
+              authorName={photoAuthorName}
+              authorUrl={photoAuthorUrl}
+              sourceUrl={photoSourceUrl}
+              className="max-w-full"
+            />
           </CardContent>
         </Card>
       </Link>
