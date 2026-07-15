@@ -265,20 +265,19 @@ function BrowsePlayersSection({
             <Button
               key={p.name}
               variant="ghost"
-              size="sm"
               onClick={() => { play("buttons"); setProfession(profession === p.name ? "" : p.name); setPage(1); }}
-              className={
+              className={`h-auto px-5 py-3 text-base ${
                 profession === p.name
                   ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                   : inCombo
                     ? "rounded-lg border border-amber-400 bg-amber-500/25 text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
                     : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-              }
+              }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
+              <img src={p.imagePath} alt="" className="h-8 w-8 mr-1.5 object-contain" />
               {p.name}
-              {inCombo && <span className="ml-1 text-amber-300">✓</span>}
+              {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
             </Button>
             );
           })}
