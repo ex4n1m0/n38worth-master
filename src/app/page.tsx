@@ -272,23 +272,26 @@ export default function Home() {
             </p>
           </DialogHeader>
           <div className="space-y-3 py-4">
+
             <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">What is n38worth?</h3>
               <p className="text-sm leading-relaxed text-gray-300">
-                It&apos;s a social game of connection and ambition, where you gather people
-                around you and grow something that feels like your own little world. Every
-                player carries a spark of value, and together, those sparks can become
-                something extraordinary.
+                A multiplayer card-trading game where every player — human or NPC — is a card
+                with a value. Hire cards to build your empire, grow their value, protect them
+                from rivals, and climb the mission ladder to earn the six legendary Goddesses.
+                Hold all six for one hour and you win: the world resets and your name is carved
+                into the Hall of Champions.
               </p>
             </section>
+
             <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
-              <h3 className="mb-4 text-lg font-semibold text-t1-400">Your Journey</h3>
-              <ol className="space-y-4">
+              <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
+              <ol className="space-y-3">
                 {[
-                  { title: "Start small", body: "You begin with just 100 credits. Everyone starts equal. Hire your first 20 cards to unlock the full game." },
-                  { title: "Build your circle", body: "Hire NPC cards and other players. Each hire increases their value. Steal cards from rivals by hiring them away." },
-                  { title: "Grow your network", body: "When others hire you, you earn credits. Your portfolio generates passive income. Climb the leaderboard." },
-                  { title: "Collect the Goddesses", body: "Six legendary cards, each with a unique power. Earn them through missions. Collect all 6 and hold for 1 hour to win." },
+                  { title: "Create your card", body: "Register, upload your avatar and pick a profession. You start with 100¢ — everyone starts equal." },
+                  { title: "Hire your first cards", body: "Hiring costs the card's current value, and every hire pumps that card's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
+                  { title: "Own 20 cards", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
+                  { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — taken from the richest player, so the rich never run away with the game." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
@@ -302,15 +305,86 @@ export default function Home() {
                 ))}
               </ol>
             </section>
-            <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">The Ultimate Goal</h3>
-              <p className="text-sm leading-relaxed text-gray-300">
-                Hidden within the game are six legendary figures — Goddesses of power and
-                mystery. To find them, to gather them, and to keep them close until time
-                runs out… that is the ultimate pursuit. Those who succeed leave their mark,
-                remembered among the greats.
+
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
+              <ul className="space-y-2.5 text-sm leading-relaxed">
+                {[
+                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire a card for its current value. The previous owner gets paid, the card's value multiplies, and it joins your team." },
+                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your card's value to double it, gift the cost to the card, and extend its sell block by 10 minutes. Your main value-growth engine." },
+                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects a card from being hired away: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
+                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × card value) straight to the owner, then hire the card. Blocks marked Unbreakable can't be broken." },
+                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block that refreshes while you're online. You can move these blocks between your cards." },
+                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 cards) bulk-hires the cheapest available cards — 1 + 10% of your owned count per press, on a short cooldown." },
+                ].map((a) => (
+                  <li key={a.chip} className="flex items-start gap-3">
+                    <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
+                      {a.chip}
+                    </span>
+                    <span className="text-gray-300">{a.body}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
+              <p className="text-sm leading-relaxed text-gray-300 mb-3">
+                There are 6 professions. You pick one for yourself, and you can assign one to any
+                NPC you own. Owning at least one card of a profession (or being it yourself)
+                activates its passive perk:
+              </p>
+              <ul className="space-y-1.5 text-sm text-gray-300">
+                <li><span className="font-semibold text-amber-300">Rift Binder</span> — your sell blocks last 50% longer.</li>
+                <li><span className="font-semibold text-amber-300">Hexblade Courier</span> — break fees you pay are 20% cheaper.</li>
+                <li><span className="font-semibold text-amber-300">Scrap Alchemist</span> — pumping costs 10% less.</li>
+                <li><span className="font-semibold text-amber-300">Spirit Archivist</span> — your daily login reward is 25% bigger.</li>
+                <li><span className="font-semibold text-amber-300">Iron Choir Marshal</span> — +2 hire slots.</li>
+                <li><span className="font-semibold text-amber-300">Plague Cartographer</span> — Mass Hire grabs +1 extra card.</li>
+              </ul>
+              <p className="text-sm leading-relaxed text-gray-300 mt-3">
+                <span className="font-semibold text-amber-300">Combo:</span> collect one card of
+                each profession and sell all 6 together for <span className="font-bold text-amber-300">10× their
+                combined value</span>. The sold cards reset to floor value and 6 fresh NPCs spawn —
+                but you also give up those perks until you rebuild. Choose wisely.
               </p>
             </section>
+
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
+              <p className="text-sm leading-relaxed text-gray-300 mb-3">
+                Grow your empire to earn the legendary cards. Every completed mission also adds
+                +50 hire slots:
+              </p>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
+                <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
+                <li><span className="font-mono text-t1-400">50</span> — Mass Hire card</li>
+                <li><span className="font-mono text-t1-400">100</span> — Goddess of Wealth</li>
+                <li><span className="font-mono text-t1-400">250</span> — Goddess of Knowledge</li>
+                <li><span className="font-mono text-t1-400">500</span> — Goddess of Fate</li>
+                <li><span className="font-mono text-t1-400">1,000</span> — Goddess of Time</li>
+                <li><span className="font-mono text-t1-400">2,000</span> — Goddess of War</li>
+                <li><span className="font-mono text-t1-400">4,000</span> — the Goddess</li>
+              </ul>
+              <p className="text-sm leading-relaxed text-gray-400 mt-3">
+                Each Goddess grants a power while you hold her: Wealth doubles your rewards,
+                Knowledge reveals every hidden avatar, Fate gives your whole team permanent sell
+                blocks (1000× fee to break), Time halves your payout wait, War lets you break
+                blocks for free — and the Goddess activates all powers at once.
+              </p>
+            </section>
+
+            <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">Winning the World</h3>
+              <p className="text-sm leading-relaxed text-gray-300">
+                Hold all six Goddesses at once and a 1-hour countdown begins — visible to
+                everyone. Rivals will do anything to break one card away from you before time
+                runs out. Survive the hour and the world resets: every player starts fresh, and
+                your name joins the Hall of Champions forever. Watch out for the Agent — an AI
+                player that competes for cards just like everyone else.
+              </p>
+            </section>
+
           </div>
           <div className="flex justify-center pb-2">
             <Link href="/register" className="inline-flex items-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-8 py-3 text-base font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 transition-all">
