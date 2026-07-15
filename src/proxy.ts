@@ -12,7 +12,6 @@ const PROTECTED_ROUTES = [
   "/my-owners",
   "/ranks",
   "/history",
-  "/chat",
   "/transactions",
 ];
 

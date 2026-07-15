@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,9 +60,29 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
   const [realtimeMessages, setRealtimeMessages] = useState<ChatMessage[]>([]);
   const [agentTyping, setAgentTyping] = useState(false);
   const [activeDM, setActiveDM] = useState<HumanPlayer | null>(null);
+  const [guestLoading, setGuestLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
   const { unreadPlayers } = useChat();
+
+  // Create a demo account and sign in — lets logged-out visitors start typing.
+  const handleGuestPlay = async () => {
+    setGuestLoading(true);
+    try {
+      const res = await fetch("/api/demo-register", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || "Failed to create guest account");
+      await signIn("credentials", {
+        username: d.username,
+        password: d.password,
+        redirect: false,
+      });
+      window.location.reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to create guest account");
+      setGuestLoading(false);
+    }
+  };
 
   const { data: humanPlayers = [] } = useQuery<HumanPlayer[]>({
     queryKey: ["chat-human-players"],
@@ -347,16 +367,26 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               </Button>
             </form>
           ) : (
-            <div className="flex items-center justify-between bg-gray-900 border border-gray-700 rounded-xl px-4 py-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3">
               <p className="text-gray-400 text-sm">
                 <span className="text-white font-medium">Sign in</span> to join the conversation
               </p>
-              <Link href="/register">
-                <Button size="sm" className="bg-t1-600 hover:bg-t1-500 text-white gap-1.5">
-                  <LogIn className="h-3.5 w-3.5" />
-                  Join
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleGuestPlay}
+                  disabled={guestLoading}
+                  className="bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30 gap-1.5"
+                >
+                  {guestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Try as Guest"}
                 </Button>
-              </Link>
+                <Link href="/register">
+                  <Button size="sm" className="bg-t1-600 hover:bg-t1-500 text-white gap-1.5">
+                    <LogIn className="h-3.5 w-3.5" />
+                    Join
+                  </Button>
+                </Link>
+              </div>
             </div>
           )}
           <p className="text-center text-gray-700 text-[10px] mt-2">
