@@ -116,6 +116,7 @@ export default function LeaderboardPage() {
           onSearch={handleSearch}
           debouncedSearch={debouncedSearch}
           gameUnlocked={gameUnlocked}
+          comboFilledProfessions={gameUnlocked ? combo.slots.filter((s) => s.player !== null).map((s) => s.profession) : []}
           comboSelection={gameUnlocked ? {
             isSelected: combo.isSelected,
             onToggle: combo.toggleSelection,
@@ -133,6 +134,7 @@ function BrowsePlayersSection({
   debouncedSearch,
   comboSelection,
   comboBar,
+  comboFilledProfessions = [],
   gameUnlocked = true,
 }: {
   search: string;
@@ -153,6 +155,7 @@ function BrowsePlayersSection({
     ) => boolean;
   };
   comboBar?: ReactNode;
+  comboFilledProfessions?: string[];
   gameUnlocked?: boolean;
 }) {
   const [page, setPage] = useState(1);
@@ -256,7 +259,9 @@ function BrowsePlayersSection({
         {gameUnlocked && (
         <div className="flex gap-2 flex-wrap items-center">
           <span className="text-xs text-gray-500 mr-1">Profession:</span>
-          {PROFESSIONS.map((p) => (
+          {PROFESSIONS.map((p) => {
+            const inCombo = comboFilledProfessions.includes(p.name);
+            return (
             <Button
               key={p.name}
               variant="ghost"
@@ -265,14 +270,18 @@ function BrowsePlayersSection({
               className={
                 profession === p.name
                   ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                  : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+                  : inCombo
+                    ? "rounded-lg border border-amber-400 bg-amber-500/25 text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
+                    : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
               {p.name}
+              {inCombo && <span className="ml-1 text-amber-300">✓</span>}
             </Button>
-          ))}
+            );
+          })}
         </div>
         )}
         <div className="flex gap-2 flex-wrap">

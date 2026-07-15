@@ -164,9 +164,12 @@ export function Navbar() {
   return (
     <>
 
+      {/* Sticky header block — nav + mission bar + credits bar stick together
+          as one unit so nothing slides under the navbar while scrolling. */}
+      <div className="sticky top-0 z-50">
 
       {/* Top Navbar — two rows of nav buttons + right-side controls spanning full height */}
-      <nav className="sticky top-0 z-50 border-b border-gray-800 bg-gray-950/80 backdrop-blur-xl">
+      <nav className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-xl">
         <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center">
 
@@ -255,15 +258,15 @@ export function Navbar() {
         </div>
       </nav>
 
-      {/* Mission Progress Bar — sticky below nav, above credits */}
-      <div className="sticky top-[72px] z-40 border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
+      {/* Mission Progress Bar — below nav, above credits (inside sticky block) */}
+      <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
         <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5">
           <MissionProgress />
         </div>
       </div>
 
       {/* Credits + Player Value Bar */}
-      <div className="sticky top-[108px] z-40 border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
+      <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
         <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-1.5">
             <div className="flex items-center gap-2">
@@ -297,9 +300,9 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Poach feed — own sticky row below credits bar */}
+      {/* Poach feed — own row below credits bar (inside sticky block) */}
       {poachEvent && (
-        <div className="sticky top-[144px] z-39 border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
+        <div className="border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
           <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
             <div
               key={poachEvent.id}
@@ -319,6 +322,8 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      </div>{/* end sticky header block */}
 
       {/* Mobile Bottom Tab Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-gray-950/95 backdrop-blur-xl safe-area-bottom">
