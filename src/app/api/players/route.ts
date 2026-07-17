@@ -21,12 +21,26 @@ export async function GET(req: Request) {
   const noPartner = searchParams.get("noPartner") || "";
   const profession = searchParams.get("profession") || "";
   const ownerFilter = searchParams.get("ownerFilter") || "";
+  const affordable = searchParams.get("affordable") === "true";
   const offset = (page - 1) * limit;
 
   try {
     // Get current user session to exclude self and owned players
     const session = await auth();
     const currentUserId = session?.user?.id ? Number(session.user.id) : null;
+
+    // "Affordable" filter: only show cards whose current player_value is within
+    // the requesting user's credit balance. Requires a logged-in user; when no
+    // session is present the filter is a no-op (we still return the rest).
+    let userCredits: number | null = null;
+    if (affordable && currentUserId) {
+      const [row] = await db
+        .select({ credits: users.credits })
+        .from(users)
+        .where(eq(users.id, currentUserId))
+        .limit(1);
+      userCredits = row ? Number(row.credits) : null;
+    }
 
     // Build WHERE conditions
     const conditions = [];
@@ -74,6 +88,10 @@ export async function GET(req: Request) {
 
     if (search) {
       conditions.push(ilike(users.username, `%${search}%`));
+    }
+    // Affordable: only cards the current user can buy with their credits.
+    if (affordable && userCredits !== null) {
+      conditions.push(sql`"users"."player_value" <= ${userCredits}`);
     }
     if (hasOwner === "true") {
       conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0`);

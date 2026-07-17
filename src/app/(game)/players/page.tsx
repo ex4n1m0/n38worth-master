@@ -6,7 +6,7 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield } from "lucide-react";
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
 
@@ -23,6 +23,7 @@ export default function PlayersPage() {
   const [hasTeam, setHasTeam] = useState(false);
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
+  const [affordable, setAffordable] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // Always 90 cards per page.
   const pageSize = 90;
@@ -34,7 +35,7 @@ export default function PlayersPage() {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ["players", debouncedSearch, page, pageSize, sort, dir, ownerFilter, playerType, hasTeam, available, profession],
+    queryKey: ["players", debouncedSearch, page, pageSize, sort, dir, ownerFilter, playerType, hasTeam, available, profession, affordable],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -47,6 +48,7 @@ export default function PlayersPage() {
         ...(hasTeam && { hasPlayers: "true" }),
         ...(available && { noPartner: "true" }),
         ...(profession && { profession }),
+        ...(affordable && { affordable: "true" }),
       });
       const res = await fetch(`/api/players?${params}`);
       if (!res.ok) throw new Error("Failed to fetch players");
@@ -114,6 +116,9 @@ export default function PlayersPage() {
           </FilterPill>
           <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }}>
             <Shield className="h-3 w-3" /> Available
+          </FilterPill>
+          <FilterPill active={affordable} onClick={() => { setAffordable(!affordable); setPage(1); }}>
+            <Sparkles className="h-3 w-3" /> Affordable
           </FilterPill>
         </div>
 

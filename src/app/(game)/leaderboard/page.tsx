@@ -169,6 +169,8 @@ function BrowsePlayersSection({
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
+  // "Affordable" hides any card the user can't currently buy with their credits.
+  const [affordable, setAffordable] = useState(false);
   const { play } = useSound();
 
   const limit = pageSize;
@@ -197,6 +199,7 @@ function BrowsePlayersSection({
       ownerFilter,
       playerType,
       profession,
+      affordable,
       page,
       limit,
     ],
@@ -211,6 +214,7 @@ function BrowsePlayersSection({
           ...(ownerFilter && { ownerFilter }),
           ...(playerType && { playerType }),
           ...(profession && { profession }),
+          ...(affordable && { affordable: "true" }),
         });
         const res = await fetch(`/api/players?${params}`);
         if (!res.ok) throw new Error("Failed to fetch players");
@@ -396,6 +400,24 @@ function BrowsePlayersSection({
           >
             <CreditCard className="h-3.5 w-3.5 mr-1" />
             NPC
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("buttons");
+              setAffordable((a) => !a);
+              setPage(1);
+            }}
+            className={
+              affordable
+                ? "rounded-lg border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 font-semibold hover:bg-emerald-500/15 hover:text-emerald-200"
+                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+            }
+            title="Only show cards you can afford with your current credits"
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Affordable
           </Button>
           {gameUnlocked && (
           <>
