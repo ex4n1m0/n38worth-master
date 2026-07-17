@@ -305,8 +305,12 @@ interface RankSnapshot {
 async function getRankSnapshot(): Promise<RankSnapshot> {
   const empty: RankSnapshot = { empire: [], value: [], credits: [], goddessHolders: [], blockedCount: [], onlineHumans: [] };
   try {
-    const ownedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`;
-    const blockedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id} AND o.block_sell_until > NOW())`;
+    // NOTE: use a literal "users"."id" here — drizzle renders `${users.id}`
+    // UNQUALIFIED (just "id") inside raw SQL in the SELECT field list of
+    // no-join queries, which made the correlated subquery resolve "id" to
+    // the ownership alias (o.id) and always return 0.
+    const ownedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`;
+    const blockedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id" AND o.block_sell_until > NOW())`;
     const humans = and(
       eq(users.isNpc, 0),
       eq(users.isActive, 1),

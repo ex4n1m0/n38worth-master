@@ -23,3 +23,11 @@
   new value-growth site with these so values never approach `MAX_SAFE_INTEGER`
   (which makes cards unaffordable/unpurchasable).
 - Credits are capped at `MAX_CREDITS` (`MAX_CREDITS_SQL`) in the same file.
+- **Drizzle gotcha:** in a no-join `db.select({...}).from(users)` query, a
+  column embedded in a raw `sql` template **in the SELECT field list** renders
+  UNQUALIFIED (`${users.id}` → `"id"`, not `"users"."id"`). Inside a correlated
+  subquery like `(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`
+  the bare `"id"` resolves to the subquery's own table (`o.id`) and silently
+  returns wrong results (usually 0). Use a literal `"users"."id"` in raw
+  select-field subqueries instead. WHERE/ORDER BY raw sql and joined queries
+  render qualified names and are fine.

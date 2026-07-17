@@ -80,7 +80,9 @@ export async function countOnlineHumans(): Promise<number> {
  * the Agent). Used by the Agent to avoid getting too far ahead of real players.
  */
 export async function getTopHumanOwnedCount(): Promise<number> {
-  const ownedCount = sql<number>`(SELECT COUNT(*)::int FROM ownership o WHERE o.owner_id = ${users.id})`;
+  // Literal "users"."id" — drizzle renders `${users.id}` unqualified in raw
+  // SQL select fields of no-join queries, breaking the correlated subquery.
+  const ownedCount = sql<number>`(SELECT COUNT(*)::int FROM ownership o WHERE o.owner_id = "users"."id")`;
   const [row] = await db
     .select({ count: ownedCount.as("owned_count") })
     .from(users)
