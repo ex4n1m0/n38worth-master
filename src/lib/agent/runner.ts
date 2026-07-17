@@ -1,7 +1,6 @@
 import { db } from "@/db";
 import { users, gameSettings, gameHistory, ownership } from "@/db/schema";
 import { eq, sql, desc } from "drizzle-orm";
-import { ensureAgent } from "@/lib/agent/seed";
 import { buildStrategy } from "@/lib/agent/strategy";
 import { heuristicDecision } from "@/lib/agent/llm";
 import { buyPlayerCore, breakPartnershipCore, blockSellCore } from "@/lib/purchaseCore";
@@ -9,11 +8,16 @@ import { sellComboCore } from "@/lib/comboCore";
 import { countOnlineHumans, getTopHumanOwnedCount } from "@/lib/random-player";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { getProfessionPerks } from "@/lib/professionPerks";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
-const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the Agent's last play turn
+const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the AGI's last play turn
 const CYCLE_START_KEY = "agent_cycle_start"; // epoch seconds of the current 15-min cycle
+
+function agentSettingKey(base: string, agentId: number): string {
+  return `${base}_${agentId}`;
+}
 
 // ── Aggressive cycle: 5 minutes ON, 10 minutes OFF ──
 // The Agent plays aggressively (buys/steals/pumps as much as possible) for 5
@@ -76,12 +80,14 @@ async function pumpValuableOwnedCards(agentId: number): Promise<AgentMove[]> {
 
     let remainingCredits = Number(agent.credits);
     let pumps = 0;
+    const perks = await getProfessionPerks(agentId);
+    const pumpCostMultiplier = perks.has("Scrap Alchemist") ? 0.9 : 1;
 
     for (const card of owned) {
       if (pumps >= MAX_PUMPS_PER_TURN) break;
       if (GODDESS_USERNAMES.includes(card.username)) continue;
 
-      const cost = Math.max(1, Math.round(Number(card.playerValue)));
+      const cost = Math.max(1, Math.round(Number(card.playerValue) * pumpCostMultiplier));
       if (cost > remainingCredits) continue;
 
       // Skip cards already at the 12h block cap.
@@ -180,6 +186,7 @@ export interface AgentRunResult {
  * purchases.
  */
 export async function runAgentTurn(
+  agentId: number,
   opts: { maxActions?: number } = {}
 ): Promise<AgentRunResult> {
   if ((process.env.AGENT_ENABLED ?? "").trim() !== "true") {
@@ -200,8 +207,13 @@ export async function runAgentTurn(
   // ── Aggressive cycle: 5 min ON / 10 min OFF ──
   // Determine where we are in the 15-minute cycle.
   const nowSec = Math.floor(Date.now() / 1000);
+  // The roster shares one 5-on/10-off cycle. The cron rotates the active AGI,
+  // so five roster members act in each burst and the starting index shifts on
+  // the next cycle, giving all six equal turns over time.
+  const dayKey = agentSettingKey(DAY_KEY, agentId);
+  const daySpentKey = agentSettingKey(DAY_SPENT_KEY, agentId);
   let cycleStart = (await getSetting(CYCLE_START_KEY)) ?? 0;
-  // Initialize or rotate cycle if the current one has expired.
+  // Initialize or rotate the shared cycle if the current one has expired.
   const isNewCycle = cycleStart === 0 || nowSec - cycleStart >= CYCLE_DURATION_SECONDS;
   if (isNewCycle) {
     cycleStart = nowSec;
@@ -231,29 +243,29 @@ export async function runAgentTurn(
   const capEnabled = Number.isFinite(dailySpendCap) && dailySpendCap > 0;
 
   const now = new Date();
-  const agentId = await ensureAgent();
 
-  // At the start of each new cycle, refill the Agent's credits so it can play
-  // aggressively. The Agent earns no passive income, so without a refill it
-  // would run dry and stall. Give it enough to buy several cards per burst.
-  if (isNewCycle) {
+  // Refill each AGI once when she first participates in a new shared cycle.
+  const refillCycleKey = agentSettingKey("agent_last_refill_cycle", agentId);
+  const lastRefillCycle = (await getSetting(refillCycleKey)) ?? 0;
+  if (lastRefillCycle !== cycleStart) {
     const refillAmount = Number(process.env.AGENT_REFILL_CREDITS ?? 100000);
     await db.update(users)
       .set({ credits: sql`LEAST(credits + ${refillAmount}, ${sql.raw(MAX_CREDITS_SQL)})`, updatedAt: now })
       .where(eq(users.id, agentId));
-    console.log(`Agent refilled with ${refillAmount} credits for new aggressive cycle`);
+    await setSetting(refillCycleKey, cycleStart);
+    console.log(`AGI ${agentId} refilled with ${refillAmount} credits for cycle ${cycleStart}`);
   }
 
   // Spend-cap bookkeeping (only when the cap is enabled).
   let spentToday = 0;
   if (capEnabled) {
     const today = todayInt(now);
-    const storedDay = await getSetting(DAY_KEY);
+    const storedDay = await getSetting(dayKey);
     if (storedDay !== today) {
-      await setSetting(DAY_KEY, today);
-      await setSetting(DAY_SPENT_KEY, 0);
+      await setSetting(dayKey, today);
+      await setSetting(daySpentKey, 0);
     } else {
-      spentToday = (await getSetting(DAY_SPENT_KEY)) ?? 0;
+      spentToday = (await getSetting(daySpentKey)) ?? 0;
     }
   }
 
@@ -271,8 +283,8 @@ export async function runAgentTurn(
     .select({ count: sql<number>`COUNT(*)::int` })
     .from(ownership)
     .where(eq(ownership.ownerId, agentId));
-  const agentOwned = Number(agentOwnedRow?.count ?? 0);
-  const buyCapReached = agentOwned >= topHumanOwned + AGENT_OWNED_CAP_AHEAD;
+  let agentOwned = Number(agentOwnedRow?.count ?? 0);
+  const buyCapReached = () => agentOwned >= topHumanOwned + AGENT_OWNED_CAP_AHEAD;
 
   for (let i = 0; i < maxActions; i++) {
     if (capEnabled && spentToday >= dailySpendCap) {
@@ -295,7 +307,7 @@ export async function runAgentTurn(
     let success = false;
 
     if (decision.action === "BUY") {
-      if (buyCapReached) {
+      if (buyCapReached()) {
         moves.push({ action: "WAIT", source, reason: `owned cap reached (${agentOwned} vs top human ${topHumanOwned}, cap +${AGENT_OWNED_CAP_AHEAD})` });
         break;
       }
@@ -312,10 +324,11 @@ export async function runAgentTurn(
         const result = await buyPlayerCore(agentId, decision.targetId, 1);
         detail = result;
         success = !!result.success;
+        if (success) agentOwned++;
         if (success && typeof result.cost === "number") spent = result.cost;
       }
     } else if (decision.action === "BREAK") {
-      if (buyCapReached) {
+      if (buyCapReached()) {
         moves.push({ action: "WAIT", source, reason: `owned cap reached — skip break` });
         break;
       }
@@ -329,18 +342,20 @@ export async function runAgentTurn(
         const result = await breakPartnershipCore(agentId, decision.targetId);
         detail = result;
         success = !!result.success;
+        if (success) agentOwned++;
         if (success && typeof result.totalCost === "number") spent = result.totalCost;
       }
     } else if (decision.action === "SELL_COMBO") {
       const result = await sellComboCore(agentId, decision.playerIds);
       detail = result;
       success = !!(result as { success?: boolean }).success;
+      if (success) agentOwned = Math.max(0, agentOwned - decision.playerIds.length);
     }
 
     if (spent > 0) {
       spentToday += spent;
       if (capEnabled) {
-        await setSetting(DAY_SPENT_KEY, Math.min(spentToday, 2_000_000_000));
+        await setSetting(daySpentKey, Math.min(spentToday, 2_000_000_000));
       }
     }
 
@@ -410,7 +425,7 @@ async function blockSellValuableCards(agentId: number): Promise<AgentMove[]> {
       .limit(20);
 
     const now = Date.now();
-    let remainingCredits = Number(agent.credits);
+    const remainingCredits = Number(agent.credits);
     // Spend at most 50% of credits on block-sells (keep the rest for buys).
     const blockBudget = remainingCredits * 0.5;
     let blocks = 0;

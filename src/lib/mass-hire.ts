@@ -11,11 +11,12 @@
 
 import { db } from "@/db";
 import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
-import { eq, and, sql, asc, ne, isNotNull } from "drizzle-orm";
+import { eq, and, sql, asc, ne, isNotNull, notInArray } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getProfessionPerks } from "@/lib/professionPerks";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAMES, isAgentUsername } from "@/lib/agent/roster";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
@@ -219,13 +220,11 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     }
     const maxHires = Math.min(hireLimit, availableSlots);
 
-    // 5. Find cheapest ownerless players first (excluding self, the Mass Hire
-    //    card, goddesses, and the Agent). Sort by playerValue ascending.
+    // 5. Find cheapest ownerless players first (excluding self, Mass Hire,
+    //    goddesses, and every AGI). Sort by playerValue ascending.
     //    Cap ownerless hires at maxHires - 1 so at least 1 slot is reserved for
-    //    a poach (owned card). Poaching awards +1 hire slot (same as regular
-    //    purchases), which grows the buyer's hire limit and prevents them from
-    //    getting stuck at the slot cap.
-    const excludeSpecialSql = sql`${users.username} NOT IN ('Mass Hire', 'Agent', 'Goddess of Wealth', 'Goddess of Knowledge', 'Goddess of Fate', 'Goddess of Time', 'Goddess of War', 'Goddess')`;
+    //    a poach (owned card). Poaching awards +1 hire slot.
+    const excludedSpecialNames = [MASS_HIRE_USERNAME, ...GODDESS_USERNAMES, ...AGENT_USERNAMES];
 
     const ownerlessCap = Math.max(0, maxHires - 1);
 
@@ -242,7 +241,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           ne(users.id, buyerId),
           eq(users.isActive, 1),
           sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`,
-          excludeSpecialSql
+          notInArray(users.username, excludedSpecialNames)
         )
       )
       .orderBy(asc(users.playerValue))
@@ -270,7 +269,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
             sql`NOT EXISTS (SELECT 1 FROM ownership o2 WHERE o2.owner_id = ${buyerId} AND o2.owned_id = ${users.id})`,
             // Not currently partnered (blockSellUntil or permBlockUntil in the future).
             sql`NOT EXISTS (SELECT 1 FROM ownership o3 WHERE o3.owned_id = ${users.id} AND ((o3.block_sell_until IS NOT NULL AND o3.block_sell_until > NOW()) OR (o3.perm_block_until IS NOT NULL AND o3.perm_block_until > NOW())))`,
-            excludeSpecialSql
+            notInArray(users.username, excludedSpecialNames)
           )
         )
         .orderBy(asc(users.playerValue))
@@ -294,7 +293,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const now30s = new Date(Date.now() + 30 * 1000);
 
     let remainingPermBlocks = 0;
-    if (buyer.username !== AGENT_USERNAME) {
+    if (!isAgentUsername(buyer.username)) {
       const [permCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(ownership)

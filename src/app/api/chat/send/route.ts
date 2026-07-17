@@ -4,7 +4,8 @@ import { db } from "@/db";
 import { messages, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { ensureAgent } from "@/lib/agent/seed";
+import { ensureAgents } from "@/lib/agent/seed";
+import { isAgentUsername } from "@/lib/agent/roster";
 import { maybeAgentChat } from "@/lib/agent/chat";
 
 const PUBLIC_REWARD = 0; // Credits earned per public message (disabled)
@@ -119,12 +120,10 @@ export async function POST(req: Request) {
       } else {
         // Send the user's message
         await pusher.trigger("chat-public", "new-message", messagePayload);
-        // Send agent-typing indicator immediately (non-blocking) so the user
-        // sees the typing bubble the instant their message appears.
-        if (sender.isNpc === 0) {
-          console.log("[chat] sending agent-typing event");
+        // Show a generic AGI typing indicator only for messages from real humans.
+        if (sender.isNpc === 0 && !isAgentUsername(sender.username)) {
           pusher.trigger("chat-public", "agent-typing", { typing: true }).catch((e: unknown) => {
-            console.error("[chat] agent-typing trigger failed:", e);
+            console.error("[chat] AGI typing trigger failed:", e);
           });
         }
       }
@@ -132,18 +131,16 @@ export async function POST(req: Request) {
       console.error("Pusher error:", pusherError);
     }
 
-    // When a human posts in the PUBLIC room, have the Agent reply immediately
-    // (instead of waiting for its once-a-minute cron). Runs after the response
-    // is sent so it never slows down the sender.
-    if (!isPrivate && sender.isNpc === 0) {
+    // When a real human posts publicly, rotate exactly one AGI for an immediate
+    // LLM reply. AGI messages never trigger other AGIs, preventing bot loops.
+    if (!isPrivate && sender.isNpc === 0 && !isAgentUsername(sender.username)) {
       after(async () => {
         try {
-          const agentId = await ensureAgent();
-          if (senderId !== agentId) {
-            await maybeAgentChat(agentId, { force: true });
-          }
+          const agents = await ensureAgents();
+          const respondingAgent = agents[newMessage.id % agents.length];
+          await maybeAgentChat(respondingAgent.id, { force: true });
         } catch (e) {
-          console.error("Agent fast-reply error:", e);
+          console.error("AGI fast-reply error:", e);
         }
       });
     }

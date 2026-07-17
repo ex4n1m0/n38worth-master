@@ -1,24 +1,33 @@
 import { db } from "@/db";
 import { users, gameSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import {
+  AGENT_ROSTER,
+  AGENT_USERNAME,
+  type AgentDefinition,
+} from "@/lib/agent/roster";
 
-export const AGENT_USERNAME = "Agent";
-export const AGENT_AVATAR_URL = "/aiplayer.png";
-const AGENT_ID_KEY = "agent_user_id";
+export {
+  AGENT_ROSTER,
+  AGENT_USERNAME,
+  AGENT_AVATAR_URL,
+  AGENT_USERNAMES,
+  getAgentDefinition,
+  isAgentUsername,
+  type AgentDefinition,
+} from "@/lib/agent/roster";
 
-/**
- * Ensures the special "Agent" player exists and returns its user id.
- *
- * The Agent is a normal, vulnerable human-type player (isNpc=0): it appears on
- * the leaderboard, can be hired/owned by others, and is reset on a game win.
- * Its id is cached in `game_settings` so we avoid a username lookup each tick.
- */
-export async function ensureAgent(): Promise<number> {
-  // 1. Try the cached id first.
+function idKey(username: string): string {
+  return `agent_user_id_${username.toLowerCase()}`;
+}
+
+/** Ensures one AGI player exists and returns its user id. */
+export async function ensureAgent(definition: AgentDefinition = AGENT_ROSTER[0]): Promise<number> {
+  const key = idKey(definition.username);
   const [cached] = await db
     .select({ value: gameSettings.settingValue })
     .from(gameSettings)
-    .where(eq(gameSettings.settingKey, AGENT_ID_KEY))
+    .where(eq(gameSettings.settingKey, key))
     .limit(1);
 
   if (cached?.value) {
@@ -27,32 +36,35 @@ export async function ensureAgent(): Promise<number> {
       .from(users)
       .where(eq(users.id, cached.value))
       .limit(1);
-    if (existing) return existing.id;
+    if (existing) {
+      await db
+        .update(users)
+        .set({ avatarUrl: definition.avatarUrl, avatarCompleted: 1, isNpc: 0, isActive: 1, onboardingComplete: 1 })
+        .where(eq(users.id, existing.id));
+      return existing.id;
+    }
   }
 
-  // 2. Fall back to a username lookup (id may have changed after a reset/reseed).
   const [byName] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.username, AGENT_USERNAME))
+    .where(eq(users.username, definition.username))
     .limit(1);
 
   let agentId: number;
   if (byName) {
     agentId = byName.id;
-    // Keep the avatar/flags correct in case the row was reset.
     await db
       .update(users)
-      .set({ avatarUrl: AGENT_AVATAR_URL, avatarCompleted: 1, isNpc: 0, isActive: 1 })
+      .set({ avatarUrl: definition.avatarUrl, avatarCompleted: 1, isNpc: 0, isActive: 1, onboardingComplete: 1 })
       .where(eq(users.id, agentId));
   } else {
-    // 3. Create the Agent as a normal player with the standard 100 starting credits.
     const [created] = await db
       .insert(users)
       .values({
-        username: AGENT_USERNAME,
+        username: definition.username,
         passwordHash: null,
-        avatarUrl: AGENT_AVATAR_URL,
+        avatarUrl: definition.avatarUrl,
         avatarCompleted: 1,
         credits: 100,
         playerValue: 1,
@@ -66,14 +78,29 @@ export async function ensureAgent(): Promise<number> {
     agentId = created.id;
   }
 
-  // Cache the id for subsequent ticks.
   await db
     .insert(gameSettings)
-    .values({ settingKey: AGENT_ID_KEY, settingValue: agentId })
+    .values({ settingKey: key, settingValue: agentId })
     .onConflictDoUpdate({
       target: gameSettings.settingKey,
       set: { settingValue: agentId, updatedAt: new Date() },
     });
 
+  if (definition.username === AGENT_USERNAME) {
+    await db
+      .insert(gameSettings)
+      .values({ settingKey: "agent_user_id", settingValue: agentId })
+      .onConflictDoUpdate({
+        target: gameSettings.settingKey,
+        set: { settingValue: agentId, updatedAt: new Date() },
+      });
+  }
+
   return agentId;
+}
+
+/** Ensures the complete AGI roster and returns definitions paired with IDs. */
+export async function ensureAgents(): Promise<Array<AgentDefinition & { id: number }>> {
+  const ids = await Promise.all(AGENT_ROSTER.map((agent) => ensureAgent(agent)));
+  return AGENT_ROSTER.map((agent, index) => ({ ...agent, id: ids[index] }));
 }

@@ -1,10 +1,11 @@
 import { db } from "@/db";
 import { messages, users, gameSettings, ownership } from "@/db/schema";
-import { desc, eq, sql, and, inArray, ne } from "drizzle-orm";
+import { desc, eq, sql, and, inArray, notInArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { PROFESSIONS } from "@/lib/professions";
 import { countOnlineHumans } from "@/lib/random-player";
+import { AGENT_USERNAMES, getAgentDefinition, isAgentUsername } from "@/lib/agent/roster";
 
 const CHAT_LAST_KEY = "agent_chat_last_at"; // epoch seconds of last Agent chat
 const MAX_LENGTH = 200; // hard cap on the Agent's reply length
@@ -306,26 +307,30 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
   try {
     const ownedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`;
     const blockedExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id} AND o.block_sell_until > NOW())`;
-    const humans = and(eq(users.isNpc, 0), eq(users.isActive, 1));
+    const humans = and(
+      eq(users.isNpc, 0),
+      eq(users.isActive, 1),
+      notInArray(users.username, AGENT_USERNAMES)
+    );
+    const onlineCutoff = new Date(Date.now() - 10 * 60 * 1000);
 
     const [empire, value, credits, blockedCount, onlineRows, goddessRows] = await Promise.all([
       db.select({ username: users.username, metric: ownedExpr.as("m") }).from(users).where(humans).orderBy(desc(ownedExpr)).limit(3),
       db.select({ username: users.username, metric: users.playerValue }).from(users).where(humans).orderBy(desc(users.playerValue)).limit(3),
       db.select({ username: users.username, metric: users.credits }).from(users).where(humans).orderBy(desc(users.credits)).limit(3),
       db.select({ username: users.username, metric: blockedExpr.as("m") }).from(users).where(humans).orderBy(desc(blockedExpr)).limit(3),
-      // Online humans (last 10 min) — use raw SQL to avoid Drizzle field mapping issues.
-      // Exclude the Agent itself.
-      db.execute(sql`
-        SELECT
-          u.id, u.username, u.player_value, u.credits, u.profession,
-          (SELECT COUNT(*) FROM ownership o WHERE o.owner_id = u.id) as owned_count
-        FROM users u
-        WHERE u.is_npc = 0 AND u.is_active = 1
-          AND u.last_online_at > NOW() - INTERVAL '10 minutes'
-          AND u.username != 'Agent'
-        ORDER BY u.player_value DESC
-        LIMIT 10
-      `),
+      // Online real humans (last 10 min), excluding every AGI in the roster.
+      db.select({
+        username: users.username,
+        playerValue: users.playerValue,
+        credits: users.credits,
+        profession: users.profession,
+        ownedCount: ownedExpr.as("owned_count"),
+      })
+        .from(users)
+        .where(and(humans, sql`${users.lastOnlineAt} > ${onlineCutoff}`))
+        .orderBy(desc(users.playerValue))
+        .limit(10),
       // Goddess holders
       db.select({ username: users.username, ownerId: ownership.ownerId })
         .from(users)
@@ -367,17 +372,13 @@ async function getRankSnapshot(): Promise<RankSnapshot> {
       credits: norm(credits),
       goddessHolders,
       blockedCount: norm(blockedCount),
-      onlineHumans: (onlineRows as unknown as Array<{ username: string; player_value: number; credits: number; profession: string | null; owned_count: number }>).map((r) => {
-        const ownedCount = Number(r.owned_count ?? 0);
-        console.log(`[Agent chat] Online player: ${r.username} | owned_count: ${r.owned_count} | parsed: ${ownedCount}`);
-        return {
-          username: r.username,
-          playerValue: Number(r.player_value),
-          ownedCount,
-          credits: Number(r.credits),
-          profession: r.profession,
-        };
-      }),
+      onlineHumans: onlineRows.map((r) => ({
+        username: r.username,
+        playerValue: Number(r.playerValue),
+        ownedCount: Number(r.ownedCount ?? 0),
+        credits: Number(r.credits),
+        profession: r.profession,
+      })),
     };
   } catch {
     return empty;
@@ -451,7 +452,7 @@ export async function maybeAgentChat(agentId: number, opts: { force?: boolean } 
   const hasHumanTrigger = recent.some(
     (m) =>
       m.isNpc === 0 &&
-      m.senderId !== agentId &&
+      !isAgentUsername(m.username) &&
       Math.floor(new Date(m.createdAt).getTime() / 1000) > triggerFloor
   );
   const cooldownElapsed = opts.force || nowSec - lastAt >= REPLY_COOLDOWN_SECONDS;
@@ -461,25 +462,32 @@ export async function maybeAgentChat(agentId: number, opts: { force?: boolean } 
   }
   const mode: "reply" | "proactive" = hasHumanTrigger && cooldownElapsed ? "reply" : "proactive";
 
-  // Generate a short, on-topic message. Silent if the LLM isn't configured.
-  // Feed the Agent's live standing + the current top-3 ranks so it references
-  // real game state and can comment on who's leading.
-  const [stats, ranks] = await Promise.all([getAgentStats(agentId), getRankSnapshot()]);
-  const reply = await generateChatReply(recent, stats, ranks, mode);
-  if (!reply) {
-    // Still advance the cadence clock a little? No — keep silent without
-    // burning the 10-min window so a real reply can land once the LLM is back.
-    return { chatted: false, skipped: "no reply" };
-  }
-
-  // Look up the Agent's display fields for the realtime payload.
+  // Look up this AGI's identity before prompting so each roster member speaks
+  // with her own name and personality.
   const [agent] = await db
     .select({ id: users.id, username: users.username, avatarUrl: users.avatarUrl })
     .from(users)
     .where(eq(users.id, agentId))
     .limit(1);
-  if (!agent) {
+  if (!agent || !isAgentUsername(agent.username)) {
     return { chatted: false, skipped: "agent missing" };
+  }
+
+  // Generate a short, on-topic message. There is deliberately no canned
+  // fallback: every AGI chat message must come from the configured LLM.
+  const [stats, ranks] = await Promise.all([getAgentStats(agentId), getRankSnapshot()]);
+  const definition = getAgentDefinition(agent.username);
+  const reply = await generateChatReply(
+    recent,
+    stats,
+    ranks,
+    mode,
+    agent.username,
+    definition?.identity ?? "an AGI",
+    definition?.personality ?? "Competitive, concise, and focused on the game."
+  );
+  if (!reply) {
+    return { chatted: false, skipped: "no reply" };
   }
 
   const [newMessage] = await db
@@ -566,7 +574,10 @@ async function generateChatReply(
   recent: PublicMessage[],
   stats: AgentChatStats,
   ranks: RankSnapshot,
-  mode: "reply" | "proactive"
+  mode: "reply" | "proactive",
+  agentName: string,
+  identity: string,
+  personality: string
 ): Promise<string | null> {
   const baseUrl = (process.env.AGENT_LLM_BASE_URL ?? "").trim();
   const apiKey = (process.env.AGENT_LLM_API_KEY ?? "").trim();
@@ -579,12 +590,7 @@ async function generateChatReply(
     ? [...recent].reverse().map((m) => `${m.username}: ${m.content}`).join("\n")
     : "(chat is quiet right now)";
 
-  // Concrete game knowledge so replies sound like a real player, not a bot that
-  // half-understands the rules. Kept factual and specific to THIS game.
-  const professionNames = PROFESSIONS.map((p) => p.name).join(", ");
-  const goddessNames = GODDESS_USERNAMES.filter((g) => g !== "Goddess").join(", ");
-
-  // Build goddess power summary for the Agent
+  // Build goddess power summary for the AGI
   const myPowers: string[] = [];
   if (stats.hasWar) myPowers.push("War (free breaks)");
   if (stats.hasFate) myPowers.push("Fate (permanent sell blocks on your team)");
@@ -609,8 +615,9 @@ async function generateChatReply(
     : "none";
 
   const systemPrompt =
-    "You are 'Agent', a sharp, competitive HUMAN player in NetWorth, a card-trading game. " +
-    "Casual, confident, a little cocky. You know the game inside out.\n" +
+    `You are '${agentName}', ${identity} competitor in NetWorth, a card-trading game. ` +
+    `Your distinct personality: ${personality} ` +
+    "You know the game inside out and may identify as an AGI player when relevant.\n" +
     "\nGAME: Players ARE cards. Hire cards with credits (¢) — hiring from an owner STEALS it. " +
     "Sell blocks protect cards (breakable for a fee). War=free breaks, Fate=1000× break cost. " +
     "6 professions → combo sale pays sum×10. 6 goddesses (earned via missions, not bought) = win. " +
@@ -626,9 +633,9 @@ async function generateChatReply(
     "\nRANKS:\n" + formatRanks(ranks) +
     "\n\nSTYLE: One short sentence (max ~200 chars). No markdown/lists/emoji spam. " +
     "Talk only about the game — hires, steals, values, combos, goddesses, ranks, sell blocks, trash talk. " +
-    "Sound human, never robotic. Reference online players' REAL stats (cards hired, value, credits). " +
+    "Sound natural, not like a customer-service bot. Reference online humans' REAL stats (cards hired, value, credits). " +
     "React to poaches. Mention your powers casually. Call out goddess holders. " +
-    "Never reveal you're an AI.";
+    `Never speak as another AGI; you are always ${agentName}.`;
 
   const url = `${baseUrl.replace(/\/$/, "")}/v1/chat/completions`;
   const controller = new AbortController();
@@ -667,8 +674,8 @@ async function generateChatReply(
                   ).join("\n") + "\n\n"
                 : "") +
               (mode === "reply"
-                ? "Write Agent's next short public reply. React to what was just said, sound like a real player who knows the game, and keep it to one line about the game only. If a player is online, reference their actual stats (e.g. '3000 cards? seriously?')."
-                : "The chat is quiet — start a short, lively public message on your own. Comment on the current top standings (call out or trash-talk the leader, or hype your own climb), or the market/your latest moves. If a player is online, reference their actual stats. One natural line about the game only."),
+                ? `Write ${agentName}'s next short public reply. React to what was just said, follow her personality, and keep it to one line about the game only. If a human is online, reference their actual stats.`
+                : `The chat is quiet — write one short, lively message from ${agentName}. Follow her personality and comment on standings, the market, or her latest moves. Reference an online human's real stats when useful.`),
           },
         ],
       }),

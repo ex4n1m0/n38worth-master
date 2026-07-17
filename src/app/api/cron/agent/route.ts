@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
 import { countOnlineHumans } from "@/lib/random-player";
 import { runAgentTurn, type AgentRunResult } from "@/lib/agent/runner";
-import { ensureAgent } from "@/lib/agent/seed";
+import { ensureAgents } from "@/lib/agent/seed";
 import { maybeAgentChat } from "@/lib/agent/chat";
 
-// Allow the burst of moves (up to ~6 LLM calls) to finish within one invocation.
 export const maxDuration = 60;
 
 /**
- * AI Agent cron — fires every minute (see vercel.json).
- *
- * Gating:
- *   - CRON_SECRET bearer (same as other crons).
- *   - AGENT_ENABLED must be "true" (checked inside runAgentTurn).
- *   - PLAYING happens whenever at least one human is online — the Agent is a
- *     competitive player that participates in the market alongside everyone.
- *   - CHATTING happens whenever at least one human is online.
+ * AGI roster cron — fires every minute. All six AGIs are created up front, then
+ * one is selected round-robin for gameplay each tick. This gives every AGI the
+ * same full gameplay logic without launching six concurrent 10-action bursts.
+ * Chat uses the same rotating AGI and is globally throttled in maybeAgentChat.
  */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -33,11 +28,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, ran: false, skipped: "disabled", timestamp: now.toISOString() });
     }
 
-    // Ensure the Agent player exists so it shows on the leaderboard even on
-    // ticks where it doesn't act (e.g. no humans online). Cheap (cached id).
-    const agentId = await ensureAgent();
+    const agents = await ensureAgents();
 
-    // Nothing to do in an empty room — never play or chat with no humans online.
+    // Hard gate: AGIs neither play nor speak unless a real human is online.
     const onlineHumans = await countOnlineHumans();
     if (onlineHumans <= 0) {
       return NextResponse.json({
@@ -45,40 +38,42 @@ export async function GET(req: Request) {
         ran: false,
         skipped: "no humans online",
         onlineHumans,
+        agents: agents.map(({ id, username }) => ({ id, username })),
         timestamp: now.toISOString(),
       });
     }
 
-    // Play whenever at least one human is online — the Agent competes
-    // alongside real players in the market. During the aggressive 5-min burst,
-    // it does up to 10 actions per tick (buy/steal/break as much as possible).
+    // Rotate one AGI per minute. Each receives the exact same runner logic and
+    // individual cycle/cooldown bookkeeping keyed by its own user id.
+    const rosterIndex = Math.floor(now.getTime() / 60_000) % agents.length;
+    const activeAgent = agents[rosterIndex];
+    const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 10);
     let result: AgentRunResult;
-    if (onlineHumans >= 1) {
-      const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 10);
-      result = await runAgentTurn({ maxActions });
-    } else {
-      result = { ran: false, skipped: "no humans online" };
+    try {
+      result = await runAgentTurn(activeAgent.id, { maxActions });
+    } catch (playError) {
+      console.error(`${activeAgent.username} gameplay error:`, playError);
+      result = { ran: false, skipped: "gameplay error" };
     }
 
-    // Reactive, throttled public-chat reply (runs whenever humans are online,
-    // including when 2+ are online and the Agent has stopped playing).
     let chat;
     try {
-      chat = await maybeAgentChat(agentId);
+      chat = await maybeAgentChat(activeAgent.id);
     } catch (chatError) {
-      console.error("Agent chat error:", chatError);
+      console.error(`${activeAgent.username} chat error:`, chatError);
       chat = { chatted: false, skipped: "error" };
     }
 
     return NextResponse.json({
       success: true,
       onlineHumans,
+      activeAgent: { id: activeAgent.id, username: activeAgent.username },
       ...result,
       chat,
       timestamp: now.toISOString(),
     });
   } catch (error) {
-    console.error("Agent cron error:", error);
-    return NextResponse.json({ error: "Agent cron failed" }, { status: 500 });
+    console.error("AGI roster cron error:", error);
+    return NextResponse.json({ error: "AGI roster cron failed" }, { status: 500 });
   }
 }

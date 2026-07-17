@@ -31,7 +31,7 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { isAgentUsername } from "@/lib/agent/roster";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PermBlockButton } from "@/components/PermBlockButton";
@@ -212,7 +212,7 @@ function OwnershipCard({
   const isOwnCard = session?.user?.name === item.username;
   const isBonus = false; // Bonus cards removed from the game.
   const isGoddess = GODDESS_USERNAMES.includes(item.username);
-  const isAgent = item.username === AGENT_USERNAME;
+  const isAgent = isAgentUsername(item.username);
   const isSpecialCard = isAgent || isGoddess || isBonus;
   const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const canAfford = (myCredits ?? 0) >= item.playerValue;

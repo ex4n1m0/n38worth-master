@@ -31,7 +31,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { isAgentUsername } from "@/lib/agent/roster";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
@@ -117,7 +117,7 @@ export default function PlayerProfilePage() {
 
   const { data: credits } = useCredits();
   const isSpecialCard =
-    !!player?.username && (GODDESS_USERNAMES.includes(player.username) || player.username === AGENT_USERNAME);
+    !!player?.username && (GODDESS_USERNAMES.includes(player.username) || isAgentUsername(player.username));
   const heroAvatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const heroProfession = isSpecialCard ? null : player?.profession ?? null;
   const professionImage = getProfessionImage(heroProfession);

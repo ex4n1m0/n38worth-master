@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { sql, eq, ne, and } from "drizzle-orm";
+import { sql, eq, and, notInArray } from "drizzle-orm";
 import { ONLINE_THRESHOLD_MINUTES } from "@/lib/random-player";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
+    const agiNamesSql = sql.join(AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
     const result = await db
       .select({
         totalPlayers: sql<number>`COUNT(*)`,
         totalCredits: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
         totalValues: sql<number>`COALESCE(SUM(player_value), 0)`,
         totalNpcs: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 1 THEN 1 ELSE 0 END), 0)`,
-        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN 1 ELSE 0 END), 0)`,
+        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${agiNamesSql}) THEN 1 ELSE 0 END), 0)`,
       })
       .from(users);
 
@@ -33,7 +34,7 @@ export async function GET() {
         and(
           eq(users.isNpc, 0),
           eq(users.isActive, 1),
-          ne(users.username, AGENT_USERNAME),
+          notInArray(users.username, AGENT_USERNAMES),
           sql`${users.lastOnlineAt} >= ${cutoff}`
         )
       );

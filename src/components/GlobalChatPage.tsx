@@ -12,6 +12,7 @@ import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { InlineDMChat } from "@/components/InlineDMChat";
+import { isAgentUsername } from "@/lib/agent/roster";
 
 interface ChatMessage {
   id: number;
@@ -121,8 +122,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type !== "public") return;
-      // Hide typing indicator only when the Agent's message arrives
-      if (msg.sender.username === "Agent") {
+      // Hide the typing indicator when any roster AGI's message arrives.
+      if (isAgentUsername(msg.sender.username)) {
         setAgentTyping(false);
       }
       setRealtimeMessages((prev) => {
@@ -329,7 +330,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col items-start">
-                <span className="text-[11px] font-semibold text-gray-300 mb-0.5">Agent</span>
+                <span className="text-[11px] font-semibold text-gray-300 mb-0.5">AGI is typing</span>
                 <div className="rounded-2xl rounded-tl-sm bg-gray-800/90 px-4 py-3 shadow-sm">
                   <div className="flex gap-1">
                     <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />

@@ -1,8 +1,8 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { sql, eq, ne, or, and } from "drizzle-orm";
+import { sql, eq, or, and, notInArray } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
 
 /**
@@ -68,7 +68,7 @@ export async function countOnlineHumans(): Promise<number> {
       and(
         eq(users.isNpc, 0),
         eq(users.isActive, 1),
-        ne(users.username, AGENT_USERNAME),
+        notInArray(users.username, AGENT_USERNAMES),
         sql`${users.lastOnlineAt} >= ${cutoff}`
       )
     );
@@ -80,11 +80,13 @@ export async function countOnlineHumans(): Promise<number> {
  * the Agent). Used by the Agent to avoid getting too far ahead of real players.
  */
 export async function getTopHumanOwnedCount(): Promise<number> {
+  const ownedCount = sql<number>`(SELECT COUNT(*)::int FROM ownership o WHERE o.owner_id = ${users.id})`;
   const [row] = await db
-    .select({ count: sql<number>`COALESCE(MAX(sub.cnt), 0)::int` })
-    .from(
-      sql`(SELECT COUNT(*)::int AS cnt FROM ownership o JOIN users u ON o.owner_id = u.id WHERE u.is_npc = 0 AND u.username <> ${AGENT_USERNAME} GROUP BY u.id) AS sub`
-    );
+    .select({ count: ownedCount.as("owned_count") })
+    .from(users)
+    .where(and(eq(users.isNpc, 0), notInArray(users.username, AGENT_USERNAMES)))
+    .orderBy(sql`${ownedCount} DESC`)
+    .limit(1);
   return Number(row?.count ?? 0);
 }
 

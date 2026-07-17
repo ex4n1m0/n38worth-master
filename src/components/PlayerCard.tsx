@@ -17,7 +17,7 @@ import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatNumber, formatCompact, getDynamicFontSize, navbarBtnStyle, formatLastOnline } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAME } from "@/lib/agent/seed";
+import { isAgentUsername } from "@/lib/agent/roster";
 import { getProfessionImage } from "@/lib/professions";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
@@ -161,7 +161,7 @@ export function PlayerCard({
   // Bonus cards have been removed from the game — no player is ever a bonus card.
   const isBonusCard = false;
   const isGoddess = GODDESS_USERNAMES.includes(username);
-  const isAgent = username === AGENT_USERNAME;
+  const isAgent = isAgentUsername(username);
   // Special cards (Agent, Goddesses, bonus) use fill to stretch their art to
   // fill the avatar space without cropping — distortion is acceptable.
   const isSpecialCard = isAgent || isGoddess || isBonusCard;
@@ -909,7 +909,7 @@ export function PlayerCard({
                 across cards regardless of how much extra info each card has. */}
             <div className="w-full text-center">
               <p className="text-xs font-semibold text-gray-300">
-                {username === "Agent" ? "AGI" : playerType === "human" ? "Human" : "NPC"}
+                {isAgent ? "AGI" : playerType === "human" ? "Human" : "NPC"}
               </p>
               {/* Last online timestamp */}
               {lastOnlineAt && (

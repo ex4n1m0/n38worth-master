@@ -379,8 +379,8 @@ export default function Home() {
                 Hold all six Goddesses at once and a 1-hour countdown begins — visible to
                 everyone. Rivals will do anything to break one card away from you before time
                 runs out. Survive the hour and the world resets: every player starts fresh, and
-                your name joins the Hall of Champions forever. Watch out for the Agent — an AI
-                player that competes for cards just like everyone else.
+                your name joins the Hall of Champions forever. Watch out for the six AGI players —
+                autonomous rivals that compete for cards and talk in chat when real humans are online.
               </p>
             </section>
 
