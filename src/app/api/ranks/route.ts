@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { sql, eq, inArray, and, isNotNull } from "drizzle-orm";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     // ── 1. Fetch ALL players once (NO avatarUrl — base64 causes OOM on Neon) ──
+    // Include the 6 goddesses (isNpc=1 but autonomous AI players) alongside
+    // humans + AGIs (isNpc=0). All must have a completed avatar to be visible.
     const allPlayers = await db
       .select({
         id: users.id,
@@ -19,7 +22,11 @@ export async function GET() {
         purchaseCount: users.purchaseCount,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 0), isNotNull(users.avatarUrl), eq(users.avatarCompleted, 1)));
+      .where(and(
+        sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
+        isNotNull(users.avatarUrl),
+        eq(users.avatarCompleted, 1)
+      ));
 
     const totalPlayers = allPlayers.length;
 

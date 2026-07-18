@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, desc, asc, and, isNotNull } from "drizzle-orm";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
-// Humans must have an avatar to appear on public rankings; NPCs are excluded here anyway.
+// Players must have an avatar to appear on public rankings. Includes humans +
+// AGIs (isNpc=0) and the 6 goddesses (isNpc=1 but autonomous AI players).
 const visibleHumanWhere = and(
-  eq(users.isNpc, 0),
+  sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
   isNotNull(users.avatarUrl),
   eq(users.avatarCompleted, 1)
 );
