@@ -1,10 +1,9 @@
 import { db } from "@/db";
-import { users, gameSettings } from "@/db/schema";
+import { users } from "@/db/schema";
 import { sql, eq, or, and, notInArray } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 import { AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
-import { fetchRandomMovieArtwork } from "@/lib/movie-artwork";
 
 /**
  * Tunables for the dynamic NPC-creation cadence.
@@ -119,40 +118,7 @@ export async function getCreationContext(): Promise<{
   };
 }
 
-// ── Avatar source alternation ────────────────────────────────────────────
-//
-// NPC avatars alternate between Unsplash (the original source) and TMDB movie
-// artwork/backdrops (the add-on). A single integer in `game_settings` records the parity:
-//   0 → next creation uses Unsplash
-//   1 → next creation uses TMDB
-// The flag flips after each creation attempt, so over time the split is ~50/50.
-// If the chosen source fails (network error, all duplicates, rate limit), the
-// creation falls back to the OTHER source for that tick — but the parity still
-// flips, keeping the long-run ratio close to 1:1.
-const PARITY_KEY = "npc_source_parity";
-
-async function getParity(): Promise<0 | 1> {
-  const [row] = await db
-    .select({ value: gameSettings.settingValue })
-    .from(gameSettings)
-    .where(eq(gameSettings.settingKey, PARITY_KEY))
-    .limit(1);
-  // Treat null/missing as 0 (Unsplash first, matching prior behavior).
-  return (row?.value ?? 0) === 1 ? 1 : 0;
-}
-
-async function flipParity(): Promise<void> {
-  const current = await getParity();
-  await db
-    .insert(gameSettings)
-    .values({ settingKey: PARITY_KEY, settingValue: current === 0 ? 1 : 0 })
-    .onConflictDoUpdate({
-      target: gameSettings.settingKey,
-      set: { settingValue: current === 0 ? 1 : 0, updatedAt: new Date() },
-    });
-}
-
-// Shape returned by both avatar-source helpers below.
+// Shape returned by the avatar-source helper below.
 interface AvatarFetch {
   avatarUrl: string;
   photoAuthorName: string | null;
@@ -169,7 +135,7 @@ type AvatarFetchResult =
   | { ok: false; reason: string };
 
 /**
- * Original avatar source: Unsplash `/photos/random?count=30`. Fetches a batch
+ * Avatar source: Unsplash `/photos/random?count=30`. Fetches a batch
  * of 30 random photos, shuffles, and returns the first one that compresses and
  * isn't a duplicate. Triggers the Unsplash download event for attribution.
  */
@@ -311,57 +277,11 @@ async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
 }
 
 /**
- * Add-on avatar source: TMDB movie artwork (backdrops). Fetches one random
- * popular movie backdrop, center-crops it to square, downloads/compresses it,
- * and dedup-checks against `photo_source_url` (which has a unique index).
- * Returns null on any failure so the caller can fall back to Unsplash for this
- * tick.
- */
-async function fetchTmdbAvatar(): Promise<AvatarFetchResult> {
-  const artwork = await fetchRandomMovieArtwork();
-  if (!artwork) {
-    return { ok: false, reason: "TMDB returned no usable movie artwork" };
-  }
-
-  // cropToSquare center-crops the 16:9 backdrop to a square before compressing,
-  // so the stored avatar is a clean square — no display-time cropping artifacts.
-  const compressed = await downloadAndCompressAvatar(artwork.imageUrl, { cropToSquare: true });
-  if (!compressed) {
-    return { ok: false, reason: "TMDB artwork failed to download/compress" };
-  }
-
-  // Dedup by photo_source_url (tmdb-<path>) — the unique index will also
-  // enforce this atomically, but the pre-check avoids a wasted insert attempt.
-  const [duplicate] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.photoSourceUrl, artwork.photoSourceUrl))
-    .limit(1);
-  if (duplicate) {
-    return { ok: false, reason: "TMDB artwork already used by another NPC" };
-  }
-
-  console.log(`TMDB movie artwork selected: "${artwork.title}" (${artwork.photoSourceUrl})`);
-  return {
-    ok: true,
-    data: {
-      avatarUrl: compressed,
-      photoAuthorName: artwork.photoAuthorName,
-      photoAuthorUrl: artwork.photoAuthorUrl,
-      photoSourceUrl: artwork.photoSourceUrl,
-      photoMeta: artwork.photoMeta,
-      photoScore: artwork.photoScore,
-    },
-  };
-}
-
-/**
  * Creates a single random NPC player.
  *
- * Avatar source alternates between Unsplash and TMDB movie artwork (backdrops)
- * on each call (see the `npc_source_parity` setting above). If the chosen
- * source fails, the other is tried as a fallback for that tick. Called by the
- * scheduled cron job.
+ * Avatar source: Unsplash random photos. If Unsplash fails (network error, all
+ * duplicates, rate limit), falls back to picsum.photos as a last resort so NPC
+ * creation never stalls. Called by the scheduled cron job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -372,19 +292,6 @@ export async function createRandomPlayer(): Promise<{
 }> {
 
   try {
-    // Avatar source alternation: read parity, try the chosen source first,
-    // fall back to the other source if it fails, then flip parity for next
-    // time. The picsum.photos last-resort fallback runs if BOTH sources fail.
-    const parity = await getParity();
-    const primary = parity === 0 ? fetchUnsplashAvatar : fetchTmdbAvatar;
-    const fallback = parity === 0 ? fetchTmdbAvatar : fetchUnsplashAvatar;
-    const primaryLabel = parity === 0 ? "unsplash" : "tmdb";
-    const fallbackLabel = parity === 0 ? "tmdb" : "unsplash";
-
-    // Always flip parity so the next tick uses the other source — even when
-    // we fall back. This keeps the long-run split close to 1:1.
-    await flipParity();
-
     let avatarUrl: string | null = null;
     let photoAuthorName: string | null = null;
     let photoAuthorUrl: string | null = null;
@@ -393,8 +300,8 @@ export async function createRandomPlayer(): Promise<{
     let photoScore = 0;
     let lastFailReason = "no source attempted";
 
-    const primaryResult = await primary();
-    if (primaryResult.ok) {
+    const unsplashResult = await fetchUnsplashAvatar();
+    if (unsplashResult.ok) {
       ({
         avatarUrl,
         photoAuthorName,
@@ -402,31 +309,18 @@ export async function createRandomPlayer(): Promise<{
         photoSourceUrl,
         photoMeta,
         photoScore,
-      } = primaryResult.data);
+      } = unsplashResult.data);
     } else {
-      lastFailReason = `${primaryLabel}: ${primaryResult.reason}`;
-      console.warn(`Primary avatar source (${primaryLabel}) failed: ${primaryResult.reason}. Trying fallback (${fallbackLabel}).`);
-      const fallbackResult = await fallback();
-      if (fallbackResult.ok) {
-        ({
-          avatarUrl,
-          photoAuthorName,
-          photoAuthorUrl,
-          photoSourceUrl,
-          photoMeta,
-          photoScore,
-        } = fallbackResult.data);
-      } else {
-        lastFailReason = `${primaryLabel}: ${primaryResult.reason}; ${fallbackLabel}: ${fallbackResult.reason}`;
-      }
+      lastFailReason = `unsplash: ${unsplashResult.reason}`;
+      console.warn(`Unsplash avatar source failed: ${unsplashResult.reason}`);
     }
 
     if (!avatarUrl) {
-      // Both primary and fallback sources failed. Last resort: picsum.photos
-      // with a random seed — unique every time, no rate limits, no API key.
-      // Not movie artwork or a portrait, but ensures NPC creation never stalls.
+      // Unsplash failed. Last resort: picsum.photos with a random seed —
+      // unique every time, no rate limits, no API key. Ensures NPC creation
+      // never stalls.
       console.warn(
-        `Both avatar sources failed (${lastFailReason}). Falling back to picsum.photos.`
+        `Unsplash avatar source failed (${lastFailReason}). Falling back to picsum.photos.`
       );
       try {
         const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -499,7 +393,7 @@ export async function createRandomPlayer(): Promise<{
           // Distinguish between the two unique constraints we can hit:
           //   - users.username (collision → retry with a fresh name)
           //   - idx_users_photo_source_url_unique (another concurrent cron
-          //     invocation grabbed the same avatar photo (Unsplash or TMDB) →
+          //     invocation grabbed the same avatar photo (Unsplash) →
           //     give up cleanly so the caller retries on the next tick).
           if (/photo_source_url/i.test(msg)) {
             console.warn(
@@ -538,7 +432,7 @@ export async function createRandomPlayer(): Promise<{
 
     return {
       success: true,
-      message: `Random player "${newPlayer.username}" created with avatar (source: ${photoSourceUrl?.startsWith("tmdb-") ? "TMDB" : photoSourceUrl?.startsWith("picsum-") ? "picsum" : "Unsplash"}).`,
+      message: `Random player "${newPlayer.username}" created with avatar (source: ${photoSourceUrl?.startsWith("picsum-") ? "picsum" : "Unsplash"}).`,
       player: {
         id: newPlayer.id,
         username: newPlayer.username,

@@ -118,17 +118,11 @@ export async function compressAvatarDataUrl(
 
 /**
  * Download an image from a URL and compress it to a ≤ 300 KB WebP data URL.
- * Used for Unsplash and TMDB avatars on random player / quickplay creation.
+ * Used for Unsplash avatars on random player / quickplay creation.
  * Returns null if the download fails.
- *
- * When `cropToSquare` is true, the image is center-cropped to a square BEFORE
- * compression. This is used for TMDB backdrops (16:9) so the stored avatar is
- * a clean square — no display-time cropping artifacts. Unsplash photos are
- * typically already close to square and use the default (no crop).
  */
 export async function downloadAndCompressAvatar(
-  imageUrl: string,
-  options?: { cropToSquare?: boolean }
+  imageUrl: string
 ): Promise<string | null> {
   try {
     // Add timeout to prevent hanging on slow CDN responses in serverless functions
@@ -145,25 +139,7 @@ export async function downloadAndCompressAvatar(
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    let inputBuffer: Buffer = Buffer.from(arrayBuffer);
-
-    // Center-crop to square if requested (used for 16:9 TMDB backdrops).
-    // sharp extracts the center square: min(width, height) × min(width, height).
-    if (options?.cropToSquare) {
-      const metadata = await sharp(inputBuffer).metadata();
-      const w = metadata.width ?? 0;
-      const h = metadata.height ?? 0;
-      if (w > 0 && h > 0) {
-        const size = Math.min(w, h);
-        const left = Math.floor((w - size) / 2);
-        const top = Math.floor((h - size) / 2);
-        inputBuffer = Buffer.from(
-          await sharp(inputBuffer)
-            .extract({ left, top, width: size, height: size })
-            .toBuffer()
-        );
-      }
-    }
+    const inputBuffer: Buffer = Buffer.from(arrayBuffer);
 
     const { buffer: compressed, mimeType } = await compressAvatar(inputBuffer, "image/jpeg");
     const base64 = compressed.toString("base64");
