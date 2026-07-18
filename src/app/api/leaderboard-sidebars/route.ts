@@ -3,12 +3,14 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, gameHistory } from "@/db/schema";
 import { eq, and, sql, desc, isNotNull, inArray } from "drizzle-orm";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 export const dynamic = "force-dynamic";
 
 /**
  * Returns 4 sidebar lists for the leaderboard page:
- *   1. lastOnlineHumans  — 10 most-recently-online humans (online first)
+ *   1. lastOnlineHumans  — 10 most-recently-online players (humans + AGIs +
+ *      goddesses — all autonomous players, online first)
  *   2. recentGets        — last 10 purchase (GET) events
  *   3. recentPumps       — last 10 pump events
  *   4. topScorePlayers    — top 10 players by photo_score
@@ -20,7 +22,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Last 10 humans online (sorted by lastOnlineAt desc — most recent first).
+    // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent
+    //    first). Includes humans + AGIs (isNpc=0) and the 6 goddesses (isNpc=1
+    //    but autonomous AI players). All must have an avatar to be visible.
     const onlineHumans = await db
       .select({
         id: users.id,
@@ -28,7 +32,11 @@ export async function GET() {
         lastOnlineAt: users.lastOnlineAt,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), isNotNull(users.avatarUrl)))
+      .where(and(
+        sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
+        eq(users.isActive, 1),
+        isNotNull(users.avatarUrl)
+      ))
       .orderBy(desc(users.lastOnlineAt))
       .limit(10);
 
