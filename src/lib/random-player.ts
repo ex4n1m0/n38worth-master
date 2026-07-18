@@ -1,9 +1,10 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, gameSettings } from "@/db/schema";
 import { sql, eq, or, and, notInArray } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 import { AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
+import { fetchRandomMoviePoster } from "@/lib/movie-artwork";
 
 /**
  * Tunables for the dynamic NPC-creation cadence.
@@ -118,9 +119,246 @@ export async function getCreationContext(): Promise<{
   };
 }
 
+// ── Avatar source alternation ────────────────────────────────────────────
+//
+// NPC avatars alternate between Unsplash (the original source) and TMDB movie
+// posters (the add-on). A single integer in `game_settings` records the parity:
+//   0 → next creation uses Unsplash
+//   1 → next creation uses TMDB
+// The flag flips after each creation attempt, so over time the split is ~50/50.
+// If the chosen source fails (network error, all duplicates, rate limit), the
+// creation falls back to the OTHER source for that tick — but the parity still
+// flips, keeping the long-run ratio close to 1:1.
+const PARITY_KEY = "npc_source_parity";
+
+async function getParity(): Promise<0 | 1> {
+  const [row] = await db
+    .select({ value: gameSettings.settingValue })
+    .from(gameSettings)
+    .where(eq(gameSettings.settingKey, PARITY_KEY))
+    .limit(1);
+  // Treat null/missing as 0 (Unsplash first, matching prior behavior).
+  return (row?.value ?? 0) === 1 ? 1 : 0;
+}
+
+async function flipParity(): Promise<void> {
+  const current = await getParity();
+  await db
+    .insert(gameSettings)
+    .values({ settingKey: PARITY_KEY, settingValue: current === 0 ? 1 : 0 })
+    .onConflictDoUpdate({
+      target: gameSettings.settingKey,
+      set: { settingValue: current === 0 ? 1 : 0, updatedAt: new Date() },
+    });
+}
+
+// Shape returned by both avatar-source helpers below.
+interface AvatarFetch {
+  avatarUrl: string;
+  photoAuthorName: string | null;
+  photoAuthorUrl: string | null;
+  photoSourceUrl: string | null;
+  photoMeta: NpcPhotoMeta | null;
+  photoScore: number;
+}
+// Human-readable failure reason, surfaced in the cron log + the returned
+// `message` field. Kept as a tuple return so the caller can log without
+// inspecting internals.
+type AvatarFetchResult =
+  | { ok: true; data: AvatarFetch }
+  | { ok: false; reason: string };
+
 /**
- * Creates a single random NPC player with an Unsplash avatar.
- * Called by the scheduled cron job.
+ * Original avatar source: Unsplash `/photos/random?count=30`. Fetches a batch
+ * of 30 random photos, shuffles, and returns the first one that compresses and
+ * isn't a duplicate. Triggers the Unsplash download event for attribution.
+ */
+async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
+  if (!UNSPLASH_ACCESS_KEY) {
+    return { ok: false, reason: "UNSPLASH_ACCESS_KEY is not configured" };
+  }
+
+  const MAX_ATTEMPTS = 4;
+  let rateLimited = false;
+  let authError = false;
+  let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
+
+  for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      const unsplashRes = await fetch(
+        `https://api.unsplash.com/photos/random?count=30`,
+        {
+          headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeout);
+
+      const remainingHeader = unsplashRes.headers.get("X-Ratelimit-Remaining");
+      const remaining = remainingHeader !== null ? parseInt(remainingHeader, 10) : null;
+      if (remaining !== null && !Number.isNaN(remaining)) {
+        if (remaining <= 0) {
+          console.warn("Unsplash rate limit exhausted — aborting retries");
+          rateLimited = true;
+          break;
+        }
+        if (remaining < 100) {
+          console.warn(`Unsplash rate limit low: ${remaining} requests remaining`);
+        }
+      }
+
+      if (!unsplashRes.ok) {
+        console.error(`Unsplash API error (attempt ${i + 1}/${MAX_ATTEMPTS}): HTTP ${unsplashRes.status}`);
+        skipReason = "unsplash_error";
+        if (unsplashRes.status === 404 || unsplashRes.status === 422) continue;
+        if (unsplashRes.status === 429) rateLimited = true;
+        if (unsplashRes.status === 401 || unsplashRes.status === 403) authError = true;
+        break;
+      }
+
+      const unsplashData = await unsplashRes.json();
+      const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
+        .filter(Boolean)
+        .sort(() => Math.random() - 0.5);
+
+      for (const photo of batch) {
+        const candidateUrl =
+          photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
+        if (!candidateUrl) continue;
+
+        const compressed = await downloadAndCompressAvatar(candidateUrl);
+        if (!compressed) {
+          skipReason = "download";
+          continue;
+        }
+        const finalUrl = compressed;
+
+        const sourceUrl = photo.links?.html
+          ? `${photo.links.html}?utm_source=networth&utm_medium=referral`
+          : null;
+
+        const [duplicate] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(
+            or(
+              eq(users.avatarUrl, finalUrl),
+              sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
+            )
+          )
+          .limit(1);
+
+        if (duplicate) {
+          skipReason = "duplicate";
+          continue;
+        }
+
+        // Trigger Unsplash download event (required by API guidelines).
+        if (photo.links?.download_location) {
+          try {
+            const dlController = new AbortController();
+            const dlTimeout = setTimeout(() => dlController.abort(), 5000);
+            await fetch(photo.links.download_location, {
+              headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
+              signal: dlController.signal,
+            });
+            clearTimeout(dlTimeout);
+          } catch (err) {
+            console.error("Unsplash download event failed:", err);
+          }
+        }
+        console.log(`Unsplash random avatar selected (likes=${Number(photo.likes ?? 0)}) on attempt ${i + 1}/${MAX_ATTEMPTS}`);
+        return {
+          ok: true,
+          data: {
+            avatarUrl: finalUrl,
+            photoAuthorName: photo.user?.name || photo.user?.username || null,
+            photoAuthorUrl: photo.user?.links?.html
+              ? `${photo.user.links.html}?utm_source=networth&utm_medium=referral`
+              : null,
+            photoSourceUrl: sourceUrl,
+            photoMeta: {
+              tags: photo.tags,
+              altDescription: photo.alt_description,
+              description: photo.description,
+            },
+            photoScore: Number(photo.likes ?? 0) || 0,
+          },
+        };
+      }
+    } catch (fetchError) {
+      console.error(`Unsplash fetch error (attempt ${i + 1}/${MAX_ATTEMPTS}):`, fetchError);
+      continue;
+    }
+  }
+
+  const reason = authError
+    ? "auth_error (invalid/unauthorized UNSPLASH_ACCESS_KEY)"
+    : rateLimited
+      ? "rate_limit (Unsplash hourly limit hit)"
+      : skipReason === "duplicate"
+        ? "all attempts returned duplicate photos"
+        : skipReason === "download"
+          ? "failed to download/compress all candidate images"
+          : skipReason === "unsplash_error"
+            ? "Unsplash API returned errors on all attempts"
+            : "exhausted all attempts without finding a usable photo";
+  return { ok: false, reason };
+}
+
+/**
+ * Add-on avatar source: TMDB movie posters. Fetches one random popular movie
+ * poster, downloads/compresses it, and dedup-checks against `photo_source_url`
+ * (which has a unique index). Returns null on any failure so the caller can
+ * fall back to Unsplash for this tick.
+ */
+async function fetchTmdbAvatar(): Promise<AvatarFetchResult> {
+  const poster = await fetchRandomMoviePoster();
+  if (!poster) {
+    return { ok: false, reason: "TMDB returned no usable movie poster" };
+  }
+
+  const compressed = await downloadAndCompressAvatar(poster.imageUrl);
+  if (!compressed) {
+    return { ok: false, reason: "TMDB poster failed to download/compress" };
+  }
+
+  // Dedup by photo_source_url (tmdb-<path>) — the unique index will also
+  // enforce this atomically, but the pre-check avoids a wasted insert attempt.
+  const [duplicate] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.photoSourceUrl, poster.photoSourceUrl))
+    .limit(1);
+  if (duplicate) {
+    return { ok: false, reason: "TMDB poster already used by another NPC" };
+  }
+
+  console.log(`TMDB movie poster selected: "${poster.title}" (${poster.photoSourceUrl})`);
+  return {
+    ok: true,
+    data: {
+      avatarUrl: compressed,
+      photoAuthorName: poster.photoAuthorName,
+      photoAuthorUrl: poster.photoAuthorUrl,
+      photoSourceUrl: poster.photoSourceUrl,
+      photoMeta: poster.photoMeta,
+      photoScore: poster.photoScore,
+    },
+  };
+}
+
+/**
+ * Creates a single random NPC player.
+ *
+ * Avatar source alternates between Unsplash and TMDB movie posters on each
+ * call (see the `npc_source_parity` setting above). If the chosen source fails,
+ * the other is tried as a fallback for that tick. Called by the scheduled cron
+ * job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -131,180 +369,61 @@ export async function createRandomPlayer(): Promise<{
 }> {
 
   try {
-    if (!UNSPLASH_ACCESS_KEY) {
-      console.error("UNSPLASH_ACCESS_KEY is not configured");
-      return {
-        success: false,
-        message: "Server misconfiguration: UNSPLASH_ACCESS_KEY is not set",
-      };
-    }
+    // Avatar source alternation: read parity, try the chosen source first,
+    // fall back to the other source if it fails, then flip parity for next
+    // time. The picsum.photos last-resort fallback runs if BOTH sources fail.
+    const parity = await getParity();
+    const primary = parity === 0 ? fetchUnsplashAvatar : fetchTmdbAvatar;
+    const fallback = parity === 0 ? fetchTmdbAvatar : fetchUnsplashAvatar;
+    const primaryLabel = parity === 0 ? "unsplash" : "tmdb";
+    const fallbackLabel = parity === 0 ? "tmdb" : "unsplash";
 
-    // Fetch a unique random image for the avatar from Unsplash.
+    // Always flip parity so the next tick uses the other source — even when
+    // we fall back. This keeps the long-run split close to 1:1.
+    await flipParity();
+
     let avatarUrl: string | null = null;
     let photoAuthorName: string | null = null;
     let photoAuthorUrl: string | null = null;
     let photoSourceUrl: string | null = null;
     let photoMeta: NpcPhotoMeta | null = null;
     let photoScore = 0;
+    let lastFailReason = "no source attempted";
 
-    // Cap Unsplash requests per creation. Each request fetches a batch of 30
-    // completely random photos (no query filter), so a few attempts covers
-    // ~120 photos from Unsplash's entire library — plenty to find a unique one.
-    const MAX_ATTEMPTS = 4;
-    let rateLimited = false;
-    let authError = false;
-    let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
-
-    for (let i = 0; i < MAX_ATTEMPTS && !avatarUrl; i++) {
-      try {
-        // Add timeout to prevent hanging requests
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-
-        // Fetch a BATCH of 30 completely random photos (no query parameter).
-        // This pulls from Unsplash's entire library instead of a narrow keyword
-        // pool, making it virtually impossible to exhaust all unique photos.
-        const unsplashRes = await fetch(
-          `https://api.unsplash.com/photos/random?count=30`,
-          {
-            headers: {
-              Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
-            },
-            signal: controller.signal,
-          }
-        );
-
-        clearTimeout(timeout);
-
-        // Respect rate-limit headers: bail out as soon as we know we're dry.
-        const remainingHeader = unsplashRes.headers.get("X-Ratelimit-Remaining");
-        const remaining = remainingHeader !== null ? parseInt(remainingHeader, 10) : null;
-        if (remaining !== null && !Number.isNaN(remaining)) {
-          if (remaining <= 0) {
-            console.warn("Unsplash rate limit exhausted — aborting retries");
-            rateLimited = true;
-            break;
-          }
-          if (remaining < 100) {
-            console.warn(`Unsplash rate limit low: ${remaining} requests remaining`);
-          }
-        }
-
-        if (!unsplashRes.ok) {
-          console.error(`Unsplash API error (attempt ${i + 1}/${MAX_ATTEMPTS}): HTTP ${unsplashRes.status}`);
-          skipReason = "unsplash_error";
-          // 404/422 are per-query issues — try another query.
-          // 429 is rate-limit, 401/403 are auth — stop retrying.
-          if (unsplashRes.status === 404 || unsplashRes.status === 422) {
-            continue;
-          }
-          if (unsplashRes.status === 429) {
-            rateLimited = true;
-          }
-          if (unsplashRes.status === 401 || unsplashRes.status === 403) {
-            authError = true;
-          }
-          break;
-        }
-
-        const unsplashData = await unsplashRes.json();
-        // `count` returns an array; a bare request returns a single object.
-        // SHUFFLE the batch and take the first candidate that is unique and
-        // compresses successfully. We deliberately do NOT sort by likes: always
-        // preferring the most-liked photo kept picking the same popular images,
-        // which — with the strict per-photo uniqueness constraint — meant nearly
-        // every candidate was already used (a duplicate). Randomizing explores
-        // Unsplash's pool and finds fresh photos far more reliably.
-        const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
-          .filter(Boolean)
-          .sort(() => Math.random() - 0.5);
-
-        for (const photo of batch) {
-          const candidateUrl =
-            photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
-          if (!candidateUrl) continue;
-
-          const compressed = await downloadAndCompressAvatar(candidateUrl);
-          if (!compressed) {
-            // Don't store a hot-linked Unsplash CDN URL — it can rot and we
-            // lose the offline-safe data URL we normally serve.
-            skipReason = "download";
-            continue;
-          }
-          const finalUrl = compressed;
-
-          // Check for duplicates using both avatarUrl and photoSourceUrl (Unsplash photo ID).
-          // NOTE: this is best-effort — there's no DB unique constraint, so a
-          // concurrent creation could still race past this check. Acceptable at
-          // current volume; add a unique index on photo_source_url to harden.
-          const sourceUrl = photo.links?.html
-            ? `${photo.links.html}?utm_source=networth&utm_medium=referral`
-            : null;
-
-          const [duplicate] = await db
-            .select({ id: users.id })
-            .from(users)
-            .where(
-              or(
-                eq(users.avatarUrl, finalUrl),
-                sourceUrl ? eq(users.photoSourceUrl, sourceUrl) : sql`false`
-              )
-            )
-            .limit(1);
-
-          if (duplicate) {
-            skipReason = "duplicate";
-            continue;
-          }
-
-          // Found a unique, usable photo (highest-liked available in this batch)
-          avatarUrl = finalUrl;
-          photoAuthorName = photo.user?.name || photo.user?.username || null;
-          photoAuthorUrl = photo.user?.links?.html
-            ? `${photo.user.links.html}?utm_source=networth&utm_medium=referral`
-            : null;
-          photoSourceUrl = sourceUrl;
-          photoMeta = {
-            tags: photo.tags,
-            altDescription: photo.alt_description,
-            description: photo.description,
-          };
-          photoScore = Number(photo.likes ?? 0) || 0;
-          // Trigger Unsplash download event (required by API guidelines).
-          // We await this (with a short timeout) so the request completes
-          // before the serverless invocation ends. Previously this was
-          // fire-and-forget, which on Vercel's runtime would often be killed
-          // mid-flight — violating Unsplash's attribution requirement.
-          if (photo.links?.download_location) {
-            try {
-              const dlController = new AbortController();
-              const dlTimeout = setTimeout(() => dlController.abort(), 5000);
-              await fetch(photo.links.download_location, {
-                headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
-                signal: dlController.signal,
-              });
-              clearTimeout(dlTimeout);
-            } catch (err) {
-              console.error("Unsplash download event failed:", err);
-            }
-          }
-          console.log(
-            `Unsplash random avatar selected (likes=${photoScore}) on attempt ${i + 1}/${MAX_ATTEMPTS}`
-          );
-          break;
-        }
-      } catch (fetchError) {
-        console.error(`Unsplash fetch error (attempt ${i + 1}/${MAX_ATTEMPTS}):`, fetchError);
-        continue;
+    const primaryResult = await primary();
+    if (primaryResult.ok) {
+      ({
+        avatarUrl,
+        photoAuthorName,
+        photoAuthorUrl,
+        photoSourceUrl,
+        photoMeta,
+        photoScore,
+      } = primaryResult.data);
+    } else {
+      lastFailReason = `${primaryLabel}: ${primaryResult.reason}`;
+      console.warn(`Primary avatar source (${primaryLabel}) failed: ${primaryResult.reason}. Trying fallback (${fallbackLabel}).`);
+      const fallbackResult = await fallback();
+      if (fallbackResult.ok) {
+        ({
+          avatarUrl,
+          photoAuthorName,
+          photoAuthorUrl,
+          photoSourceUrl,
+          photoMeta,
+          photoScore,
+        } = fallbackResult.data);
+      } else {
+        lastFailReason = `${primaryLabel}: ${primaryResult.reason}; ${fallbackLabel}: ${fallbackResult.reason}`;
       }
     }
 
     if (!avatarUrl) {
-      // Fallback: use picsum.photos with a random seed. This generates a
-      // unique image every time (no rate limits, no API key). Not a face,
-      // but ensures NPC creation never stalls when Unsplash is exhausted.
+      // Both primary and fallback sources failed. Last resort: picsum.photos
+      // with a random seed — unique every time, no rate limits, no API key.
+      // Not a movie poster or a portrait, but ensures NPC creation never stalls.
       console.warn(
-        `Unsplash avatar fetch failed (${skipReason ?? "unknown"}). Falling back to picsum.photos.`
+        `Both avatar sources failed (${lastFailReason}). Falling back to picsum.photos.`
       );
       try {
         const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -326,21 +445,10 @@ export async function createRandomPlayer(): Promise<{
     }
 
     if (!avatarUrl) {
-      const reason = authError
-        ? "auth_error (invalid/unauthorized UNSPLASH_ACCESS_KEY — check the key and that the Unsplash app is approved)"
-        : rateLimited
-          ? "rate_limit (Unsplash hourly limit hit — a Demo app is only 50 req/hr; apply for Production = 5000/hr)"
-          : skipReason === "duplicate"
-            ? `all ${MAX_ATTEMPTS} attempts returned duplicate photos (DB has many NPCs)`
-            : skipReason === "download"
-              ? `failed to download/compress all ${MAX_ATTEMPTS} candidate images`
-              : skipReason === "unsplash_error"
-                ? "Unsplash API returned errors on all attempts"
-                : `exhausted ${MAX_ATTEMPTS} attempts without finding a usable photo`;
-      console.error(`createRandomPlayer failed: ${reason}`);
+      console.error(`createRandomPlayer failed: ${lastFailReason}`);
       return {
         success: false,
-        message: `Could not fetch a unique avatar image from Unsplash (${reason})`,
+        message: `Could not fetch a unique avatar image (${lastFailReason})`,
       };
     }
 
@@ -388,16 +496,16 @@ export async function createRandomPlayer(): Promise<{
           // Distinguish between the two unique constraints we can hit:
           //   - users.username (collision → retry with a fresh name)
           //   - idx_users_photo_source_url_unique (another concurrent cron
-          //     invocation grabbed the same Unsplash photo → give up cleanly
-          //     so the caller can retry on the next tick with a new photo).
+          //     invocation grabbed the same avatar photo (Unsplash or TMDB) →
+          //     give up cleanly so the caller retries on the next tick).
           if (/photo_source_url/i.test(msg)) {
             console.warn(
-              `Unsplash photo already used by another NPC (race with concurrent creation). Giving up so the next tick retries with a new photo.`
+              `Avatar photo already used by another NPC (race with concurrent creation). Giving up so the next tick retries with a new photo.`
             );
             return {
               success: false,
               message:
-                "Unsplash photo was claimed by a concurrent NPC creation; retry on next tick",
+                "Avatar photo was claimed by a concurrent NPC creation; retry on next tick",
             };
           }
           console.warn(
@@ -427,7 +535,7 @@ export async function createRandomPlayer(): Promise<{
 
     return {
       success: true,
-      message: `Random player "${newPlayer.username}" created with Unsplash avatar.`,
+      message: `Random player "${newPlayer.username}" created with avatar (source: ${photoSourceUrl?.startsWith("tmdb-") ? "TMDB" : photoSourceUrl?.startsWith("picsum-") ? "picsum" : "Unsplash"}).`,
       player: {
         id: newPlayer.id,
         username: newPlayer.username,

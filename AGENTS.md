@@ -5,6 +5,11 @@
   (e.g. `*/1`, `0,30 * * * *`), and functions may set `maxDuration` up to 60s.
 - **Unsplash: Production API tier** (5000 requests/hour, not the 50/hr Demo tier).
   Used for NPC avatars in `src/lib/random-player.ts`.
+- **TMDB: Free API key** (themoviedb.org). Used as an ADD-ON avatar source for
+  NPCs — the cron alternates between Unsplash and TMDB movie posters on each
+  NPC creation (see `npc_source_parity` in `game_settings`). Key is in
+  `TMDB_API_KEY` (Vercel env + `.env.local`). Attribution is rendered via the
+  existing `photoAuthorName`/`photoAuthorUrl` fields (movie title + TMDB URL).
 
 ## Workflow preferences
 - **Always commit AND deploy together.** When deploying, also commit the changes
