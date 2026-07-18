@@ -901,6 +901,22 @@
   transform-style: preserve-3d;
   perspective: 1000px;
 }
+/* Front faces: hide when rotated past 90° so the black back shows through */
+.animate-card-flip-y > *:not(.card-flip-back) {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+/* Black back face — visible only at 180° (counter-rotated) */
+.animate-card-flip-y > .card-flip-back {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  border-radius: inherit;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: rotateY(180deg);
+  z-index: 0;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .poach-pop,

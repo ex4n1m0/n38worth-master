@@ -719,6 +719,7 @@ export function PlayerCard({
     return (
       <Link href={`/players/${username}`}>
         <Card className={`${cardClassName} relative ${isComboSelected ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20" : ""} ${flipping ? "animate-card-flip-y" : ""}`}>
+          {flipping && <div className="card-flip-back" />}
           {isComboSelected && (
             <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -977,6 +978,7 @@ export function PlayerCard({
   return (
     <Link href={`/players/${username}`}>
       <Card className={`${cardClassName} relative ${isComboSelected ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20" : ""} ${flipping ? "animate-card-flip-y" : ""}`}>
+        {flipping && <div className="card-flip-back" />}
         {isComboSelected && (
           <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
