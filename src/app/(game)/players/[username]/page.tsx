@@ -63,7 +63,6 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
-import { isAdminUser } from "@/lib/admins";
 import {
   getOwnedRank,
   getValueRank,
@@ -396,6 +395,14 @@ export default function PlayerProfilePage() {
               {!alreadyOwns && (credits ?? 0) < player.playerValue && (
                 <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>
               )}
+              {/* Admin-only hard-delete (self-renders null for non-admins). */}
+              <AdminDeletePlayerButton
+                targetId={player.id}
+                targetUsername={player.username}
+                targetValue={player.playerValue}
+                ownerCount={player.ownerCount}
+                ownedCount={player.ownedCount}
+              />
             </div>
           )}
 

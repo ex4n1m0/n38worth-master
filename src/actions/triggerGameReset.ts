@@ -14,6 +14,7 @@ import {
 import { sql, notInArray, desc, eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
+import { isAdminUser } from "@/lib/admins";
 import {
   clearCountdown,
   getCountdownState,
@@ -84,8 +85,12 @@ export async function triggerGameReset(
       return { success: true, duplicate: true };
     }
 
-    // 1. Record the winner in the Hall of Fame (skip for test resets)
-    if (!opts.skipHallOfFame) {
+    // 1. Record the winner in the Hall of Fame — skipped for test resets AND
+    //    for admin (owner) accounts. The owner is the game operator and should
+    //    never be declared a "champion" even if they trigger a real win (e.g.
+    //    during testing or by accident). The game still resets normally; only
+    //    the Hall of Fame entry is suppressed.
+    if (!opts.skipHallOfFame && !isAdminUser(winnerUsername)) {
       await db.insert(hallOfFame).values({
         userId: winnerId,
         username: winnerUsername,
