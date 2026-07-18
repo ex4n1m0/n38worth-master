@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlayerCard } from "@/components/PlayerCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
+import { useOthersOwnPlayers } from "@/hooks/useOthersOwnPlayers";
 
 export default function PlayersPage() {
   const { t } = useLanguage();
@@ -17,8 +18,14 @@ export default function PlayersPage() {
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<SortDir>("desc");
   // Ownership (relative to me): "" = all, "none" = no owner, "mine" = I own,
-  // "other" = owned by someone else. Market defaults to the No-Owner view.
+  // "other" = owned by someone else, "owns" = this card owns others.
+  // "Others Owned" defaults to ON when other players actually own cards, so
+  // players land on a view with stealable targets. Falls back to "none"
+  // (No Owner) when nobody else owns anything. The user's manual clicks after
+  // mount are authoritative — the effect only sets the initial default once.
+  const othersOwnPlayers = useOthersOwnPlayers();
   const [ownerFilter, setOwnerFilter] = useState<"" | "none" | "mine" | "other" | "owns">("none");
+  const [ownerFilterInitialized, setOwnerFilterInitialized] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [hasTeam, setHasTeam] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -29,6 +36,15 @@ export default function PlayersPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // Always 90 cards per page.
   const pageSize = 90;
+
+  // Settle the ownerFilter default once the other-owners check resolves. Only
+  // runs once (guarded by ownerFilterInitialized) so manual clicks win after.
+  useEffect(() => {
+    if (!ownerFilterInitialized && othersOwnPlayers !== undefined) {
+      setOwnerFilter(othersOwnPlayers ? "other" : "none");
+      setOwnerFilterInitialized(true);
+    }
+  }, [othersOwnPlayers, ownerFilterInitialized]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
