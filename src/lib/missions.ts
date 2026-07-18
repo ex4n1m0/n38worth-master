@@ -16,6 +16,7 @@ import { users, ownership, rewardHistory, gameHistory } from "@/db/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
@@ -189,6 +190,12 @@ async function forceAwardCard(
  * logic in purchasePlayer for the "owns all goddesses" case).
  */
 async function maybeStartGoddessCountdown(buyerId: number, buyerUsername: string) {
+  // AI players (AGIs and goddesses) must never trigger — or win — the goddess
+  // countdown: an autonomous AI winning would auto-reset the game on real
+  // humans. They cannot buy goddesses (the strategy excludes them) and the
+  // owned-card cap keeps them off the mission ladder in practice, but this is
+  // the belt-and-suspenders guard for the mission-award path.
+  if (isAIPlayerUsername(buyerUsername)) return;
   try {
     const goddesses = await db
       .select({ id: users.id })

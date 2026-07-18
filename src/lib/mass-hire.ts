@@ -16,7 +16,7 @@ import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES, isAgentUsername } from "@/lib/agent/roster";
+import { AGENT_USERNAMES, isAIPlayerUsername } from "@/lib/agent/roster";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
@@ -293,7 +293,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const now30s = new Date(Date.now() + 30 * 1000);
 
     let remainingPermBlocks = 0;
-    if (!isAgentUsername(buyer.username)) {
+    if (!isAIPlayerUsername(buyer.username)) {
       const [permCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(ownership)

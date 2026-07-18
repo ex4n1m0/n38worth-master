@@ -5,7 +5,7 @@ import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { PROFESSIONS } from "@/lib/professions";
 import { countOnlineHumans } from "@/lib/random-player";
-import { AGENT_USERNAMES, getAgentDefinition, isAgentUsername } from "@/lib/agent/roster";
+import { AGENT_USERNAMES, getAutonomousPlayerDefinition, isAIPlayerUsername } from "@/lib/agent/roster";
 
 const CHAT_LAST_KEY = "agent_chat_last_at"; // epoch seconds of last Agent chat
 const MAX_LENGTH = 200; // hard cap on the Agent's reply length
@@ -456,7 +456,7 @@ export async function maybeAgentChat(agentId: number, opts: { force?: boolean } 
   const hasHumanTrigger = recent.some(
     (m) =>
       m.isNpc === 0 &&
-      !isAgentUsername(m.username) &&
+      !isAIPlayerUsername(m.username) &&
       Math.floor(new Date(m.createdAt).getTime() / 1000) > triggerFloor
   );
   const cooldownElapsed = opts.force || nowSec - lastAt >= REPLY_COOLDOWN_SECONDS;
@@ -473,14 +473,14 @@ export async function maybeAgentChat(agentId: number, opts: { force?: boolean } 
     .from(users)
     .where(eq(users.id, agentId))
     .limit(1);
-  if (!agent || !isAgentUsername(agent.username)) {
+  if (!agent || !isAIPlayerUsername(agent.username)) {
     return { chatted: false, skipped: "agent missing" };
   }
 
   // Generate a short, on-topic message. There is deliberately no canned
   // fallback: every AGI chat message must come from the configured LLM.
   const [stats, ranks] = await Promise.all([getAgentStats(agentId), getRankSnapshot()]);
-  const definition = getAgentDefinition(agent.username);
+  const definition = getAutonomousPlayerDefinition(agent.username);
   const reply = await generateChatReply(
     recent,
     stats,
@@ -621,7 +621,7 @@ async function generateChatReply(
   const systemPrompt =
     `You are '${agentName}', ${identity} competitor in NetWorth, a card-trading game. ` +
     `Your distinct personality: ${personality} ` +
-    "You know the game inside out and may identify as an AGI player when relevant.\n" +
+    "You know the game inside out and may identify as an AGI or divine player when relevant.\n" +
     "\nGAME: Players ARE cards. Hire cards with credits (¢) — hiring from an owner STEALS it. " +
     "Sell blocks protect cards (breakable for a fee). War=free breaks, Fate=1000× break cost. " +
     "6 professions → combo sale pays sum×10. 6 goddesses (earned via missions, not bought) = win. " +

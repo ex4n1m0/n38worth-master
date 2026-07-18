@@ -5,7 +5,7 @@ import { messages, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { ensureAgents } from "@/lib/agent/seed";
-import { isAgentUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { maybeAgentChat } from "@/lib/agent/chat";
 
 const PUBLIC_REWARD = 0; // Credits earned per public message (disabled)
@@ -121,7 +121,7 @@ export async function POST(req: Request) {
         // Send the user's message
         await pusher.trigger("chat-public", "new-message", messagePayload);
         // Show a generic AGI typing indicator only for messages from real humans.
-        if (sender.isNpc === 0 && !isAgentUsername(sender.username)) {
+        if (sender.isNpc === 0 && !isAIPlayerUsername(sender.username)) {
           pusher.trigger("chat-public", "agent-typing", { typing: true }).catch((e: unknown) => {
             console.error("[chat] AGI typing trigger failed:", e);
           });
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
 
     // When a real human posts publicly, rotate exactly one AGI for an immediate
     // LLM reply. AGI messages never trigger other AGIs, preventing bot loops.
-    if (!isPrivate && sender.isNpc === 0 && !isAgentUsername(sender.username)) {
+    if (!isPrivate && sender.isNpc === 0 && !isAIPlayerUsername(sender.username)) {
       after(async () => {
         try {
           const agents = await ensureAgents();

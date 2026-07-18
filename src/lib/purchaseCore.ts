@@ -8,7 +8,7 @@ import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { getProfessionPerks } from "@/lib/professionPerks";
-import { isAgentUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername } from "@/lib/agent/roster";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -350,7 +350,7 @@ export async function buyPlayerCore(
       : null;
 
     let permBlockUntil = null;
-    if (!isAgentUsername(buyer.username)) {
+    if (!isAIPlayerUsername(buyer.username)) {
       const [permCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(ownership)

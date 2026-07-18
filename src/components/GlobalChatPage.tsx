@@ -12,7 +12,7 @@ import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { InlineDMChat } from "@/components/InlineDMChat";
-import { isAgentUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername } from "@/lib/agent/roster";
 
 interface ChatMessage {
   id: number;
@@ -122,8 +122,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type !== "public") return;
-      // Hide the typing indicator when any roster AGI's message arrives.
-      if (isAgentUsername(msg.sender.username)) {
+      // Hide the typing indicator when any AI player's (AGI or goddess) message arrives.
+      if (isAIPlayerUsername(msg.sender.username)) {
         setAgentTyping(false);
       }
       setRealtimeMessages((prev) => {
