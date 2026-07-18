@@ -4,7 +4,7 @@ import { sql, eq, or, and, notInArray } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 import { AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
-import { fetchRandomMoviePoster } from "@/lib/movie-artwork";
+import { fetchRandomMovieArtwork } from "@/lib/movie-artwork";
 
 /**
  * Tunables for the dynamic NPC-creation cadence.
@@ -122,7 +122,7 @@ export async function getCreationContext(): Promise<{
 // ── Avatar source alternation ────────────────────────────────────────────
 //
 // NPC avatars alternate between Unsplash (the original source) and TMDB movie
-// posters (the add-on). A single integer in `game_settings` records the parity:
+// artwork/backdrops (the add-on). A single integer in `game_settings` records the parity:
 //   0 → next creation uses Unsplash
 //   1 → next creation uses TMDB
 // The flag flips after each creation attempt, so over time the split is ~50/50.
@@ -311,20 +311,23 @@ async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
 }
 
 /**
- * Add-on avatar source: TMDB movie posters. Fetches one random popular movie
- * poster, downloads/compresses it, and dedup-checks against `photo_source_url`
- * (which has a unique index). Returns null on any failure so the caller can
- * fall back to Unsplash for this tick.
+ * Add-on avatar source: TMDB movie artwork (backdrops). Fetches one random
+ * popular movie backdrop, center-crops it to square, downloads/compresses it,
+ * and dedup-checks against `photo_source_url` (which has a unique index).
+ * Returns null on any failure so the caller can fall back to Unsplash for this
+ * tick.
  */
 async function fetchTmdbAvatar(): Promise<AvatarFetchResult> {
-  const poster = await fetchRandomMoviePoster();
-  if (!poster) {
-    return { ok: false, reason: "TMDB returned no usable movie poster" };
+  const artwork = await fetchRandomMovieArtwork();
+  if (!artwork) {
+    return { ok: false, reason: "TMDB returned no usable movie artwork" };
   }
 
-  const compressed = await downloadAndCompressAvatar(poster.imageUrl);
+  // cropToSquare center-crops the 16:9 backdrop to a square before compressing,
+  // so the stored avatar is a clean square — no display-time cropping artifacts.
+  const compressed = await downloadAndCompressAvatar(artwork.imageUrl, { cropToSquare: true });
   if (!compressed) {
-    return { ok: false, reason: "TMDB poster failed to download/compress" };
+    return { ok: false, reason: "TMDB artwork failed to download/compress" };
   }
 
   // Dedup by photo_source_url (tmdb-<path>) — the unique index will also
@@ -332,22 +335,22 @@ async function fetchTmdbAvatar(): Promise<AvatarFetchResult> {
   const [duplicate] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.photoSourceUrl, poster.photoSourceUrl))
+    .where(eq(users.photoSourceUrl, artwork.photoSourceUrl))
     .limit(1);
   if (duplicate) {
-    return { ok: false, reason: "TMDB poster already used by another NPC" };
+    return { ok: false, reason: "TMDB artwork already used by another NPC" };
   }
 
-  console.log(`TMDB movie poster selected: "${poster.title}" (${poster.photoSourceUrl})`);
+  console.log(`TMDB movie artwork selected: "${artwork.title}" (${artwork.photoSourceUrl})`);
   return {
     ok: true,
     data: {
       avatarUrl: compressed,
-      photoAuthorName: poster.photoAuthorName,
-      photoAuthorUrl: poster.photoAuthorUrl,
-      photoSourceUrl: poster.photoSourceUrl,
-      photoMeta: poster.photoMeta,
-      photoScore: poster.photoScore,
+      photoAuthorName: artwork.photoAuthorName,
+      photoAuthorUrl: artwork.photoAuthorUrl,
+      photoSourceUrl: artwork.photoSourceUrl,
+      photoMeta: artwork.photoMeta,
+      photoScore: artwork.photoScore,
     },
   };
 }
@@ -355,10 +358,10 @@ async function fetchTmdbAvatar(): Promise<AvatarFetchResult> {
 /**
  * Creates a single random NPC player.
  *
- * Avatar source alternates between Unsplash and TMDB movie posters on each
- * call (see the `npc_source_parity` setting above). If the chosen source fails,
- * the other is tried as a fallback for that tick. Called by the scheduled cron
- * job.
+ * Avatar source alternates between Unsplash and TMDB movie artwork (backdrops)
+ * on each call (see the `npc_source_parity` setting above). If the chosen
+ * source fails, the other is tried as a fallback for that tick. Called by the
+ * scheduled cron job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -421,7 +424,7 @@ export async function createRandomPlayer(): Promise<{
     if (!avatarUrl) {
       // Both primary and fallback sources failed. Last resort: picsum.photos
       // with a random seed — unique every time, no rate limits, no API key.
-      // Not a movie poster or a portrait, but ensures NPC creation never stalls.
+      // Not movie artwork or a portrait, but ensures NPC creation never stalls.
       console.warn(
         `Both avatar sources failed (${lastFailReason}). Falling back to picsum.photos.`
       );
