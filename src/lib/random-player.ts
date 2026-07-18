@@ -138,8 +138,13 @@ type AvatarFetchResult =
  * Avatar source: Unsplash `/photos/random?count=30`. Fetches a batch
  * of 30 random photos, shuffles, and returns the first one that compresses and
  * isn't a duplicate. Triggers the Unsplash download event for attribution.
+ *
+ * When `query` is provided, the search term is appended to the request so
+ * Unsplash returns photos matching that keyword (e.g. "model" for
+ * portrait-like results). When omitted, photos are completely random from
+ * Unsplash's entire library.
  */
-async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
+async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
   if (!UNSPLASH_ACCESS_KEY) {
     return { ok: false, reason: "UNSPLASH_ACCESS_KEY is not configured" };
   }
@@ -149,13 +154,15 @@ async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
   let authError = false;
   let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
 
+  const queryString = query ? `&query=${encodeURIComponent(query)}` : "";
+
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
       const unsplashRes = await fetch(
-        `https://api.unsplash.com/photos/random?count=30`,
+        `https://api.unsplash.com/photos/random?count=30${queryString}`,
         {
           headers: { Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}` },
           signal: controller.signal,
@@ -237,7 +244,7 @@ async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
             console.error("Unsplash download event failed:", err);
           }
         }
-        console.log(`Unsplash random avatar selected (likes=${Number(photo.likes ?? 0)}) on attempt ${i + 1}/${MAX_ATTEMPTS}`);
+        console.log(`Unsplash random avatar selected (query="${query ?? "none"}", likes=${Number(photo.likes ?? 0)}) on attempt ${i + 1}/${MAX_ATTEMPTS}`);
         return {
           ok: true,
           data: {
@@ -279,9 +286,11 @@ async function fetchUnsplashAvatar(): Promise<AvatarFetchResult> {
 /**
  * Creates a single random NPC player.
  *
- * Avatar source: Unsplash random photos. If Unsplash fails (network error, all
- * duplicates, rate limit), falls back to picsum.photos as a last resort so NPC
- * creation never stalls. Called by the scheduled cron job.
+ * Avatar source: Unsplash random photos. First tries the keyword "model" to
+ * get portrait-like results. If that fails (no matches, all duplicates, rate
+ * limit), retries with no keyword (completely random from Unsplash's entire
+ * library). If Unsplash fails entirely, falls back to picsum.photos as a last
+ * resort so NPC creation never stalls. Called by the scheduled cron job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -300,8 +309,9 @@ export async function createRandomPlayer(): Promise<{
     let photoScore = 0;
     let lastFailReason = "no source attempted";
 
-    const unsplashResult = await fetchUnsplashAvatar();
-    if (unsplashResult.ok) {
+    // First attempt: keyword "model" for portrait-like photos.
+    const modelResult = await fetchUnsplashAvatar("model");
+    if (modelResult.ok) {
       ({
         avatarUrl,
         photoAuthorName,
@@ -309,10 +319,28 @@ export async function createRandomPlayer(): Promise<{
         photoSourceUrl,
         photoMeta,
         photoScore,
-      } = unsplashResult.data);
+      } = modelResult.data);
     } else {
-      lastFailReason = `unsplash: ${unsplashResult.reason}`;
-      console.warn(`Unsplash avatar source failed: ${unsplashResult.reason}`);
+      lastFailReason = `unsplash(model): ${modelResult.reason}`;
+      console.warn(`Unsplash "model" query failed: ${modelResult.reason}. Retrying without keyword.`);
+    }
+
+    // Second attempt: no keyword (completely random photos).
+    if (!avatarUrl) {
+      const randomResult = await fetchUnsplashAvatar();
+      if (randomResult.ok) {
+        ({
+          avatarUrl,
+          photoAuthorName,
+          photoAuthorUrl,
+          photoSourceUrl,
+          photoMeta,
+          photoScore,
+        } = randomResult.data);
+      } else {
+        lastFailReason = `unsplash: ${randomResult.reason}`;
+        console.warn(`Unsplash random (no keyword) failed: ${randomResult.reason}`);
+      }
     }
 
     if (!avatarUrl) {
