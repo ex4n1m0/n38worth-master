@@ -61,6 +61,15 @@ export function capCredits(value: number): number {
  * Compute portfolio value using BigInt to avoid floating-point
  * precision loss when player values are extremely large.
  *
+ * Portfolio value = owned cards' value × max(ownerCount, 1).
+ *
+ * NOTE: the player's OWN card value (playerValue) is intentionally NOT
+ * included — a player's portfolio is what they OWN, not what they ARE. This
+ * prevents high-value cards (e.g. goddesses at 100B) from earning massive
+ * passive rewards just for existing, and means every player must actively
+ * own cards to earn portfolio income. The `playerValue` parameter is kept
+ * in the signature for call-site compatibility but is ignored.
+ *
  * Returns a regular JS number capped at MAX_SAFE_INTEGER.
  */
 export function safePortfolioValue(
@@ -69,10 +78,9 @@ export function safePortfolioValue(
   ownerCount: number
 ): number {
   try {
-    const bigPV = BigInt(Math.round(playerValue));
     const bigOV = BigInt(Math.round(ownedValue));
     const bigOC = BigInt(Math.max(ownerCount, 1));
-    const result = (bigPV + bigOV) * bigOC;
+    const result = bigOV * bigOC;
     if (result > BigInt(Number.MAX_SAFE_INTEGER)) {
       return Number.MAX_SAFE_INTEGER;
     }
@@ -80,7 +88,7 @@ export function safePortfolioValue(
   } catch {
     // Fallback for any unexpected input
     return Math.min(
-      (playerValue + ownedValue) * Math.max(ownerCount, 1),
+      ownedValue * Math.max(ownerCount, 1),
       Number.MAX_SAFE_INTEGER
     );
   }

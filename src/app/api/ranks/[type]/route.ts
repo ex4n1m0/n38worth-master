@@ -45,11 +45,10 @@ async function enrichPlayers(
 async function getPortfolioLeaderboard() {
   // Use a single SQL query instead of N+1
   // Only count owned players who themselves own other players
-  const portfolioSql = sql<number>`(
-    "users"."player_value" + COALESCE(
+  // Portfolio = owned cards' value × max(ownerCount, 1). Own player_value excluded.
+  const portfolioSql = sql<number>`COALESCE(
       (SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0
-    )
-  ) * GREATEST(
+    ) * GREATEST(
     (SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1
   )`;
 

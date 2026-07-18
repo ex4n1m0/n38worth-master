@@ -7,10 +7,21 @@ import { maybeAgentChat } from "@/lib/agent/chat";
 export const maxDuration = 60;
 
 /**
- * AGI roster cron — fires every minute. All six AGIs are created up front, then
- * one is selected round-robin for gameplay each tick. This gives every AGI the
- * same full gameplay logic without launching six concurrent 10-action bursts.
- * Chat uses the same rotating AGI and is globally throttled in maybeAgentChat.
+ * Autonomous AI roster cron — fires every minute. All 12 AI players (6 AGIs +
+ * 6 goddesses) are created up front, then TWO are selected per tick for
+ * gameplay. This covers all 12 every 6 minutes:
+ *
+ *   tick t → agents at indices (t*2)%12 and (t*2+1)%12
+ *
+ * Each AI has its own per-agent last-play gate (in runAgentTurn):
+ *   - ACTIVE (humans online): 6-min interval → every pick plays.
+ *   - IDLE (no humans): 60-min interval → only 1-in-10 picks play, keeping
+ *     the world alive (1 play / 5 min) without burning credits in an empty
+ *     room.
+ *
+ * Chat runs on the first picked agent only and is globally throttled in
+ * maybeAgentChat (which also hard-gates on human presence, so no AI chat in
+ * an empty room).
  */
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -29,46 +40,47 @@ export async function GET(req: Request) {
     }
 
     const agents = await ensureAgents();
-
-    // Hard gate: AGIs neither play nor speak unless a real human is online.
     const onlineHumans = await countOnlineHumans();
-    if (onlineHumans <= 0) {
-      return NextResponse.json({
-        success: true,
-        ran: false,
-        skipped: "no humans online",
-        onlineHumans,
-        agents: agents.map(({ id, username }) => ({ id, username })),
-        timestamp: now.toISOString(),
-      });
-    }
-
-    // Rotate one AGI per minute. Each receives the exact same runner logic and
-    // individual cycle/cooldown bookkeeping keyed by its own user id.
-    const rosterIndex = Math.floor(now.getTime() / 60_000) % agents.length;
-    const activeAgent = agents[rosterIndex];
     const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 10);
-    let result: AgentRunResult;
-    try {
-      result = await runAgentTurn(activeAgent.id, { maxActions });
-    } catch (playError) {
-      console.error(`${activeAgent.username} gameplay error:`, playError);
-      result = { ran: false, skipped: "gameplay error" };
+
+    // Pick 2 agents per tick, covering all 12 every 6 minutes.
+    const minuteIndex = Math.floor(now.getTime() / 60_000);
+    const picks = [
+      agents[(minuteIndex * 2) % agents.length],
+      agents[(minuteIndex * 2 + 1) % agents.length],
+    ];
+
+    const results: Array<{ agent: { id: number; username: string }; result: AgentRunResult }> = [];
+    for (const agent of picks) {
+      try {
+        const result = await runAgentTurn(agent.id, { maxActions });
+        results.push({ agent: { id: agent.id, username: agent.username }, result });
+      } catch (playError) {
+        console.error(`${agent.username} gameplay error:`, playError);
+        results.push({ agent: { id: agent.id, username: agent.username }, result: { ran: false, skipped: "gameplay error" } });
+      }
     }
 
+    // Chat only on the first picked agent. maybeAgentChat hard-gates on human
+    // presence and has a shared 3-min cooldown, so no AI chat in idle mode and
+    // no more than one AI reply per 3 min regardless of roster size.
     let chat;
     try {
-      chat = await maybeAgentChat(activeAgent.id);
+      chat = await maybeAgentChat(picks[0].id);
     } catch (chatError) {
-      console.error(`${activeAgent.username} chat error:`, chatError);
+      console.error(`${picks[0].username} chat error:`, chatError);
       chat = { chatted: false, skipped: "error" };
     }
 
     return NextResponse.json({
       success: true,
       onlineHumans,
-      activeAgent: { id: activeAgent.id, username: activeAgent.username },
-      ...result,
+      picks: results.map((r) => ({
+        agent: r.agent,
+        ran: r.result.ran,
+        skipped: r.result.skipped,
+        moves: r.result.moves?.length ?? 0,
+      })),
       chat,
       timestamp: now.toISOString(),
     });

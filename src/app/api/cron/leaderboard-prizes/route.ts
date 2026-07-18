@@ -37,7 +37,8 @@ export async function GET(req: Request) {
 
     // ─── 1. PORTFOLIO PRIZE (top 3 by portfolio value) ───
     // Only count owned players who themselves own other players
-    const portfolioSql = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
+    // Portfolio = owned cards' value × max(ownerCount, 1). Own player_value excluded.
+    const portfolioSql = sql<number>`COALESCE((SELECT SUM(u2.player_value) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id) > 0), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
 
     const topPortfolio = await db
       .select({

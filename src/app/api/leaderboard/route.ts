@@ -17,7 +17,8 @@ export async function GET(req: Request) {
     const session = await auth();
     const currentUsername = session?.user?.name;
 
-    const portfolioSql = sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
+    // Portfolio = owned cards' value × max(ownerCount, 1). Own player_value excluded.
+    const portfolioSql = sql<number>`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`;
     const ownerNameSql = sql<string | null>`(SELECT u.username FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1)`;
 
     // Count total players for leaderboard prize calculations (exclude NPCs)
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
         const [portfolioPosition] = await db
           .select({ position: sql<number>`COUNT(*) + 1` })
           .from(users)
-          .where(sql`(users.player_value + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+          .where(sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
 
         userPositions = {
           empire: Number(empirePosition?.position ?? 1),
@@ -156,7 +157,7 @@ export async function GET(req: Request) {
           purchaseCount: users.purchaseCount,
           photoScore: users.photoScore,
           portfolioValue:
-            sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as(
+            sql<number>`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as(
               "portfolio_value"
             ),
           ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o5 WHERE o5.owned_id = "users"."id")`.as("owner_count"),
@@ -168,7 +169,7 @@ export async function GET(req: Request) {
         .where(and(eq(users.isNpc, 0), humanVisibleSql))
         .orderBy(
           desc(
-            sql`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`
+            sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`
           )
         )
         .limit(50);
@@ -199,7 +200,7 @@ export async function GET(req: Request) {
           purchaseCount: users.purchaseCount,
           photoScore: users.photoScore,
           ownerCount: sql<number>`count(${ownership.id})`.as("owner_count"),
-          portfolioValue: sql<number>`("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as("portfolio_value"),
+          portfolioValue: sql<number>`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`.as("portfolio_value"),
           ownerName: ownerNameSql,
           blockSellUntil: blockSellUntilExpr,
           permBlockUntil: permBlockExpr,

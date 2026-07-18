@@ -10,9 +10,17 @@ import {
 } from "@/lib/ranks";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 // Allow up to 60 seconds for this function (Pro plan)
 export const maxDuration = 60;
+
+// Eligible for rank bonuses: real humans + AGIs (isNpc=0) plus the 6 goddesses
+// (isNpc=1 but autonomous AI players). Regular NPC cards are excluded.
+const eligibleForRewards = sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(
+  GODDESS_USERNAMES.map((u) => sql`${u}`),
+  sql`, `
+)})`;
 
 // Track last successful rank bonus distribution time
 let lastRankBonusTime: Date | null = null;
@@ -113,7 +121,7 @@ export async function GET(req: Request) {
         ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`.as("owned_count"),
       })
       .from(users)
-      .where(eq(users.isNpc, 0))
+      .where(eligibleForRewards)
       .orderBy(desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`))
       .limit(3);
 
@@ -170,7 +178,7 @@ export async function GET(req: Request) {
         credits: users.credits,
       })
       .from(users)
-      .where(eq(users.isNpc, 0))
+      .where(eligibleForRewards)
       .orderBy(desc(users.credits))
       .limit(3);
 
@@ -227,7 +235,7 @@ export async function GET(req: Request) {
         playerValue: users.playerValue,
       })
       .from(users)
-      .where(eq(users.isNpc, 0))
+      .where(eligibleForRewards)
       .orderBy(desc(users.playerValue))
       .limit(3);
 
@@ -277,7 +285,9 @@ export async function GET(req: Request) {
     }
 
     // ─── 4. PORTFOLIO BONUS (top 3 by portfolio value) ───
-    const portfolioSql = sql<number>`LEAST(("users"."player_value" + COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0)) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1), 9007199254740991)`;
+    // Portfolio = owned cards' value × max(ownerCount, 1). Own player_value is
+    // excluded — portfolio is what you OWN, not what you ARE.
+    const portfolioSql = sql<number>`LEAST(COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1), 9007199254740991)`;
 
     const topPortfolio = await db
       .select({
@@ -286,7 +296,7 @@ export async function GET(req: Request) {
         portfolioValue: portfolioSql.as("portfolio_value"),
       })
       .from(users)
-      .where(eq(users.isNpc, 0))
+      .where(eligibleForRewards)
       .orderBy(desc(portfolioSql))
       .limit(3);
 

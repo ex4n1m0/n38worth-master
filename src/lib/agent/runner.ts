@@ -12,22 +12,24 @@ import { getProfessionPerks } from "@/lib/professionPerks";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
-const LAST_PLAY_KEY = "agent_last_play_at"; // epoch seconds of the AGI's last play turn
-const CYCLE_START_KEY = "agent_cycle_start"; // epoch seconds of the current 15-min cycle
+// Per-agent last-play timestamp (epoch seconds). Each AI player is gated
+// independently so the 12-player roster distributes evenly.
+const LAST_PLAY_KEY = "agent_last_play_at";
 
 function agentSettingKey(base: string, agentId: number): string {
   return `${base}_${agentId}`;
 }
 
-// ── Aggressive cycle: 5 minutes ON, 10 minutes OFF ──
-// The Agent plays aggressively (buys/steals/pumps as much as possible) for 5
-// minutes, then rests for 10 minutes, then repeats. This makes it a bursty,
-// aggressive competitor rather than a slow drip.
-const AGGRESSIVE_DURATION_SECONDS = 5 * 60;   // 5 min of aggressive play
-const REST_DURATION_SECONDS = 10 * 60;        // 10 min of rest
-const CYCLE_DURATION_SECONDS = AGGRESSIVE_DURATION_SECONDS + REST_DURATION_SECONDS; // 15 min
-// During aggressive phase, play every tick (cron runs every minute).
-const AGGRESSIVE_PLAY_INTERVAL_SECONDS = 60;  // 1 min between actions during burst
+// ── Per-agent play intervals (mode-dependent) ──
+// ACTIVE: at least one real human is online. Each AI plays every 6 min — the
+//   cron picks 2 agents per 1-min tick, covering all 12 in 6 min. This keeps
+//   agents ever-present without overwhelming the DB (2 plays/min, same order
+//   of magnitude as the old 1-per-tick design).
+// IDLE: no humans online. Each AI plays once per hour so the world stays
+//   alive (NPCs still get hired/pumped) without burning credits or LLM tokens
+//   in an empty room. 12 agents × 1 play/hour = 1 play every 5 min.
+const ACTIVE_PLAY_INTERVAL_SECONDS = 6 * 60;   // 6 min between turns per agent
+const IDLE_PLAY_INTERVAL_SECONDS = 60 * 60;     // 60 min between turns per agent
 
 // The Agent stops buying once it owns this many more players than the top human.
 // If all humans have 0 players, the Agent caps at this number. This keeps the
@@ -175,15 +177,18 @@ export interface AgentRunResult {
 }
 
 /**
- * Runs an Agent turn: up to `maxActions` moves (buy / sell-combo) per call.
+ * Runs an AI player's turn: up to `maxActions` moves (buy / sell-combo) per call.
  *
- * Online-gating (only act when humans are present) is enforced HERE as well as
- * by the caller — the Agent must never play in an empty room. We also enforce
- * the kill switch and an OPTIONAL daily spend cap (disabled by default — set
- * AGENT_DAILY_SPEND_CAP > 0 to re-enable). Every executed action is
- * independently re-validated by the action cores (buyPlayerCore /
- * sellComboCore). Each move re-reads game state so the burst reacts to its own
- * purchases.
+ * Play cadence is per-agent and mode-dependent:
+ *   - ACTIVE (humans online): 6-min interval between turns.
+ *   - IDLE (no humans): 60-min interval — keeps the world alive without burning
+ *     credits in an empty room.
+ *
+ * The kill switch (AGENT_ENABLED) and an OPTIONAL daily spend cap (disabled by
+ * default — set AGENT_DAILY_SPEND_CAP > 0 to re-enable) are enforced here. Every
+ * executed action is independently re-validated by the action cores
+ * (buyPlayerCore / sellComboCore). Each move re-reads game state so the turn
+ * reacts to its own purchases.
  */
 export async function runAgentTurn(
   agentId: number,
@@ -193,48 +198,24 @@ export async function runAgentTurn(
     return { ran: false, skipped: "disabled" };
   }
 
-  // Hard gate: only play when at least one real human is online. The Agent now
-  // plays even when multiple humans are present — it's a competitive player that
-  // participates in the market alongside everyone else.
-  // (countOnlineHumans excludes NPCs and the Agent itself.)
-  //   - 0 humans  → empty room, never play.
-  //   - 1+ humans → play normally (compete with real players).
+  // ── Mode-dependent play gating ──
+  // ACTIVE (humans online): each AI plays every 6 min — the cron picks 2 agents
+  //   per 1-min tick, covering all 12 in 6 min. Agents compete alongside humans.
+  // IDLE (no humans): each AI plays once per hour so the world stays alive
+  //   (cards still get hired/pumped) without burning credits in an empty room.
   const onlineHumans = await countOnlineHumans();
-  if (onlineHumans <= 0) {
-    return { ran: false, skipped: "no humans online" };
-  }
+  const isActive = onlineHumans > 0;
+  const playInterval = isActive ? ACTIVE_PLAY_INTERVAL_SECONDS : IDLE_PLAY_INTERVAL_SECONDS;
 
-  // ── Aggressive cycle: 5 min ON / 10 min OFF ──
-  // Determine where we are in the 15-minute cycle.
   const nowSec = Math.floor(Date.now() / 1000);
-  // The roster shares one 5-on/10-off cycle. The cron rotates the active AGI,
-  // so five roster members act in each burst and the starting index shifts on
-  // the next cycle, giving all six equal turns over time.
-  const dayKey = agentSettingKey(DAY_KEY, agentId);
-  const daySpentKey = agentSettingKey(DAY_SPENT_KEY, agentId);
-  let cycleStart = (await getSetting(CYCLE_START_KEY)) ?? 0;
-  // Initialize or rotate the shared cycle if the current one has expired.
-  const isNewCycle = cycleStart === 0 || nowSec - cycleStart >= CYCLE_DURATION_SECONDS;
-  if (isNewCycle) {
-    cycleStart = nowSec;
-    await setSetting(CYCLE_START_KEY, cycleStart);
+  const lastPlayKey = agentSettingKey(LAST_PLAY_KEY, agentId);
+  const lastPlay = (await getSetting(lastPlayKey)) ?? 0;
+  if (nowSec - lastPlay < playInterval) {
+    return { ran: false, skipped: `${isActive ? "active" : "idle"} cooldown (${playInterval / 60} min)` };
   }
-  const elapsedInCycle = nowSec - cycleStart;
-  const isAggressivePhase = elapsedInCycle < AGGRESSIVE_DURATION_SECONDS;
+  await setSetting(lastPlayKey, nowSec);
 
-  if (!isAggressivePhase) {
-    return { ran: false, skipped: `rest phase (${Math.floor((REST_DURATION_SECONDS - (elapsedInCycle - AGGRESSIVE_DURATION_SECONDS)) / 60)} min remaining)` };
-  }
-
-  // During aggressive phase, play every ~1 minute (cron runs every minute).
-  const lastPlay = (await getSetting(LAST_PLAY_KEY)) ?? 0;
-  if (nowSec - lastPlay < AGGRESSIVE_PLAY_INTERVAL_SECONDS) {
-    return { ran: false, skipped: "aggressive cooldown (1 min)" };
-  }
-  await setSetting(LAST_PLAY_KEY, nowSec);
-
-  // During aggressive phase, allow many actions per tick to buy/steal as much
-  // as possible. The caller may override, but defaults are high for aggression.
+  // Allow many actions per tick to buy/steal as much as possible.
   const maxActions = Math.max(1, Math.floor(opts.maxActions ?? 8));
 
   // Optional daily spend cap. Unset or <= 0 means UNLIMITED.
@@ -244,19 +225,9 @@ export async function runAgentTurn(
 
   const now = new Date();
 
-  // Refill each AGI once when she first participates in a new shared cycle.
-  const refillCycleKey = agentSettingKey("agent_last_refill_cycle", agentId);
-  const lastRefillCycle = (await getSetting(refillCycleKey)) ?? 0;
-  if (lastRefillCycle !== cycleStart) {
-    const refillAmount = Number(process.env.AGENT_REFILL_CREDITS ?? 100000);
-    await db.update(users)
-      .set({ credits: sql`LEAST(credits + ${refillAmount}, ${sql.raw(MAX_CREDITS_SQL)})`, updatedAt: now })
-      .where(eq(users.id, agentId));
-    await setSetting(refillCycleKey, cycleStart);
-    console.log(`AGI ${agentId} refilled with ${refillAmount} credits for cycle ${cycleStart}`);
-  }
-
   // Spend-cap bookkeeping (only when the cap is enabled).
+  const dayKey = agentSettingKey(DAY_KEY, agentId);
+  const daySpentKey = agentSettingKey(DAY_SPENT_KEY, agentId);
   let spentToday = 0;
   if (capEnabled) {
     const today = todayInt(now);

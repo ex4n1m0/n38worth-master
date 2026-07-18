@@ -5,6 +5,7 @@ import { sql, eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -28,7 +29,9 @@ export async function GET(req: Request) {
     const intervalMinutes = 60;
     const globalIntervalSkip = now.getUTCMinutes() >= 15;
 
-    // Get all active human players (exclude NPCs)
+    // Get all active players eligible for portfolio rewards: real humans
+    // (isNpc=0, which includes AGIs) plus the 6 goddesses (isNpc=1 but
+    // autonomous AI players). Regular NPC cards are excluded.
     const allPlayers = await db
       .select({
         id: users.id,
@@ -37,7 +40,7 @@ export async function GET(req: Request) {
         credits: users.credits,
       })
       .from(users)
-      .where(sql`${users.isActive} = 1 AND ${users.isNpc} = 0`);
+      .where(sql`${users.isActive} = 1 AND (${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)}))`);
 
     // When the global interval hasn't elapsed, only process Time/Creation holders
     // (they receive rewards every cron tick = 2x frequency). Everyone else is skipped
