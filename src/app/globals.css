@@ -891,6 +891,14 @@
   animation: credits-bump 0.7s ease-out;
 }
 
+/* ── Button press feedback — scale to 92% while pressed, spring back ── */
+button:not(:disabled):active {
+  transform: scale(0.92);
+}
+button {
+  transition: transform 0.08s ease-out;
+}
+
 /* ── Card flip (Y-axis 360°) — plays once when an action succeeds ── */
 @keyframes card-flip-y {
   0%   { transform: rotateY(0deg); }
