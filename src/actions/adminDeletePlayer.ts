@@ -15,17 +15,19 @@ import {
 import { eq, or, sql } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { isAdminUser } from "@/lib/admins";
+import { isAIPlayerUsername } from "@/lib/agent/roster";
 
 /**
- * Admin-only: hard-delete any non-protected human player.
+ * Admin-only: hard-delete a human player or NPC card.
  *
  * Mirrors the cascade in `deleteAccount.ts` so refunds and player releases
  * stay consistent with the self-delete flow. The only differences are:
  *   - Caller must be in the admin allowlist (`@/lib/admins`).
  *   - Target must not be the admin themselves (self-delete keeps its own
  *     sign-out plumbing).
- *   - Target must not be protected (goddesses) and must be a human (NPCs are
- *     handled by `deleteNpcCascade`).
+ *   - Target must not be protected (goddesses) and must not be an autonomous
+ *     AI player (AGI agents or goddesses — they are permanent game fixtures).
+ *     Regular NPC cards and human players CAN be deleted.
  *
  * Audit row uses `eventType: "admin_deletion"` and stores `actorId` =
  * admin's user id, so the two flows can be told apart in `game_history`.
@@ -61,8 +63,8 @@ export async function adminDeletePlayer(targetUserId: number) {
     if (target.isProtected === 1) {
       return { error: "This account is protected and cannot be deleted." } as const;
     }
-    if (target.isNpc === 1) {
-      return { error: "Admin delete is restricted to human players." } as const;
+    if (isAIPlayerUsername(target.username)) {
+      return { error: "Autonomous AI players (AGIs and goddesses) cannot be deleted." } as const;
     }
 
     const refundPerOwner = Math.floor(target.playerValue / 2);
