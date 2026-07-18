@@ -170,7 +170,9 @@ function BrowsePlayersSection({
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   // "Affordable" hides any card the user can't currently buy with their credits.
-  const [affordable, setAffordable] = useState(false);
+  // ON by default — players see only cards they can afford. They can turn it
+  // off manually to browse cards they can't buy yet.
+  const [affordable, setAffordable] = useState(true);
   const { play } = useSound();
 
   const limit = pageSize;

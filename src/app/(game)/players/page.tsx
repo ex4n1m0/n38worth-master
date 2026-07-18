@@ -23,7 +23,9 @@ export default function PlayersPage() {
   const [hasTeam, setHasTeam] = useState(false);
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
-  const [affordable, setAffordable] = useState(false);
+  // Affordable is ON by default — players see only cards they can buy. They
+  // can turn it off manually to browse cards they can't afford yet.
+  const [affordable, setAffordable] = useState(true);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // Always 90 cards per page.
   const pageSize = 90;
