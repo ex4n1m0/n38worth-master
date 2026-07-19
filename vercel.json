@@ -6,11 +6,11 @@
     },
     {
       "path": "/api/cron/random-player",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/random-player-status",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/offline-penalty",
@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/goddess-countdown",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/refill-onboarding-pool",
@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/agent",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/default-avatar",
@@ -54,7 +54,7 @@
     },
     {
       "path": "/api/cron/fate-seal",
-      "schedule": "*/1 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
