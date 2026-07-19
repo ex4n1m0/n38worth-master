@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const avatarChanged =
     !!player?.avatarUrl &&
     player.avatarUrl !== "/hidden.png" &&
+    player.avatarUrl !== "/NEW_HIDDEN.png" &&
     !player.avatarUrl.startsWith("Demo Player");
 
   async function handlePasswordChange(e: React.FormEvent<HTMLFormElement>) {

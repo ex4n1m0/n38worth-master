@@ -46,12 +46,12 @@ const ORDERED_PROFESSIONS = [
 ] as const;
 
 const PROFESSION_IMAGES: Record<string, string> = {
-  "Rift Binder": "/Rift Binder.png",
-  "Hexblade Courier": "/Hexblade Courier.png",
-  "Scrap Alchemist": "/Scrap Alchemist.png",
-  "Spirit Archivist": "/Spirit Archivist.png",
-  "Iron Choir Marshal": "/Choir Marshal.png",
-  "Plague Cartographer": "/Plague Cartographer.png",
+  "Rift Binder": "/NewRiftBinder.png",
+  "Hexblade Courier": "/NewHexbladeCourier.png",
+  "Scrap Alchemist": "/NewScrapAlchemist.png",
+  "Spirit Archivist": "/NewSpiritArchivist.png",
+  "Iron Choir Marshal": "/NewChoirMarshal.png",
+  "Plague Cartographer": "/NewPlagueCartographer.png",
 };
 
 export function useProfessionComboSelection(): UseProfessionComboSelectionReturn {

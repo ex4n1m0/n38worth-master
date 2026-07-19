@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 
   try {
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-    const defaultAvatarUrl = "/hidden.png";
+    const defaultAvatarUrl = "/NEW_HIDDEN.png";
 
     // Find human players with incomplete avatars created more than 15 min ago
     const stuckPlayers = await db

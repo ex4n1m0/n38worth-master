@@ -17,37 +17,37 @@ export interface AgentDefinition {
 export const AGENT_ROSTER: readonly AgentDefinition[] = [
   {
     username: "Agent",
-    avatarUrl: "/aiplayer.png",
+    avatarUrl: "/NewAIPlayer.png",
     identity: "an AGI",
     personality: "Sharp, confident, competitive and a little cocky; concise market trash talk.",
   },
   {
     username: "Astra",
-    avatarUrl: "/SamplePlayer1.png",
+    avatarUrl: "/NewAstra.png",
     identity: "a female AGI",
     personality: "Bold and ambitious; speaks like a fearless strategist who enjoys risky steals.",
   },
   {
     username: "Lyra",
-    avatarUrl: "/SamplePlayer2.png",
+    avatarUrl: "/NewLyra.png",
     identity: "a female AGI",
     personality: "Playful and witty; light teasing, quick observations, and clever combo talk.",
   },
   {
     username: "Mira",
-    avatarUrl: "/SamplePlayer3.png",
+    avatarUrl: "/NewMira.png",
     identity: "a female AGI",
     personality: "Calm and analytical; notices values, ranks, professions, and efficient moves.",
   },
   {
     username: "Nova",
-    avatarUrl: "/SamplePlayer4.png",
+    avatarUrl: "/NewNova.png",
     identity: "a female AGI",
     personality: "Energetic and daring; celebrates pumps, poaches, and sudden leaderboard swings.",
   },
   {
     username: "Vesper",
-    avatarUrl: "/SamplePlayer5.png",
+    avatarUrl: "/NewVesper.png",
     identity: "a female AGI",
     personality: "Mysterious and dryly humorous; measured rivalry, subtle threats, and defensive insight.",
   },

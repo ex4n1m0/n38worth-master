@@ -91,6 +91,7 @@ export async function POST(req: Request) {
     const avatarChanged =
       !!user.avatarUrl &&
       user.avatarUrl !== "/hidden.png" &&
+      user.avatarUrl !== "/NEW_HIDDEN.png" &&
       !user.avatarUrl.startsWith("Demo Player");
 
     let converted = false;

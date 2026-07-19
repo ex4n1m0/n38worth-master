@@ -1,9 +1,13 @@
-Sort all AI player names alphabetically
+Swap in new avatar images (professions, goddesses, AGIs, hidden)
 
-The 6 AGI names were already sorted (Agent, Astra, Lyra, Mira, Nova,
-Vesper). Sort the 6 goddess names alphabetically in both roster.ts
-and goddesses.ts: Goddess, Goddess of Fate, Goddess of Knowledge,
-Goddess of Time, Goddess of War, Goddess of Wealth.
+- Professions: New*.png images in professions.ts + combo selection hook
+- AGI roster: NewAIPlayer/NewAstra/NewLyra/NewMira/NewNova/NewVesper
+- Hidden card: /NEW_HIDDEN.png (UNHIRED_AVATAR_SRC, demo-register,
+  onboarding NPC fallback, default-avatar cron); old-path comparisons
+  kept for backwards compatibility
+- scripts/update-new-avatars.ts (executed): re-seeded goddess data-URL
+  avatars from NewGoddess*.png, pointed AGIs at new paths, migrated 16
+  stored /hidden.png avatars to /NEW_HIDDEN.png
 
 Generated with [Devin](https://devin.ai)
 

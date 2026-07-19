@@ -28,7 +28,7 @@ export function PoachEffect() {
       usePoachStore.getState().trigger({
         amount,
         player: "TestPlayer",
-        playerAvatar: "/aiplayer.png",
+        playerAvatar: "/NewAIPlayer.png",
         buyer: "TestBuyer",
       });
     };
