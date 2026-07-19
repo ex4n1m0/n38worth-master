@@ -280,6 +280,7 @@ function BrowsePlayersSection({
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
+        {gameUnlocked && comboBar}
         {gameUnlocked && (
         <div className="flex gap-2 flex-wrap items-center">
           <span className="text-xs text-gray-500 mr-1">Profession:</span>
@@ -448,9 +449,6 @@ function BrowsePlayersSection({
           )}
         </div>
       </div>
-
-      {/* Profession combo bar — sits below the filters, above the card grid. */}
-      {comboBar}
 
       {isLoading ? (
         <PlayerCardSkeletonGrid count={12} />
