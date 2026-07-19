@@ -1,7 +1,10 @@
-Make "Owns N" badge double the size on PlayerCard
+Show "Owns 0" on all cards + make default-mode buttons 16:9
 
-Increase from text-xs (12px) to text-2xl (24px), icon from h-3 w-3 to
-h-6 w-6, and padding proportionally.
+- Always show the "Owns N" badge above the avatar, even when ownedCount
+  is 0, so all cards match visually. Cards with 0 use a muted gray style.
+- Convert all default-mode action buttons (Reveal, Break, Hire 3m, Hire
+  18m, Partnered status, profession badge) from square clamp sizing to
+  16:9 aspect-video for consistency with the leaderboard mode buttons.
 
 Generated with [Devin](https://devin.ai)
 

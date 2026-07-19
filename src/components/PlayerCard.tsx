@@ -527,7 +527,7 @@ function PlayerCardImpl({
 
   const professionBadge = effectiveProfession && professionImage ? (
     <div className="flex flex-col items-center gap-1">
-      <div className="rounded-md overflow-hidden ring-1 ring-amber-500/40 bg-black/50 shrink-0" style={{width:'clamp(3rem,8vw,5rem)',height:'clamp(3rem,8vw,5rem)'}} title={effectiveProfession}>
+      <div className="rounded-md overflow-hidden ring-1 ring-amber-500/40 bg-black/50 shrink-0 aspect-video" style={{width:'clamp(3rem,8vw,5rem)'}} title={effectiveProfession}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={professionImage} alt={effectiveProfession} loading="lazy" className="w-full h-full object-contain p-0.5" />
       </div>
@@ -546,13 +546,13 @@ function PlayerCardImpl({
       <div className="flex flex-row items-end gap-2 flex-wrap justify-end">
       {isHireBlocked ? (
         <>
-          <div className={`px-2 rounded-md flex flex-col items-center justify-center gap-0.5 text-center ${
+          <div className={`px-2 rounded-md flex flex-col items-center justify-center gap-0.5 text-center aspect-video ${
             isFateSealed
               ? "bg-indigo-950/60 border border-indigo-500/40 text-indigo-400"
               : isPermBlocked
                 ? "bg-red-950/60 border border-red-500/40 text-red-400"
                 : "bg-amber-950/60 border border-amber-500/40 text-amber-400"
-          }`} style={{height:'clamp(3rem,8vw,5rem)'}}>
+          }`} style={{width:'clamp(3rem,8vw,5rem)'}}>
             <Shield className="h-3 w-3 sm:h-4 sm:w-4" />
             <span className="text-[8px] sm:text-[9px] leading-none font-bold">{isFateSealed ? "Fate Seal" : isPermBlocked ? "Unbreakable" : "Partnered"}</span>
             <span className="text-[8px] sm:text-[9px] leading-none tabular-nums">{isFateSealed ? "🔒" : blockCountdown}</span>
@@ -562,12 +562,12 @@ function PlayerCardImpl({
               <Button
                 onClick={handleRevealClick}
                 disabled={revealMutation.isPending || (myCredits ?? 0) < revealCost}
-                className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
+                className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap aspect-video ${
                   (myCredits ?? 0) >= revealCost
                     ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                     : "bg-gray-700 text-gray-400 cursor-not-allowed"
                 }`}
-                style={{...((myCredits ?? 0) >= revealCost ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...((myCredits ?? 0) >= revealCost ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)'}}
               >
                 {revealMutation.isPending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -585,12 +585,12 @@ function PlayerCardImpl({
             <Button
               onClick={handleBreakClick}
               disabled={breakMutation.isPending || isPermBlocked || (myCredits ?? 0) < totalBreakCost || isBonusCard}
-              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
+              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap aspect-video ${
                 (myCredits ?? 0) >= totalBreakCost && !isBonusCard && !isPermBlocked
                   ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
-              style={{...((myCredits ?? 0) >= totalBreakCost && !isBonusCard && !isPermBlocked ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...((myCredits ?? 0) >= totalBreakCost && !isBonusCard && !isPermBlocked ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)'}}
             >
               {breakMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -626,12 +626,12 @@ function PlayerCardImpl({
             <Button
               onClick={handleBuyClick}
               disabled={!canAfford || mutation.isPending}
-              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
+              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap aspect-video ${
                 canAfford
                   ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
-              style={{...(canAfford ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...(canAfford ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)'}}
             >
               {mutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -661,12 +661,12 @@ function PlayerCardImpl({
               <Button
                 onClick={handleRevealClick}
                 disabled={revealMutation.isPending || (myCredits ?? 0) < playerValue * 0.1}
-                className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
+                className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap aspect-video ${
                   (myCredits ?? 0) >= playerValue * 0.1
                     ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                     : "bg-gray-700 text-gray-400 cursor-not-allowed"
                 }`}
-                style={{...((myCredits ?? 0) >= playerValue * 0.1 ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+                style={{...((myCredits ?? 0) >= playerValue * 0.1 ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)'}}
               >
                 {revealMutation.isPending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -684,12 +684,12 @@ function PlayerCardImpl({
             <Button
               onClick={handle6hBuyClick}
               disabled={(myCredits ?? 0) < playerValue * 6 || mutation6h.isPending}
-              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap ${
+              className={`p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold whitespace-nowrap aspect-video ${
                 (myCredits ?? 0) >= playerValue * 6
                   ? "text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow-lg"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
-              style={{...((myCredits ?? 0) >= playerValue * 6 ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)', height:'clamp(3rem,8vw,5rem)'}}
+              style={{...((myCredits ?? 0) >= playerValue * 6 ? navbarBtnStyle : {}), width:'clamp(3rem,8vw,5rem)'}}
             >
               {mutation6h.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -729,16 +729,18 @@ function PlayerCardImpl({
             </div>
           )}
           <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
-            {/* "Owns N" badge — above the avatar so the avatar position is
-                consistent regardless of whether the card owns other cards. */}
-            {ownedCount > 0 && (
-              <div className="w-full flex justify-center">
-                <span className="inline-flex items-center gap-1.5 text-t2-400 text-2xl font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-3 py-1">
-                  <Users className="h-6 w-6 shrink-0" />
-                  Owns {formatCompact(ownedCount)}
-                </span>
-              </div>
-            )}
+            {/* "Owns N" badge — always shown above the avatar so all cards
+                match visually regardless of whether they own other cards. */}
+            <div className="w-full flex justify-center">
+              <span className={`inline-flex items-center gap-1.5 text-2xl font-bold rounded-full px-3 py-1 border ${
+                ownedCount > 0
+                  ? "text-t2-400 bg-t2-950/40 border-t2-500/30"
+                  : "text-gray-600 bg-gray-950/40 border-gray-800"
+              }`}>
+                <Users className="h-6 w-6 shrink-0" />
+                Owns {formatCompact(ownedCount)}
+              </span>
+            </div>
 
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
@@ -991,15 +993,18 @@ function PlayerCardImpl({
           </div>
         )}
         <CardContent className="p-2.5 relative">
-          {/* "Owns N" badge — above the avatar for consistent avatar position. */}
-          {ownedCount > 0 && (
-            <div className="w-full flex justify-center mb-1.5">
-              <span className="inline-flex items-center gap-1.5 text-t2-400 text-2xl font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-3 py-1">
-                <Users className="h-6 w-6 shrink-0" />
-                Owns {formatCompact(ownedCount)}
-              </span>
-            </div>
-          )}
+          {/* "Owns N" badge — always shown above the avatar for consistent
+              avatar position across all cards. */}
+          <div className="w-full flex justify-center mb-1.5">
+            <span className={`inline-flex items-center gap-1.5 text-2xl font-bold rounded-full px-3 py-1 border ${
+              ownedCount > 0
+                ? "text-t2-400 bg-t2-950/40 border-t2-500/30"
+                : "text-gray-600 bg-gray-950/40 border-gray-800"
+            }`}>
+              <Users className="h-6 w-6 shrink-0" />
+              Owns {formatCompact(ownedCount)}
+            </span>
+          </div>
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
               <AvatarImage src={displayedAvatarSrc} alt={username} className={avatarFitClass} />
