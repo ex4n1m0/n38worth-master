@@ -219,6 +219,7 @@ function PlayerCardImpl({
     playerUsername: username,
     viewerUsername: session?.user?.name,
     ownedIds,
+    isGoddess,
     isAvatarRevealed: isAvatarRevealed || isAvatarTempRevealed || isBonusCard,
     viewerHasKnowledge: hasKnowledge,
     ownerCount,

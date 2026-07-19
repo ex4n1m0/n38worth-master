@@ -1,13 +1,8 @@
-Swap in new avatar images (professions, goddesses, AGIs, hidden)
+Always show goddess avatars on leaderboard cards
 
-- Professions: New*.png images in professions.ts + combo selection hook
-- AGI roster: NewAIPlayer/NewAstra/NewLyra/NewMira/NewNova/NewVesper
-- Hidden card: /NEW_HIDDEN.png (UNHIRED_AVATAR_SRC, demo-register,
-  onboarding NPC fallback, default-avatar cron); old-path comparisons
-  kept for backwards compatibility
-- scripts/update-new-avatars.ts (executed): re-seeded goddess data-URL
-  avatars from NewGoddess*.png, pointed AGIs at new paths, migrated 16
-  stored /hidden.png avatars to /NEW_HIDDEN.png
+PlayerCard never passed isGoddess to getAvatarSrc, so unowned
+goddesses with no owner rendered the hidden mask instead of their
+real avatar. Goddess avatars are meant to always be visible.
 
 Generated with [Devin](https://devin.ai)
 
