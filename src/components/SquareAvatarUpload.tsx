@@ -93,7 +93,9 @@ export function SquareAvatarUpload({
         console.error("Failed to refresh session after avatar upload:", sessionErr);
       }
       await refreshOnboarding();
-      if (data.bonusAwarded) {
+      if (data.demoConverted) {
+        toast.success("Avatar updated! 🎉 Your account is now permanent — it will no longer be deleted!");
+      } else if (data.bonusAwarded) {
         toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
       } else {
         toast.success("Avatar updated! ✨");

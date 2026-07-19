@@ -326,10 +326,13 @@ export default function PlayerProfilePage() {
         </div>
       )}
 
-      {isDemoPlayer && (
+      {isDemoPlayer && isOwnProfile && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
           <p className="text-amber-400 text-sm font-semibold text-center">
             ⚠️ Demo Player: This account will be automatically deleted after 1 hour
+          </p>
+          <p className="text-amber-300/70 text-xs text-center mt-1">
+            Go to <a href="/settings" className="underline hover:text-amber-200">Settings</a> to change your username and avatar to make this account permanent
           </p>
         </div>
       )}

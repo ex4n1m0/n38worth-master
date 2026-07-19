@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // Check if this is the first avatar upload (for bonus credits)
     const userId = parseInt(session.user.id);
     const [currentUser] = await db
-      .select({ avatarUrl: users.avatarUrl, credits: users.credits })
+      .select({ avatarUrl: users.avatarUrl, credits: users.credits, username: users.username, estimatedDeletionAt: users.estimatedDeletionAt })
       .from(users)
       .where(eq(users.id, userId));
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const isFirstUpload = !currentUser?.avatarUrl || !currentUser.avatarUrl.startsWith("data:");
 
     // Update user avatar in database
-    const updateData: { avatarUrl: string; updatedAt: Date; credits?: number } = {
+    const updateData: { avatarUrl: string; updatedAt: Date; credits?: number; estimatedDeletionAt?: null } = {
       avatarUrl: dataUrl,
       updatedAt: new Date(),
     };
@@ -70,6 +70,22 @@ export async function POST(request: Request) {
       const totalPlayers = Number(countResult?.totalPlayers ?? 0);
       bonusAmount = totalPlayers;
       updateData.credits = (currentUser?.credits ?? 0) + bonusAmount;
+    }
+
+    // Demo player conversion: if the player still has a deletion deadline
+    // (demo timer) but has already renamed away from "Demo Player_*",
+    // uploading a custom avatar completes the conversion — clear the
+    // deletion deadline so the account becomes permanent.
+    let demoConverted = false;
+    if (
+      currentUser?.estimatedDeletionAt &&
+      !currentUser.username.startsWith("Demo Player_")
+    ) {
+      updateData.estimatedDeletionAt = null;
+      demoConverted = true;
+      console.log(
+        `Demo player ${currentUser.username} converted to permanent account (avatar uploaded after username change)`
+      );
     }
 
     await db
@@ -92,6 +108,7 @@ export async function POST(request: Request) {
       bonusAmount,
       avatarCompleted: true,
       starterNpcIds: [],
+      demoConverted,
     });
   } catch (error) {
     console.error("Upload error:", error);
