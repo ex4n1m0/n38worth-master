@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PlayerCard } from "@/components/PlayerCard";
+import { PlayerCardSkeletonGrid } from "@/components/PlayerCardSkeleton";
 import { Input } from "@/components/ui/input";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
@@ -242,8 +243,8 @@ function BrowsePlayersSection({
         throw error;
       }
     },
-    staleTime: 5 * 1000,
-    refetchInterval: 20 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
   });
 
   // Mass Hire card data (pinned, independent of sort/filter).
@@ -258,8 +259,8 @@ function BrowsePlayersSection({
       if (!res.ok) return { cardId: 0, ownedCount: 0, cooldownEndsAt: 0 };
       return res.json();
     },
-    staleTime: 30 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 
   const totalPages = data?.totalPages ?? 1;
@@ -467,9 +468,7 @@ function BrowsePlayersSection({
       {comboBar}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-t1-400" />
-        </div>
+        <PlayerCardSkeletonGrid count={12} />
       ) : data?.players?.length === 0 ? (
         <Card className="border-gray-800 bg-gray-900/60">
           <CardContent className="py-12 text-center">

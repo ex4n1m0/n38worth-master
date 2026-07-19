@@ -28,5 +28,8 @@ export const ownership = pgTable(
     index("idx_ownership_owner").on(table.ownerId),
     uniqueIndex("idx_ownership_owned").on(table.ownedId),
     uniqueIndex("idx_ownership_pair").on(table.ownerId, table.ownedId),
+    // Performance indexes for frequently queried columns
+    index("idx_ownership_block_sell_until").on(table.blockSellUntil),
+    index("idx_ownership_perm_block_until").on(table.permBlockUntil),
   ]
 );

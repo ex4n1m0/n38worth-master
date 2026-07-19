@@ -43,6 +43,7 @@ export default function DashboardPage() {
       return res.json();
     },
     enabled: !!session?.user?.name,
+    staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
   });
 

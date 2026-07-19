@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, ownership } from "@/db/schema";
 import { eq, sql, ilike, desc, asc, and, ne } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 
@@ -70,19 +70,13 @@ export async function GET(req: Request) {
         conditions.push(
           sql`"users"."id" NOT IN (SELECT o.owned_id FROM ownership o WHERE o.owner_id = ${currentUserId})`
         );
-        conditions.push(
-          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0`
-        );
+        conditions.push(sql`"owner_info"."owned_id" IS NOT NULL`);
       } else if (ownerFilter === "none") {
-        conditions.push(
-          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0`
-        );
+        conditions.push(sql`"owner_info"."owned_id" IS NULL`);
       } else if (ownerFilter === "owns") {
         // Players that own other players (i.e. have at least one ownership row
         // as the owner).
-        conditions.push(
-          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id") > 0`
-        );
+        conditions.push(sql`COALESCE("owned_counts"."count", 0) > 0`);
       }
     }
 
@@ -94,13 +88,13 @@ export async function GET(req: Request) {
       conditions.push(sql`"users"."player_value" <= ${userCredits}`);
     }
     if (hasOwner === "true") {
-      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") > 0`);
+      conditions.push(sql`"owner_info"."owned_id" IS NOT NULL`);
     }
     if (noBoss === "true") {
-      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id") = 0`);
+      conditions.push(sql`"owner_info"."owned_id" IS NULL`);
     }
     if (hasPlayers === "true") {
-      conditions.push(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id") > 0`);
+      conditions.push(sql`COALESCE("owned_counts"."count", 0) > 0`);
     }
     if (playerType === "human") {
       conditions.push(eq(users.isNpc, 0));
@@ -156,11 +150,34 @@ export async function GET(req: Request) {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const ownerCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`;
-    const ownedCountExpr = sql<number>`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`;
-    const portfolioExpr = sql<number>`LEAST(COALESCE((SELECT SUM(u2.player_value::numeric) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id WHERE o2.owner_id = "users"."id" AND (SELECT COUNT(*) FROM ownership o4 WHERE o4.owner_id = u2.id) > 0), 0) * GREATEST((SELECT COUNT(*) FROM ownership o3 WHERE o3.owned_id = "users"."id"), 1), 9007199254740991)`;
-    const ownerNameExpr = sql<string | null>`(SELECT u.username FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1)`;
-    const ownerValueExpr = sql<number | null>`(SELECT u.player_value FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1)`;
+    // CTEs: pre-calculate ownership counts and owner info once per row instead
+    // of running the same correlated COUNT subqueries 9+ times per row.
+    // owner_info: one row per owned user (owned_id has a UNIQUE index) with the
+    // owner's username and player_value — replaces correlated subqueries for
+    // ownerName, ownerValue, and ownerCount.
+    const ownerInfoCte = db.$with("owner_info").as(
+      db.select({
+        ownedId: ownership.ownedId,
+        ownerName: users.username,
+        ownerValue: users.playerValue,
+      })
+        .from(ownership)
+        .innerJoin(users, eq(users.id, ownership.ownerId))
+    );
+    // owned_counts: how many players each user owns (aggregated once).
+    const ownedCountsCte = db.$with("owned_counts").as(
+      db.select({
+        ownerId: ownership.ownerId,
+        count: sql<number>`count(*)`.as("count"),
+      }).from(ownership).groupBy(ownership.ownerId)
+    );
+
+    // ownerCount = 0 or 1 (owned_id has a UNIQUE index, so at most one owner).
+    const ownerCountExpr = sql<number>`CASE WHEN "owner_info"."owned_id" IS NOT NULL THEN 1 ELSE 0 END`;
+    const ownedCountExpr = sql<number>`COALESCE("owned_counts"."count", 0)`;
+    const portfolioExpr = sql<number>`LEAST(COALESCE((SELECT SUM(u2.player_value::numeric) FROM ownership o2 JOIN users u2 ON o2.owned_id = u2.id JOIN "owned_counts" od2 ON od2.owner_id = u2.id WHERE o2.owner_id = "users"."id"), 0) * GREATEST(CASE WHEN "owner_info"."owned_id" IS NOT NULL THEN 1 ELSE 0 END, 1), 9007199254740991)`;
+    const ownerNameExpr = sql<string | null>`"owner_info"."username"`;
+    const ownerValueExpr = sql<number | null>`"owner_info"."player_value"`;
 
     const selectFields = {
       id: users.id,
@@ -201,41 +218,41 @@ export async function GET(req: Request) {
 
     let playersList;
 
+    // Base query with CTEs and LEFT JOINs — replaces 9+ correlated COUNT
+    // subqueries per row with pre-calculated CTE columns.
+    const baseQuery = db
+      .with(ownerInfoCte, ownedCountsCte)
+      .select(selectFields)
+      .from(users)
+      .leftJoin(ownerInfoCte, eq(ownerInfoCte.ownedId, users.id))
+      .leftJoin(ownedCountsCte, eq(ownedCountsCte.ownerId, users.id));
+    const filteredQuery = whereClause ? baseQuery.where(whereClause) : baseQuery;
+
     if (hasOwner === "true") {
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
+      playersList = await filteredQuery
         .orderBy(
-          asc(sql`LOWER((SELECT u.username FROM ownership o JOIN users u ON o.owner_id = u.id WHERE o.owned_id = "users"."id" ORDER BY o.purchased_at DESC LIMIT 1))`),
+          asc(sql`LOWER("owner_info"."username")`),
           desc(users.playerValue)
         )
         .limit(limit)
         .offset(offset);
     } else if (sort === "most-owned") {
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
-        .orderBy(desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = "users"."id")`), desc(users.lastOnlineAt))
+      playersList = await filteredQuery
+        .orderBy(desc(sql`CASE WHEN "owner_info"."owned_id" IS NOT NULL THEN 1 ELSE 0 END`), desc(users.lastOnlineAt))
         .limit(limit)
         .offset(offset);
     } else if (sort === "most-players") {
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
-        .orderBy(desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = "users"."id")`), desc(users.playerValue))
+      playersList = await filteredQuery
+        .orderBy(desc(sql`COALESCE("owned_counts"."count", 0)`), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
     } else if (sort === "online-cheapest") {
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
+      playersList = await filteredQuery
         .orderBy(desc(users.lastOnlineAt), asc(users.playerValue))
         .limit(limit)
         .offset(offset);
     } else if (sort === "most-hired") {
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
+      playersList = await filteredQuery
         .orderBy(desc(users.purchaseCount), desc(users.playerValue))
         .limit(limit)
         .offset(offset);
@@ -244,9 +261,7 @@ export async function GET(req: Request) {
       // (highest first), then interleave across professions so the top pick of
       // every profession surfaces first — making it easy to assemble the 6-set.
       // Players without a profession (goddesses/hidden) sort to the end.
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
-      playersList = await filtered
+      playersList = await filteredQuery
         .orderBy(
           asc(sql`("users"."profession" IS NULL)`),
           asc(sql`ROW_NUMBER() OVER (PARTITION BY "users"."profession" ORDER BY "users"."player_value" DESC NULLS LAST)`),
@@ -276,12 +291,10 @@ export async function GET(req: Request) {
                       ? dirFn(sql`COALESCE("users"."photo_score", 0)`)
                       : dirFn(users.playerValue);
 
-      const q = db.select(selectFields).from(users);
-      const filtered = whereClause ? q.where(whereClause) : q;
       // All Core-6 sorts (including "last-online") use a single ordering —
       // no ownership-tier bucketing. "Last Online" simply sorts by lastOnlineAt
       // across all players regardless of owner status.
-      playersList = await filtered
+      playersList = await filteredQuery
         .orderBy(orderBy)
         .limit(limit)
         .offset(offset);
@@ -310,7 +323,12 @@ export async function GET(req: Request) {
       };
     });
 
-    const countBase = db.select({ count: sql<number>`count(*)` }).from(users);
+    const countBase = db
+      .with(ownerInfoCte, ownedCountsCte)
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .leftJoin(ownerInfoCte, eq(ownerInfoCte.ownedId, users.id))
+      .leftJoin(ownedCountsCte, eq(ownedCountsCte.ownerId, users.id));
     const countFiltered = whereClause ? countBase.where(whereClause) : countBase;
     const [{ count: total }] = await countFiltered;
 

@@ -92,8 +92,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
-    refetchInterval: 60 * 1000,
-    staleTime: 30 * 1000,
+    refetchInterval: 120 * 1000,
+    staleTime: 60 * 1000,
   });
 
   const { data: fetchedMessages, isLoading } = useQuery({
@@ -103,7 +103,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       if (!res.ok) throw new Error("Failed to fetch messages");
       return res.json() as Promise<ChatMessage[]>;
     },
-    refetchInterval: 30000,
+    // No refetchInterval — Pusher provides real-time updates.
+    staleTime: Infinity,
   });
 
   // Merge fetched + real-time, deduplicating by id
@@ -285,7 +286,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                     <div className="flex-1 h-px bg-gray-800" />
                   </div>
                 )}
-                <div className={`flex gap-2.5 ${isOwn ? "flex-row-reverse" : ""}`}>
+                <div className={`flex gap-2.5 animate-chat-msg-in ${isOwn ? "flex-row-reverse" : ""}`}>
                   <Link href={`/players/${msg.sender.username}`} className="shrink-0">
                     <Avatar className="h-8 w-8 ring-1 ring-gray-700/50">
                       <AvatarImage src={msg.sender.avatarUrl || undefined} />

@@ -25,8 +25,8 @@ export function useMissionLevel(): number {
       return res.json();
     },
     enabled: !!session,
-    staleTime: 15 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
   return data?.missionLevel ?? 0;
 }

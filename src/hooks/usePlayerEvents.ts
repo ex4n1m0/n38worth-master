@@ -35,9 +35,9 @@ export function usePlayerEvents(userId: string | undefined) {
         amount?: number;
         buyerAvatar?: string | null;
       }) => {
-        queryClient.invalidateQueries({ queryKey: ["player"] });
-        queryClient.invalidateQueries({ queryKey: ["players"] });
-        queryClient.invalidateQueries({ queryKey: ["credits"] });
+        queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
         play("hire");
         // You were hired by someone — flash the same effect that fires when one
         // of your owned cards is poached, so being bought is just as visible.
@@ -54,8 +54,8 @@ export function usePlayerEvents(userId: string | undefined) {
     );
 
     channel.bind("credits-updated", () => {
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-      queryClient.invalidateQueries({ queryKey: ["player"] });
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
     });
 
     channel.bind(
@@ -67,7 +67,7 @@ export function usePlayerEvents(userId: string | undefined) {
         buyer: string;
       }) => {
         console.log("[poach] revenue-received", data);
-        queryClient.invalidateQueries({ queryKey: ["credits"] });
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
         play("hire");
         // Eye-catching "POACHED!" flash + navbar poach feed + credits bump.
         // (No toast — the sticky poach feed row in the Navbar is the
@@ -82,21 +82,21 @@ export function usePlayerEvents(userId: string | undefined) {
     );
 
     channel.bind("ownership-changed", (data: { type: string; initiator: string }) => {
-      queryClient.invalidateQueries({ queryKey: ["player"] });
-      queryClient.invalidateQueries({ queryKey: ["ownership"] });
+      queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" });
       if (data.type === "discard") {
         toast.info(`${data.initiator} discarded their relationship with you`);
       }
     });
 
     channel.bind("portfolio-reward", (data: { amount: number; portfolioValue: number }) => {
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
       play("hire");
       toast.success(`You earned ${data.amount} credits from your portfolio reward! 💼`);
     });
 
     channel.bind("rank-bonus", (data: { amount: number; category: string; rank: string; position: number }) => {
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
       play("hire");
       const positionLabels = ["1st", "2nd", "3rd"];
       const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;

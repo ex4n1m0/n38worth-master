@@ -25,6 +25,7 @@ import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { isLockablePurchaseCard, isPurchaseUnlockedAtLevel, purchaseUnlockThreshold } from "@/lib/missions-data";
+import { memo } from "react";
 
 function formatTimeRemaining(date: string | Date | null | undefined): string | null {
   if (!date) return null;
@@ -87,7 +88,7 @@ interface PlayerCardProps {
   };
 }
 
-export function PlayerCard({
+function PlayerCardImpl({
   id,
   username,
   avatarUrl,
@@ -269,12 +270,12 @@ export function PlayerCard({
           `You bought ${username}! Their value is now ${data.newValue} 💰`
         );
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["credits"] }),
-          queryClient.invalidateQueries({ queryKey: ["player"] }),
-          queryClient.invalidateQueries({ queryKey: ["players"] }),
-          queryClient.invalidateQueries({ queryKey: ["ownership"] }),
-          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
-          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
         ]);
       }
     },
@@ -375,12 +376,12 @@ export function PlayerCard({
           `You bought ${username} with 18-minute block! Their value is now ${data.newValue} 💰`
         );
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["credits"] }),
-          queryClient.invalidateQueries({ queryKey: ["player"] }),
-          queryClient.invalidateQueries({ queryKey: ["players"] }),
-          queryClient.invalidateQueries({ queryKey: ["ownership"] }),
-          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
-          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
         ]);
       }
     },
@@ -426,9 +427,9 @@ export function PlayerCard({
         setIsAvatarTempRevealed(false);
         setTempRevealedAvatarUrl(null);
       }, 60000);
-      queryClient.invalidateQueries({ queryKey: ["credits"] });
-      queryClient.invalidateQueries({ queryKey: ["player"] });
-      queryClient.invalidateQueries({ queryKey: ["players"] });
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" });
     },
     onError: (err: Error) => {
       toast.error(err.message);
@@ -484,12 +485,12 @@ export function PlayerCard({
       } else {
         toast.success(`Partnership broken! You hired ${username}! Their value is now ${data.newValue} 💰`);
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["credits"] }),
-          queryClient.invalidateQueries({ queryKey: ["player"] }),
-          queryClient.invalidateQueries({ queryKey: ["players"] }),
-          queryClient.invalidateQueries({ queryKey: ["ownership"] }),
-          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
-          queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["owned-player-ids"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
         ]);
       }
     },
@@ -528,7 +529,7 @@ export function PlayerCard({
     <div className="flex flex-col items-center gap-1">
       <div className="rounded-md overflow-hidden ring-1 ring-amber-500/40 bg-black/50 shrink-0" style={{width:'clamp(3rem,8vw,5rem)',height:'clamp(3rem,8vw,5rem)'}} title={effectiveProfession}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={professionImage} alt={effectiveProfession} className="w-full h-full object-contain p-0.5" />
+        <img src={professionImage} alt={effectiveProfession} loading="lazy" className="w-full h-full object-contain p-0.5" />
       </div>
       {ownedIds.has(id) && !isGoddess && !isOwnProfile && (
         <AssignProfessionDialog targetId={id} targetUsername={username} currentProfession={effectiveProfession} />
@@ -1066,3 +1067,9 @@ export function PlayerCard({
     </Link>
   );
 }
+
+// Memoized export — prevents re-rendering all 90 cards when a parent component
+// re-renders due to unrelated state changes (navbar polls, etc.). The internal
+// hooks (useCredits, useOwnedPlayerIds, etc.) still update independently when
+// their query data changes.
+export const PlayerCard = memo(PlayerCardImpl);

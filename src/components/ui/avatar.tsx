@@ -27,12 +27,14 @@ function Avatar({
 
 function AvatarImage({
   className,
+  loading = "lazy",
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
   return (
     <AvatarPrimitive.Image
       data-slot="avatar-image"
       className={cn("aspect-square size-full object-cover", className)}
+      loading={loading}
       {...props}
     />
   )

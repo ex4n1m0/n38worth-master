@@ -43,25 +43,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Mark user as online, reactivate, and accumulate online time (atomic increment)
-  await db
+  // Mark user as online, reactivate, and accumulate online time (atomic increment).
+  // Use RETURNING to get the updated user data back in the same round-trip,
+  // eliminating a separate SELECT for the user row.
+  const [user] = await db
     .update(users)
     .set({
       lastOnlineAt: now,
       isActive: 1,
       totalOnlineMinutes: sql`${users.totalOnlineMinutes} + ${onlineIncrement}`,
     })
-    .where(eq(users.id, userId));
-
-  // Restart the 24-hour timer on every assigned permanent block while the user is online.
-  const newPermBlockUntil = new Date(now.getTime() + PERM_BLOCK_MS);
-  await db
-    .update(ownership)
-    .set({ permBlockUntil: newPermBlockUntil })
-    .where(and(eq(ownership.ownerId, userId), isNotNull(ownership.permBlockUntil)));
-
-  const [user] = await db
-    .select({
+    .where(eq(users.id, userId))
+    .returning({
       id: users.id,
       username: users.username,
       avatarUrl: users.avatarUrl,
@@ -70,32 +63,43 @@ export async function GET(request: NextRequest) {
       isActive: users.isActive,
       wasReset: users.wasReset,
       createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(eq(users.id, userId));
+    });
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  // Calculate portfolio value: player_value + sum of owned players' values
-  // Count ALL owned players, multiply each by (1 + number of players they own)
-  const [portfolioResult] = await db
-    .select({
-      ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
-    })
-    .from(ownership)
-    .innerJoin(users, eq(ownership.ownedId, users.id))
-    .where(eq(ownership.ownerId, userId));
+  // Restart the 24-hour timer on every assigned permanent block while the user is online.
+  const newPermBlockUntil = new Date(now.getTime() + PERM_BLOCK_MS);
 
-  // Get ownerCount (how many players own this player)
-  const [ownerCountResult] = await db
-    .select({
-      ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
-    })
-    .from(ownership)
-    .where(eq(ownership.ownedId, userId));
+  // Run the perm-block update, portfolio value, and owner-count queries in
+  // parallel — none of them depend on each other's results.
+  const [, portfolioRows, ownerCountRows] = await Promise.all([
+    // Restart the 24-hour timer on every assigned permanent block while the user is online.
+    db
+      .update(ownership)
+      .set({ permBlockUntil: newPermBlockUntil })
+      .where(and(eq(ownership.ownerId, userId), isNotNull(ownership.permBlockUntil))),
+    // Calculate portfolio value: sum of owned players' values
+    // Count ALL owned players, multiply each by (1 + number of players they own)
+    db
+      .select({
+        ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
+      })
+      .from(ownership)
+      .innerJoin(users, eq(ownership.ownedId, users.id))
+      .where(eq(ownership.ownerId, userId)),
+    // Get ownerCount (how many players own this player)
+    db
+      .select({
+        ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
+      })
+      .from(ownership)
+      .where(eq(ownership.ownedId, userId)),
+  ]);
 
+  const [portfolioResult] = portfolioRows;
+  const [ownerCountResult] = ownerCountRows;
   const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
   const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
   const portfolioValue = safePortfolioValue(user.playerValue, ownedValue, ownerCount);

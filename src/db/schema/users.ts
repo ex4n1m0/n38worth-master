@@ -76,5 +76,12 @@ export const users = pgTable(
     uniqueIndex("idx_users_photo_source_url_unique")
       .on(table.photoSourceUrl)
       .where(sql`${table.photoSourceUrl} IS NOT NULL`),
+    // Performance indexes for frequently queried columns
+    index("idx_users_is_npc").on(table.isNpc),
+    index("idx_users_is_active").on(table.isActive),
+    index("idx_users_last_online").on(table.lastOnlineAt),
+    index("idx_users_created_at").on(table.createdAt),
+    index("idx_users_player_value").on(table.playerValue),
+    index("idx_users_avatar_completed").on(table.avatarCompleted),
   ]
 );

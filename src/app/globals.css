@@ -938,6 +938,23 @@ button {
   }
 }
 
+/* ───────────────────────── Chat message entry ───────────────────────── */
+
+@keyframes chat-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-chat-msg-in {
+  animation: chat-msg-in 0.25s ease-out;
+}
+
 /* ───────────────────────── Landing page (lp-*) FX ───────────────────────── */
 
 /* Slow drifting aurora blobs behind the hero */

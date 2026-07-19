@@ -90,6 +90,41 @@ export async function GET(
       ? sql<string | null>`NULL`.as("avatar_url")
       : users.avatarUrl;
 
+    // Pre-aggregated subqueries to eliminate per-row correlated N+1 subqueries.
+    // Each is LEFT JOINed once per query instead of running 5 subqueries × N rows.
+    const ownerCountSub = db
+      .select({ ownedId: ownership.ownedId, cnt: sql<number>`count(*)`.as("cnt") })
+      .from(ownership)
+      .groupBy(ownership.ownedId)
+      .as("oc");
+
+    const ownedCountSub = db
+      .select({ ownerId: ownership.ownerId, cnt: sql<number>`count(*)`.as("cnt") })
+      .from(ownership)
+      .groupBy(ownership.ownerId)
+      .as("odc");
+
+    const portfolioSub = db
+      .select({
+        ownerId: ownership.ownerId,
+        total: sql<number>`COALESCE(sum("users"."player_value"::numeric), 0)`.as("total"),
+      })
+      .from(ownership)
+      .innerJoin(users, eq(ownership.ownedId, users.id))
+      .groupBy(ownership.ownerId)
+      .as("pv");
+
+    const recentOwnerSub = db
+      .select({
+        ownedId: sql<number>`ro.owned_id`.as("owned_id"),
+        ownerName: sql<string | null>`ro.owner_name`.as("owner_name"),
+        ownerValue: sql<number | null>`ro.owner_value`.as("owner_value"),
+      })
+      .from(
+        sql`(SELECT DISTINCT ON (o.owned_id) o.owned_id, u.username AS owner_name, u.player_value AS owner_value FROM ownership o JOIN users u ON o.owner_id = u.id ORDER BY o.owned_id, o.purchased_at DESC) ro`
+      )
+      .as("ros");
+
     const owners = await db
       .select({
         ownershipId: ownership.id,
@@ -114,14 +149,18 @@ export async function GET(
         photoAuthorName: users.photoAuthorName,
         photoAuthorUrl: users.photoAuthorUrl,
         photoSourceUrl: users.photoSourceUrl,
-        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
-        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
-        portfolioValue: portfolioValueExpr.as("portfolio_value"),
-        ownerName: ownerNameExpr.as("owner_name"),
-        ownerValue: ownerValueExpr.as("owner_value"),
+        ownerCount: ownerCountSub.cnt,
+        ownedCount: ownedCountSub.cnt,
+        portfolioValue: portfolioSub.total,
+        ownerName: recentOwnerSub.ownerName,
+        ownerValue: recentOwnerSub.ownerValue,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownerId, users.id))
+      .leftJoin(ownerCountSub, eq(ownerCountSub.ownedId, users.id))
+      .leftJoin(ownedCountSub, eq(ownedCountSub.ownerId, users.id))
+      .leftJoin(portfolioSub, eq(portfolioSub.ownerId, users.id))
+      .leftJoin(recentOwnerSub, eq(recentOwnerSub.ownedId, users.id))
       .where(and(eq(ownership.ownedId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt));
 
@@ -168,14 +207,18 @@ export async function GET(
         photoAuthorName: users.photoAuthorName,
         photoAuthorUrl: users.photoAuthorUrl,
         photoSourceUrl: users.photoSourceUrl,
-        ownerCount: sql<number>`(SELECT COUNT(*) FROM ownership o2 WHERE o2.owned_id = "users"."id")`.as("owner_count"),
-        ownedCount: sql<number>`(SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = "users"."id")`.as("owned_count"),
-        portfolioValue: portfolioValueExpr.as("portfolio_value"),
-        ownerName: ownerNameExpr.as("owner_name"),
-        ownerValue: ownerValueExpr.as("owner_value"),
+        ownerCount: ownerCountSub.cnt,
+        ownedCount: ownedCountSub.cnt,
+        portfolioValue: portfolioSub.total,
+        ownerName: recentOwnerSub.ownerName,
+        ownerValue: recentOwnerSub.ownerValue,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
+      .leftJoin(ownerCountSub, eq(ownerCountSub.ownedId, users.id))
+      .leftJoin(ownedCountSub, eq(ownedCountSub.ownerId, users.id))
+      .leftJoin(portfolioSub, eq(portfolioSub.ownerId, users.id))
+      .leftJoin(recentOwnerSub, eq(recentOwnerSub.ownedId, users.id))
       .where(and(eq(ownership.ownerId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt))
       .limit(limit)

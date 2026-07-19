@@ -55,35 +55,44 @@ export async function GET(req: Request) {
         const playerValue = Number(currentUser.playerValue);
         const portfolioValue = Number(currentUser.portfolioValue);
 
-        // Empire position (owned players count)
-        const [empirePosition] = await db
-          .select({ position: sql<number>`COUNT(*) + 1` })
-          .from(users)
-          .where(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = users.id) > ${ownedCount} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+        // Run all 5 position queries in parallel
+        const [empireRows, legacyRows, creditsRows, valueRows, portfolioRows] = await Promise.all([
+          // Empire position (owned players count)
+          db
+            .select({ position: sql<number>`COUNT(*) + 1` })
+            .from(users)
+            .where(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = users.id) > ${ownedCount} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
 
-        // Legacy position (account age)
-        const [legacyPosition] = await db
-          .select({ position: sql<number>`COUNT(*) + 1` })
-          .from(users)
-          .where(sql`users.created_at < ${currentUser.createdAt} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+          // Legacy position (account age)
+          db
+            .select({ position: sql<number>`COUNT(*) + 1` })
+            .from(users)
+            .where(sql`users.created_at < ${currentUser.createdAt} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
 
-        // Credits position
-        const [creditsPosition] = await db
-          .select({ position: sql<number>`COUNT(*) + 1` })
-          .from(users)
-          .where(sql`users.credits > ${credits} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+          // Credits position
+          db
+            .select({ position: sql<number>`COUNT(*) + 1` })
+            .from(users)
+            .where(sql`users.credits > ${credits} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
 
-        // Value position
-        const [valuePosition] = await db
-          .select({ position: sql<number>`COUNT(*) + 1` })
-          .from(users)
-          .where(sql`users.player_value > ${playerValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+          // Value position
+          db
+            .select({ position: sql<number>`COUNT(*) + 1` })
+            .from(users)
+            .where(sql`users.player_value > ${playerValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
 
-        // Portfolio position
-        const [portfolioPosition] = await db
-          .select({ position: sql<number>`COUNT(*) + 1` })
-          .from(users)
-          .where(sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`);
+          // Portfolio position
+          db
+            .select({ position: sql<number>`COUNT(*) + 1` })
+            .from(users)
+            .where(sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+        ]);
+
+        const empirePosition = empireRows[0];
+        const legacyPosition = legacyRows[0];
+        const creditsPosition = creditsRows[0];
+        const valuePosition = valueRows[0];
+        const portfolioPosition = portfolioRows[0];
 
         userPositions = {
           empire: Number(empirePosition?.position ?? 1),

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,19 +12,13 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { MarketActionButton } from "@/components/MarketActionButton";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
-import { GlobalChatPage } from "@/components/GlobalChatPage";
-import { LostPlayersGrid } from "@/components/LostPlayersGrid";
-import { InlineDMChat } from "@/components/InlineDMChat";
 import { ResignButton } from "@/components/ResignButton";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PortfolioRewardCountdown } from "@/components/PortfolioRewardCountdown";
 import { RankBonusCountdown } from "@/components/RankBonusCountdown";
 import { LoginReward } from "@/components/LoginReward";
 import { HourlyRewardCountdown } from "@/components/HourlyRewardCountdown";
-import { RewardHistory } from "@/components/RewardHistory";
 import { BossIncomeCard } from "@/components/BossIncomeCard";
-import { ChangeProfessionDialog } from "@/components/ChangeProfessionDialog";
-import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { triggerWorldReboot } from "@/components/WorldRebootingOverlay";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -71,6 +66,27 @@ import {
 } from "@/lib/ranks";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
+// Code-split heavy components that are only needed on the profile page.
+// These load lazily after the initial render, reducing the initial bundle.
+const GlobalChatPage = dynamic(() => import("@/components/GlobalChatPage").then((m) => m.GlobalChatPage), {
+  loading: () => <div className="h-64 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-500" /></div>,
+});
+const LostPlayersGrid = dynamic(() => import("@/components/LostPlayersGrid").then((m) => m.LostPlayersGrid), {
+  loading: () => <div className="h-32" />,
+});
+const InlineDMChat = dynamic(() => import("@/components/InlineDMChat").then((m) => m.InlineDMChat), {
+  loading: () => <div className="h-48 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-500" /></div>,
+});
+const RewardHistory = dynamic(() => import("@/components/RewardHistory").then((m) => m.RewardHistory), {
+  loading: () => <div className="h-32" />,
+});
+const ChangeProfessionDialog = dynamic(() => import("@/components/ChangeProfessionDialog").then((m) => m.ChangeProfessionDialog), {
+  ssr: false,
+});
+const AssignProfessionDialog = dynamic(() => import("@/components/AssignProfessionDialog").then((m) => m.AssignProfessionDialog), {
+  ssr: false,
+});
+
 const BIO_MAX = 160;
 
 export default function PlayerProfilePage() {
@@ -110,6 +126,7 @@ export default function PlayerProfilePage() {
       if (!res.ok) throw new Error("Failed to fetch player");
       return res.json();
     },
+    staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
     placeholderData: (prev) => prev,
   });

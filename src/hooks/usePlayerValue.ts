@@ -11,7 +11,7 @@ export function usePlayerValue() {
       const data = await res.json();
       return typeof data.playerValue === "number" ? data.playerValue : Number(data.playerValue) || 0;
     },
-    staleTime: 10 * 1000,
-    refetchInterval: 30 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 }

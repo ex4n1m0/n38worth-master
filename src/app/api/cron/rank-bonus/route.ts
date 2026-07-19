@@ -68,8 +68,20 @@ export async function GET(req: Request) {
     // Collect Pusher notifications to fire in parallel at the end
     const pusherNotifications: Array<{ channel: string; event: string; data: object }> = [];
     
+    // Cache portfolio rewards per player so a player appearing in multiple
+    // categories (empire/credits/value/portfolio) only triggers the 3-query
+    // portfolio calculation once per cron run. With up to 12 top-3 slots and
+    // heavy overlap between categories, this cuts the 36 portfolio queries
+    // down to one set per unique player.
+    const portfolioRewardCache = new Map<number, number>();
+
     // Helper function to calculate portfolio reward for a player (3 queries in parallel)
     const calculatePortfolioReward = async (playerId: number): Promise<number> => {
+      const cached = portfolioRewardCache.get(playerId);
+      if (cached !== undefined) {
+        return cached;
+      }
+
       const [portfolioResult, ownerCountResult, playerResult] = await Promise.all([
         db.select({
           ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
@@ -99,7 +111,9 @@ export async function GET(req: Request) {
       const portfolioValue = safePortfolioValue(playerValue, ownedValue, ownerCount);
 
       // Calculate 0.2% reward using BigInt-safe arithmetic
-      return safeReward(portfolioValue, 0.002);
+      const reward = safeReward(portfolioValue, 0.002);
+      portfolioRewardCache.set(playerId, reward);
+      return reward;
     };
 
     // Helper function to get rank tier index

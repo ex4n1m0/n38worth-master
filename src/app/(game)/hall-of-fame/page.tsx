@@ -46,7 +46,8 @@ export default function HallOfFamePage() {
       if (!res.ok) return { goddesses: [], currentUserId: null };
       return res.json();
     },
-    refetchInterval: 10 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 60 * 1000,
   });
 
   return (

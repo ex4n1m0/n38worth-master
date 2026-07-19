@@ -22,63 +22,66 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent
-    //    first). Includes humans + AGIs (isNpc=0) and the 6 goddesses (isNpc=1
-    //    but autonomous AI players). All must have an avatar to be visible.
-    const onlineHumans = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        lastOnlineAt: users.lastOnlineAt,
-      })
-      .from(users)
-      .where(and(
-        sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
-        eq(users.isActive, 1),
-        isNotNull(users.avatarUrl)
-      ))
-      .orderBy(desc(users.lastOnlineAt))
-      .limit(10);
+    // Run all 4 sidebar queries in parallel
+    const [onlineHumans, getEvents, pumpEvents, topScore] = await Promise.all([
+      // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent
+      //    first). Includes humans + AGIs (isNpc=0) and the 6 goddesses (isNpc=1
+      //    but autonomous AI players). All must have an avatar to be visible.
+      db
+        .select({
+          id: users.id,
+          username: users.username,
+          lastOnlineAt: users.lastOnlineAt,
+        })
+        .from(users)
+        .where(and(
+          sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
+          eq(users.isActive, 1),
+          isNotNull(users.avatarUrl)
+        ))
+        .orderBy(desc(users.lastOnlineAt))
+        .limit(10),
 
-    // 2. Last 10 GET (purchase) events.
-    const getEvents = await db
-      .select({
-        id: gameHistory.id,
-        actorId: gameHistory.actorId,
-        targetUsername: gameHistory.targetUsername,
-        details: gameHistory.details,
-        createdAt: gameHistory.createdAt,
-      })
-      .from(gameHistory)
-      .where(eq(gameHistory.eventType, "purchase"))
-      .orderBy(desc(gameHistory.createdAt))
-      .limit(10);
+      // 2. Last 10 GET (purchase) events.
+      db
+        .select({
+          id: gameHistory.id,
+          actorId: gameHistory.actorId,
+          targetUsername: gameHistory.targetUsername,
+          details: gameHistory.details,
+          createdAt: gameHistory.createdAt,
+        })
+        .from(gameHistory)
+        .where(eq(gameHistory.eventType, "purchase"))
+        .orderBy(desc(gameHistory.createdAt))
+        .limit(10),
 
-    // 3. Last 10 PUMP events.
-    const pumpEvents = await db
-      .select({
-        id: gameHistory.id,
-        actorId: gameHistory.actorId,
-        targetUsername: gameHistory.targetUsername,
-        details: gameHistory.details,
-        createdAt: gameHistory.createdAt,
-      })
-      .from(gameHistory)
-      .where(eq(gameHistory.eventType, "pump"))
-      .orderBy(desc(gameHistory.createdAt))
-      .limit(10);
+      // 3. Last 10 PUMP events.
+      db
+        .select({
+          id: gameHistory.id,
+          actorId: gameHistory.actorId,
+          targetUsername: gameHistory.targetUsername,
+          details: gameHistory.details,
+          createdAt: gameHistory.createdAt,
+        })
+        .from(gameHistory)
+        .where(eq(gameHistory.eventType, "pump"))
+        .orderBy(desc(gameHistory.createdAt))
+        .limit(10),
 
-    // 4. Top 10 players by photo_score (NPCs with Unsplash scores).
-    const topScore = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        photoScore: users.photoScore,
-      })
-      .from(users)
-      .where(and(eq(users.isActive, 1), sql`${users.photoScore} > 0`))
-      .orderBy(desc(users.photoScore))
-      .limit(10);
+      // 4. Top 10 players by photo_score (NPCs with Unsplash scores).
+      db
+        .select({
+          id: users.id,
+          username: users.username,
+          photoScore: users.photoScore,
+        })
+        .from(users)
+        .where(and(eq(users.isActive, 1), sql`${users.photoScore} > 0`))
+        .orderBy(desc(users.photoScore))
+        .limit(10),
+    ]);
 
     // Enrich event lists with actor usernames.
     const actorIds = Array.from(

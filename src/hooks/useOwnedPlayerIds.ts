@@ -38,8 +38,8 @@ export function useOwnedPlayerIds() {
       return res.json();
     },
     enabled: !!username,
-    staleTime: 30 * 1000,
-    refetchInterval: 45 * 1000,
+    staleTime: 60 * 1000,
+    refetchInterval: 120 * 1000,
   });
 
   const ownedIds = useMemo(() => {

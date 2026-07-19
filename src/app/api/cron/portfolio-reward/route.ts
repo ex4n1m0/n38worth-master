@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership, rewardHistory } from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
@@ -42,6 +42,65 @@ export async function GET(req: Request) {
       .from(users)
       .where(sql`${users.isActive} = 1 AND (${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)}))`);
 
+    // --- Batch-fetch portfolio data for ALL active players in 3 queries total ---
+    // This eliminates the N+1 pattern (3 queries × N players = 3N queries).
+    // We pre-compute, for every active player:
+    //   1. ownedValue  — sum of owned cards' playerValue × (1 + cards each owned card owns)
+    //   2. ownerCount  — how many players own this player
+    //   3. boss info   — the (single) player who owns this player
+    // Then look them up from in-memory Maps inside the per-player loops.
+    const activePlayerIds = allPlayers.map((p) => p.id);
+    const portfolioMap = new Map<number, number>();
+    const ownerCountMap = new Map<number, number>();
+    const bossMap = new Map<number, { bossId: number; bossUsername: string }>();
+
+    if (activePlayerIds.length > 0) {
+      const [portfolioRows, ownerCountRows, bossRows] = await Promise.all([
+        // 1. Portfolio (owned) value per active player.
+        //    For each owned card we multiply its playerValue by (1 + number of
+        //    cards IT owns), matching the original per-player correlated
+        //    subquery. The LEFT JOIN subquery supplies that per-card owned
+        //    count; COALESCE keeps it 0 when a card owns nothing.
+        db
+          .select({
+            playerId: ownership.ownerId,
+            ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + COALESCE(sub.owned_count, 0))), 0)`.as("owned_value"),
+          })
+          .from(ownership)
+          .innerJoin(users, eq(ownership.ownedId, users.id))
+          .leftJoin(
+            sql`(SELECT owner_id, COUNT(*) AS owned_count FROM ownership GROUP BY owner_id) AS sub`,
+            sql`sub.owner_id = ${users.id}`
+          )
+          .where(inArray(ownership.ownerId, activePlayerIds))
+          .groupBy(ownership.ownerId),
+        // 2. ownerCount (how many players own this player) per active player.
+        db
+          .select({
+            playerId: ownership.ownedId,
+            ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
+          })
+          .from(ownership)
+          .where(inArray(ownership.ownedId, activePlayerIds))
+          .groupBy(ownership.ownedId),
+        // 3. Boss info (the single player who owns this player). owned_id has a
+        //    unique index so each player has at most one boss — no LIMIT needed.
+        db
+          .select({
+            playerId: ownership.ownedId,
+            bossId: ownership.ownerId,
+            bossUsername: users.username,
+          })
+          .from(ownership)
+          .innerJoin(users, eq(ownership.ownerId, users.id))
+          .where(inArray(ownership.ownedId, activePlayerIds)),
+      ]);
+
+      for (const r of portfolioRows) portfolioMap.set(r.playerId, Number(r.ownedValue ?? 0));
+      for (const r of ownerCountRows) ownerCountMap.set(r.playerId, Number(r.ownerCount ?? 0));
+      for (const r of bossRows) bossMap.set(r.playerId, { bossId: r.bossId, bossUsername: r.bossUsername });
+    }
+
     // When the global interval hasn't elapsed, only process Time/Creation holders
     // (they receive rewards every cron tick = 2x frequency). Everyone else is skipped
     // and we return early — preserving the original behaviour for normal players.
@@ -53,30 +112,11 @@ export async function GET(req: Request) {
         const playerPowers = await getGoddessPowers(player.id);
         if (!playerPowers.hasTime) continue;
 
-        const [portfolioResult] = await db
-          .select({
-            ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
-          })
-          .from(ownership)
-          .innerJoin(users, eq(ownership.ownedId, users.id))
-          .where(eq(ownership.ownerId, player.id));
-
-        const [ownerCountResult] = await db
-          .select({ ownerCount: sql<number>`COUNT(*)`.as("owner_count") })
-          .from(ownership)
-          .where(eq(ownership.ownedId, player.id));
-
-        const [bossResult] = await db
-          .select({ bossId: ownership.ownerId, bossUsername: users.username })
-          .from(ownership)
-          .innerJoin(users, eq(ownership.ownerId, users.id))
-          .where(eq(ownership.ownedId, player.id))
-          .limit(1);
-
-        const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
-        const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
-        const bossId = bossResult?.bossId;
-        const bossUsername = bossResult?.bossUsername;
+        const ownedValue = portfolioMap.get(player.id) ?? 0;
+        const ownerCount = ownerCountMap.get(player.id) ?? 0;
+        const bossInfo = bossMap.get(player.id);
+        const bossId = bossInfo?.bossId;
+        const bossUsername = bossInfo?.bossUsername;
         const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
         const grossReward = safeReward(portfolioValue, 0.002);
 
@@ -136,39 +176,14 @@ export async function GET(req: Request) {
 
     for (const player of allPlayers) {
       const playerPowers = await getGoddessPowers(player.id);
-      // Calculate portfolio value: player_value + sum of owned players' values
-      // Count ALL owned players, multiply each by (1 + number of players they own)
-      const [portfolioResult] = await db
-        .select({
-          ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
-        })
-        .from(ownership)
-        .innerJoin(users, eq(ownership.ownedId, users.id))
-        .where(eq(ownership.ownerId, player.id));
-
-      // Get ownerCount (how many players own this player)
-      const [ownerCountResult] = await db
-        .select({
-          ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
-        })
-        .from(ownership)
-        .where(eq(ownership.ownedId, player.id));
-
-      // Get player's boss (the one who owns them)
-      const [bossResult] = await db
-        .select({
-          bossId: ownership.ownerId,
-          bossUsername: users.username,
-        })
-        .from(ownership)
-        .innerJoin(users, eq(ownership.ownerId, users.id))
-        .where(eq(ownership.ownedId, player.id))
-        .limit(1);
-
-      const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
-      const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
-      const bossId = bossResult?.bossId;
-      const bossUsername = bossResult?.bossUsername;
+      // Portfolio value, ownerCount, and boss info are pre-fetched in batch
+      // queries above (portfolioMap / ownerCountMap / bossMap) — no per-player
+      // DB round-trips needed here.
+      const ownedValue = portfolioMap.get(player.id) ?? 0;
+      const ownerCount = ownerCountMap.get(player.id) ?? 0;
+      const bossInfo = bossMap.get(player.id);
+      const bossId = bossInfo?.bossId;
+      const bossUsername = bossInfo?.bossUsername;
 
       // Use BigInt-safe portfolio calculation to avoid overflow with large player values
       const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
@@ -240,7 +255,7 @@ export async function GET(req: Request) {
           });
 
           bossTaxes.push({
-            bossUsername,
+            bossUsername: bossUsername!,
             fromPlayer: player.username,
             amount: effectiveBossTax,
           });
