@@ -728,7 +728,18 @@ function PlayerCardImpl({
               </svg>
             </div>
           )}
-          <CardContent className="p-3 relative flex flex-col items-center gap-2">
+          <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
+            {/* "Owns N" badge — above the avatar so the avatar position is
+                consistent regardless of whether the card owns other cards. */}
+            {ownedCount > 0 && (
+              <div className="w-full flex justify-center">
+                <span className="inline-flex items-center gap-1 text-t2-400 text-xs font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-2 py-0.5">
+                  <Users className="h-3 w-3 shrink-0" />
+                  Owns {formatCompact(ownedCount)}
+                </span>
+              </div>
+            )}
+
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
                 <AvatarImage src={displayedAvatarSrc} alt={username} className={avatarFitClass} />
@@ -757,7 +768,7 @@ function PlayerCardImpl({
                   role="button"
                   tabIndex={0}
                   onClick={handleComboToggle}
-                  className={`inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border px-4 py-1.5 cursor-pointer transition-colors ${
+                  className={`inline-flex items-center gap-1.5 text-xs mt-1 rounded-full border px-3 py-1 cursor-pointer transition-colors ${
                     isComboSelected
                       ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
                       : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
@@ -767,7 +778,7 @@ function PlayerCardImpl({
                   {effectiveProfession}
                 </span>
               ) : effectiveProfession ? (
-                <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700 px-4 py-1.5 text-gray-400">
+                <span className="inline-flex items-center gap-1.5 text-xs mt-1 rounded-full border border-gray-700 px-3 py-1 text-gray-400">
                   {effectiveProfession}
                 </span>
               ) : !isGoddess && !isBonusCard && !isOwnProfile ? (
@@ -776,10 +787,10 @@ function PlayerCardImpl({
                     targetId={id}
                     targetUsername={username}
                     currentProfession={null}
-                    triggerClassName="mt-1 rounded-full border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-auto px-4 py-1.5 text-sm"
+                    triggerClassName="mt-1 rounded-full border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-auto px-3 py-1 text-xs"
                   />
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-sm mt-1 rounded-full border border-gray-700/70 px-4 py-1.5 text-gray-500">
+                  <span className="inline-flex items-center gap-1.5 text-xs mt-1 rounded-full border border-gray-700/70 px-3 py-1 text-gray-500">
                     No Profession
                   </span>
                 )
@@ -791,18 +802,18 @@ function PlayerCardImpl({
                 <Button
                   onClick={handlePumpClick}
                   disabled={(myCredits ?? 0) < playerValue || pumpMutation.isPending}
-                  className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                  className={`w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                     (myCredits ?? 0) >= playerValue
                       ? "text-white bg-transparent border-2 border-fuchsia-500 hover:bg-fuchsia-500/15 shadow-lg shadow-purple-900/30"
                       : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
                   }`}
                 >
                   {pumpMutation.isPending ? (
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                    <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      <span className="text-sm sm:text-lg leading-none">PUMP</span>
-                      <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                      <span className="text-xs sm:text-sm leading-none">PUMP</span>
+                      <span style={{ fontSize: "clamp(0.55rem, 1vw, 0.7rem)" }}>
                         {formatCompact(playerValue)}¢
                       </span>
                     </>
@@ -813,21 +824,21 @@ function PlayerCardImpl({
                   targetUsername={username}
                   permBlockUntil={permBlockUntil}
                   size="sm"
-                  className="w-[80%]"
+                  className="w-[85%]"
                 />
               </>
             ) : isPurchaseLocked ? (
               // locked
               <div
-                className="w-[80%] aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
+                className="w-[85%] aspect-video rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
                 title={unlockThreshold !== null ? `Own ${formatCompact(unlockThreshold)} cards to unlock` : "Locked"}
               >
-                <span className="flex items-center gap-1 text-sm sm:text-base font-bold leading-none">
-                  <Lock className="h-3.5 w-3.5" />
+                <span className="flex items-center gap-1 text-xs sm:text-sm font-bold leading-none">
+                  <Lock className="h-3 w-3" />
                   Locked
                 </span>
                 {unlockThreshold !== null && (
-                  <span className="text-center leading-tight px-1" style={{ fontSize: "clamp(0.55rem, 1.1vw, 0.7rem)" }}>
+                  <span className="text-center leading-tight px-1" style={{ fontSize: "clamp(0.5rem, 0.9vw, 0.65rem)" }}>
                     {formatCompact(unlockThreshold)} cards to unlock
                   </span>
                 )}
@@ -836,20 +847,20 @@ function PlayerCardImpl({
               <Button
                 onClick={handleBuyClick}
                 disabled={!canAfford || mutation.isPending}
-                className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                className={`w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                   canAfford
                     ? "text-white bg-transparent border-2 border-green-500 hover:bg-green-500/15 shadow-lg shadow-green-900/30"
                     : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
                 }`}
               >
                 {mutation.isPending ? (
-                  <Loader2 className="h-6 w-6 animate-spin" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
                 ) : isBonusCard ? (
-                  <span className="text-sm sm:text-lg leading-none">GET</span>
+                  <span className="text-xs sm:text-sm leading-none">GET</span>
                 ) : (
                   <>
-                    <span className="text-sm sm:text-lg leading-none">GET</span>
-                    <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                    <span className="text-xs sm:text-sm leading-none">GET</span>
+                    <span style={{ fontSize: "clamp(0.55rem, 1vw, 0.7rem)" }}>
                       {formatCompact(playerValue)}¢
                     </span>
                   </>
@@ -861,8 +872,8 @@ function PlayerCardImpl({
                 blocked) player can't be sold or hired until this runs out.
                 Shows a break button so viewers can break the partnership. */}
             {isHireBlocked && (blockSellUntil || permBlockUntil) && (
-              <div className="w-[80%] flex flex-col items-center gap-1">
-                <div className={`w-full flex flex-col items-center gap-1 rounded-md border py-1.5 px-2 ${
+              <div className="w-[85%] flex flex-col items-center gap-1">
+                <div className={`w-full flex flex-col items-center gap-1 rounded-md border py-1 px-2 ${
                   isFateSealed
                     ? "bg-indigo-950/50 border-indigo-500/30"
                     : isPermBlocked
@@ -883,7 +894,7 @@ function PlayerCardImpl({
                   <Button
                     onClick={handleBreakClick}
                     disabled={breakMutation.isPending || isPermBlocked || (myCredits ?? 0) < totalBreakCost}
-                    className={`w-full aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+                    className={`w-full aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
                       (myCredits ?? 0) >= totalBreakCost && !isPermBlocked
                         ? isFateSealed
                           ? "text-white bg-transparent border-2 border-blue-500 hover:bg-blue-500/15 shadow-lg shadow-blue-900/30"
@@ -894,24 +905,24 @@ function PlayerCardImpl({
                     }`}
                   >
                     {breakMutation.isPending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : isPermBlocked ? (
                       <>
                         <div className="flex items-center gap-1">
-                          <Shield className="h-3.5 w-3.5" />
-                          <span className="text-xs sm:text-sm leading-none">Unbreakable</span>
+                          <Shield className="h-3 w-3" />
+                          <span className="text-[10px] sm:text-xs leading-none">Unbreakable</span>
                         </div>
-                        <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                        <span style={{ fontSize: "clamp(0.55rem, 1vw, 0.7rem)" }}>
                           {blockCountdown}
                         </span>
                       </>
                     ) : (
                       <>
                         <div className="flex items-center gap-1">
-                          <Shield className="h-3.5 w-3.5" />
-                          <span className="text-xs sm:text-sm leading-none">{isFateSealed ? "Fate Break" : hasWar ? "Free Break" : "Break"}</span>
+                          <Shield className="h-3 w-3" />
+                          <span className="text-[10px] sm:text-xs leading-none">{isFateSealed ? "Fate Break" : hasWar ? "Free Break" : "Break"}</span>
                         </div>
-                        <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
+                        <span style={{ fontSize: "clamp(0.55rem, 1vw, 0.7rem)" }}>
                           {formatCompact(totalBreakCost)}¢
                         </span>
                       </>
@@ -924,41 +935,33 @@ function PlayerCardImpl({
             {/* Remaining info — below the action buttons so buttons stay aligned
                 across cards regardless of how much extra info each card has. */}
             <div className="w-full text-center">
-              <p className="text-xs font-semibold text-gray-300">
+              <p className="text-[10px] font-semibold text-gray-300">
                 {isAgent ? "AGI" : playerType === "human" ? "Human" : "NPC"}
               </p>
               {/* Last online timestamp */}
               {lastOnlineAt && (
-                <p className="flex items-center justify-center gap-1 text-[10px] text-gray-500 mt-0.5 leading-none">
+                <p className="flex items-center justify-center gap-1 text-[9px] text-gray-500 mt-0.5 leading-none">
                   <Clock className="h-2.5 w-2.5 shrink-0" />
                   {formatLastOnline(lastOnlineAt)}
                 </p>
               )}
               {/* Photo score (Unsplash likes proxy — "how good the photo looks"). */}
-              <p className="mt-1 flex items-center justify-center gap-1 text-[11px] font-semibold text-amber-300/90 leading-none">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400 shrink-0" />
+              <p className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-300/90 leading-none">
+                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 shrink-0" />
                 Score {formatCompact(photoScore)}
               </p>
-              {/* Owner name (their boss) + how many players this card owns. */}
-              {(ownerName || ownedCount > 0) && (
-                <div className="mt-1.5 flex flex-col items-center gap-0.5 text-[11px] leading-tight">
-                  {ownerName && (
-                    <span className="flex items-center gap-1 justify-center text-yellow-300/90 max-w-full min-w-0">
-                      <Crown className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        {ownerName}
-                        {ownerValue !== null && ownerValue !== undefined
-                          ? ` (${formatCompact(ownerValue)}¢)`
-                          : ""}
-                      </span>
+              {/* Owner name (their boss). "Owns N" is now above the avatar. */}
+              {ownerName && (
+                <div className="mt-1 flex flex-col items-center gap-0.5 text-[10px] leading-tight">
+                  <span className="flex items-center gap-1 justify-center text-yellow-300/90 max-w-full min-w-0">
+                    <Crown className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">
+                      {ownerName}
+                      {ownerValue !== null && ownerValue !== undefined
+                        ? ` (${formatCompact(ownerValue)}¢)`
+                        : ""}
                     </span>
-                  )}
-                  {ownedCount > 0 && (
-                    <span className="flex items-center gap-1 justify-center text-t2-400 text-[22px] font-bold">
-                      <Users className="h-5 w-5 shrink-0" />
-                      Owns {formatCompact(ownedCount)}
-                    </span>
-                  )}
+                  </span>
                 </div>
               )}
             </div>
@@ -987,7 +990,16 @@ function PlayerCardImpl({
             </svg>
           </div>
         )}
-        <CardContent className="p-3 relative">
+        <CardContent className="p-2.5 relative">
+          {/* "Owns N" badge — above the avatar for consistent avatar position. */}
+          {ownedCount > 0 && (
+            <div className="w-full flex justify-center mb-1.5">
+              <span className="inline-flex items-center gap-1 text-t2-400 text-xs font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-2 py-0.5">
+                <Users className="h-3 w-3 shrink-0" />
+                Owns {formatCompact(ownedCount)}
+              </span>
+            </div>
+          )}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
               <AvatarImage src={displayedAvatarSrc} alt={username} className={avatarFitClass} />
