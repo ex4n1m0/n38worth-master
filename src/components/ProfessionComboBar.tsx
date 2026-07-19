@@ -84,11 +84,11 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 rounded-lg border border-amber-500/25 bg-amber-950/20 px-3 py-1.5">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 rounded-lg border border-gray-700 bg-transparent px-3 py-1.5">
       <span className="flex items-center gap-1.5 shrink-0 text-xs sm:text-sm font-bold text-amber-300 uppercase tracking-wide">
         <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         Combo
-        <span className="font-bold text-amber-400/60">{combo.selectedCount}/6</span>
+        <span className="font-bold text-white">{combo.selectedCount}/6</span>
       </span>
       <p className="text-[11px] sm:text-xs font-medium leading-tight text-amber-200/60 flex-1 min-w-0">
         One player per profession — sell all 6 for{" "}

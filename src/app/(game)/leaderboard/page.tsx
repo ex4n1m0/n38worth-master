@@ -328,6 +328,7 @@ function BrowsePlayersSection({
           })}
         </div>
         )}
+        <p className="text-xs text-gray-500 font-medium">Press below buttons to sort and filter cards</p>
         <div className="flex gap-2 flex-wrap">
           {SORT_OPTIONS.map((s) => (
             <Button
