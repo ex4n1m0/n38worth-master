@@ -1,6 +1,10 @@
-Re-add "Others Owned" filter button (not on by default)
+Reduce Live Rankings and Live Activity to top 5
 
-Keep the button available but don't auto-enable it on mount.
+Change all sidebar lists from top 10 to top 5:
+- EmpireRankStrip: 5 rank entries per category, 5 champions
+- Ranks API: 5 per category (owners, empire, portfolio, credits, value)
+- Ranks [type] API: 5 per category
+- Leaderboard sidebars API: 5 per list (online, GETs, PUMPs, top score)
 
 Generated with [Devin](https://devin.ai)
 

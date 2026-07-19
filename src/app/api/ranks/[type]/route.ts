@@ -67,7 +67,7 @@ async function getPortfolioLeaderboard() {
     .from(users)
     .where(visibleHumanWhere)
     .orderBy(desc(portfolioSql))
-    .limit(10);
+    .limit(5);
 
   // Enrich with owner/owned counts
   const results = await Promise.all(
@@ -108,7 +108,7 @@ async function getDemandLeaderboard() {
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id})`),
       desc(users.playerValue)
     )
-    .limit(10);
+    .limit(5);
 
   return enrichPlayers(topOwnersRaw);
 }
@@ -129,7 +129,7 @@ async function getEmpireLeaderboard() {
       desc(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = ${users.id})`),
       desc(users.playerValue)
     )
-    .limit(10);
+    .limit(5);
 
   return enrichPlayers(topEmpireRaw);
 }
@@ -147,7 +147,7 @@ async function getLegacyLeaderboard() {
     .from(users)
     .where(visibleHumanWhere)
     .orderBy(asc(users.createdAt))
-    .limit(10);
+    .limit(5);
 
   return enrichPlayers(topLegacyRaw);
 }
@@ -165,7 +165,7 @@ async function getCreditsLeaderboard() {
     .from(users)
     .where(visibleHumanWhere)
     .orderBy(desc(users.credits))
-    .limit(10);
+    .limit(5);
 
   return enrichPlayers(topCreditsRaw);
 }
@@ -183,7 +183,7 @@ async function getValueLeaderboard() {
     .from(users)
     .where(visibleHumanWhere)
     .orderBy(desc(users.playerValue))
-    .limit(10);
+    .limit(5);
 
   return enrichPlayers(topValueRaw);
 }

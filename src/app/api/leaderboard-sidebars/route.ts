@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 
 /**
  * Returns 4 sidebar lists for the leaderboard page:
- *   1. lastOnlineHumans  — 10 most-recently-online players (humans + AGIs +
+ *   1. lastOnlineHumans  — 5 most-recently-online players (humans + AGIs +
  *      goddesses — all autonomous players, online first)
- *   2. recentGets        — last 10 purchase (GET) events
- *   3. recentPumps       — last 10 pump events
- *   4. topScorePlayers    — top 10 players by photo_score
+ *   2. recentGets        — last 5 purchase (GET) events
+ *   3. recentPumps       — last 5 pump events
+ *   4. topScorePlayers    — top 5 players by photo_score
  */
 export async function GET() {
   try {
@@ -40,7 +40,7 @@ export async function GET() {
           isNotNull(users.avatarUrl)
         ))
         .orderBy(desc(users.lastOnlineAt))
-        .limit(10),
+        .limit(5),
 
       // 2. Last 10 GET (purchase) events.
       db
@@ -54,7 +54,7 @@ export async function GET() {
         .from(gameHistory)
         .where(eq(gameHistory.eventType, "purchase"))
         .orderBy(desc(gameHistory.createdAt))
-        .limit(10),
+        .limit(5),
 
       // 3. Last 10 PUMP events.
       db
@@ -68,7 +68,7 @@ export async function GET() {
         .from(gameHistory)
         .where(eq(gameHistory.eventType, "pump"))
         .orderBy(desc(gameHistory.createdAt))
-        .limit(10),
+        .limit(5),
 
       // 4. Top 10 players by photo_score (NPCs with Unsplash scores).
       db
@@ -80,7 +80,7 @@ export async function GET() {
         .from(users)
         .where(and(eq(users.isActive, 1), sql`${users.photoScore} > 0`))
         .orderBy(desc(users.photoScore))
-        .limit(10),
+        .limit(5),
     ]);
 
     // Enrich event lists with actor usernames.

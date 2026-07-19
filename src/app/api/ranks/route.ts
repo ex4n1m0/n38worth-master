@@ -75,23 +75,23 @@ export async function GET() {
     // ── 5. Sort & slice for each category (all in JS — fast) ──
     const topOwners = [...enriched]
       .sort((a, b) => b.ownerCount - a.ownerCount || b.playerValue - a.playerValue)
-      .slice(0, 10);
+      .slice(0, 5);
 
     const topEmpire = [...enriched]
       .sort((a, b) => b.ownedCount - a.ownedCount || b.playerValue - a.playerValue)
-      .slice(0, 10);
+      .slice(0, 5);
 
     const topPortfolio = [...enriched]
       .sort((a, b) => b.portfolioValue - a.portfolioValue)
-      .slice(0, 10);
+      .slice(0, 5);
 
     const topCredits = [...enriched]
       .sort((a, b) => b.credits - a.credits)
-      .slice(0, 10);
+      .slice(0, 5);
 
     const topValue = [...enriched]
       .sort((a, b) => b.playerValue - a.playerValue)
-      .slice(0, 10);
+      .slice(0, 5);
 
     // ── 6. Fetch avatars ONLY for the players that appear in the top lists ──
     // (We avoid selecting avatarUrl in the bulk query above because base64

@@ -75,7 +75,7 @@ const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 /** A single compact, always-visible ranking card showing the top 3. */
 function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
   const Icon = cfg.icon;
-  const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 10);
+  const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
       <div className={`flex items-center gap-1.5 mb-2 ${cfg.labelClass}`}>
@@ -132,7 +132,7 @@ export function EmpireRankStrip() {
 
   if (!session) return null;
 
-  const topChampions = champions.slice(0, 10);
+  const topChampions = champions.slice(0, 5);
 
   return (
     <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4">
