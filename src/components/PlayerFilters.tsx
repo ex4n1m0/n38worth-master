@@ -44,7 +44,7 @@ export function FilterPill({
   active,
   onClick,
   children,
-  tone = "cyan",
+  tone = "amber",
   title,
 }: {
   active: boolean;
@@ -87,7 +87,7 @@ export function SortBar({
     <div className="flex items-center gap-2 flex-wrap">
       <span className="text-xs text-gray-500 mr-1">Sort:</span>
       {PLAYER_SORTS.map(({ key, label, icon: Icon }) => (
-        <FilterPill key={key} active={sort === key} onClick={() => onSortChange(key)}>
+        <FilterPill key={key} active={sort === key} onClick={() => onSortChange(key)} tone="amber">
           <Icon className="h-3 w-3" /> {label}
         </FilterPill>
       ))}
@@ -95,7 +95,7 @@ export function SortBar({
         type="button"
         onClick={onToggleDir}
         title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-        className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border border-cyan-500/50 text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 transition-colors"
+        className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
       >
         {dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
         {dir === "asc" ? "Asc" : "Desc"}

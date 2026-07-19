@@ -111,33 +111,33 @@ export default function PlayersPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-500 mr-1">Filter:</span>
-          <FilterPill active={playerType === "human"} onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }}>
+          <FilterPill active={playerType === "human"} onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }} tone="amber">
             <User className="h-3 w-3" /> Human
           </FilterPill>
-          <FilterPill active={playerType === "card"} onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }}>
+          <FilterPill active={playerType === "card"} onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }} tone="amber">
             <CreditCard className="h-3 w-3" /> NPC
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
-          <FilterPill active={ownerFilter === "none"} onClick={() => { setOwnerFilter(ownerFilter === "none" ? "" : "none"); setPage(1); }}>
+          <FilterPill active={ownerFilter === "none"} onClick={() => { setOwnerFilter(ownerFilter === "none" ? "" : "none"); setPage(1); }} tone="amber">
             <UserX className="h-3 w-3" /> No Owner
           </FilterPill>
-          <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }}>
+          <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }} tone="amber">
             <Crown className="h-3 w-3" /> My Owned
           </FilterPill>
-          <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }}>
+          <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }} tone="amber">
             <Users className="h-3 w-3" /> Others Owned
           </FilterPill>
-          <FilterPill active={ownerFilter === "owns"} onClick={() => { setOwnerFilter(ownerFilter === "owns" ? "" : "owns"); setPage(1); }}>
+          <FilterPill active={ownerFilter === "owns"} onClick={() => { setOwnerFilter(ownerFilter === "owns" ? "" : "owns"); setPage(1); }} tone="amber">
             <Users className="h-3 w-3" /> Owns
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
-          <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }}>
+          <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }} tone="amber">
             <Users className="h-3 w-3" /> Has Team
           </FilterPill>
-          <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }}>
+          <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }} tone="amber">
             <Shield className="h-3 w-3" /> Available
           </FilterPill>
-          <FilterPill active={affordable} onClick={() => { setAffordable(!affordable); setPage(1); }}>
+          <FilterPill active={affordable} onClick={() => { setAffordable(!affordable); setPage(1); }} tone="amber">
             <Sparkles className="h-3 w-3" /> Affordable
           </FilterPill>
         </div>

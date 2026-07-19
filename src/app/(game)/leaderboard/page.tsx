@@ -341,7 +341,7 @@ function BrowsePlayersSection({
               }}
               className={
                 sort === s.key
-                  ? "rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+                  ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                   : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
               }
             >
@@ -357,7 +357,7 @@ function BrowsePlayersSection({
               setPage(1);
             }}
             title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-            className="rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+            className="rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
           >
             {dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 mr-1" /> : <ArrowDown className="h-3.5 w-3.5 mr-1" />}
             {dir === "asc" ? "Asc" : "Desc"}
@@ -374,7 +374,7 @@ function BrowsePlayersSection({
               }}
               className={
                 ownerFilter === f.key
-                  ? "rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+                  ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                   : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
               }
             >
@@ -396,7 +396,7 @@ function BrowsePlayersSection({
             }}
             className={
               playerType === "human"
-                ? "rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                 : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
             }
           >
@@ -413,7 +413,7 @@ function BrowsePlayersSection({
             }}
             className={
               playerType === "card"
-                ? "rounded-lg border border-cyan-500/60 bg-cyan-500/10 text-cyan-300 font-semibold hover:bg-cyan-500/15 hover:text-cyan-200"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                 : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
             }
           >
@@ -430,7 +430,7 @@ function BrowsePlayersSection({
             }}
             className={
               affordable
-                ? "rounded-lg border border-emerald-500/60 bg-emerald-500/10 text-emerald-300 font-semibold hover:bg-emerald-500/15 hover:text-emerald-200"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                 : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
             }
             title="Only show cards you can afford with your current credits"

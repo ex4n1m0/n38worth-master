@@ -559,11 +559,11 @@ export default function PlayerProfilePage() {
           />
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-gray-500 mr-1">Filter:</span>
-            <FilterPill active={teamPlayerType === "human"} onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }}><User className="h-3 w-3" /> Human</FilterPill>
-            <FilterPill active={teamPlayerType === "card"} onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }}><CreditCard className="h-3 w-3" /> Card</FilterPill>
+            <FilterPill active={teamPlayerType === "human"} onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }} tone="amber"><User className="h-3 w-3" /> Human</FilterPill>
+            <FilterPill active={teamPlayerType === "card"} onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }} tone="amber"><CreditCard className="h-3 w-3" /> Card</FilterPill>
             <span className="w-px h-4 bg-gray-700 mx-1" />
-            <FilterPill active={hasPlayersFilter} onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }}><Users className="h-3 w-3" /> Has Team</FilterPill>
-            <FilterPill active={noPartnerFilter} onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }}><Shield className="h-3 w-3" /> Available</FilterPill>
+            <FilterPill active={hasPlayersFilter} onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }} tone="amber"><Users className="h-3 w-3" /> Has Team</FilterPill>
+            <FilterPill active={noPartnerFilter} onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }} tone="amber"><Shield className="h-3 w-3" /> Available</FilterPill>
           </div>
           <ProfessionFilterBar
             selected={teamProfession}
