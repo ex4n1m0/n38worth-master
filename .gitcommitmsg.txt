@@ -1,8 +1,9 @@
-Move combo bar above profession filters, match text size
+Sort all AI player names alphabetically
 
-Move the "Combo 0/6" bar from below the filters to above the Profession
-filtering buttons. Reduce text size to text-xs to match the "Press below
-buttons to sort and filter cards" description text.
+The 6 AGI names were already sorted (Agent, Astra, Lyra, Mira, Nova,
+Vesper). Sort the 6 goddess names alphabetically in both roster.ts
+and goddesses.ts: Goddess, Goddess of Fate, Goddess of Knowledge,
+Goddess of Time, Goddess of War, Goddess of Wealth.
 
 Generated with [Devin](https://devin.ai)
 

@@ -4,12 +4,12 @@
  */
 
 export const GODDESS_USERNAMES: string[] = [
-  "Goddess of Wealth",
-  "Goddess of Knowledge",
+  "Goddess",
   "Goddess of Fate",
+  "Goddess of Knowledge",
   "Goddess of Time",
   "Goddess of War",
-  "Goddess",
+  "Goddess of Wealth",
 ];
 
 /** Power description shown on each goddess card */

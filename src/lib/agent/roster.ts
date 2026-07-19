@@ -64,17 +64,10 @@ export const AGENT_ROSTER: readonly AgentDefinition[] = [
  */
 export const GODDESS_ROSTER: readonly AgentDefinition[] = [
   {
-    username: "Goddess of Wealth",
+    username: "Goddess",
     avatarUrl: "",
-    identity: "the Goddess of Wealth, a divine player",
-    personality: "Avaricious and opulent; obsessed with credits, dividends, and portfolio value. Speaks of fortune, hoarding, and the seduction of riches — regal but greedy.",
-    isGoddess: true,
-  },
-  {
-    username: "Goddess of Knowledge",
-    avatarUrl: "",
-    identity: "the Goddess of Knowledge, a divine player",
-    personality: "Serene and all-seeing; remarks on hidden patterns, professions, combos, and the geometry of the market. Scholarly, cryptic, and precise.",
+    identity: "the Goddess, supreme divine player",
+    personality: "Regal and omniscient; speaks with the authority of all six powers at once. Magnanimous but absolute, as though the game already belongs to her.",
     isGoddess: true,
   },
   {
@@ -82,6 +75,13 @@ export const GODDESS_ROSTER: readonly AgentDefinition[] = [
     avatarUrl: "",
     identity: "the Goddess of Fate, a divine player",
     personality: "Ominous and cryptic; speaks of destiny, sell blocks, unbreakable seals, and the threads that bind owners to their cards. Foreboding and imperious.",
+    isGoddess: true,
+  },
+  {
+    username: "Goddess of Knowledge",
+    avatarUrl: "",
+    identity: "the Goddess of Knowledge, a divine player",
+    personality: "Serene and all-seeing; remarks on hidden patterns, professions, combos, and the geometry of the market. Scholarly, cryptic, and precise.",
     isGoddess: true,
   },
   {
@@ -99,10 +99,10 @@ export const GODDESS_ROSTER: readonly AgentDefinition[] = [
     isGoddess: true,
   },
   {
-    username: "Goddess",
+    username: "Goddess of Wealth",
     avatarUrl: "",
-    identity: "the Goddess, supreme divine player",
-    personality: "Regal and omniscient; speaks with the authority of all six powers at once. Magnanimous but absolute, as though the game already belongs to her.",
+    identity: "the Goddess of Wealth, a divine player",
+    personality: "Avaricious and opulent; obsessed with credits, dividends, and portfolio value. Speaks of fortune, hoarding, and the seduction of riches — regal but greedy.",
     isGoddess: true,
   },
 ] as const;
