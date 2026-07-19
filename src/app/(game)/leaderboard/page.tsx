@@ -34,7 +34,6 @@ import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
-import { useOthersOwnPlayers } from "@/hooks/useOthersOwnPlayers";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 const SORT_OPTIONS = [
@@ -46,7 +45,6 @@ const SORT_OPTIONS = [
 
 const OWNER_FILTERS = [
   { key: "mine", label: "My Owned" },
-  { key: "other", label: "Others Owned" },
   { key: "none", label: "No Owner" },
   { key: "owns", label: "Owns" },
 ] as const;
@@ -168,13 +166,7 @@ function BrowsePlayersSection({
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   // Always 90 cards per page — plus the pinned Mass Hire and 10 Slots cards.
   const pageSize = 90;
-  // "Others Owned" defaults to ON when other players actually own cards, so
-  // the leaderboard opens on a view with stealable targets. Falls back to ""
-  // (all) when nobody else owns anything. The user's manual clicks after mount
-  // are authoritative — the effect only sets the initial default once.
-  const othersOwnPlayers = useOthersOwnPlayers();
-  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
-  const [ownerFilterInitialized, setOwnerFilterInitialized] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   // "Affordable" hides any card the user can't currently buy with their credits.
@@ -182,15 +174,6 @@ function BrowsePlayersSection({
   // off manually to browse cards they can't buy yet.
   const [affordable, setAffordable] = useState(true);
   const { play } = useSound();
-
-  // Settle the ownerFilter default once the other-owners check resolves. Only
-  // runs once (guarded by ownerFilterInitialized) so manual clicks win after.
-  useEffect(() => {
-    if (!ownerFilterInitialized && othersOwnPlayers !== undefined) {
-      setOwnerFilter(othersOwnPlayers ? "other" : "");
-      setOwnerFilterInitialized(true);
-    }
-  }, [othersOwnPlayers, ownerFilterInitialized]);
 
   const limit = pageSize;
 

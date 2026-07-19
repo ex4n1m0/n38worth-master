@@ -1,9 +1,9 @@
-Style combo bar box gray + white count, add sort/filter description
+Make combo bar text white, remove "Others Owned" filter
 
-- Change the combo 0/6 box from amber border/bg to gray (matching
-  non-selected sort buttons) and make the count text white
-- Add "Press below buttons to sort and filter cards" description above
-  the sorting buttons on the leaderboard
+- All text in the combo bar (Combo label, 0/6 count, description) is
+  now white instead of amber/faded amber
+- Removed the "Others Owned" filter button from the leaderboard and
+  its default-to-ON logic
 
 Generated with [Devin](https://devin.ai)
 
