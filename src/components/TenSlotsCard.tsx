@@ -51,7 +51,7 @@ export function TenSlotsCard() {
 
   return (
     <Card className="border-cyan-600/50 bg-cyan-950/30 hover:bg-cyan-900/40 hover:border-cyan-500/60 transition-all duration-200 cursor-pointer group relative">
-      <CardContent className="p-3 relative flex flex-col items-center gap-2">
+      <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-cyan-600/50 group-hover:ring-cyan-500/60 transition-all">
             <AvatarImage src="/10slots.png" alt="10 Slots" className="object-fill" />
@@ -74,7 +74,7 @@ export function TenSlotsCard() {
         <Button
           onClick={handleClick}
           disabled={!canAfford || mutation.isPending}
-          className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+          className={`w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
             canAfford
               ? "text-white bg-transparent border-2 border-cyan-500 hover:bg-cyan-500/15 shadow-lg shadow-cyan-900/30"
               : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"

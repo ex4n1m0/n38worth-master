@@ -1,10 +1,8 @@
-Show "Owns 0" on all cards + make default-mode buttons 16:9
+Make Mass Hire, 10 Slots, and Reveal cards 16:9 buttons
 
-- Always show the "Owns N" badge above the avatar, even when ownedCount
-  is 0, so all cards match visually. Cards with 0 use a muted gray style.
-- Convert all default-mode action buttons (Reveal, Break, Hire 3m, Hire
-  18m, Partnered status, profession badge) from square clamp sizing to
-  16:9 aspect-video for consistency with the leaderboard mode buttons.
+Convert the pinned bonus cards on the leaderboard from aspect-square
+to aspect-video (16:9) and tighten padding to match the PlayerCard
+redesign.
 
 Generated with [Devin](https://devin.ai)
 

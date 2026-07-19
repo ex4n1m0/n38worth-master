@@ -134,7 +134,7 @@ export function MassHireCard({
 
   return (
     <Card className="border-amber-600/50 bg-amber-950/30 hover:bg-amber-900/40 hover:border-amber-500/60 transition-all duration-200 cursor-pointer group relative">
-      <CardContent className="p-3 relative flex flex-col items-center gap-2">
+      <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-amber-600/50 group-hover:ring-amber-500/60 transition-all">
             <AvatarImage src="/masshire.png" alt="Mass Hire" className="object-fill" />
@@ -156,7 +156,7 @@ export function MassHireCard({
 
         {isLocked ? (
           <div
-            className="w-[80%] aspect-square rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
+            className="w-[85%] aspect-video rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
             title={unlockThreshold !== null ? `Own ${formatCompact(unlockThreshold)} cards to unlock` : "Locked"}
           >
             <span className="flex items-center gap-1 text-sm sm:text-base font-bold leading-none">
@@ -173,7 +173,7 @@ export function MassHireCard({
             </span>
           </div>
         ) : onCooldown ? (
-          <div className="w-[80%] flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
+          <div className="w-[85%] flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1 px-2">
             <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
               <Clock className="h-3 w-3" />
               {cooldownLabel}
@@ -189,7 +189,7 @@ export function MassHireCard({
           <Button
             onClick={handleClick}
             disabled={mutation.isPending}
-            className="w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-transparent border-2 border-amber-500 hover:bg-amber-500/15 shadow-lg shadow-amber-900/30"
+            className="w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-transparent border-2 border-amber-500 hover:bg-amber-500/15 shadow-lg shadow-amber-900/30"
           >
             {mutation.isPending ? (
               <Loader2 className="h-6 w-6 animate-spin" />

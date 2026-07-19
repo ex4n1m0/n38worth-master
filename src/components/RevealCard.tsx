@@ -89,7 +89,7 @@ export function RevealCard() {
 
   return (
     <Card className="border-violet-600/50 bg-violet-950/30 hover:bg-violet-900/40 hover:border-violet-500/60 transition-all duration-200 cursor-pointer group relative">
-      <CardContent className="p-3 relative flex flex-col items-center gap-2">
+      <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-violet-600/50 group-hover:ring-violet-500/60 transition-all">
             <AvatarImage src="/reveal.png" alt="Reveal" className="object-fill" />
@@ -112,7 +112,7 @@ export function RevealCard() {
         <Button
           onClick={handleClick}
           disabled={!canAfford || mutation.isPending}
-          className={`w-[80%] aspect-square h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
+          className={`w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
             canAfford
               ? "text-white bg-transparent border-2 border-violet-500 hover:bg-violet-500/15 shadow-lg shadow-violet-900/30"
               : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
