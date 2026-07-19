@@ -733,8 +733,8 @@ function PlayerCardImpl({
                 consistent regardless of whether the card owns other cards. */}
             {ownedCount > 0 && (
               <div className="w-full flex justify-center">
-                <span className="inline-flex items-center gap-1 text-t2-400 text-xs font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-2 py-0.5">
-                  <Users className="h-3 w-3 shrink-0" />
+                <span className="inline-flex items-center gap-1.5 text-t2-400 text-2xl font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-3 py-1">
+                  <Users className="h-6 w-6 shrink-0" />
                   Owns {formatCompact(ownedCount)}
                 </span>
               </div>
@@ -994,8 +994,8 @@ function PlayerCardImpl({
           {/* "Owns N" badge — above the avatar for consistent avatar position. */}
           {ownedCount > 0 && (
             <div className="w-full flex justify-center mb-1.5">
-              <span className="inline-flex items-center gap-1 text-t2-400 text-xs font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-2 py-0.5">
-                <Users className="h-3 w-3 shrink-0" />
+              <span className="inline-flex items-center gap-1.5 text-t2-400 text-2xl font-bold bg-t2-950/40 border border-t2-500/30 rounded-full px-3 py-1">
+                <Users className="h-6 w-6 shrink-0" />
                 Owns {formatCompact(ownedCount)}
               </span>
             </div>

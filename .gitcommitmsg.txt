@@ -1,15 +1,7 @@
-Redesign PlayerCard: 16:9 buttons, Owns N above avatar, tighter layout
+Make "Owns N" badge double the size on PlayerCard
 
-- Action buttons (GET/PUMP/Break/Locked) changed from 1:1 (aspect-square)
-  to 16:9 (aspect-video) for a wider, more compact shape
-- "Owns N" badge moved from below the action buttons to above the avatar
-  image, so the avatar position is consistent across all cards regardless
-  of whether they own other cards
-- Reduced padding (p-3 -> p-2.5), gaps (gap-2 -> gap-1.5), font sizes, and
-  icon sizes throughout the card to make the overall card smaller while
-  keeping the shape consistent
-- Applied the same "Owns N" badge above avatar and tighter padding to the
-  default (non-leaderboard) card mode for consistency
+Increase from text-xs (12px) to text-2xl (24px), icon from h-3 w-3 to
+h-6 w-6, and padding proportionally.
 
 Generated with [Devin](https://devin.ai)
 
