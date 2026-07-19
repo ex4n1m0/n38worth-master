@@ -149,18 +149,18 @@ export async function GET(
         photoAuthorName: users.photoAuthorName,
         photoAuthorUrl: users.photoAuthorUrl,
         photoSourceUrl: users.photoSourceUrl,
-        ownerCount: ownerCountSub.cnt,
-        ownedCount: ownedCountSub.cnt,
-        portfolioValue: portfolioSub.total,
-        ownerName: recentOwnerSub.ownerName,
-        ownerValue: recentOwnerSub.ownerValue,
+        ownerCount: sql<number>`"oc"."cnt"`,
+        ownedCount: sql<number>`"odc"."cnt"`,
+        portfolioValue: sql<number>`"pv"."total"`,
+        ownerName: sql<string | null>`"ros"."owner_name"`,
+        ownerValue: sql<number | null>`"ros"."owner_value"`,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownerId, users.id))
       .leftJoin(ownerCountSub, eq(ownerCountSub.ownedId, users.id))
       .leftJoin(ownedCountSub, eq(ownedCountSub.ownerId, users.id))
       .leftJoin(portfolioSub, eq(portfolioSub.ownerId, users.id))
-      .leftJoin(recentOwnerSub, eq(recentOwnerSub.ownedId, users.id))
+      .leftJoin(recentOwnerSub, sql`"ros"."owned_id" = "users"."id"`)
       .where(and(eq(ownership.ownedId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt));
 
@@ -207,18 +207,18 @@ export async function GET(
         photoAuthorName: users.photoAuthorName,
         photoAuthorUrl: users.photoAuthorUrl,
         photoSourceUrl: users.photoSourceUrl,
-        ownerCount: ownerCountSub.cnt,
-        ownedCount: ownedCountSub.cnt,
-        portfolioValue: portfolioSub.total,
-        ownerName: recentOwnerSub.ownerName,
-        ownerValue: recentOwnerSub.ownerValue,
+        ownerCount: sql<number>`"oc"."cnt"`,
+        ownedCount: sql<number>`"odc"."cnt"`,
+        portfolioValue: sql<number>`"pv"."total"`,
+        ownerName: sql<string | null>`"ros"."owner_name"`,
+        ownerValue: sql<number | null>`"ros"."owner_value"`,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
       .leftJoin(ownerCountSub, eq(ownerCountSub.ownedId, users.id))
       .leftJoin(ownedCountSub, eq(ownedCountSub.ownerId, users.id))
       .leftJoin(portfolioSub, eq(portfolioSub.ownerId, users.id))
-      .leftJoin(recentOwnerSub, eq(recentOwnerSub.ownedId, users.id))
+      .leftJoin(recentOwnerSub, sql`"ros"."owned_id" = "users"."id"`)
       .where(and(eq(ownership.ownerId, player.id), visibleSql))
       .orderBy(desc(users.lastOnlineAt))
       .limit(limit)

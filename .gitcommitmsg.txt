@@ -1,29 +1,10 @@
-Performance & snappiness improvements across frontend and backend
+Fix ambiguous column references in profile page API
 
-Frontend:
-- Memoize PlayerCard with React.memo (prevents 90-card re-renders)
-- Add skeleton loading states to players & leaderboard pages
-- Code-split heavy profile page components (chat, dialogs) with next/dynamic
-- Add loading="lazy" to avatar images (90 fewer eager loads on grid pages)
-- Tune React Query: increase staleTimes, reduce refetch intervals, disable
-  refetchOnWindowFocus globally (was causing tab-switch refetch storms)
-- Use refetchType: "active" in mutation invalidations (only refetch visible
-  queries instead of all cached queries)
-- Remove chat polling (rely on Pusher for real-time) + add message animations
-
-Backend:
-- Add 8 missing DB indexes (isNpc, isActive, lastOnlineAt, createdAt,
-  playerValue, avatarCompleted, blockSellUntil, permBlockUntil)
-- Parallelize leaderboard rank queries with Promise.all (5 sequential → 1)
-- Parallelize leaderboard-sidebars queries (4 sequential → 1)
-- Optimize /api/me heartbeat: 6 sequential queries → 3 (with UPDATE RETURNING
-  + Promise.all for parallel reads)
-- Fix N+1 in players API: replace 9+ correlated subqueries per row with CTEs
-  and LEFT JOINs
-- Fix N+1 in profile page API: replace 5 correlated subqueries per row with
-  pre-aggregated subquery joins
-- Optimize portfolio-reward cron: 3000+ per-player queries → 4 batch queries
-- Optimize rank-bonus cron: cache portfolio values (36 queries → ~3-6)
+The N+1 optimization used raw SQL column references in subquery JOINs
+that rendered without table qualifiers, causing PostgreSQL "column
+reference is ambiguous" errors (code 42702). Fixed by using explicit
+table-qualified column references in all SELECT fields and JOIN
+conditions for the pre-aggregated subqueries.
 
 Generated with [Devin](https://devin.ai)
 
