@@ -45,6 +45,7 @@ const SORT_OPTIONS = [
 
 const OWNER_FILTERS = [
   { key: "mine", label: "My Owned" },
+  { key: "other", label: "Others Owned" },
   { key: "none", label: "No Owner" },
   { key: "owns", label: "Owns" },
 ] as const;
@@ -166,7 +167,7 @@ function BrowsePlayersSection({
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   // Always 90 cards per page — plus the pinned Mass Hire and 10 Slots cards.
   const pageSize = 90;
-  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "none" | "owns">("");
+  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   // "Affordable" hides any card the user can't currently buy with their credits.
