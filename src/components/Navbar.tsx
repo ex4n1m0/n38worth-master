@@ -124,13 +124,17 @@ export function Navbar() {
 
   if (!session) return null;
 
-  const renderNavButton = (link: typeof mainNavLinks[0]) => {
+  const renderNavButton = (link: typeof mainNavLinks[0], highlight = false) => {
     const active = isActive(link.href);
 
     const btnContent = (
       <span
         className={`relative z-10 flex items-center justify-center gap-2 text-sm sm:text-base font-semibold tracking-wide transition-colors ${
-          active ? "text-cyan-300" : "text-gray-300 group-hover:text-white"
+          active
+            ? "text-cyan-300"
+            : highlight
+              ? "text-amber-300 group-hover:text-amber-200"
+              : "text-gray-300 group-hover:text-white"
         }`}
       >
         <link.icon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
@@ -145,7 +149,9 @@ export function Navbar() {
           className={`group relative w-full h-[66px] flex items-center justify-center px-4 overflow-hidden rounded-xl border transition-all duration-200 ${
             active
               ? "border-cyan-400/70 bg-gradient-to-b from-cyan-500/25 via-blue-600/15 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.35)]"
-              : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/25 hover:shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+              : highlight
+                ? "border-amber-400/70 bg-gradient-to-b from-amber-500/25 via-amber-600/15 to-transparent shadow-[0_0_18px_rgba(251,191,36,0.35)] hover:border-amber-300 hover:shadow-[0_0_22px_rgba(251,191,36,0.5)] animate-pulse"
+                : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/25 hover:shadow-[0_0_12px_rgba(255,255,255,0.08)]"
           }`}
         >
           {/* subtle top sheen */}
@@ -153,6 +159,10 @@ export function Navbar() {
           {/* active bottom accent line */}
           {active && (
             <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-400/80 to-transparent" />
+          )}
+          {/* highlight bottom accent line */}
+          {!active && highlight && (
+            <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px bg-gradient-to-r from-transparent via-amber-400/80 to-transparent" />
           )}
           {btnContent}
         </div>
@@ -175,7 +185,17 @@ export function Navbar() {
 
             {/* Left: single row of nav buttons */}
             <div className="hidden md:flex items-center flex-1 py-2 gap-2">
-              {allVisibleLinks.map((link) => renderNavButton(link))}
+              {allVisibleLinks.map((link) =>
+                renderNavButton(
+                  link,
+                  // Guide new accounts to the Cards (market) button: highlight
+                  // it amber once onboarding is done but before they've bought
+                  // enough cards to unlock the rest of the game (mission 0).
+                  link.href === "/leaderboard" &&
+                    onboarding.onboardingComplete &&
+                    !gameUnlocked
+                )
+              )}
             </div>
 
             {/* Mobile: just the logo */}
@@ -330,23 +350,35 @@ export function Navbar() {
         <div className="flex items-center justify-around h-16 px-1">
           {allVisibleLinks.map((link) => {
             const active = isActive(link.href);
+            // Guide new accounts to the Cards (market) tab: highlight it amber
+            // once onboarding is done but before they've bought enough cards
+            // to unlock the rest of the game (mission 0).
+            const highlight =
+              link.href === "/leaderboard" &&
+              onboarding.onboardingComplete &&
+              !gameUnlocked;
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => play("changepage")}
-                className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 rounded-lg transition-all ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 rounded-lg transition-all ${
                   active
                     ? "text-cyan-400 brightness-125"
-                    : "text-gray-500 brightness-50 active:text-gray-300"
+                    : highlight
+                      ? "text-amber-300 brightness-125 animate-pulse"
+                      : "text-gray-500 brightness-50 active:text-gray-300"
                 }`}
               >
-                <link.icon className={`h-4 w-4 ${active ? "text-cyan-400 brightness-125" : "brightness-50"}`} />
-                <span className={`text-[9px] font-medium leading-tight ${active ? "text-cyan-400 brightness-125" : "brightness-50"}`}>
+                <link.icon className={`h-4 w-4 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`} />
+                <span className={`text-[9px] font-medium leading-tight ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`}>
                   {link.label}
                 </span>
                 {active && (
                   <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+                )}
+                {!active && highlight && (
+                  <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
                 )}
               </Link>
             );
