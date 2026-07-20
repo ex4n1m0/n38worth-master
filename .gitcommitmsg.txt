@@ -1,10 +1,18 @@
-Make leaderboard-sidebars API public for landing page
+Auto-claim daily reward when new player reaches 20 cards
 
-The Live Activity panel on the landing page was showing empty because
-the /api/leaderboard-sidebars endpoint required authentication. Logged-
-out visitors got a 401 and no data. Removed the auth check — the data
-(usernames, online times, game events, photo scores) is all non-
-sensitive and already visible to logged-in players on the leaderboard.
+New players often don't know to visit Home to claim their daily login
+reward after unlocking the game at 20 cards. Now the reward is auto-
+claimed server-side the moment mission 0 completes (missionLevel
+advances from 0 → 1), regardless of whether the player navigates to
+Home.
+
+- Extracted the claim logic from the /api/game/login-reward route into
+  a shared src/lib/login-reward.ts module (claimLoginReward).
+- Refactored the route to use the shared function.
+- Called claimLoginReward(buyerId) inside checkAndAwardMissions when
+  currentLevel reaches 1 (mission 0 just completed).
+- Safe for AI players: no-op if already claimed within 24h, and AI
+  players won't be the richest human so they still get a reward.
 
 Generated with [Devin](https://devin.ai)
 

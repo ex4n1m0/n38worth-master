@@ -19,6 +19,7 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
 import { pusher } from "@/lib/pusher-server";
+import { claimLoginReward } from "@/lib/login-reward";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
 // server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
 import { MISSIONS, type Mission, MASS_HIRE_CARD } from "@/lib/missions-data";
@@ -270,6 +271,19 @@ export async function checkAndAwardMissions(buyerId: number): Promise<void> {
       .update(users)
       .set({ missionLevel: currentLevel, updatedAt: new Date() })
       .where(eq(users.id, buyerId));
+
+    // Auto-claim the daily login reward the first time a new player unlocks
+    // the game (mission 0 → level 1). This is where the daily reward lives,
+    // and new players often don't know to visit Home to claim it. Safe to
+    // call for AI players — they won't be the richest human, but the claim
+    // is a no-op if already claimed within 24h.
+    if (currentLevel === 1) {
+      try {
+        await claimLoginReward(buyerId);
+      } catch (e) {
+        console.error("Auto login reward claim on mission 0 error:", e);
+      }
+    }
 
     // Awarded cards increase the owned count; recompute before the next loop.
     ownedCount = await getOwnedCount(buyerId);
