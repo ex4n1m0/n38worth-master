@@ -239,8 +239,10 @@ export default function Home() {
           </div>
 
           {/* Live Activity — right below the live stats so visitors see real
-              game activity immediately, without scrolling. */}
-          <div className="lp-fade-up w-full max-w-5xl mt-8" style={{ animationDelay: "0.5s" }}>
+              game activity immediately, without scrolling. Left-aligned to
+              match the in-game layout (the hero's text-center would otherwise
+              center every line). */}
+          <div className="lp-fade-up w-full max-w-5xl mt-8 text-left" style={{ animationDelay: "0.5s" }}>
             <LeaderboardSidebars variant="transparent" />
           </div>
         </div>

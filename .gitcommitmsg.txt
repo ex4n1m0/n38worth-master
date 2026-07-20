@@ -1,14 +1,14 @@
-Fix avatar full-image links not loading in new tab
+Fix Home amber highlight not showing + left-align Live Activity
 
-Data URLs (data:image/webp;base64,...) can't be opened directly in a
-new tab on most browsers, especially mobile. Created a new
-/api/avatar/[username] route that decodes the data URL and serves the
-raw image bytes with proper Content-Type and caching headers (or
-redirects for path-based/absolute URLs).
+1. Home nav highlight: the "visited" flag was being set the moment
+   gameUnlocked flipped to true while the player was already on Home
+   (the mission-level query refetches every 60s, so the flip can happen
+   while the player is on their profile). Now only marks as visited when
+   the player NAVIGATES to Home from a different page, so the highlight
+   actually shows until they click it.
 
-Updated the landing page avatar grid and PlayerCard "View full image"
-links to use this route for data-URL avatars, while keeping direct
-links for path-based avatars (profession art, hidden image, etc.).
+2. Live Activity on landing page: added text-left to override the hero
+   section's text-center, matching the in-game left-aligned layout.
 
 Generated with [Devin](https://devin.ai)
 

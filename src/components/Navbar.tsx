@@ -32,7 +32,7 @@ import {
   Medal,
   History,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useThemeColor } from "./ThemeContext";
 import { useLanguage } from "./LanguageContext";
@@ -63,25 +63,33 @@ export function Navbar() {
 
   // Guide players to Home (profile) the first time they unlock the game by
   // reaching 20 cards — that's where the daily login reward lives. The amber
-  // highlight clears once they actually visit Home. Tracked in localStorage so
-  // it survives page refreshes but resets on game reset (key includes a version
-  // tag that the reset flow can bump if needed).
+  // highlight clears once they actually navigate TO Home from another page.
+  // Tracked in localStorage so it survives page refreshes.
   const [homeVisitedAfterUnlock, setHomeVisitedAfterUnlock] = useState(true);
+  const prevPathnameRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     setHomeVisitedAfterUnlock(localStorage.getItem("home-visited-after-unlock") === "1");
   }, []);
   useEffect(() => {
-    if (!gameUnlocked) return;
-    if (typeof window === "undefined") return;
-    // When the player lands on Home after unlocking, mark them as visited.
+    if (!gameUnlocked || typeof window === "undefined") return;
     const isHomePath =
       pathname === "/my-profile" ||
       (!!session?.user?.name && pathname === `/players/${session.user.name}`);
-    if (isHomePath && !homeVisitedAfterUnlock) {
+    // Only mark as visited when the player NAVIGATES to Home from a different
+    // page — not when gameUnlocked flips to true while they're already on Home
+    // (the mission-level query refetches every 60s, so the flip can happen
+    // while the player is on their profile). Without this guard the highlight
+    // would clear before the player ever sees it.
+    const navigatedToHome =
+      prevPathnameRef.current !== null &&
+      prevPathnameRef.current !== pathname &&
+      isHomePath;
+    if (navigatedToHome && !homeVisitedAfterUnlock) {
       localStorage.setItem("home-visited-after-unlock", "1");
       setHomeVisitedAfterUnlock(true);
     }
+    prevPathnameRef.current = pathname;
   }, [gameUnlocked, pathname, session?.user?.name, homeVisitedAfterUnlock]);
   const highlightHome = gameUnlocked && !homeVisitedAfterUnlock;
 
