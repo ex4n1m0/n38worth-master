@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, gameHistory } from "@/db/schema";
 import { eq, and, sql, desc, isNotNull, inArray } from "drizzle-orm";
@@ -8,20 +7,19 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 export const dynamic = "force-dynamic";
 
 /**
- * Returns 4 sidebar lists for the leaderboard page:
+ * Returns 4 sidebar lists for the leaderboard page (and the landing page):
  *   1. lastOnlineHumans  — 5 most-recently-online players (humans + AGIs +
  *      goddesses — all autonomous players, online first)
  *   2. recentGets        — last 5 purchase (GET) events
  *   3. recentPumps       — last 5 pump events
  *   4. topScorePlayers    — top 5 players by photo_score
+ *
+ * Public — no auth required. The data (usernames, online times, game events,
+ * photo scores) is all non-sensitive and is shown on both the landing page
+ * (for logged-out visitors) and the leaderboard (for logged-in players).
  */
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     // Run all 4 sidebar queries in parallel
     const [onlineHumans, getEvents, pumpEvents, topScore] = await Promise.all([
       // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent

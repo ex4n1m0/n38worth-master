@@ -1,14 +1,10 @@
-Fix Home amber highlight not showing + left-align Live Activity
+Make leaderboard-sidebars API public for landing page
 
-1. Home nav highlight: the "visited" flag was being set the moment
-   gameUnlocked flipped to true while the player was already on Home
-   (the mission-level query refetches every 60s, so the flip can happen
-   while the player is on their profile). Now only marks as visited when
-   the player NAVIGATES to Home from a different page, so the highlight
-   actually shows until they click it.
-
-2. Live Activity on landing page: added text-left to override the hero
-   section's text-center, matching the in-game left-aligned layout.
+The Live Activity panel on the landing page was showing empty because
+the /api/leaderboard-sidebars endpoint required authentication. Logged-
+out visitors got a 401 and no data. Removed the auth check — the data
+(usernames, online times, game events, photo scores) is all non-
+sensitive and already visible to logged-in players on the leaderboard.
 
 Generated with [Devin](https://devin.ai)
 
