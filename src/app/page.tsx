@@ -237,13 +237,12 @@ export default function Home() {
             <div className="h-8 w-px bg-white/15" />
             <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
-        </div>
-      </section>
 
-      {/* ═══ Live Activity ═══ */}
-      <section className="relative bg-black px-6 py-10">
-        <div className="relative z-10 w-full max-w-5xl mx-auto">
-          <LeaderboardSidebars variant="transparent" />
+          {/* Live Activity — right below the live stats so visitors see real
+              game activity immediately, without scrolling. */}
+          <div className="lp-fade-up w-full max-w-5xl mt-8" style={{ animationDelay: "0.5s" }}>
+            <LeaderboardSidebars variant="transparent" />
+          </div>
         </div>
       </section>
 

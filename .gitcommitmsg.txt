@@ -1,10 +1,8 @@
-Add Live Activity panel to landing page
+Move Live Activity panel up near the live stats on landing
 
-Reuse the in-game LeaderboardSidebars component on the landing page,
-placed between the live stats (Cards/Economy/Players) and the avatar
-grid. Added a 'transparent' variant so the panel blends into the
-landing page's black background — same text colors, borders, and
-layout as in the game, just without the gray card background.
+Move the Live Activity panel from its own section below the hero into
+the hero section itself, right below the Cards/Economy/Players stats,
+so visitors see real game activity immediately without scrolling.
 
 Generated with [Devin](https://devin.ai)
 
