@@ -229,6 +229,13 @@ function PlayerCardImpl({
     ? professionImage
     : resolvedAvatarSrc;
 
+  // Whether the avatar currently shown is an Unsplash photo. When it isn't
+  // (masked placeholder, profession art, goddess/AGI image, uploaded avatar),
+  // we surface a "View full image" link so people can open it at full size.
+  const isShowingUnsplashPhoto =
+    !!photoSourceUrl && displayedAvatarSrc === effectiveAvatarUrl;
+  const showFullImageLink = !isShowingUnsplashPhoto && !!displayedAvatarSrc;
+
   const canAfford = isBonusCard || (myCredits ?? 0) >= playerValue;
   const { play } = useSound();
 
@@ -976,6 +983,21 @@ function PlayerCardImpl({
               sourceUrl={photoSourceUrl}
               className="max-w-full"
             />
+            {/* Non-Unsplash avatars (masked placeholder, profession art,
+                goddess/AGI image, uploaded avatar) get a "View full image"
+                link so the full-resolution art is reachable. */}
+            {showFullImageLink && (
+              <a
+                href={displayedAvatarSrc}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="mt-1 inline-flex items-center gap-1 text-[10px] text-gray-400 underline-offset-2 hover:text-t1-300 hover:underline"
+              >
+                <Eye className="h-3 w-3 shrink-0" />
+                View full image
+              </a>
+            )}
           </CardContent>
         </Card>
       </Link>
@@ -1080,6 +1102,22 @@ function PlayerCardImpl({
             </div>
           )}
           </div>
+
+          {/* Non-Unsplash avatars (masked placeholder, profession art,
+              goddess/AGI image, uploaded avatar) get a "View full image"
+              link so the full-resolution art is reachable. */}
+          {showFullImageLink && (
+            <a
+              href={displayedAvatarSrc}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-2 inline-flex items-center gap-1 text-[10px] text-gray-400 underline-offset-2 hover:text-t1-300 hover:underline"
+            >
+              <Eye className="h-3 w-3 shrink-0" />
+              View full image
+            </a>
+          )}
         </CardContent>
       </Card>
     </Link>

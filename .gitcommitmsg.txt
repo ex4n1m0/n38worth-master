@@ -1,8 +1,8 @@
-Always show goddess avatars on leaderboard cards
+Add 'View full image' link for non-Unsplash card avatars
 
-PlayerCard never passed isGoddess to getAvatarSrc, so unowned
-goddesses with no owner rendered the hidden mask instead of their
-real avatar. Goddess avatars are meant to always be visible.
+Cards whose displayed avatar isn't an Unsplash photo (masked placeholder,
+profession art, goddess/AGI image, uploaded avatar) now show a clickable
+'View full image' link below the card opening the full-resolution image.
 
 Generated with [Devin](https://devin.ai)
 
