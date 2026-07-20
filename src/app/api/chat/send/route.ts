@@ -5,7 +5,7 @@ import { messages, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { ensureAgents } from "@/lib/agent/seed";
-import { isAIPlayerUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername, AGENT_USERNAME } from "@/lib/agent/roster";
 import { maybeAgentChat } from "@/lib/agent/chat";
 
 const PUBLIC_REWARD = 0; // Credits earned per public message (disabled)
@@ -131,16 +131,20 @@ export async function POST(req: Request) {
       console.error("Pusher error:", pusherError);
     }
 
-    // When a real human posts publicly, rotate exactly one AGI for an immediate
-    // LLM reply. AGI messages never trigger other AGIs, preventing bot loops.
+    // When a real human posts publicly, the support "Agent" AGI may reply
+    // immediately if the message looks like a game-related question. Only the
+    // Agent speaks now — all other AGIs and Goddesses are silent. AGI messages
+    // never trigger other AGIs, preventing bot loops.
     if (!isPrivate && sender.isNpc === 0 && !isAIPlayerUsername(sender.username)) {
       after(async () => {
         try {
           const agents = await ensureAgents();
-          const respondingAgent = agents[newMessage.id % agents.length];
-          await maybeAgentChat(respondingAgent.id, { force: true });
+          const respondingAgent = agents.find((a) => a.username === AGENT_USERNAME);
+          if (respondingAgent) {
+            await maybeAgentChat(respondingAgent.id, { force: true });
+          }
         } catch (e) {
-          console.error("AGI fast-reply error:", e);
+          console.error("Agent support-reply error:", e);
         }
       });
     }

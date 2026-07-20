@@ -1,18 +1,29 @@
-Auto-claim daily reward when new player reaches 20 cards
+Make only the Agent AGI speak in chat, as a support agent
 
-New players often don't know to visit Home to claim their daily login
-reward after unlocking the game at 20 cards. Now the reward is auto-
-claimed server-side the moment mission 0 completes (missionLevel
-advances from 0 → 1), regardless of whether the player navigates to
-Home.
+Restrict public chat to ONLY the "Agent" AGI. All other AGIs (Astra,
+Lyra, Mira, Nova, Vesper) and all 6 Goddesses are now silent.
 
-- Extracted the claim logic from the /api/game/login-reward route into
-  a shared src/lib/login-reward.ts module (claimLoginReward).
-- Refactored the route to use the shared function.
-- Called claimLoginReward(buyerId) inside checkAndAwardMissions when
-  currentLevel reaches 1 (mission 0 just completed).
-- Safe for AI players: no-op if already claimed within 24h, and AI
-  players won't be the richest human so they still get a reward.
+The Agent now acts as a technical-support professional:
+- Only replies when a HUMAN asks a question (detected via "?" mark,
+  question starters like "how/what/why/where/can I", "@agent" mentions,
+  or help/guide/tip keywords)
+- Answers with how the game works (mechanics, professions, missions,
+  goddesses, combos, blocks, daily reward, etc.)
+- Does NOT comment on live stats, standings, leaderboards, specific
+  players, or its own gameplay
+- No proactive chat — stays quiet unless asked
+- Professional, concise tone (no trash talk, no jokes)
+
+Changes:
+- Rewrote src/lib/agent/chat.ts: removed stats/rank snapshots and
+  proactive chat; added looksLikeQuestion() heuristic; new support-
+  focused system prompt with full game knowledge; only the Agent
+  username is allowed to chat
+- Updated src/app/api/chat/send/route.ts: always routes to the Agent
+  (not a random AGI) for replies
+- Updated src/app/api/cron/agent/route.ts: always tries the Agent for
+  chat (not picks[0])
+- Updated Agent's personality in roster.ts to match the support role
 
 Generated with [Devin](https://devin.ai)
 

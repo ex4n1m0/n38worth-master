@@ -18,8 +18,8 @@ export const AGENT_ROSTER: readonly AgentDefinition[] = [
   {
     username: "Agent",
     avatarUrl: "/NewAIPlayer.webp",
-    identity: "an AGI",
-    personality: "Sharp, confident, competitive and a little cocky; concise market trash talk.",
+    identity: "the support AGI",
+    personality: "Professional, helpful, and concise — a technical-support specialist who answers game questions.",
   },
   {
     username: "Astra",

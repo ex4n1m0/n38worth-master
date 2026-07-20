@@ -3,6 +3,7 @@ import { countOnlineHumans } from "@/lib/random-player";
 import { runAgentTurn, type AgentRunResult } from "@/lib/agent/runner";
 import { ensureAgents } from "@/lib/agent/seed";
 import { maybeAgentChat } from "@/lib/agent/chat";
+import { AGENT_USERNAME } from "@/lib/agent/roster";
 
 export const maxDuration = 60;
 
@@ -61,14 +62,20 @@ export async function GET(req: Request) {
       }
     }
 
-    // Chat only on the first picked agent. maybeAgentChat hard-gates on human
-    // presence and has a shared 3-min cooldown, so no AI chat in idle mode and
-    // no more than one AI reply per 3 min regardless of roster size.
+    // Chat: only the support "Agent" AGI speaks now (all other AGIs and
+    // Goddesses are silent). maybeAgentChat hard-gates on human presence and
+    // only replies to human questions, so no AI chat in idle mode and no
+    // unsolicited commentary.
     let chat;
     try {
-      chat = await maybeAgentChat(picks[0].id);
+      const supportAgent = agents.find((a) => a.username === AGENT_USERNAME);
+      if (supportAgent) {
+        chat = await maybeAgentChat(supportAgent.id);
+      } else {
+        chat = { chatted: false, skipped: "support agent not found" };
+      }
     } catch (chatError) {
-      console.error(`${picks[0].username} chat error:`, chatError);
+      console.error("Agent chat error:", chatError);
       chat = { chatted: false, skipped: "error" };
     }
 
