@@ -42,25 +42,40 @@ export function MissionProgress() {
     : 0;
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 sm:gap-3">
       <div className="flex items-center gap-1.5 shrink-0">
-        <Trophy className="h-8 w-8 text-t1-400 shrink-0" />
-        <span className="text-base sm:text-lg font-bold text-t1-300 whitespace-nowrap">
+        <Trophy
+          className="text-t1-400 shrink-0"
+          style={{ width: "clamp(1rem, 2.2vw, 2rem)", height: "clamp(1rem, 2.2vw, 2rem)" }}
+        />
+        <span
+          className="font-bold text-t1-300 whitespace-nowrap tabular-nums"
+          style={{ fontSize: "clamp(0.7rem, 1.6vw, 1.25rem)" }}
+        >
           {current.index + 1}/{totalMissions}
         </span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <p className={`text-base sm:text-xl font-bold truncate ${
-            current.index === 0 ? "text-amber-300" : "text-t1-100"
-          }`}>
+          <p
+            className={`font-bold truncate ${
+              current.index === 0 ? "text-amber-300" : "text-t1-100"
+            }`}
+            style={{ fontSize: "clamp(0.68rem, 1.8vw, 1.5rem)" }}
+          >
             {current.label}
           </p>
-          <span className="text-sm sm:text-base font-bold text-t1-200 shrink-0 tabular-nums">
+          <span
+            className="font-bold text-t1-200 shrink-0 tabular-nums"
+            style={{ fontSize: "clamp(0.62rem, 1.3vw, 1.1rem)" }}
+          >
             {formatCompact(current.progress)} / {formatCompact(current.threshold)}
           </span>
         </div>
-        <div className="relative h-4 w-full overflow-hidden rounded-full border border-t1-500/20 bg-gray-800/80">
+        <div
+          className="relative w-full overflow-hidden rounded-full border border-t1-500/20 bg-gray-800/80"
+          style={{ height: "clamp(0.25rem, 0.8vw, 0.6rem)" }}
+        >
           <div
             className="h-full rounded-full bg-gradient-to-r from-t1-500 to-t1-300 shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-500"
             style={{ width: `${pct}%` }}

@@ -1,12 +1,10 @@
-Highlight 'Cards' nav button amber for new accounts
+Make mission progress bar text fluid across screen sizes
 
-New players who just finished onboarding see only Home + Cards (End Game
-is locked until they own 20 cards). Highlight the Cards button amber with
-a soft pulse so they see where to click next to continue the game.
-
-Applies to both the desktop top nav and the mobile bottom tab bar. The
-highlight disappears once mission 0 (Own 20 cards) is complete and the
-full game unlocks.
+Replace fixed breakpoint text sizes (text-base sm:text-xl) with clamp()-
+based fluid sizing that scales smoothly with viewport width. On mobile
+the label/count now shrink enough to fit without truncation; on large
+desktops they grow to fill the wider bar. Trophy icon and bar height
+also scale dynamically.
 
 Generated with [Devin](https://devin.ai)
 
