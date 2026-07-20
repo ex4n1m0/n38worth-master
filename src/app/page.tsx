@@ -251,7 +251,13 @@ export default function Home() {
         <div className="relative z-10 w-full max-w-7xl mx-auto">
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
             {(data?.topNpcs ?? []).map((npc) => (
-              <div key={npc.username} className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group">
+              <a
+                key={npc.username}
+                href={npc.avatarUrl || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group block"
+              >
                 {npc.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={npc.avatarUrl} alt={npc.username} className="h-full w-full object-cover" />
@@ -260,7 +266,7 @@ export default function Home() {
                     {npc.username.slice(0, 2).toUpperCase()}
                   </div>
                 )}
-              </div>
+              </a>
             ))}
           </div>
         </div>
