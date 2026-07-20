@@ -253,7 +253,7 @@ export default function Home() {
             {(data?.topNpcs ?? []).map((npc) => (
               <a
                 key={npc.username}
-                href={npc.avatarUrl || undefined}
+                href={`/api/avatar/${encodeURIComponent(npc.username)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group block"

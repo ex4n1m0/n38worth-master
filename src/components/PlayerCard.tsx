@@ -235,6 +235,14 @@ function PlayerCardImpl({
   const isShowingUnsplashPhoto =
     !!photoSourceUrl && displayedAvatarSrc === effectiveAvatarUrl;
   const showFullImageLink = !isShowingUnsplashPhoto && !!displayedAvatarSrc;
+  // Data URLs can't be opened directly in a new tab on most browsers (especially
+  // mobile). Route through /api/avatar/[username] which serves the raw image
+  // bytes with proper headers. Path-based URLs (e.g. /NEW_HIDDEN.webp, profession
+  // art) work fine linked directly.
+  const fullImageLinkUrl =
+    displayedAvatarSrc?.startsWith("data:")
+      ? `/api/avatar/${encodeURIComponent(username)}`
+      : displayedAvatarSrc;
 
   const canAfford = isBonusCard || (myCredits ?? 0) >= playerValue;
   const { play } = useSound();
@@ -988,7 +996,7 @@ function PlayerCardImpl({
                 link so the full-resolution art is reachable. */}
             {showFullImageLink && (
               <a
-                href={displayedAvatarSrc}
+                href={fullImageLinkUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
@@ -1108,7 +1116,7 @@ function PlayerCardImpl({
               link so the full-resolution art is reachable. */}
           {showFullImageLink && (
             <a
-              href={displayedAvatarSrc}
+              href={fullImageLinkUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}

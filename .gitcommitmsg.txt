@@ -1,10 +1,14 @@
-Keep hero title centered on mobile browsers with URL bar
+Fix avatar full-image links not loading in new tab
 
-Use 100svh (small viewport height) instead of 100vh so the hero
-section matches the visible viewport even when the mobile browser's
-URL bar is present. Add pt-20/pb-10 padding as a safety net so the
-n38worth title always has nice space above it and stays near the
-center of the screen across all mobile browsers.
+Data URLs (data:image/webp;base64,...) can't be opened directly in a
+new tab on most browsers, especially mobile. Created a new
+/api/avatar/[username] route that decodes the data URL and serves the
+raw image bytes with proper Content-Type and caching headers (or
+redirects for path-based/absolute URLs).
+
+Updated the landing page avatar grid and PlayerCard "View full image"
+links to use this route for data-URL avatars, while keeping direct
+links for path-based avatars (profession art, hidden image, etc.).
 
 Generated with [Devin](https://devin.ai)
 
