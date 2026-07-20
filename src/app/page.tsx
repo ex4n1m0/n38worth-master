@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
 import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
+import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 
 /* ─── Types ─── */
 type Stats = { totalPlayers: number; totalEconomy: number; totalNpcs: number; totalHumans: number; onlineHumans: number };
@@ -238,11 +239,18 @@ export default function Home() {
             <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
 
-          {/* Live Activity — right below the live stats so visitors see real
-              game activity immediately, without scrolling. Left-aligned to
-              match the in-game layout (the hero's text-center would otherwise
-              center every line). */}
+          {/* Live Rankings — top players by empire, portfolio, credits.
+              Right below the live stats so visitors see real game activity
+              immediately, without scrolling. Transparent background to blend
+              with the hero. */}
           <div className="lp-fade-up w-full max-w-5xl mt-8 text-left" style={{ animationDelay: "0.5s" }}>
+            <EmpireRankStrip variant="transparent" />
+          </div>
+
+          {/* Live Activity — 4 compact rank lists (Recently Online, Latest
+              GETs, Latest PUMPs, Top Score). Placed just below Live Rankings,
+              matching the in-game leaderboard layout. */}
+          <div className="lp-fade-up w-full max-w-5xl mt-4 text-left" style={{ animationDelay: "0.6s" }}>
             <LeaderboardSidebars variant="transparent" />
           </div>
         </div>

@@ -84,11 +84,11 @@ const STRIPS: StripConfig[] = [
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
 /** A single compact, always-visible ranking card showing the top 3. */
-function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
+function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; entries: RankPlayer[]; transparent?: boolean }) {
   const Icon = cfg.icon;
   const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+    <div className={`rounded-xl p-2.5 ${transparent ? "border border-white/10 bg-transparent" : "border border-white/10 bg-white/[0.03]"}`}>
       <div className={`flex items-center gap-1.5 mb-2 ${cfg.labelClass}`}>
         <Icon className={`h-4 w-4 shrink-0 ${cfg.iconClass}`} />
         <span className="text-[11px] font-bold uppercase tracking-wide truncate">{cfg.label}</span>
@@ -117,7 +117,8 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
   );
 }
 
-export function EmpireRankStrip() {
+export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
+  const transparent = variant === "transparent";
   const { data: session } = useSession();
 
   const { data } = useQuery<RanksResponse>({
@@ -146,18 +147,18 @@ export function EmpireRankStrip() {
   const topChampions = champions.slice(0, 5);
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4">
+    <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <Trophy className="h-5 w-5 text-t1-400" />
         <h2 className="font-bold text-white">Live Rankings</h2>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {STRIPS.map((cfg) => (
-          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
+          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} transparent={transparent} />
         ))}
 
         {/* Hall of Champions — latest 3 winners, always visible. */}
-        <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/[0.04] p-2.5">
+        <div className={`rounded-xl p-2.5 ${transparent ? "border border-yellow-500/20 bg-transparent" : "border border-yellow-500/20 bg-yellow-500/[0.04]"}`}>
           <div className="flex items-center gap-1.5 mb-2 text-yellow-300">
             <Crown className="h-4 w-4 shrink-0 text-yellow-400" />
             <span className="text-[11px] font-bold uppercase tracking-wide truncate">Hall of Champions</span>

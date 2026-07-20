@@ -1,22 +1,15 @@
-Shorten goddess names in Live Activity and Live Ranks
+Landing page: Live Rankings above Live Activity, both transparent
 
-Goddess names like "Goddess of Wealth" were too long for the compact
-sidebar lists, causing layout issues. Added a shortName() helper to
-both components that hides the "Goddess of " prefix:
+Swapped the order on the landing page so Live Rankings (EmpireRankStrip)
+appears first, right below the live stats, with Live Activity
+(LeaderboardSidebars) just below it — matching the in-game leaderboard
+layout. Both use transparent backgrounds to blend with the hero.
 
-  "Goddess of Wealth" → "Wealth"
-  "Goddess of War"    → "War"
-  "Goddess"           → "Goddess" (unchanged)
-
-Applied to:
-- LeaderboardSidebars (Live Activity): Recently Online, Latest GETs,
-  Latest PUMPs, Top Score — all 7 username displays
-- EmpireRankStrip (Live Rankings): RankCard top-5 lists + Hall of
-  Champions
-
-The links still point to the full username (/players/Goddess of Wealth).
-All other game locations (player cards, profile pages, etc.) keep the
-full name.
+- EmpireRankStrip: added variant="transparent" prop (matches the
+  existing LeaderboardSidebars pattern). When transparent, the outer
+  container and inner cards drop their bg fills, keeping only borders.
+- page.tsx: EmpireRankStrip (transparent) renders first at mt-8,
+  LeaderboardSidebars (transparent) renders below at mt-4.
 
 Generated with [Devin](https://devin.ai)
 
