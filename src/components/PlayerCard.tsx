@@ -837,13 +837,17 @@ function PlayerCardImpl({
                     </>
                   )}
                 </Button>
-                <PermBlockButton
-                  targetId={id}
-                  targetUsername={username}
-                  permBlockUntil={permBlockUntil}
-                  size="sm"
-                  className="w-[85%]"
-                />
+                {/* Perm blocks only apply to regular NPC cards — not Goddesses,
+                    the Agent, other AGIs, or human players. */}
+                {!isGoddess && !isAgent && playerType !== "human" && (
+                  <PermBlockButton
+                    targetId={id}
+                    targetUsername={username}
+                    permBlockUntil={permBlockUntil}
+                    size="sm"
+                    className="w-[85%]"
+                  />
+                )}
               </>
             ) : isPurchaseLocked ? (
               // locked

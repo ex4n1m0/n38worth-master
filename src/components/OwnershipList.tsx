@@ -456,13 +456,17 @@ function OwnershipCard({
             )}
           </Button>
 
-          <PermBlockButton
-            targetId={item.id}
-            targetUsername={item.username}
-            permBlockUntil={item.permBlockUntil}
-            size="sm"
-            className="w-[80%]"
-          />
+          {/* Perm blocks only apply to regular NPC cards — not Goddesses,
+              the Agent, other AGIs, or human players. */}
+          {item.playerType === "card" && !isGoddess && !isAgent && (
+            <PermBlockButton
+              targetId={item.id}
+              targetUsername={item.username}
+              permBlockUntil={item.permBlockUntil}
+              size="sm"
+              className="w-[80%]"
+            />
+          )}
 
           {/* Unsplash photo credit — at the very bottom of the card. */}
           <PhotoAttribution

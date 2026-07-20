@@ -397,9 +397,10 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .where(eq(users.id, target.id));
 
       // Create ownership with a 30-second sell block. Grant a permanent 24h block
-      // for the first 10 players this user acquires (excluding the Agent).
+      // for the first 10 regular NPC cards this user acquires (not Goddesses,
+      // Agent, AGIs, or human players).
       let permBlockUntil = null;
-      if (remainingPermBlocks > 0) {
+      if (remainingPermBlocks > 0 && target.isNpc === 1 && !isAIPlayerUsername(target.username)) {
         permBlockUntil = new Date(Date.now() + PERM_BLOCK_MS);
         remainingPermBlocks--;
       }

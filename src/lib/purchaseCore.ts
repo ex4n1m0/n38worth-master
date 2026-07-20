@@ -350,7 +350,10 @@ export async function buyPlayerCore(
       : null;
 
     let permBlockUntil = null;
-    if (!isAIPlayerUsername(buyer.username)) {
+    // Auto-assign a 24h perm block to the first 10 cards a non-AI buyer acquires,
+    // but ONLY for regular NPC cards — not Goddesses, the Agent, other AGIs, or
+    // human players.
+    if (!isAIPlayerUsername(buyer.username) && target.isNpc === 1 && !isAIPlayerUsername(target.username)) {
       const [permCount] = await db
         .select({ count: sql<number>`count(*)` })
         .from(ownership)
