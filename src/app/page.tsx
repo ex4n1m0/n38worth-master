@@ -247,7 +247,7 @@ export default function Home() {
       </section>
 
       {/* ═══ Avatar Grid ═══ */}
-      <section className="relative bg-black px-6 py-20">
+      <section className="relative bg-black px-6 py-10">
         <div className="relative z-10 w-full max-w-7xl mx-auto">
           <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
             {(data?.topNpcs ?? []).map((npc) => (

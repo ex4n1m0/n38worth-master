@@ -1,8 +1,7 @@
-Move Live Activity panel up near the live stats on landing
+Reduce gap between Live Activity and avatar grid on landing
 
-Move the Live Activity panel from its own section below the hero into
-the hero section itself, right below the Cards/Economy/Players stats,
-so visitors see real game activity immediately without scrolling.
+Halve the avatar grid section's vertical padding (py-20 → py-10) so
+the gap between the Live Activity panel and the avatars is tighter.
 
 Generated with [Devin](https://devin.ai)
 
