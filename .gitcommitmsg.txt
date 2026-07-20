@@ -1,23 +1,12 @@
-Remove 5 AGIs, keep only Goddesses as gameplay AI + Agent for chat
+Hard-delete removed AGIs from database
 
-Removed Astra, Lyra, Mira, Nova, and Vesper from the AGI roster. The
-6 Goddesses are now the only gameplay AI players. The Agent remains as
-a chat-only support agent (no gameplay, not a hireable card).
+The 5 removed AGIs (Astra, Lyra, Mira, Nova, Vesper) were only
+deactivated (isActive=0) but still appeared in the game because many
+queries don't filter by isActive. Hard-deleted them from the DB using
+the same cascade as adminDeletePlayer.ts (refund owners, release owned
+cards, clean up FK rows, delete user row).
 
-Changes:
-- roster.ts: AGENT_ROSTER now has only the Agent (chat-only). 5 AGIs
-  removed. AI_PLAYER_USERNAMES = Agent + 6 Goddesses.
-- cron/agent/route.ts: only picks from the 6 Goddesses for gameplay
-  turns. The Agent is never picked. Updated to cover 6 goddesses every
-  3 min (was 12 every 6 min).
-- purchaseCore.ts: added isAgentUsername check to prevent hiring the
-  Agent (it's chat-only, not a card).
-- seed.ts: updated comments (ensureAgents now returns 7, not 12).
-- AGENTS.md: updated documentation.
-- scripts/deactivate-removed-agis.ts: one-time script that deactivated
-  the 5 removed AGIs in the DB (isActive=0) and released their
-  ownership rows. Already executed: 5 users deactivated, 100 ownership
-  rows released (as owner), 5 released (as owned card).
+Already executed: all 5 users deleted, 10 owned cards released.
 
 Generated with [Devin](https://devin.ai)
 
