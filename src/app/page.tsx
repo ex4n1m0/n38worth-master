@@ -289,7 +289,7 @@ export default function Home() {
                 {[
                   { title: "Create your card", body: "Register, upload your avatar and pick a profession. You start with 100¢ — everyone starts equal." },
                   { title: "Hire your first cards", body: "Hiring costs the card's current value, and every hire pumps that card's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
-                  { title: "Own 20 cards", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
+                  { title: "Get 20 cards", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
                   { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — taken from the richest player, so the rich never run away with the game." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
