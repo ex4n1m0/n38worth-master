@@ -1,8 +1,10 @@
-Change mission labels from 'Own' to 'Get' to match the action
+Add Live Activity panel to landing page
 
-Update all 8 mission progress bar labels (and the landing page step) from
-'Own N cards...' to 'Get N cards...' so the wording matches the GET
-action players tap on cards to acquire them.
+Reuse the in-game LeaderboardSidebars component on the landing page,
+placed between the live stats (Cards/Economy/Players) and the avatar
+grid. Added a 'transparent' variant so the panel blends into the
+landing page's black background — same text colors, borders, and
+layout as in the game, just without the gray card background.
 
 Generated with [Devin](https://devin.ai)
 

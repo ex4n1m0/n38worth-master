@@ -42,15 +42,17 @@ function SidebarCard({
   label,
   labelClass,
   children,
+  transparent = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   iconClass: string;
   label: string;
   labelClass: string;
   children: React.ReactNode;
+  transparent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+    <div className={`rounded-xl p-2.5 ${transparent ? "border border-white/10 bg-transparent" : "border border-white/10 bg-white/[0.03]"}`}>
       <div className={`flex items-center gap-1.5 mb-2 ${labelClass}`}>
         <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
         <span className="text-[11px] font-bold uppercase tracking-wide truncate">{label}</span>
@@ -64,7 +66,8 @@ function EmptyList() {
   return <p className="text-[11px] text-gray-600 italic">No entries yet</p>;
 }
 
-export function LeaderboardSidebars() {
+export function LeaderboardSidebars({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
+  const transparent = variant === "transparent";
   const { data } = useQuery<SidebarData>({
     queryKey: ["leaderboard-sidebars"],
     queryFn: async () => {
@@ -86,7 +89,7 @@ export function LeaderboardSidebars() {
     Date.now() - new Date(lastOnlineAt).getTime() < 3 * 60 * 1000;
 
   return (
-    <div className="rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4">
+    <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <Trophy className="h-5 w-5 text-t1-400" />
         <h2 className="font-bold text-white">Live Activity</h2>
@@ -98,6 +101,7 @@ export function LeaderboardSidebars() {
           iconClass="text-emerald-400"
           label="Recently Online"
           labelClass="text-emerald-300"
+          transparent={transparent}
         >
           {humans.length === 0 ? (
             <EmptyList />
@@ -132,6 +136,7 @@ export function LeaderboardSidebars() {
           iconClass="text-green-400"
           label="Latest GETs"
           labelClass="text-green-300"
+          transparent={transparent}
         >
           {gets.length === 0 ? (
             <EmptyList />
@@ -176,6 +181,7 @@ export function LeaderboardSidebars() {
           iconClass="text-fuchsia-400"
           label="Latest PUMPs"
           labelClass="text-fuchsia-300"
+          transparent={transparent}
         >
           {pumps.length === 0 ? (
             <EmptyList />
@@ -220,6 +226,7 @@ export function LeaderboardSidebars() {
           iconClass="text-amber-400"
           label="Top Score"
           labelClass="text-amber-300"
+          transparent={transparent}
         >
           {scores.length === 0 ? (
             <EmptyList />
