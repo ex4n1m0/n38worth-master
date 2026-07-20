@@ -61,6 +61,30 @@ export function Navbar() {
   // Game is unlocked after completing mission 0 (Own 20 cards).
   const gameUnlocked = missionLevel >= 1;
 
+  // Guide players to Home (profile) the first time they unlock the game by
+  // reaching 20 cards — that's where the daily login reward lives. The amber
+  // highlight clears once they actually visit Home. Tracked in localStorage so
+  // it survives page refreshes but resets on game reset (key includes a version
+  // tag that the reset flow can bump if needed).
+  const [homeVisitedAfterUnlock, setHomeVisitedAfterUnlock] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setHomeVisitedAfterUnlock(localStorage.getItem("home-visited-after-unlock") === "1");
+  }, []);
+  useEffect(() => {
+    if (!gameUnlocked) return;
+    if (typeof window === "undefined") return;
+    // When the player lands on Home after unlocking, mark them as visited.
+    const isHomePath =
+      pathname === "/my-profile" ||
+      (!!session?.user?.name && pathname === `/players/${session.user.name}`);
+    if (isHomePath && !homeVisitedAfterUnlock) {
+      localStorage.setItem("home-visited-after-unlock", "1");
+      setHomeVisitedAfterUnlock(true);
+    }
+  }, [gameUnlocked, pathname, session?.user?.name, homeVisitedAfterUnlock]);
+  const highlightHome = gameUnlocked && !homeVisitedAfterUnlock;
+
   // Briefly "bump" the credits counter whenever a poach payday lands.
   const bumpKey = usePoachStore((s) => s.bumpKey);
   const poachEvent = usePoachStore((s) => s.event);
@@ -191,9 +215,13 @@ export function Navbar() {
                   // Guide new accounts to the Cards (market) button: highlight
                   // it amber once onboarding is done but before they've bought
                   // enough cards to unlock the rest of the game (mission 0).
-                  link.href === "/leaderboard" &&
-                    onboarding.onboardingComplete &&
-                    !gameUnlocked
+                  // Once they reach 20 cards, switch the highlight to Home so
+                  // they go collect their daily login reward.
+                  link.href === "/leaderboard"
+                    ? onboarding.onboardingComplete && !gameUnlocked
+                    : link.href === "/my-profile"
+                      ? highlightHome
+                      : false
                 )
               )}
             </div>
@@ -350,13 +378,15 @@ export function Navbar() {
         <div className="flex items-center justify-around h-16 px-1">
           {allVisibleLinks.map((link) => {
             const active = isActive(link.href);
-            // Guide new accounts to the Cards (market) tab: highlight it amber
-            // once onboarding is done but before they've bought enough cards
-            // to unlock the rest of the game (mission 0).
+            // Guide new accounts: highlight Cards amber before 20 cards, then
+            // switch to Home amber after unlocking so they collect their daily
+            // login reward. Clears once they visit Home.
             const highlight =
-              link.href === "/leaderboard" &&
-              onboarding.onboardingComplete &&
-              !gameUnlocked;
+              link.href === "/leaderboard"
+                ? onboarding.onboardingComplete && !gameUnlocked
+                : link.href === "/my-profile"
+                  ? highlightHome
+                  : false;
             return (
               <Link
                 key={link.href}

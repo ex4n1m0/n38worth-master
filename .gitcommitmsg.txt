@@ -1,10 +1,12 @@
-Make mission progress bar text fluid across screen sizes
+Highlight 'Home' nav button amber after first 20-card unlock
 
-Replace fixed breakpoint text sizes (text-base sm:text-xl) with clamp()-
-based fluid sizing that scales smoothly with viewport width. On mobile
-the label/count now shrink enough to fit without truncation; on large
-desktops they grow to fill the wider bar. Trophy icon and bar height
-also scale dynamically.
+When a player reaches 20 cards and unlocks the full game (mission 0
+complete), switch the amber nav highlight from Cards to Home so they
+go to their profile to collect the daily login reward. The highlight
+clears once they actually visit Home, tracked in localStorage so it
+survives page refreshes.
+
+Applies to both desktop top nav and mobile bottom tab bar.
 
 Generated with [Devin](https://devin.ai)
 
