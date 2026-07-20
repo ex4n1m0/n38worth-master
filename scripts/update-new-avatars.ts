@@ -18,21 +18,21 @@ import { eq } from "drizzle-orm";
 import { compressAvatar } from "../src/lib/compress-avatar";
 
 const GODDESSES: Array<{ filename: string; username: string }> = [
-  { filename: "NewGoddess.png", username: "Goddess" },
-  { filename: "NewGoddessFate.png", username: "Goddess of Fate" },
-  { filename: "NewGoddessKnowledge.png", username: "Goddess of Knowledge" },
-  { filename: "NewGoddessTime.png", username: "Goddess of Time" },
-  { filename: "NewGoddessWar.png", username: "Goddess of War" },
-  { filename: "NewGoddessWealth.png", username: "Goddess of Wealth" },
+  { filename: "NewGoddess.webp", username: "Goddess" },
+  { filename: "NewGoddessFate.webp", username: "Goddess of Fate" },
+  { filename: "NewGoddessKnowledge.webp", username: "Goddess of Knowledge" },
+  { filename: "NewGoddessTime.webp", username: "Goddess of Time" },
+  { filename: "NewGoddessWar.webp", username: "Goddess of War" },
+  { filename: "NewGoddessWealth.webp", username: "Goddess of Wealth" },
 ];
 
 const AGENTS: Array<{ avatarUrl: string; username: string }> = [
-  { avatarUrl: "/NewAIPlayer.png", username: "Agent" },
-  { avatarUrl: "/NewAstra.png", username: "Astra" },
-  { avatarUrl: "/NewLyra.png", username: "Lyra" },
-  { avatarUrl: "/NewMira.png", username: "Mira" },
-  { avatarUrl: "/NewNova.png", username: "Nova" },
-  { avatarUrl: "/NewVesper.png", username: "Vesper" },
+  { avatarUrl: "/NewAIPlayer.webp", username: "Agent" },
+  { avatarUrl: "/NewAstra.webp", username: "Astra" },
+  { avatarUrl: "/NewLyra.webp", username: "Lyra" },
+  { avatarUrl: "/NewMira.webp", username: "Mira" },
+  { avatarUrl: "/NewNova.webp", username: "Nova" },
+  { avatarUrl: "/NewVesper.webp", username: "Vesper" },
 ];
 
 async function main() {
@@ -44,7 +44,7 @@ async function main() {
       continue;
     }
     const imageBuffer = fs.readFileSync(filePath);
-    const { buffer: compressed, mimeType } = await compressAvatar(imageBuffer, "image/png");
+    const { buffer: compressed, mimeType } = await compressAvatar(imageBuffer, "image/webp");
     const avatarUrl = `data:${mimeType};base64,${compressed.toString("base64")}`;
     const result = await db
       .update(users)
@@ -71,7 +71,7 @@ async function main() {
   console.log("\nMigrating stored /hidden.png avatars to /NEW_HIDDEN.png...\n");
   const migrated = await db
     .update(users)
-    .set({ avatarUrl: "/NEW_HIDDEN.png", updatedAt: new Date() })
+    .set({ avatarUrl: "/NEW_HIDDEN.webp", updatedAt: new Date() })
     .where(eq(users.avatarUrl, "/hidden.png"))
     .returning({ id: users.id });
   console.log(`✅ Migrated ${migrated.length} player(s)`);

@@ -120,7 +120,7 @@ export function WorldRebootingOverlay() {
     >
       {/* Full-screen background image */}
       <img
-        src="/WORLD_RESET.png"
+        src="/WORLD_RESET.webp"
         alt="World Reset"
         style={{
           position: "absolute",

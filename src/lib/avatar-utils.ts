@@ -1,7 +1,7 @@
 /**
  * Path to the masked avatar shown for any player the viewer hasn't hired.
  */
-export const UNHIRED_AVATAR_SRC = "/NEW_HIDDEN.png";
+export const UNHIRED_AVATAR_SRC = "/NEW_HIDDEN.webp";
 
 /**
  * Decide which avatar URL to display for a player, given the viewer's context.

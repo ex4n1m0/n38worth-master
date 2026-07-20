@@ -39,7 +39,7 @@ export default function GameLayout({
       {/* Background image with dark overlay */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/endgame.png"
+        src="/endgame.webp"
         alt=""
         className="fixed inset-0 h-full w-full object-cover object-top pointer-events-none"
       />

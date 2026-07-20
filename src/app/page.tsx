@@ -150,7 +150,7 @@ export default function Home() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={heroImgRef}
-          src="/okworld.png"
+          src="/okworld.webp"
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-top will-change-transform"
           style={{ transform: "scale(1.1)" }}

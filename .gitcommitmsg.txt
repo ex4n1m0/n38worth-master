@@ -1,8 +1,16 @@
-Add 'View full image' link for non-Unsplash card avatars
+Convert game image assets to lightweight WebP (91% smaller)
 
-Cards whose displayed avatar isn't an Unsplash photo (masked placeholder,
-profession art, goddess/AGI image, uploaded avatar) now show a clickable
-'View full image' link below the card opening the full-resolution image.
+Converted 27 actively-used PNG/JPEG assets to WebP at quality 75-85,
+reducing total size from 63.3MB to 5.5MB (91% smaller) for much faster
+loading on slow internet connections while keeping good visual quality.
+
+Covers: AGI players, goddesses, professions, hidden avatar, bonus cards
+(Mass Hire / 10 Slots / Reveal), navbar background, landing/cover images
+(okworld, endgame, WORLD_RESET).
+
+Updated all code references from .png to .webp and migrated existing DB
+avatar URL rows. Legacy /hidden.png and /NEW_HIDDEN.png paths are still
+recognized in comparison checks so existing accounts aren't broken.
 
 Generated with [Devin](https://devin.ai)
 

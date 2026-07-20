@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const navbarBtnStyle = {
-  backgroundImage: "url('/navbar.png')",
+  backgroundImage: "url('/navbar.webp')",
   backgroundSize: "100% 100%",
   backgroundRepeat: "no-repeat",
 } as const;

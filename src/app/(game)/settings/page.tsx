@@ -41,6 +41,7 @@ export default function SettingsPage() {
     !!player?.avatarUrl &&
     player.avatarUrl !== "/hidden.png" &&
     player.avatarUrl !== "/NEW_HIDDEN.png" &&
+    player.avatarUrl !== "/NEW_HIDDEN.webp" &&
     !player.avatarUrl.startsWith("Demo Player");
 
   async function handlePasswordChange(e: React.FormEvent<HTMLFormElement>) {

@@ -73,7 +73,7 @@ export async function POST() {
       .values({
         username,
         passwordHash: null,
-        avatarUrl: "/NEW_HIDDEN.png",
+        avatarUrl: "/NEW_HIDDEN.webp",
         credits: 100,
         playerValue: 1,
         valueFloor: 1,

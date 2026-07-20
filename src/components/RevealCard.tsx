@@ -92,7 +92,7 @@ export function RevealCard() {
       <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-violet-600/50 group-hover:ring-violet-500/60 transition-all">
-            <AvatarImage src="/reveal.png" alt="Reveal" className="object-fill" />
+            <AvatarImage src="/reveal.webp" alt="Reveal" className="object-fill" />
             <AvatarFallback className="rounded-lg bg-gradient-to-br from-violet-600 to-purple-600 text-white font-bold text-3xl">
               <Eye className="h-10 w-10" />
             </AvatarFallback>

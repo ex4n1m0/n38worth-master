@@ -137,7 +137,7 @@ export function MassHireCard({
       <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-amber-600/50 group-hover:ring-amber-500/60 transition-all">
-            <AvatarImage src="/masshire.png" alt="Mass Hire" className="object-fill" />
+            <AvatarImage src="/masshire.webp" alt="Mass Hire" className="object-fill" />
             <AvatarFallback className="rounded-lg bg-gradient-to-br from-amber-600 to-yellow-600 text-white font-bold text-3xl">
               MH
             </AvatarFallback>

@@ -303,7 +303,7 @@ export async function assignOnboardingNpcsToUser(userId: number): Promise<number
           .values({
             username: fallbackUsername,
             passwordHash: null,
-            avatarUrl: "/NEW_HIDDEN.png",
+            avatarUrl: "/NEW_HIDDEN.webp",
             playerValue: 1,
             valueFloor: 1,
             credits: 0,

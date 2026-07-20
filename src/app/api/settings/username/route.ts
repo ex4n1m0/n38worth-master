@@ -92,6 +92,7 @@ export async function POST(req: Request) {
       !!user.avatarUrl &&
       user.avatarUrl !== "/hidden.png" &&
       user.avatarUrl !== "/NEW_HIDDEN.png" &&
+      user.avatarUrl !== "/NEW_HIDDEN.webp" &&
       !user.avatarUrl.startsWith("Demo Player");
 
     let converted = false;

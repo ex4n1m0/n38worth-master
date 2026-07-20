@@ -54,7 +54,7 @@ export function TenSlotsCard() {
       <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
         <div className="relative w-full">
           <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-cyan-600/50 group-hover:ring-cyan-500/60 transition-all">
-            <AvatarImage src="/10slots.png" alt="10 Slots" className="object-fill" />
+            <AvatarImage src="/10slots.webp" alt="10 Slots" className="object-fill" />
             <AvatarFallback className="rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-3xl">
               10
             </AvatarFallback>

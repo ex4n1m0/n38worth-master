@@ -6,7 +6,7 @@
  *   up to (1 + 10% of the buyer's current owned count) hires per use.
  * - Dynamic cooldown between uses (1–5+ min based on owned card count).
  * - Pinned at the top-left of the market page regardless of sort/filter.
- * - Avatar: /masshire.png
+ * - Avatar: /masshire.webp
  */
 
 import { db } from "@/db";
@@ -22,7 +22,7 @@ const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
 
 export const MASS_HIRE_USERNAME = "Mass Hire";
-export const MASS_HIRE_AVATAR_URL = "/masshire.png";
+export const MASS_HIRE_AVATAR_URL = "/masshire.webp";
 
 /** Mission threshold (owned cards) to unlock the Mass Hire card. */
 export const MASS_HIRE_UNLOCK_THRESHOLD = 50;

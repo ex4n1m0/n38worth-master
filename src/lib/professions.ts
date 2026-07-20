@@ -12,32 +12,32 @@ export interface Profession {
 export const PROFESSIONS: Profession[] = [
   {
     name: "Rift Binder",
-    imagePath: "/NewRiftBinder.png",
+    imagePath: "/NewRiftBinder.webp",
     probability: 5,
   },
   {
     name: "Hexblade Courier",
-    imagePath: "/NewHexbladeCourier.png",
+    imagePath: "/NewHexbladeCourier.webp",
     probability: 6,
   },
   {
     name: "Scrap Alchemist",
-    imagePath: "/NewScrapAlchemist.png",
+    imagePath: "/NewScrapAlchemist.webp",
     probability: 7,
   },
   {
     name: "Spirit Archivist",
-    imagePath: "/NewSpiritArchivist.png",
+    imagePath: "/NewSpiritArchivist.webp",
     probability: 8,
   },
   {
     name: "Iron Choir Marshal",
-    imagePath: "/NewChoirMarshal.png",
+    imagePath: "/NewChoirMarshal.webp",
     probability: 9,
   },
   {
     name: "Plague Cartographer",
-    imagePath: "/NewPlagueCartographer.png",
+    imagePath: "/NewPlagueCartographer.webp",
     probability: 10,
   },
 ];
