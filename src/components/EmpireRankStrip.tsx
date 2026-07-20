@@ -7,6 +7,17 @@ import React from "react";
 import Link from "next/link";
 import { formatCompact } from "@/lib/utils";
 
+/**
+ * Shorten goddess usernames for compact UIs (Live Ranks) by hiding the
+ * "Goddess of " prefix — "Goddess of Wealth" → "Wealth", "Goddess" → "Goddess".
+ * The full name is still used everywhere else in the game.
+ */
+function shortName(username: string): string {
+  if (username === "Goddess") return "Goddess";
+  if (username.startsWith("Goddess of ")) return username.slice("Goddess of ".length);
+  return username;
+}
+
 interface RankPlayer {
   id: number;
   username: string;
@@ -92,7 +103,7 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
                 {i + 1}
               </span>
               <Link href={`/players/${p.username}`} className="flex-1 truncate font-medium text-gray-200 hover:underline">
-                {p.username}
+                {shortName(p.username)}
               </Link>
               <span className="shrink-0 font-mono tabular-nums text-gray-400">
                 {formatCompact(cfg.getValue(p))}
@@ -165,7 +176,7 @@ export function EmpireRankStrip() {
                     )}
                   </span>
                   <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
-                    {w.username}
+                    {shortName(w.username)}
                   </Link>
                   <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
                     <Calendar className="h-2.5 w-2.5" />

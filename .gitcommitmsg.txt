@@ -1,20 +1,22 @@
-Hide Agent from player browser, leaderboard, ranks, and crons
+Shorten goddess names in Live Activity and Live Ranks
 
-The chat-only support Agent (isNpc=0) was still appearing in the
-player browser, leaderboard, and ranks because those queries filter
-by isNpc=0 (which includes the Agent) but didn't exclude it by
-username. Added notInArray(users.username, AGENT_USERNAMES) to:
+Goddess names like "Goddess of Wealth" were too long for the compact
+sidebar lists, causing layout issues. Added a shortName() helper to
+both components that hides the "Goddess of " prefix:
 
-- /api/players (player browser)
-- /api/leaderboard (all 4 leaderboard queries)
-- /api/ranks (all-players query)
-- /api/ranks/[type] (per-type ranking queries)
-- /api/leaderboard-sidebars (Recently Online sidebar)
-- /api/cron/portfolio-reward (exclude from portfolio rewards)
-- /api/cron/rank-bonus (exclude from rank bonuses)
+  "Goddess of Wealth" → "Wealth"
+  "Goddess of War"    → "War"
+  "Goddess"           → "Goddess" (unchanged)
 
-The Agent is now completely hidden from all gameplay-facing views and
-reward calculations. It only exists to answer questions in Global Chat.
+Applied to:
+- LeaderboardSidebars (Live Activity): Recently Online, Latest GETs,
+  Latest PUMPs, Top Score — all 7 username displays
+- EmpireRankStrip (Live Rankings): RankCard top-5 lists + Hall of
+  Champions
+
+The links still point to the full username (/players/Goddess of Wealth).
+All other game locations (player cards, profile pages, etc.) keep the
+full name.
 
 Generated with [Devin](https://devin.ai)
 
