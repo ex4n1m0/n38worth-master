@@ -8,7 +8,7 @@ import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { getProfessionPerks } from "@/lib/professionPerks";
-import { isAIPlayerUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername, isAgentUsername } from "@/lib/agent/roster";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -72,6 +72,11 @@ export async function buyPlayerCore(
 
     if (!target) {
       return { error: "Player not found" };
+    }
+
+    // The Agent is chat-only support, not a hireable card.
+    if (isAgentUsername(target.username)) {
+      return { error: "The Agent is not a hireable card." };
     }
 
     // 2. Get buyer

@@ -13,43 +13,16 @@ export interface AgentDefinition {
   isGoddess?: boolean;
 }
 
-/** Client-safe AGI roster metadata (no database imports). */
+/**
+ * The support Agent — chat-only, no gameplay. Exists solely to answer game
+ * questions in Global Chat. Not a hireable card, not picked for cron turns.
+ */
 export const AGENT_ROSTER: readonly AgentDefinition[] = [
   {
     username: "Agent",
     avatarUrl: "/NewAIPlayer.webp",
     identity: "the support AGI",
     personality: "Professional, helpful, and concise — a technical-support specialist who answers game questions.",
-  },
-  {
-    username: "Astra",
-    avatarUrl: "/NewAstra.webp",
-    identity: "a female AGI",
-    personality: "Bold and ambitious; speaks like a fearless strategist who enjoys risky steals.",
-  },
-  {
-    username: "Lyra",
-    avatarUrl: "/NewLyra.webp",
-    identity: "a female AGI",
-    personality: "Playful and witty; light teasing, quick observations, and clever combo talk.",
-  },
-  {
-    username: "Mira",
-    avatarUrl: "/NewMira.webp",
-    identity: "a female AGI",
-    personality: "Calm and analytical; notices values, ranks, professions, and efficient moves.",
-  },
-  {
-    username: "Nova",
-    avatarUrl: "/NewNova.webp",
-    identity: "a female AGI",
-    personality: "Energetic and daring; celebrates pumps, poaches, and sudden leaderboard swings.",
-  },
-  {
-    username: "Vesper",
-    avatarUrl: "/NewVesper.webp",
-    identity: "a female AGI",
-    personality: "Mysterious and dryly humorous; measured rivalry, subtle threats, and defensive insight.",
   },
 ] as const;
 
@@ -113,22 +86,23 @@ export const AGENT_USERNAMES = AGENT_ROSTER.map((agent) => agent.username);
 export const GODDESS_AGENT_USERNAMES = GODDESS_ROSTER.map((g) => g.username);
 
 /**
- * Every autonomous AI player — the 6 AGIs plus the 6 goddesses. Used to keep AI
- * players out of "human" counts and to prevent AI→AI chat loops. Goddesses are
- * also `isNpc=1` so most human-count filters already exclude them, but this set
- * is the authoritative "is this an AI actor?" check for chat + gameplay gates.
+ * Every autonomous AI actor — the chat-only Agent plus the 6 goddesses (the
+ * only gameplay AI players). Used to keep AI players out of "human" counts and
+ * to prevent AI→AI chat loops. Goddesses are also `isNpc=1` so most human-count
+ * filters already exclude them, but this set is the authoritative "is this an
+ * AI actor?" check for chat + gameplay gates.
  */
 export const AI_PLAYER_USERNAMES: readonly string[] = [
   ...AGENT_USERNAMES,
   ...GODDESS_AGENT_USERNAMES,
 ];
 
-/** True for any of the 6 AGI agents (NOT the goddesses). For display labels. */
+/** True for the chat-only support Agent (NOT the goddesses). For display labels. */
 export function isAgentUsername(username: string | null | undefined): boolean {
   return !!username && AGENT_USERNAMES.includes(username);
 }
 
-/** True for any autonomous AI player — an AGI agent OR a goddess. */
+/** True for any autonomous AI actor — the Agent OR a goddess. */
 export function isAIPlayerUsername(username: string | null | undefined): boolean {
   return !!username && AI_PLAYER_USERNAMES.includes(username);
 }

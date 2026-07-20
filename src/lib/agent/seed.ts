@@ -191,10 +191,10 @@ export async function ensureGoddess(definition: AgentDefinition): Promise<number
 }
 
 /**
- * Ensures the complete autonomous AI roster — the 6 AGIs AND the 6 goddesses —
- * and returns definitions paired with IDs. The cron rotates through all 12
- * round-robin, so each AI player (agent or goddess) gets the same gameplay and
- * chat logic on its turn.
+ * Ensures the complete AI roster — the chat-only Agent plus the 6 goddesses
+ * (the only gameplay AI players) — and returns definitions paired with IDs.
+ * The cron rotates through the 6 goddesses for gameplay; the Agent is never
+ * picked for gameplay turns (chat-only).
  */
 export async function ensureAgents(): Promise<Array<AgentDefinition & { id: number }>> {
   const defs = [...AGENT_ROSTER, ...GODDESS_ROSTER];

@@ -39,20 +39,23 @@
   select-field subqueries instead. WHERE/ORDER BY raw sql and joined queries
   render qualified names and are fine.
 
-## Autonomous AI players (12: 6 AGIs + 6 goddesses)
-- **Roster:** `src/lib/agent/roster.ts` defines `AGENT_ROSTER` (6 AGIs) and
-  `GODDESS_ROSTER` (6 goddesses). `AI_PLAYER_USERNAMES` combines both.
-  `isAgentUsername` = AGI only (for display); `isAIPlayerUsername` = any AI
-  player (for chat/loop-prevention/gameplay gates).
-- **Seeding:** `ensureAgent` (AGIs, sets isNpc=0) vs `ensureGoddess`
-  (non-destructive — never flips isNpc/overwrites avatar/value). Both are
-  called by `ensureAgents` which returns all 12.
-- **Cadence:** `/api/cron/agent` fires every 1 min, picks 2 agents per tick
-  (covering all 12 every 6 min). Per-agent last-play gate in `runner.ts`:
-  ACTIVE (humans online) = 6-min interval; IDLE (no humans) = 60-min interval.
-  No 5-on/10-off cycle, no per-cycle refill. AI players earn credits via the
-  same portfolio-reward + rank-bonus crons as humans (goddesses included via
-  `isNpc=0 OR username IN (GODDESS_USERNAMES)` filter).
-- **Chat:** `maybeAgentChat` uses the LLM only, shared 3-min reply cooldown,
-  hard-gates on human presence (no AI chat in empty rooms). Each AI speaks in
-  its own personality via `getAutonomousPlayerDefinition`.
+## Autonomous AI players (6 goddesses + 1 chat-only Agent)
+- **Roster:** `src/lib/agent/roster.ts` defines `AGENT_ROSTER` (1 chat-only
+  support Agent) and `GODDESS_ROSTER` (6 goddesses — the only gameplay AI
+  players). `AI_PLAYER_USERNAMES` combines both. `isAgentUsername` = Agent
+  only; `isAIPlayerUsername` = Agent or any goddess.
+- **Seeding:** `ensureAgent` (Agent, sets isNpc=0, chat-only) vs
+  `ensureGoddess` (non-destructive — never flips isNpc/overwrites
+  avatar/value). Both are called by `ensureAgents` which returns all 7.
+- **Cadence:** `/api/cron/agent` fires every 1 min, picks 2 goddesses per
+  tick (covering all 6 every 3 min). The Agent is never picked for gameplay.
+  Per-agent last-play gate in `runner.ts`: ACTIVE (humans online) = 6-min
+  interval; IDLE (no humans) = 60-min interval. AI players earn credits via
+  the same portfolio-reward + rank-bonus crons as humans (goddesses included
+  via `isNpc=0 OR username IN (GODDESS_USERNAMES)` filter).
+- **Chat:** `maybeAgentChat` uses the LLM only, shared 1-min reply cooldown,
+  hard-gates on human presence (no AI chat in empty rooms). Only the Agent
+  speaks — it acts as a technical-support agent, answering game-related
+  questions from humans. All other AI players are silent.
+- **Agent is not a hireable card:** `purchaseCore.ts` rejects attempts to
+  hire the Agent (`isAgentUsername` check on the target).

@@ -8,19 +8,20 @@ import { AGENT_USERNAME } from "@/lib/agent/roster";
 export const maxDuration = 60;
 
 /**
- * Autonomous AI roster cron — fires every minute. All 12 AI players (6 AGIs +
- * 6 goddesses) are created up front, then TWO are selected per tick for
- * gameplay. This covers all 12 every 6 minutes:
+ * Autonomous AI roster cron — fires every minute. The 6 Goddesses are the only
+ * gameplay AI players; the Agent is chat-only and never picked for gameplay.
+ * TWO goddesses are selected per tick for gameplay, covering all 6 every 3
+ * minutes:
  *
- *   tick t → agents at indices (t*2)%12 and (t*2+1)%12
+ *   tick t → goddesses at indices (t*2)%6 and (t*2+1)%6
  *
- * Each AI has its own per-agent last-play gate (in runAgentTurn):
+ * Each goddess has her own per-agent last-play gate (in runAgentTurn):
  *   - ACTIVE (humans online): 6-min interval → every pick plays.
  *   - IDLE (no humans): 60-min interval → only 1-in-10 picks play, keeping
  *     the world alive (1 play / 5 min) without burning credits in an empty
  *     room.
  *
- * Chat runs on the first picked agent only and is globally throttled in
+ * Chat runs on the support Agent only and is globally throttled in
  * maybeAgentChat (which also hard-gates on human presence, so no AI chat in
  * an empty room).
  */
@@ -44,11 +45,14 @@ export async function GET(req: Request) {
     const onlineHumans = await countOnlineHumans();
     const maxActions = Number(process.env.AGENT_MAX_ACTIONS_PER_TICK ?? 10);
 
-    // Pick 2 agents per tick, covering all 12 every 6 minutes.
+    // Only the 6 Goddesses are gameplay AI players. The Agent is chat-only.
+    const goddesses = agents.filter((a) => a.isGoddess);
+
+    // Pick 2 goddesses per tick, covering all 6 every 3 minutes.
     const minuteIndex = Math.floor(now.getTime() / 60_000);
     const picks = [
-      agents[(minuteIndex * 2) % agents.length],
-      agents[(minuteIndex * 2 + 1) % agents.length],
+      goddesses[(minuteIndex * 2) % goddesses.length],
+      goddesses[(minuteIndex * 2 + 1) % goddesses.length],
     ];
 
     const results: Array<{ agent: { id: number; username: string }; result: AgentRunResult }> = [];
