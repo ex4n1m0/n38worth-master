@@ -1,12 +1,20 @@
-Hard-delete removed AGIs from database
+Hide Agent from player browser, leaderboard, ranks, and crons
 
-The 5 removed AGIs (Astra, Lyra, Mira, Nova, Vesper) were only
-deactivated (isActive=0) but still appeared in the game because many
-queries don't filter by isActive. Hard-deleted them from the DB using
-the same cascade as adminDeletePlayer.ts (refund owners, release owned
-cards, clean up FK rows, delete user row).
+The chat-only support Agent (isNpc=0) was still appearing in the
+player browser, leaderboard, and ranks because those queries filter
+by isNpc=0 (which includes the Agent) but didn't exclude it by
+username. Added notInArray(users.username, AGENT_USERNAMES) to:
 
-Already executed: all 5 users deleted, 10 owned cards released.
+- /api/players (player browser)
+- /api/leaderboard (all 4 leaderboard queries)
+- /api/ranks (all-players query)
+- /api/ranks/[type] (per-type ranking queries)
+- /api/leaderboard-sidebars (Recently Online sidebar)
+- /api/cron/portfolio-reward (exclude from portfolio rewards)
+- /api/cron/rank-bonus (exclude from rank bonuses)
+
+The Agent is now completely hidden from all gameplay-facing views and
+reward calculations. It only exists to answer questions in Global Chat.
 
 Generated with [Devin](https://devin.ai)
 

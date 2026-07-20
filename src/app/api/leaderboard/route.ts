@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 
 // Humans must have an avatar to be visible; NPCs always visible.
 // Used inside `and(...)` — combine with isNpc=0 checks to form: human + has avatar.
 const humanVisibleSql = sql`("users"."avatar_url" IS NOT NULL AND "users"."avatar_completed" = 1)`;
+// Exclude the chat-only support Agent from leaderboard queries — it's not a
+// real player and shouldn't appear in rankings.
+const excludeAgentSql = notInArray(users.username, [...AGENT_USERNAMES]);
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -25,7 +29,7 @@ export async function GET(req: Request) {
     const [countResult] = await db
       .select({ totalPlayers: sql<number>`COUNT(*)` })
       .from(users)
-      .where(and(eq(users.isNpc, 0), humanVisibleSql));
+      .where(and(eq(users.isNpc, 0), humanVisibleSql, excludeAgentSql));
     const totalPlayers = Number(countResult?.totalPlayers ?? 0);
 
     // Get user's current rank positions in all categories
@@ -136,7 +140,7 @@ export async function GET(req: Request) {
           permBlockUntil: permBlockExpr,
         })
         .from(users)
-        .where(and(eq(users.isNpc, 0), humanVisibleSql))
+        .where(and(eq(users.isNpc, 0), humanVisibleSql, excludeAgentSql))
         .orderBy(desc(users.playerValue))
         .limit(50);
 
@@ -175,7 +179,7 @@ export async function GET(req: Request) {
           permBlockUntil: permBlockExpr,
         })
         .from(users)
-        .where(and(eq(users.isNpc, 0), humanVisibleSql))
+        .where(and(eq(users.isNpc, 0), humanVisibleSql, excludeAgentSql))
         .orderBy(
           desc(
             sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = "users"."id"), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = "users"."id"), 1)`
@@ -216,7 +220,7 @@ export async function GET(req: Request) {
         })
         .from(users)
         .leftJoin(ownership, eq(users.id, ownership.ownedId))
-        .where(and(eq(users.isNpc, 0), humanVisibleSql))
+        .where(and(eq(users.isNpc, 0), humanVisibleSql, excludeAgentSql))
         .groupBy(users.id)
         .orderBy(desc(sql`count(${ownership.id})`))
         .limit(50);

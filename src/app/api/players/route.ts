@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, ilike, desc, asc, and, ne } from "drizzle-orm";
+import { eq, sql, ilike, desc, asc, and, ne, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -127,6 +128,10 @@ export async function GET(req: Request) {
     // Exclude the Mass Hire card from regular browse results — it's pinned
     // separately at the top-left of the market page.
     conditions.push(sql`"users"."username" <> 'Mass Hire'`);
+
+    // Exclude the chat-only support Agent — it's not a hireable card and
+    // shouldn't appear in the player browser.
+    conditions.push(notInArray(users.username, [...AGENT_USERNAMES]));
 
     // Hide onboarding NPCs from other players until the creator completes onboarding
     if (currentUserId) {

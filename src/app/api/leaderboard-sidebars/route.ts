@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, gameHistory } from "@/db/schema";
-import { eq, and, sql, desc, isNotNull, inArray } from "drizzle-orm";
+import { eq, and, sql, desc, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +24,9 @@ export async function GET() {
     // Run all 4 sidebar queries in parallel
     const [onlineHumans, getEvents, pumpEvents, topScore] = await Promise.all([
       // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent
-      //    first). Includes humans + AGIs (isNpc=0) and the 6 goddesses (isNpc=1
-      //    but autonomous AI players). All must have an avatar to be visible.
+      //    first). Includes humans (isNpc=0) and the 6 goddesses (isNpc=1
+      //    but autonomous AI players). Excludes the chat-only support Agent.
+      //    All must have an avatar to be visible.
       db
         .select({
           id: users.id,
@@ -35,7 +37,8 @@ export async function GET() {
         .where(and(
           sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
           eq(users.isActive, 1),
-          isNotNull(users.avatarUrl)
+          isNotNull(users.avatarUrl),
+          notInArray(users.username, [...AGENT_USERNAMES])
         ))
         .orderBy(desc(users.lastOnlineAt))
         .limit(5),

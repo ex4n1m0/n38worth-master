@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, desc, asc, and, isNotNull } from "drizzle-orm";
+import { eq, sql, desc, asc, and, isNotNull, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { AGENT_USERNAMES } from "@/lib/agent/roster";
 
-// Players must have an avatar to appear on public rankings. Includes humans +
-// AGIs (isNpc=0) and the 6 goddesses (isNpc=1 but autonomous AI players).
+// Players must have an avatar to appear on public rankings. Includes humans
+// (isNpc=0) and the 6 goddesses (isNpc=1 but autonomous AI players). Excludes
+// the chat-only support Agent.
 const visibleHumanWhere = and(
   sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
   isNotNull(users.avatarUrl),
-  eq(users.avatarCompleted, 1)
+  eq(users.avatarCompleted, 1),
+  notInArray(users.username, [...AGENT_USERNAMES])
 );
 
 const VALID_TYPES = ["portfolio", "demand", "empire", "legacy", "credits", "value"] as const;
