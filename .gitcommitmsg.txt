@@ -1,8 +1,10 @@
-Make landing avatar grid tiles open full image in new tab
+Keep hero title centered on mobile browsers with URL bar
 
-Wrap each avatar grid tile in an <a target="_blank"> linking to the
-avatar's full-resolution image so visitors can click to view it at
-full size in a new tab.
+Use 100svh (small viewport height) instead of 100vh so the hero
+section matches the visible viewport even when the mobile browser's
+URL bar is present. Add pt-20/pb-10 padding as a safety net so the
+n38worth title always has nice space above it and stays near the
+center of the screen across all mobile browsers.
 
 Generated with [Devin](https://devin.ai)
 

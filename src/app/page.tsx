@@ -146,7 +146,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
       {/* ═══ Hero ═══ */}
-      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 text-center overflow-x-clip">
+      <section className="relative min-h-[100svh] flex flex-col items-center justify-center px-6 pt-20 pb-10 text-center overflow-x-clip">
         {/* Parallax background */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
