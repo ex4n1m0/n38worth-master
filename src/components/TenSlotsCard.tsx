@@ -2,7 +2,6 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Loader2, Users } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -49,51 +48,67 @@ export function TenSlotsCard() {
     mutation.mutate();
   };
 
-  return (
-    <Card className="border-cyan-600/50 bg-cyan-950/30 hover:bg-cyan-900/40 hover:border-cyan-500/60 transition-all duration-200 cursor-pointer group relative">
-      <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
-        <div className="relative w-full">
-          <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-cyan-600/50 group-hover:ring-cyan-500/60 transition-all">
-            <AvatarImage src="/10slots.webp" alt="10 Slots" className="object-fill" />
-            <AvatarFallback className="rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-3xl">
-              10
-            </AvatarFallback>
-          </Avatar>
-        </div>
+  const isDisabled = !canAfford || mutation.isPending;
+  const ringColor = canAfford ? "ring-cyan-500" : "ring-gray-600";
+  const actionColor = canAfford ? "text-cyan-300" : "text-gray-400";
 
-        <div className="w-full text-center">
-          <h3 className="font-bold text-cyan-300 group-hover:text-cyan-200 transition-colors leading-tight flex items-center justify-center gap-1.5 flex-wrap" style={{ fontSize: "clamp(0.7rem, 1.3vw, 1.05rem)" }}>
-            <Users className="h-4 w-4 text-cyan-400 shrink-0" />
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleClick();
+  };
+
+  return (
+    <Card className="border-cyan-600/50 bg-cyan-950/30 hover:bg-cyan-900/40 hover:border-cyan-500/60 transition-all duration-200 relative">
+      <CardContent className="p-2 relative flex flex-col items-center">
+        {/* Header above avatar: title */}
+        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
+          <h3
+            className="font-bold text-cyan-300 leading-tight flex items-center gap-1 flex-wrap"
+            style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.9rem)" }}
+          >
+            <Users className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
             10 Slots
           </h3>
-          <p className="text-xs text-cyan-200/70 mt-0.5">
-            Expand your team by 10 hire slots
-          </p>
         </div>
 
-        <Button
-          onClick={handleClick}
-          disabled={!canAfford || mutation.isPending}
-          className={`w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold ${
-            canAfford
-              ? "text-white bg-transparent border-2 border-cyan-500 hover:bg-cyan-500/15 shadow-lg shadow-cyan-900/30"
-              : "bg-transparent border-2 border-gray-700 text-gray-500 cursor-not-allowed"
-          }`}
+        <div
+          className={`relative w-full aspect-square rounded-lg overflow-hidden ring-2 transition-all ${ringColor}`}
         >
-          {mutation.isPending ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
-          ) : (
-            <>
-              <span className="text-sm sm:text-lg leading-none flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                +10 SLOTS
-              </span>
-              <span style={{ fontSize: "clamp(0.55rem, 1.1vw, 0.7rem)" }} className="text-cyan-100">
-                {formatCompact(cost)}¢ (10% of credits)
-              </span>
-            </>
-          )}
-        </Button>
+          <button
+            type="button"
+            aria-disabled={isDisabled}
+            onClick={handleAvatarClick}
+            className={`absolute inset-0 z-0 flex items-center justify-center transition-all focus:outline-none ${
+              isDisabled ? "cursor-not-allowed opacity-80" : "cursor-pointer hover:brightness-110"
+            }`}
+          >
+            <Avatar className="w-full h-full rounded-lg">
+              <AvatarImage src="/10slots.webp" alt="10 Slots" className="object-fill" />
+              <AvatarFallback className="rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-2xl sm:text-3xl">
+                10
+              </AvatarFallback>
+            </Avatar>
+          </button>
+
+          {/* Bottom overlay: action label */}
+          <div className="absolute inset-x-0 bottom-0 z-10 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
+            <div className={`text-sm font-bold drop-shadow-sm flex flex-wrap items-center gap-1 ${actionColor}`}>
+              {mutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : (
+                <>
+                  <Users className="h-3 w-3" />
+                  +10 SLOTS {formatCompact(cost)}¢
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className="w-full text-center text-[10px] text-cyan-200/70 mt-1.5">
+          Expand your team by 10 hire slots
+        </p>
       </CardContent>
     </Card>
   );

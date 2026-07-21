@@ -1,7 +1,6 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
 import { Users, Briefcase, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
 import React from "react";
 import Link from "next/link";
@@ -119,7 +118,6 @@ function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; ent
 
 export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
   const transparent = variant === "transparent";
-  const { data: session } = useSession();
 
   const { data } = useQuery<RanksResponse>({
     queryKey: ["ranks"],
@@ -141,8 +139,6 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
     },
     staleTime: 60 * 1000,
   });
-
-  if (!session) return null;
 
   const topChampions = champions.slice(0, 5);
 

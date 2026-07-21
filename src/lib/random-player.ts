@@ -134,29 +134,47 @@ type AvatarFetchResult =
   | { ok: true; data: AvatarFetch }
   | { ok: false; reason: string };
 
+// Portrait-style queries used when generating NPC avatars. We rotate through
+// several phrases instead of relying on the single word "model" because
+// `/photos/random?query=...` can return 404/empty for ambiguous one-word terms
+// (likely flagged or filtered by Unsplash's content-safety/search pool).
+const NPC_PHOTO_QUERIES = [
+  "fashion model portrait",
+  "portrait photography",
+  "studio portrait model",
+  "editorial portrait",
+  "lifestyle portrait",
+  "model portrait",
+];
+
 /**
  * Avatar source: Unsplash `/photos/random?count=30`. Fetches a batch
  * of 30 random photos, shuffles, and returns the first one that compresses and
  * isn't a duplicate. Triggers the Unsplash download event for attribution.
  *
- * When `query` is provided, the search term is appended to the request so
- * Unsplash returns photos matching that keyword (e.g. "model" for
- * portrait-like results). When omitted, photos are completely random from
+ * `query` can be a single term or an array of terms. When an array is supplied,
+ * a random term is used for each attempt, widening the pool and avoiding a
+ * single failing keyword. When omitted, photos are completely random from
  * Unsplash's entire library.
  */
-async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
+async function fetchUnsplashAvatar(query?: string | string[]): Promise<AvatarFetchResult> {
   if (!UNSPLASH_ACCESS_KEY) {
     return { ok: false, reason: "UNSPLASH_ACCESS_KEY is not configured" };
   }
+
+  const queries = Array.isArray(query) ? query : query ? [query] : [];
 
   const MAX_ATTEMPTS = 4;
   let rateLimited = false;
   let authError = false;
   let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
 
-  const queryString = query ? `&query=${encodeURIComponent(query)}` : "";
-
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
+    const selectedQuery = queries.length > 0
+      ? queries[Math.floor(Math.random() * queries.length)]
+      : undefined;
+    const queryString = selectedQuery ? `&query=${encodeURIComponent(selectedQuery)}` : "";
+
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
@@ -185,7 +203,7 @@ async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
       }
 
       if (!unsplashRes.ok) {
-        console.error(`Unsplash API error (attempt ${i + 1}/${MAX_ATTEMPTS}): HTTP ${unsplashRes.status}`);
+        console.error(`Unsplash API error (attempt ${i + 1}/${MAX_ATTEMPTS}, query="${selectedQuery ?? "none"}"): HTTP ${unsplashRes.status}`);
         skipReason = "unsplash_error";
         if (unsplashRes.status === 404 || unsplashRes.status === 422) continue;
         if (unsplashRes.status === 429) rateLimited = true;
@@ -197,6 +215,12 @@ async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
       const batch = (Array.isArray(unsplashData) ? unsplashData : [unsplashData])
         .filter(Boolean)
         .sort(() => Math.random() - 0.5);
+
+      if (batch.length === 0) {
+        console.warn(`Unsplash returned empty photo batch (attempt ${i + 1}/${MAX_ATTEMPTS}, query="${selectedQuery ?? "none"}")`);
+        skipReason = "unsplash_error";
+        continue;
+      }
 
       for (const photo of batch) {
         const candidateUrl =
@@ -244,7 +268,7 @@ async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
             console.error("Unsplash download event failed:", err);
           }
         }
-        console.log(`Unsplash random avatar selected (query="${query ?? "none"}", likes=${Number(photo.likes ?? 0)}) on attempt ${i + 1}/${MAX_ATTEMPTS}`);
+        console.log(`Unsplash random avatar selected (query="${selectedQuery ?? "none"}", likes=${Number(photo.likes ?? 0)}) on attempt ${i + 1}/${MAX_ATTEMPTS}`);
         return {
           ok: true,
           data: {
@@ -286,11 +310,12 @@ async function fetchUnsplashAvatar(query?: string): Promise<AvatarFetchResult> {
 /**
  * Creates a single random NPC player.
  *
- * Avatar source: Unsplash random photos. First tries the keyword "model" to
- * get portrait-like results. If that fails (no matches, all duplicates, rate
- * limit), retries with no keyword (completely random from Unsplash's entire
- * library). If Unsplash fails entirely, falls back to picsum.photos as a last
- * resort so NPC creation never stalls. Called by the scheduled cron job.
+ * Avatar source: Unsplash random photos. First tries a set of portrait-style
+ * queries (including "model" variants) to get portrait-like results. If that
+ * fails (no matches, all duplicates, rate limit), retries with no keyword
+ * (completely random from Unsplash's entire library). If Unsplash fails
+ * entirely, falls back to picsum.photos as a last resort so NPC creation never
+ * stalls. Called by the scheduled cron job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -309,8 +334,8 @@ export async function createRandomPlayer(): Promise<{
     let photoScore = 0;
     let lastFailReason = "no source attempted";
 
-    // First attempt: keyword "model" for portrait-like photos.
-    const modelResult = await fetchUnsplashAvatar("model");
+    // First attempt: portrait-style queries (rotated) for avatar photos.
+    const modelResult = await fetchUnsplashAvatar(NPC_PHOTO_QUERIES);
     if (modelResult.ok) {
       ({
         avatarUrl,
@@ -321,8 +346,8 @@ export async function createRandomPlayer(): Promise<{
         photoScore,
       } = modelResult.data);
     } else {
-      lastFailReason = `unsplash(model): ${modelResult.reason}`;
-      console.warn(`Unsplash "model" query failed: ${modelResult.reason}. Retrying without keyword.`);
+      lastFailReason = `unsplash(portrait queries): ${modelResult.reason}`;
+      console.warn(`Unsplash portrait queries failed: ${modelResult.reason}. Retrying without keyword.`);
     }
 
     // Second attempt: no keyword (completely random photos).

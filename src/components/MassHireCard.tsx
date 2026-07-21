@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Loader2, Lock, Zap, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -93,7 +92,7 @@ export function MassHireCard({
     return () => { cancelled = true; };
   }, []);
 
-  const onCooldown = cooldownEndSec > 0 && cooldownEndSec * 1000 > Date.now() && remainingMs > 0;
+  const onCooldown = remainingMs > 0;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -132,80 +131,90 @@ export function MassHireCard({
   const secs = Math.floor((remainingMs % 60000) / 1000);
   const cooldownLabel = `${mins}m ${secs}s`;
 
-  return (
-    <Card className="border-amber-600/50 bg-amber-950/30 hover:bg-amber-900/40 hover:border-amber-500/60 transition-all duration-200 cursor-pointer group relative">
-      <CardContent className="p-2.5 relative flex flex-col items-center gap-1.5">
-        <div className="relative w-full">
-          <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-amber-600/50 group-hover:ring-amber-500/60 transition-all">
-            <AvatarImage src="/masshire.webp" alt="Mass Hire" className="object-fill" />
-            <AvatarFallback className="rounded-lg bg-gradient-to-br from-amber-600 to-yellow-600 text-white font-bold text-3xl">
-              MH
-            </AvatarFallback>
-          </Avatar>
-        </div>
+  const isDisabled = isLocked || onCooldown || mutation.isPending;
+  const ringColor = isLocked ? "ring-gray-600" : onCooldown ? "ring-amber-600/50" : "ring-amber-500";
+  const actionColor = isLocked ? "text-gray-400" : onCooldown ? "text-amber-400" : "text-amber-300";
 
-        <div className="w-full text-center">
-          <h3 className="font-bold text-amber-300 group-hover:text-amber-200 transition-colors leading-tight flex items-center justify-center gap-1.5 flex-wrap" style={{ fontSize: "clamp(0.7rem, 1.3vw, 1.05rem)" }}>
-            <Zap className="h-4 w-4 text-amber-400 shrink-0" />
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleClick();
+  };
+
+  return (
+    <Card className="border-amber-600/50 bg-amber-950/30 hover:bg-amber-900/40 hover:border-amber-500/60 transition-all duration-200 relative">
+      <CardContent className="p-2 relative flex flex-col items-center">
+        {/* Header above avatar: title */}
+        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
+          <h3
+            className="font-bold text-amber-300 leading-tight flex items-center gap-1 flex-wrap"
+            style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.9rem)" }}
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
             Mass Hire
           </h3>
-          <p className="text-xs text-amber-200/70 mt-0.5">
-            Bulk-hire cheapest ownerless cards
-          </p>
         </div>
 
-        {isLocked ? (
-          <div
-            className="w-[85%] aspect-video rounded-md flex flex-col items-center justify-center gap-0.5 border border-gray-700 bg-gray-800/70 text-gray-300"
-            title={unlockThreshold !== null ? `Own ${formatCompact(unlockThreshold)} cards to unlock` : "Locked"}
+        <div
+          className={`relative w-full aspect-square rounded-lg overflow-hidden ring-2 transition-all ${ringColor}`}
+        >
+          <button
+            type="button"
+            aria-disabled={isDisabled}
+            onClick={handleAvatarClick}
+            className={`absolute inset-0 z-0 flex items-center justify-center transition-all focus:outline-none ${
+              isDisabled ? "cursor-not-allowed opacity-80" : "cursor-pointer hover:brightness-110"
+            }`}
           >
-            <span className="flex items-center gap-1 text-sm sm:text-base font-bold leading-none">
-              <Lock className="h-3.5 w-3.5" />
-              Locked
-            </span>
-            {unlockThreshold !== null && (
-              <span className="text-center leading-tight px-1" style={{ fontSize: "clamp(0.55rem, 1.1vw, 0.7rem)" }}>
-                {formatCompact(unlockThreshold)} cards to unlock
-              </span>
-            )}
-            <span className="text-[10px] text-gray-500 mt-0.5">
-              You own {formatCompact(ownedCount)}
-            </span>
-          </div>
-        ) : onCooldown ? (
-          <div className="w-[85%] flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1 px-2">
-            <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-amber-400 leading-none tabular-nums">
-              <Clock className="h-3 w-3" />
-              {cooldownLabel}
-            </span>
-            <div className="w-[85%] h-1 rounded-full overflow-hidden bg-amber-500/15">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 transition-[width] duration-1000 ease-linear"
-                style={{ width: `${cooldownPct}%` }}
-              />
+            <Avatar className="w-full h-full rounded-lg">
+              <AvatarImage src="/masshire.webp" alt="Mass Hire" className="object-fill" />
+              <AvatarFallback className="rounded-lg bg-gradient-to-br from-amber-600 to-yellow-600 text-white font-bold text-2xl sm:text-3xl">
+                MH
+              </AvatarFallback>
+            </Avatar>
+          </button>
+
+          {/* Bottom overlay: action label */}
+          <div className="absolute inset-x-0 bottom-0 z-10 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
+            <div className={`text-sm font-bold drop-shadow-sm flex flex-wrap items-center gap-1 ${actionColor}`}>
+              {mutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : isLocked ? (
+                <>
+                  <Lock className="h-3 w-3" />
+                  LOCKED
+                </>
+              ) : onCooldown ? (
+                <>
+                  <Clock className="h-3 w-3" />
+                  {cooldownLabel}
+                </>
+              ) : (
+                <>
+                  <Zap className="h-3 w-3" />
+                  MASS HIRE {1 + Math.floor(ownedCount * 0.1)} cards
+                </>
+              )}
             </div>
-          </div>
-        ) : (
-          <Button
-            onClick={handleClick}
-            disabled={mutation.isPending}
-            className="w-[85%] aspect-video h-auto rounded-md flex flex-col items-center justify-center gap-0.5 font-bold text-white bg-transparent border-2 border-amber-500 hover:bg-amber-500/15 shadow-lg shadow-amber-900/30"
-          >
-            {mutation.isPending ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : (
-              <>
-                <span className="text-sm sm:text-lg leading-none flex items-center gap-1">
-                  <Zap className="h-4 w-4" />
-                  MASS HIRE
-                </span>
-                <span style={{ fontSize: "clamp(0.55rem, 1.1vw, 0.7rem)" }} className="text-amber-100">
-                  {1 + Math.floor(ownedCount * 0.1)} cards
-                </span>
-              </>
+            {isLocked && unlockThreshold !== null && (
+              <div className="text-[9px] text-gray-400 mt-0.5 leading-none">
+                Own {formatCompact(unlockThreshold)} to unlock (you have {formatCompact(ownedCount)})
+              </div>
             )}
-          </Button>
-        )}
+            {onCooldown && (
+              <div className="w-full h-1 rounded-full overflow-hidden bg-amber-500/15 mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-400 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${cooldownPct}%` }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <p className="w-full text-center text-[10px] text-amber-200/70 mt-1.5">
+          Bulk-hire cheapest ownerless cards
+        </p>
       </CardContent>
     </Card>
   );
