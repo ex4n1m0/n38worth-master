@@ -27,7 +27,7 @@
 
 import { db } from "@/db";
 import { users, ownership, gameHistory } from "@/db/schema";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 export interface DecayPerUser {
   userId: number;
@@ -104,6 +104,25 @@ export async function runOwnershipDecay(dryRun = false): Promise<DecayRunResult>
   let totalReleased = 0;
   let usersProcessed = 0;
 
+  // Bulk-fetch total owned-card counts for all offline candidates in one query
+  // instead of N+1. Individual NPC fetches and deletes below still happen per user
+  // that actually has cards to release.
+  const candidateIds = candidates.map((u) => u.id);
+  const ownedCountMap = new Map<number, number>();
+  if (candidateIds.length > 0) {
+    const ownedCounts = await db
+      .select({
+        ownerId: ownership.ownerId,
+        count: sql<number>`COUNT(*)::int`.as("owned_count"),
+      })
+      .from(ownership)
+      .where(inArray(ownership.ownerId, candidateIds))
+      .groupBy(ownership.ownerId);
+    for (const row of ownedCounts) {
+      ownedCountMap.set(row.ownerId, Number(row.count));
+    }
+  }
+
   for (const user of candidates) {
     const lastOnlineMs = new Date(user.lastOnlineAt).getTime();
     const lastDecayMs = user.lastOwnershipDecayAt
@@ -115,12 +134,7 @@ export async function runOwnershipDecay(dryRun = false): Promise<DecayRunResult>
     // the last decay so fractional time carries over.
     const anchorMs = Math.max(lastOnlineMs, lastDecayMs);
 
-    // Count total owned cards (all types) to determine the tier.
-    const countResult = await db
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(ownership)
-      .where(eq(ownership.ownerId, user.id));
-    const totalOwned = countResult[0]?.count ?? 0;
+    const totalOwned = ownedCountMap.get(user.id) ?? 0;
 
     const tier = getTier(totalOwned);
     if (tier.intervalMs === Infinity) continue; // 0-500 cards, no decay

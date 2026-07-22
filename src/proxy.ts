@@ -78,7 +78,22 @@ export default auth((req) => {
 });
 
 export const config = {
+  // Only run auth middleware on pages that actually need protection/avatar
+  // checks. Excluding /, /api/*, /privacy, /terms, and static assets keeps
+  // public/landing traffic and every API call from invoking auth().
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/dashboard/:path*",
+    "/players/:path*",
+    "/leaderboard/:path*",
+    "/settings/:path*",
+    "/my-profile",
+    "/my-players/:path*",
+    "/my-owners/:path*",
+    "/ranks/:path*",
+    "/history/:path*",
+    "/transactions/:path*",
+    "/hall-of-fame",
+    "/login",
+    "/register",
   ],
 };

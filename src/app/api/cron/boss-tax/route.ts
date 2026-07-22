@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership, rewardHistory } from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql, eq, inArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 
@@ -54,22 +54,27 @@ export async function GET(req: Request) {
       .innerJoin(ownership, eq(ownership.ownedId, users.id))
       .where(sql`${users.isActive} = 1`);
 
-    // Filter to only those who own 0 players
-    const playersWithoutIncome: typeof playersWithBoss = [];
-    for (const player of playersWithBoss) {
-      const [ownedCountResult] = await db
+    // Bulk-fetch owned-card counts for everyone in one query instead of N+1.
+    const playerIds = playersWithBoss.map((p) => p.id);
+    const ownedCountMap = new Map<number, number>();
+    if (playerIds.length > 0) {
+      const ownedCounts = await db
         .select({
+          ownerId: ownership.ownerId,
           count: sql<number>`COUNT(*)`.as("owned_count"),
         })
         .from(ownership)
-        .where(eq(ownership.ownerId, player.id));
-
-      // COUNT returns string/bigint in postgres, convert to Number for comparison
-      const ownedCount = Number(ownedCountResult?.count ?? 0);
-      if (ownedCount === 0) {
-        playersWithoutIncome.push(player);
+        .where(inArray(ownership.ownerId, playerIds))
+        .groupBy(ownership.ownerId);
+      for (const row of ownedCounts) {
+        ownedCountMap.set(row.ownerId, Number(row.count));
       }
     }
+
+    // Filter to only those who own 0 players
+    const playersWithoutIncome = playersWithBoss.filter(
+      (player) => (ownedCountMap.get(player.id) ?? 0) === 0
+    );
 
     if (playersWithoutIncome.length === 0) {
       lastBossTaxTime = now;

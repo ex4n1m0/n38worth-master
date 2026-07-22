@@ -130,6 +130,10 @@ export async function GET() {
         username: p.username,
         photoScore: p.photoScore,
       })),
+    }, {
+      // Public sidebar data (shown on leaderboard + landing) — cache at the CDN
+      // so repeat visitors/polls don't invoke the function every time.
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (error) {
     console.error("Leaderboard sidebars API error:", error);
