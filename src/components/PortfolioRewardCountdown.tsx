@@ -21,7 +21,7 @@ export function PortfolioRewardCountdown() {
     },
     enabled: !!session?.user?.name,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   // portfolioValue and portfolioReward are computed server-side in /api/me

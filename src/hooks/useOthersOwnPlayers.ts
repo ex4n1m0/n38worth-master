@@ -26,7 +26,7 @@ export function useOthersOwnPlayers() {
     staleTime: 60 * 1000,
     // Don't refetch often — this is a default-setter, not live data. The user's
     // manual filter clicks after mount are authoritative.
-    refetchInterval: 5 * 60 * 1000,
+    refetchInterval: 25 * 60 * 1000,
   });
 
   return query.data?.exists;

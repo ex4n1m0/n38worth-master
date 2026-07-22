@@ -47,7 +47,7 @@ export default function HallOfFamePage() {
       return res.json();
     },
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   return (

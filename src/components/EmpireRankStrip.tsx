@@ -127,7 +127,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
       return res.json();
     },
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   const { data: champions = [] } = useQuery<ChampionEntry[]>({

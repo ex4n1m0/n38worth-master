@@ -74,7 +74,7 @@ export default function PlayersPage() {
       return res.json();
     },
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000, // Update every minute for estimated deletion
+    refetchInterval: 300 * 1000, // Update every 5 minutes for estimated deletion
   });
 
   return (

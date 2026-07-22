@@ -31,7 +31,7 @@ export function MissionProgress() {
       return res.json();
     },
     staleTime: 15 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 150 * 1000,
   });
 
   if (!data || data.allComplete || !data.current) return null;

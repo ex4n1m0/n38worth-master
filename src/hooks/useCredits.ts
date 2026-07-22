@@ -12,6 +12,6 @@ export function useCredits() {
       return typeof data.credits === "number" ? data.credits : Number(data.credits) || 0;
     },
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 }

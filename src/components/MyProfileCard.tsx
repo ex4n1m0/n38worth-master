@@ -44,7 +44,7 @@ export function MyProfileCard() {
       return res.json();
     },
     enabled: !!username,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
     staleTime: 20 * 1000,
   });
 

@@ -48,6 +48,20 @@
   select-field subqueries instead. WHERE/ORDER BY raw sql and joined queries
   render qualified names and are fine.
 
+## Cost controls (2026-07)
+- **Random player creation is DISABLED**: the `/api/cron/random-player` and
+  `/api/cron/random-player-status` cron entries were removed from vercel.json
+  (routes still exist but nothing invokes them). The only remaining
+  `createRandomPlayer` call site is the combo-sale NPC respawn in
+  `comboCore.ts` (player-triggered, kept for game economy).
+- **Cron cadences were slowed** to minimize invocations: agent */30,
+  fate-seal */10, goddess-countdown */10, refill-onboarding-pool */15,
+  default-avatar */15, delete-demo-players */30. Don't tighten these without
+  the user's approval — billing reduction is a priority.
+- **Client polling was slowed ~5x** (most refetchIntervals are 150–600s).
+  Public GET routes are CDN-cached (see Conventions). Keep new polling ≥2 min
+  and prefer Pusher events over polling.
+
 ## Autonomous AI players (6 goddesses + 1 chat-only Agent)
 - **Roster:** `src/lib/agent/roster.ts` defines `AGENT_ROSTER` (1 chat-only
   support Agent) and `GODDESS_ROSTER` (6 goddesses — the only gameplay AI
@@ -56,8 +70,9 @@
 - **Seeding:** `ensureAgent` (Agent, sets isNpc=0, chat-only) vs
   `ensureGoddess` (non-destructive — never flips isNpc/overwrites
   avatar/value). Both are called by `ensureAgents` which returns all 7.
-- **Cadence:** `/api/cron/agent` fires every 1 min, picks 2 goddesses per
-  tick (covering all 6 every 3 min). The Agent is never picked for gameplay.
+- **Cadence:** `/api/cron/agent` fires every 30 min (reduced from 1 min for
+  Vercel cost savings), picks 2 goddesses per tick. The Agent is never picked
+  for gameplay.
   Per-agent last-play gate in `runner.ts`: ACTIVE (humans online) = 6-min
   interval; IDLE (no humans) = 60-min interval. AI players earn credits via
   the same portfolio-reward + rank-bonus crons as humans (goddesses included

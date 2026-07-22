@@ -43,7 +43,7 @@ export function ChatNotificationBell({ className }: { className?: string } = {})
     },
     enabled: !!session?.user?.name,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   // Check unread count for all owned players

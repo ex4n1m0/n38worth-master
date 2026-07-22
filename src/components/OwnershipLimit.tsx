@@ -28,7 +28,7 @@ export function OwnershipLimit() {
       }
     };
     fetchOwnershipLimit();
-    const interval = setInterval(fetchOwnershipLimit, 30000);
+    const interval = setInterval(fetchOwnershipLimit, 150000);
     return () => {
       cancelled = true;
       clearInterval(interval);

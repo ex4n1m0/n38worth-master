@@ -44,7 +44,7 @@ export default function DashboardPage() {
     },
     enabled: !!session?.user?.name,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   const { data: credits } = useCredits();
@@ -273,7 +273,7 @@ function BrowsePlayersSection({
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   return (

@@ -25,7 +25,7 @@ export function LoginReward() {
       if (!res.ok) throw new Error("Failed to fetch reward status");
       return res.json();
     },
-    refetchInterval: 60 * 1000, // Refetch every minute
+    refetchInterval: 300 * 1000, // Refetch every 5 minutes
   });
 
   // Update countdown timer

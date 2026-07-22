@@ -29,7 +29,7 @@ export function GlobalInfoBar() {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 60000); // refresh every minute
+    const interval = setInterval(fetchStats, 300000); // refresh every 5 minutes
     return () => clearInterval(interval);
   }, []);
 

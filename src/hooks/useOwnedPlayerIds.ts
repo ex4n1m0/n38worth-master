@@ -39,7 +39,7 @@ export function useOwnedPlayerIds() {
     },
     enabled: !!username,
     staleTime: 60 * 1000,
-    refetchInterval: 120 * 1000,
+    refetchInterval: 600 * 1000,
   });
 
   const ownedIds = useMemo(() => {

@@ -87,7 +87,7 @@ export function LeaderboardSidebars({ variant = "default" }: { variant?: "defaul
       return res.json();
     },
     staleTime: 15 * 1000,
-    refetchInterval: 30 * 1000,
+    refetchInterval: 150 * 1000,
   });
 
   const humans = data?.lastOnlineHumans ?? [];

@@ -5,7 +5,7 @@ import { getPusherClient } from "@/lib/pusher-client";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useSound } from "@/hooks/useSound";
 
-const POLL_MS = 4000;
+const POLL_MS = 20000;
 const MAX_BURST = 3; // cap simultaneous flashes to avoid flooding the screen
 
 interface PoachRow {

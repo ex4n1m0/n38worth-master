@@ -127,7 +127,7 @@ export default function PlayerProfilePage() {
       return res.json();
     },
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
     placeholderData: (prev) => prev,
   });
 

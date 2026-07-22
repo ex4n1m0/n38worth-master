@@ -27,7 +27,7 @@ export function GoddessCountdown() {
       if (!res.ok) return { active: false, userId: 0, username: null, startedAt: 0, expiresAt: 0, remainingSeconds: 0, durationMinutes: 60 };
       return res.json();
     },
-    refetchInterval: 15000, // Poll every 15 seconds
+    refetchInterval: 60000, // Poll every 60 seconds (local 1s ticker keeps the countdown smooth)
     staleTime: 5000,
   });
 

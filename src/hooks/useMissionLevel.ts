@@ -26,7 +26,7 @@ export function useMissionLevel(): number {
     },
     enabled: !!session,
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
   return data?.missionLevel ?? 0;
 }

@@ -18,7 +18,7 @@ export function RankBonusCountdown() {
     },
     enabled: !!session?.user?.name,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   // Fetch current user's portfolio reward
@@ -31,7 +31,7 @@ export function RankBonusCountdown() {
     },
     enabled: !!session?.user?.name,
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   // Base prize amounts by position

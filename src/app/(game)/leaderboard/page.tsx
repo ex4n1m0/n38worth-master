@@ -188,7 +188,7 @@ function BrowsePlayersSection({
       return res.json() as Promise<{ activeProfessions: string[] }>;
     },
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
   const activePerks = new Set(perksData?.activeProfessions ?? []);
 
@@ -228,7 +228,7 @@ function BrowsePlayersSection({
       }
     },
     staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   // Mass Hire card data (pinned, independent of sort/filter).
@@ -244,7 +244,7 @@ function BrowsePlayersSection({
       return res.json();
     },
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   const totalPages = data?.totalPages ?? 1;

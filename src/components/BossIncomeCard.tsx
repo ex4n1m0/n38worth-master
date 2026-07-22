@@ -25,7 +25,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
     },
     enabled: !!userId,
     staleTime: 60 * 1000,
-    refetchInterval: 60 * 1000,
+    refetchInterval: 300 * 1000,
   });
 
   const hasIncome = data && data.estimatedPerHour > 0;

@@ -101,7 +101,7 @@ export function PrivateMessageButton({
       if (!res.ok) throw new Error("Failed to fetch messages");
       return res.json() as Promise<ChatMessage[]>;
     },
-    refetchInterval: 30000,
+    refetchInterval: 150000,
     enabled: open,
   });
 

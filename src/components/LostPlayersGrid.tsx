@@ -46,7 +46,7 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
       return res.json();
     },
     staleTime: 60 * 1000,
-    refetchInterval: 120 * 1000,
+    refetchInterval: 600 * 1000,
   });
 
   const lostPlayers = useMemo(() => {

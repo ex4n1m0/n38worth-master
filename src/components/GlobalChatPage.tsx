@@ -92,7 +92,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       if (!res.ok) throw new Error("Failed to fetch players");
       return res.json();
     },
-    refetchInterval: 120 * 1000,
+    refetchInterval: 600 * 1000,
     staleTime: 60 * 1000,
   });
 
