@@ -5,7 +5,7 @@ import { getPusherClient } from "@/lib/pusher-client";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useSound } from "@/hooks/useSound";
 
-const POLL_MS = 20000;
+const POLL_MS = 60000;
 const MAX_BURST = 3; // cap simultaneous flashes to avoid flooding the screen
 
 interface PoachRow {
@@ -41,6 +41,9 @@ export function usePoachFallback(userId: string | undefined) {
     const pusher = getPusherClient();
 
     const poll = async () => {
+      // Never poll from hidden/background tabs — the effect is purely visual,
+      // and idle open tabs would otherwise generate requests forever.
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       // While Pusher is actively delivering, let the realtime path own the
       // effect to avoid firing it twice.
       if (pusher && pusher.connection.state === "connected") return;

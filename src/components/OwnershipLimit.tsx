@@ -20,6 +20,7 @@ export function OwnershipLimit() {
   useEffect(() => {
     let cancelled = false;
     const fetchOwnershipLimit = async () => {
+      if (document.visibilityState !== "visible") return; // no polling from background tabs
       try {
         const response = await fetch("/api/settings/ownership-limit");
         if (response.ok && !cancelled) setData(await response.json());

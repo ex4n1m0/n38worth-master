@@ -40,12 +40,16 @@ export async function GET() {
       );
     const onlineHumans = Number(onlineRow?.count ?? 0);
 
+    // Public aggregate stats — cache at the CDN so polling clients don't
+    // invoke the function on every request.
     return NextResponse.json({
       totalPlayers: Number(totalPlayers),
       totalEconomy: Math.round(totalEconomy * 100) / 100,
       totalNpcs: Number(totalNpcs),
       totalHumans: Number(totalHumans),
       onlineHumans,
+    }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
     });
   } catch (error) {
     console.error("Stats error:", error);

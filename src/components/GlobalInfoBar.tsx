@@ -17,6 +17,7 @@ export function GlobalInfoBar() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      if (document.visibilityState !== "visible") return; // no polling from background tabs
       try {
         const res = await fetch("/api/game/stats");
         if (res.ok) {
