@@ -30,6 +30,15 @@
   AND in every raw SQL portfolio expression across leaderboard, players,
   ranks, goddesses, and the reward crons. Any new portfolio SQL must omit
   `player_value` from the formula.
+- **CDN caching for public API routes:** all auth-free GET routes (ranks,
+  ranks/[type], landing-data, hall-of-fame, goddess-countdown, chat/public-messages,
+  players/chat-list, players/human-count, npcs/top-hired, professions/counts,
+  avatar/[username]) set `Cache-Control: public, s-maxage=…, stale-while-revalidate=…`
+  so the Vercel CDN serves repeat/polled requests without invoking the function.
+  When adding a new public GET route, add a similar header. NEVER add s-maxage to
+  any route that calls `auth()` or varies per user — the CDN would leak one
+  user's data to others. (`export const dynamic = "force-dynamic"` does not
+  block this; explicit response headers are honored.)
 - **Drizzle gotcha:** in a no-join `db.select({...}).from(users)` query, a
   column embedded in a raw `sql` template **in the SELECT field list** renders
   UNQUALIFIED (`${users.id}` → `"id"`, not `"users"."id"`). Inside a correlated
