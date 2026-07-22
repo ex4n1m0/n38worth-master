@@ -4,6 +4,10 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getCountdownState } from "@/lib/goddess-countdown";
 
+// Public global state, polled every 15s by many clients — cache at the CDN so
+// a single function invocation serves all viewers within the window.
+const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" };
+
 export async function GET() {
   try {
     const state = await getCountdownState();
@@ -17,7 +21,7 @@ export async function GET() {
         expiresAt: 0,
         remainingSeconds: 0,
         durationMinutes: state.durationMinutes,
-      });
+      }, { headers: CACHE_HEADERS });
     }
 
     // Fetch the username for the countdown user
@@ -34,7 +38,7 @@ export async function GET() {
       expiresAt: state.expiresAt,
       remainingSeconds: state.remainingSeconds,
       durationMinutes: state.durationMinutes,
-    });
+    }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error("Goddess countdown fetch error:", error);
     return NextResponse.json(

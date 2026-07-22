@@ -126,6 +126,9 @@ export async function GET() {
       topCredits: attachAvatar(topCredits),
       topValue: attachAvatar(topValue),
       totalPlayers,
+    }, {
+      // Public leaderboards polled every 60s by all clients — cache at the CDN.
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
     });
   } catch (error) {
     console.error("Ranks API error:", error);

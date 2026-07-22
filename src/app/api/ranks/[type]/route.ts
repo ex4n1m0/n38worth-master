@@ -232,7 +232,10 @@ export async function GET(
         break;
     }
 
-    return NextResponse.json({ players, totalPlayers });
+    // Public leaderboard — cache at the CDN.
+    return NextResponse.json({ players, totalPlayers }, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" },
+    });
   } catch (error) {
     console.error("Rank API error:", error);
     return NextResponse.json(

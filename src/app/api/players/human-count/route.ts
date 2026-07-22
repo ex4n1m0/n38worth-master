@@ -12,7 +12,10 @@ export async function GET() {
       .from(users)
       .where(and(eq(users.isNpc, 0), eq(users.isActive, 1)));
 
-    return NextResponse.json({ count: result?.count ?? 0 });
+    // Public counter — cache at the CDN.
+    return NextResponse.json({ count: result?.count ?? 0 }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
   } catch (error) {
     console.error("Human count error:", error);
     return NextResponse.json({ count: 0 });

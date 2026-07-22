@@ -22,7 +22,10 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ counts });
+    // Public aggregate counts — cache at the CDN.
+    return NextResponse.json({ counts }, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
+    });
   } catch (error) {
     console.error("Profession counts error:", error);
     return NextResponse.json(

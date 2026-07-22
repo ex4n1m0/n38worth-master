@@ -40,7 +40,9 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": mimeType,
-        "Cache-Control": "public, max-age=300, s-maxage=300",
+        // Image bytes are proxied through the function — cache aggressively at
+        // the CDN (with SWR) so repeat views don't re-invoke it.
+        "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
       },
     });
   }
@@ -48,14 +50,14 @@ export async function GET(
   // Path-based URL (e.g. /NEW_HIDDEN.webp) → redirect
   if (avatarUrl.startsWith("/")) {
     const res = NextResponse.redirect(new URL(avatarUrl, _req.url), 301);
-    res.headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
+    res.headers.set("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
     return res;
   }
 
   // Absolute URL (e.g. Vercel Blob) → redirect
   if (avatarUrl.startsWith("http")) {
     const res = NextResponse.redirect(avatarUrl, 301);
-    res.headers.set("Cache-Control", "public, max-age=300, s-maxage=300");
+    res.headers.set("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
     return res;
   }
 

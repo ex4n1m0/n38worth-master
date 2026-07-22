@@ -41,7 +41,11 @@ export async function GET(req: Request) {
       },
     }));
 
-    return NextResponse.json(result);
+    // Public chat backlog (live updates arrive via Pusher) — a short CDN cache
+    // absorbs bursts of visitors without serving noticeably stale history.
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=30" },
+    });
   } catch (error) {
     console.error("Public chat messages error:", error);
     return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 });

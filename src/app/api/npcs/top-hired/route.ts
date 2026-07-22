@@ -28,7 +28,10 @@ export async function GET() {
       .orderBy(desc(users.lastOnlineAt))
       .limit(40);
 
-    return NextResponse.json({ npcs: combined });
+    // Public roster snapshot — cache at the CDN.
+    return NextResponse.json({ npcs: combined }, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
+    });
   } catch (error) {
     console.error("top-hired NPCs API error:", error);
     return NextResponse.json({ error: "Failed to fetch NPCs" }, { status: 500 });

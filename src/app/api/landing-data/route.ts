@@ -191,6 +191,10 @@ export async function GET() {
         avatarUrl: n.avatarUrl,
         playerValue: Number(n.playerValue),
       })),
+    }, {
+      // Public landing-page payload (large) — cache at the CDN so repeat
+      // visits/bots don't invoke the function on every request.
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
     });
   } catch (error) {
     console.error("Landing data error:", error);

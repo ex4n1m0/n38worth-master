@@ -15,7 +15,10 @@ export async function GET() {
       .from(hallOfFame)
       .orderBy(desc(hallOfFame.wonAt));
 
-    return NextResponse.json(winners);
+    // Public, changes only when someone wins the game — cache at the CDN.
+    return NextResponse.json(winners, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" },
+    });
   } catch (error) {
     console.error("Hall of Fame fetch error:", error);
     return NextResponse.json(
