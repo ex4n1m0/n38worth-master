@@ -55,9 +55,15 @@
   `createRandomPlayer` call site is the combo-sale NPC respawn in
   `comboCore.ts` (player-triggered, kept for game economy).
 - **Cron cadences were slowed** to minimize invocations: agent */30,
-  fate-seal */10, goddess-countdown */10, refill-onboarding-pool */15,
-  default-avatar */15, delete-demo-players */30. Don't tighten these without
-  the user's approval — billing reduction is a priority.
+  fate-seal */30, goddess-countdown */30, offline-penalty */30,
+  refill-onboarding-pool every 3h, default-avatar hourly,
+  delete-demo-players hourly, boss-tax every 2h. Ownership-limit cron
+  removed (no-op). Don't tighten these without the user's approval —
+  billing reduction is a priority.
+- **Middleware matcher narrowed** in `src/proxy.ts` so `auth()` only runs on
+  protected/avatar-required pages, not on `/api/*`, `/`, `/privacy`, `/terms`,
+  or static assets. This removes JWT verification overhead from every public
+  and API request.
 - **Client polling was slowed ~5x** (most refetchIntervals are 150–600s).
   Public GET routes are CDN-cached (see Conventions). Keep new polling ≥2 min
   and prefer Pusher events over polling.
