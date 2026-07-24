@@ -104,7 +104,6 @@ function PlayerCardImpl({
   ownerCount,
   ownedCount = 0,
   ownerName,
-  ownerValue,
   photoScore = 0,
   photoAuthorName,
   photoAuthorUrl,
@@ -139,6 +138,20 @@ function PlayerCardImpl({
     setFlipping(true);
     setTimeout(() => setFlipping(false), 700);
   };
+
+  // Countdown overlay shown on ownerless cards while the GET (purchase)
+  // action is processing (~5s). Purely visual — the purchase happens in
+  // parallel; when it completes the avatar reveals in place.
+  const [countdown, setCountdown] = useState<number | null>(null);
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      setCountdown(null);
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => (c === null ? null : c - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
 
   const isAvatarRevealed = avatarRevealUntil ? new Date(avatarRevealUntil) > new Date() : false;
 
@@ -254,6 +267,7 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      setCountdown(null);
       toast.error(err.message);
     },
     onSuccess: async (data) => {
@@ -276,6 +290,7 @@ function PlayerCardImpl({
           queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
         ]);
       }
+      setCountdown(null);
     },
   });
 
@@ -283,6 +298,7 @@ function PlayerCardImpl({
     e.preventDefault();
     e.stopPropagation();
     play("hire");
+    if (leaderboardMode && !ownerName) setCountdown(5);
     mutation.mutate();
   };
 
@@ -551,7 +567,15 @@ function PlayerCardImpl({
 
   return (
     <Card
-      onClick={() => router.push(`/players/${username}`)}
+      onClick={(e) => {
+        // Ownerless cards in the browse grid never open the profile page —
+        // clicking anywhere on them triggers the GET action instead.
+        if (leaderboardMode && !ownerName) {
+          handleAvatarAction(e);
+          return;
+        }
+        router.push(`/players/${username}`);
+      }}
       className={cn(
         cardClassName,
         "relative overflow-hidden",
@@ -560,6 +584,19 @@ function PlayerCardImpl({
       )}
     >
       {flipping && <div className="card-flip-back" />}
+      {countdown !== null && countdown > 0 && (
+        <div
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className="absolute inset-0 z-[100] flex flex-col items-center justify-center cursor-wait"
+        >
+          <span className="text-6xl font-bold text-white tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+            {countdown}
+          </span>
+        </div>
+      )}
       <CardContent className="p-2 relative flex flex-col items-center">
         {/* Header above avatar: username, badges, Owns N */}
         <div className="w-full flex items-start justify-between gap-1.5 mb-1">
@@ -695,15 +732,18 @@ function PlayerCardImpl({
               </p>
             )}
             {leaderboardMode && ownerName && (
-              <div className="flex flex-col items-center gap-0.5 text-[10px] leading-tight">
-                <span className="flex items-center gap-1 justify-center text-yellow-300/90 max-w-full min-w-0">
-                  <Crown className="h-2.5 w-2.5 shrink-0" />
-                  <span className="truncate">
-                    {ownerName}
-                    {ownerValue !== null && ownerValue !== undefined
-                      ? ` (${formatCompact(ownerValue)}¢)`
-                      : ""}
-                  </span>
+              <div className="flex flex-col items-center gap-1 text-[20px] leading-tight">
+                <span className="flex items-center gap-2 justify-center text-yellow-300/90 max-w-full min-w-0">
+                  <Crown className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{ownerName}</span>
+                </span>
+              </div>
+            )}
+            {leaderboardMode && !ownerName && (
+              <div className="flex flex-col items-center gap-1 text-[20px] leading-tight">
+                <span className="flex items-center gap-2 justify-center text-white max-w-full min-w-0">
+                  <Crown className="h-5 w-5 shrink-0" />
+                  <span className="truncate">LOST</span>
                 </span>
               </div>
             )}
