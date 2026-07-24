@@ -58,10 +58,8 @@ export function MissionProgress() {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
           <p
-            className={`font-bold truncate ${
-              current.index === 0 ? "text-amber-300" : "text-t1-100"
-            }`}
-            style={{ fontSize: "clamp(0.68rem, 1.8vw, 1.5rem)" }}
+            className="font-bold truncate text-white"
+            style={{ fontSize: "clamp(1.1rem, 3.2vw, 2.5rem)" }}
           >
             {current.label}
           </p>

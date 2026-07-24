@@ -640,7 +640,13 @@ function PlayerCardImpl({
                 : "cursor-pointer hover:brightness-110"
             )}
           >
-            <Avatar className="w-full h-full rounded-lg">
+            <Avatar
+              className={cn(
+                "w-full h-full rounded-lg",
+                // Cards the viewer can't afford to act on: avatar 50% darker.
+                !isOwnProfile && !canAffordAction && "brightness-50"
+              )}
+            >
               <AvatarImage
                 src={displayedAvatarSrc || undefined}
                 alt={username}
