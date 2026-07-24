@@ -128,7 +128,7 @@ export function AssignProfessionDialog({
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
         variant="outline"
         size="sm"
-        className={triggerClassName ?? "border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-7 px-2 text-xs"}
+        className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
       >
         <Briefcase className="h-3 w-3 mr-1" />
         {currentProfession ? "Change Profession" : "Assign Profession"}

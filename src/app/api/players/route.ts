@@ -4,6 +4,7 @@ import { users, ownership } from "@/db/schema";
 import { eq, sql, ilike, desc, asc, and, ne, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { getGoddessPowers } from "@/lib/goddess-powers";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -30,10 +31,11 @@ export async function GET(req: Request) {
     const session = await auth();
     const currentUserId = session?.user?.id ? Number(session.user.id) : null;
 
-    // "Affordable" filter: only show cards whose current player_value is within
+    // "Affordable" filter: only show cards whose full ACTION cost is within
     // the requesting user's credit balance. Requires a logged-in user; when no
     // session is present the filter is a no-op (we still return the rest).
     let userCredits: number | null = null;
+    let viewerHasWar = false;
     if (affordable && currentUserId) {
       const [row] = await db
         .select({ credits: users.credits })
@@ -41,6 +43,13 @@ export async function GET(req: Request) {
         .where(eq(users.id, currentUserId))
         .limit(1);
       userCredits = row ? Number(row.credits) : null;
+      // War power waives normal break fees, making blocked cards cost just
+      // their value — factor it in so the filter matches what the UI charges.
+      try {
+        viewerHasWar = (await getGoddessPowers(currentUserId)).hasWar;
+      } catch {
+        viewerHasWar = false;
+      }
     }
 
     // Build WHERE conditions
@@ -84,9 +93,28 @@ export async function GET(req: Request) {
     if (search) {
       conditions.push(ilike(users.username, `%${search}%`));
     }
-    // Affordable: only cards the current user can buy with their credits.
+    // Affordable: only cards the current user can act on with their credits.
+    // The hire cost is the card's value, but cards under an active sell block
+    // cost extra to acquire (break fee + hire). Mirror the client's displayed
+    // formula (PlayerCard) so the filter hides exactly the cards the UI grays
+    // out: fee = 1000x value for fate seals (>30 days remaining), 0 with War
+    // power, otherwise ceil(hours remaining) x value. Cards the viewer already
+    // owns are PUMP-priced at plain value and only need the base check.
     if (affordable && userCredits !== null) {
       conditions.push(sql`"users"."player_value" <= ${userCredits}`);
+      conditions.push(sql`(
+        EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId})
+        OR COALESCE((
+          SELECT CASE
+            WHEN MAX(o.block_sell_until) > NOW() + INTERVAL '30 days'
+              THEN "users"."player_value"::numeric * 1001
+            WHEN ${viewerHasWar} THEN "users"."player_value"::numeric
+            ELSE (CEIL(EXTRACT(EPOCH FROM (MAX(o.block_sell_until) - NOW())) / 3600) + 1) * "users"."player_value"::numeric
+          END
+          FROM ownership o
+          WHERE o.owned_id = "users"."id" AND o.block_sell_until > NOW()
+        ), "users"."player_value"::numeric) <= ${userCredits}
+      )`);
     }
     if (hasOwner === "true") {
       conditions.push(sql`"owner_info"."owned_id" IS NOT NULL`);

@@ -97,13 +97,13 @@ export function RevealCard() {
   };
 
   return (
-    <Card className="border-violet-600/50 bg-violet-950/30 hover:bg-violet-900/40 hover:border-violet-500/60 transition-all duration-200 relative">
+    <Card className="border-violet-600/50 bg-violet-950/30 hover:bg-violet-900/40 hover:border-violet-500/60 transition-all duration-200 relative pt-0">
       <CardContent className="p-2 relative flex flex-col items-center">
-        {/* Header above avatar: title */}
-        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
+        {/* Header above avatar: title (vertically centered) */}
+        <div className="w-full flex items-center justify-between gap-1.5 mb-1 min-h-[3rem]">
           <h3
             className="font-bold text-violet-300 leading-tight flex items-center gap-1 flex-wrap"
-            style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.9rem)" }}
+            style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Eye className="h-3.5 w-3.5 text-violet-400 shrink-0" />
             Reveal

@@ -386,7 +386,7 @@ export default function Home() {
                 <li><span className="font-mono text-t1-400">500</span> — Goddess of Fate</li>
                 <li><span className="font-mono text-t1-400">1,000</span> — Goddess of Time</li>
                 <li><span className="font-mono text-t1-400">2,000</span> — Goddess of War</li>
-                <li><span className="font-mono text-t1-400">4,000</span> — the Goddess</li>
+                <li><span className="font-mono text-t1-400">5,000+</span> — the Goddess (+1,000 per game won)</li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
                 Each Goddess grants a power while you hold her: Wealth doubles your rewards,

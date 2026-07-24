@@ -9,13 +9,12 @@ import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
-import { useMissionLevel } from "@/hooks/useMissionLevel";
+import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import {
   cn,
   formatNumber,
   formatCompact,
-  formatLastOnline,
 } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { isAgentUsername } from "@/lib/agent/roster";
@@ -30,6 +29,7 @@ import {
   isLockablePurchaseCard,
   isPurchaseUnlockedAtLevel,
   purchaseUnlockThreshold,
+  FINAL_GODDESS_CARD,
 } from "@/lib/missions-data";
 import {
   Star,
@@ -42,7 +42,6 @@ import {
   Crown,
   Users,
   Lock,
-  Clock,
   Check,
 } from "lucide-react";
 
@@ -104,7 +103,6 @@ function PlayerCardImpl({
   ownerCount,
   ownedCount = 0,
   ownerName,
-  photoScore = 0,
   photoAuthorName,
   photoAuthorUrl,
   photoSourceUrl,
@@ -114,7 +112,6 @@ function PlayerCardImpl({
   isVerified,
   profession,
   playerType,
-  lastOnlineAt,
   avatarRevealUntil,
   leaderboardMode = false,
   comboSelection,
@@ -126,12 +123,19 @@ function PlayerCardImpl({
   const { ownedIds } = useOwnedPlayerIds();
   const { hasKnowledge, hasWar } = useKnowledgePower();
   const missionLevel = useMissionLevel();
+  const finalGoddessThreshold = useFinalGoddessThreshold();
   const isOwnProfile = session?.user?.name === username;
+  // Card belongs to the viewer — all card text takes the "MINE" yellow color.
+  const isMine = !!ownerName && ownerName === session?.user?.name;
 
   const isPurchaseLocked =
     isLockablePurchaseCard(username) &&
     !isPurchaseUnlockedAtLevel(username, missionLevel);
-  const unlockThreshold = purchaseUnlockThreshold(username);
+  // The final Goddess threshold is dynamic (5,000 base +1,000 per game won).
+  const unlockThreshold =
+    username === FINAL_GODDESS_CARD && finalGoddessThreshold !== null
+      ? finalGoddessThreshold
+      : purchaseUnlockThreshold(username);
 
   const [flipping, setFlipping] = useState(false);
   const triggerFlip = () => {
@@ -233,13 +237,6 @@ function PlayerCardImpl({
     resolvedAvatarSrc === UNHIRED_AVATAR_SRC && professionImage
       ? professionImage
       : resolvedAvatarSrc;
-
-  const isShowingUnsplashPhoto =
-    !!photoSourceUrl && displayedAvatarSrc === avatarUrl;
-  const showFullImageLink = !isShowingUnsplashPhoto && !!displayedAvatarSrc;
-  const fullImageLinkUrl = displayedAvatarSrc?.startsWith("data:")
-    ? `/api/avatar/${encodeURIComponent(username)}`
-    : displayedAvatarSrc;
 
   const canAfford = isBonusCard || (myCredits ?? 0) >= playerValue;
   const { play } = useSound();
@@ -538,10 +535,12 @@ function PlayerCardImpl({
         <button
           onClick={handleComboToggle}
           className={cn(
-            "pointer-events-auto inline-flex items-center gap-1 text-[10px] font-bold rounded-full border px-2 py-0.5 transition-colors",
+            "pointer-events-auto w-full inline-flex items-center justify-center gap-1 text-xs font-bold rounded-md border px-2 py-1 transition-colors",
             isComboSelected
               ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
-              : "border-amber-500/40 text-amber-300/90 hover:bg-amber-500/10 hover:text-amber-200"
+              : isMine
+                ? "border-purple-800 bg-transparent text-yellow-300/90 hover:bg-purple-900/30 hover:text-yellow-200"
+                : "border-purple-800 bg-transparent text-purple-200 hover:bg-purple-900/30 hover:text-white"
           )}
           title="Tap to add/remove from your 6-profession combo"
         >
@@ -550,7 +549,12 @@ function PlayerCardImpl({
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] rounded-full border border-gray-700 px-2 py-0.5 text-gray-400">
+      <span
+        className={cn(
+          "w-full inline-flex items-center justify-center gap-1 text-xs font-bold rounded-md border border-purple-800 px-2 py-1",
+          isMine ? "text-yellow-300/90" : "text-purple-200/80"
+        )}
+      >
         {effectiveProfession}
       </span>
     );
@@ -559,11 +563,7 @@ function PlayerCardImpl({
   const canAssignProfession =
     ownedIds.has(id) && !isGoddess && !isAgent && playerType !== "human" && !isOwnProfile;
 
-  const showMeta =
-    lastOnlineAt ||
-    effectiveProfession ||
-    (leaderboardMode &&
-      (playerType || photoScore > 0 || ownerName));
+  const showMeta = effectiveProfession || leaderboardMode;
 
   return (
     <Card
@@ -578,32 +578,22 @@ function PlayerCardImpl({
       }}
       className={cn(
         cardClassName,
-        "relative overflow-hidden",
+        "relative overflow-hidden pt-0",
         isComboSelected && "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20",
         flipping && "animate-card-flip-y"
       )}
     >
       {flipping && <div className="card-flip-back" />}
-      {countdown !== null && countdown > 0 && (
-        <div
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-          className="absolute inset-0 z-[100] flex flex-col items-center justify-center cursor-wait"
-        >
-          <span className="text-6xl font-bold text-white tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
-            {countdown}
-          </span>
-        </div>
-      )}
       <CardContent className="p-2 relative flex flex-col items-center">
-        {/* Header above avatar: username, badges, Owns N */}
-        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
+        {/* Header above avatar: username left (vertically centered), badges right */}
+        <div className="w-full flex items-center justify-between gap-1.5 mb-1 min-h-[3rem]">
           <div className="min-w-0">
             <h3
-              className="font-bold text-white leading-tight break-words flex items-center gap-1 flex-wrap"
-              style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.9rem)" }}
+              className={cn(
+                "font-bold leading-tight break-words flex items-center gap-1 flex-wrap",
+                isMine ? "text-yellow-300/90" : "text-white"
+              )}
+              style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
             >
               {username}
               {isVerified === 1 && (
@@ -662,6 +652,20 @@ function PlayerCardImpl({
             </Avatar>
           </button>
 
+          {countdown !== null && countdown > 0 && (
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="absolute inset-0 z-30 flex items-center justify-center cursor-wait"
+            >
+              <span className="text-6xl font-bold text-white tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
+                {countdown}
+              </span>
+            </div>
+          )}
+
           {isActive === 0 && (
             <Badge
               variant="secondary"
@@ -675,13 +679,13 @@ function PlayerCardImpl({
           <div className="absolute inset-x-0 bottom-0 z-10 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
             <div className="flex flex-wrap items-end justify-between gap-1.5">
               <div className="flex items-center gap-1 text-sm font-bold drop-shadow-sm">
-                <Coins className="h-3.5 w-3.5 text-t1-400 shrink-0" />
-                <span className="text-t1-400">{formatCompact(playerValue)}¢</span>
+                <Coins className={cn("h-3.5 w-3.5 shrink-0", isMine ? "text-yellow-300/90" : "text-t1-400")} />
+                <span className={isMine ? "text-yellow-300/90" : "text-t1-400"}>{formatCompact(playerValue)}¢</span>
               </div>
               <div
                 className={cn(
                   "text-sm font-bold drop-shadow-sm inline-flex items-center gap-1",
-                  actionTextColor
+                  isMine ? "text-yellow-300/90" : actionTextColor
                 )}
               >
                 {actionLabel}
@@ -695,7 +699,12 @@ function PlayerCardImpl({
             targetId={id}
             targetUsername={username}
             currentProfession={effectiveProfession ?? null}
-            triggerClassName="w-full mt-1.5 rounded-md border border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-auto px-2 py-1 text-xs"
+            triggerClassName={cn(
+              "w-full mt-2 rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-auto px-2 py-1 text-xs",
+              isMine
+                ? "text-yellow-300/90 hover:text-yellow-200"
+                : "text-purple-200 hover:text-white"
+            )}
           />
         )}
 
@@ -705,37 +714,32 @@ function PlayerCardImpl({
             targetUsername={username}
             permBlockUntil={permBlockUntil}
             size="sm"
-            className="w-full mt-1.5"
+            className={cn("w-full mt-2", isMine && "text-yellow-300/90 hover:text-yellow-200")}
           />
         )}
 
         {showMeta && (
-          <div className="w-full mt-1.5 text-center space-y-0.5">
-            {leaderboardMode && (
-              <p className="text-[10px] font-semibold text-gray-300">
-                {isAgent ? "AGI" : playerType === "human" ? "Human" : "NPC"}
-              </p>
-            )}
+          <div className="w-full mt-2 text-center space-y-1">
             {professionBadge && (
               <div className="flex justify-center">{professionBadge}</div>
             )}
-            {lastOnlineAt && (
-              <p className="flex items-center justify-center gap-1 text-[9px] text-gray-500 leading-none">
-                <Clock className="h-2.5 w-2.5 shrink-0" />
-                {formatLastOnline(lastOnlineAt)}
-              </p>
-            )}
-            {leaderboardMode && photoScore > 0 && (
-              <p className="flex items-center justify-center gap-1 text-[10px] font-semibold text-amber-300/90 leading-none">
-                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 shrink-0" />
-                Score {formatCompact(photoScore)}
-              </p>
-            )}
             {leaderboardMode && ownerName && (
-              <div className="flex flex-col items-center gap-1 text-[20px] leading-tight">
-                <span className="flex items-center gap-2 justify-center text-yellow-300/90 max-w-full min-w-0">
+              <div className="flex flex-col items-center gap-0.5 text-[20px] leading-tight">
+                {ownerName !== session?.user?.name && (
+                  <span className="text-[10px] font-semibold tracking-widest text-white/70 uppercase leading-none">
+                    Belongs to
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "flex items-center gap-2 justify-center max-w-full min-w-0",
+                    ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
+                  )}
+                >
                   <Crown className="h-5 w-5 shrink-0" />
-                  <span className="truncate">{ownerName}</span>
+                  <span className="truncate">
+                    {ownerName === session?.user?.name ? "MINE" : ownerName}
+                  </span>
                 </span>
               </div>
             )}
@@ -759,18 +763,6 @@ function PlayerCardImpl({
           />
         )}
 
-        {showFullImageLink && (
-          <a
-            href={fullImageLinkUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="mt-1.5 inline-flex items-center gap-1 text-[10px] text-gray-400 underline-offset-2 hover:text-t1-300 hover:underline"
-          >
-            <Eye className="h-3 w-3 shrink-0" />
-            View full image
-          </a>
-        )}
       </CardContent>
     </Card>
   );

@@ -21,6 +21,7 @@ import {
   getLastProcessedCountdownStart,
   markCountdownProcessed,
 } from "@/lib/goddess-countdown";
+import { incrementGameWinCount } from "@/lib/game-wins";
 
 /**
  * Triggered when a player owns all 6 goddesses AND the countdown has expired.
@@ -95,6 +96,14 @@ export async function triggerGameReset(
         userId: winnerId,
         username: winnerUsername,
       });
+
+      // Every real win raises the final Goddess unlock threshold by +1,000
+      // owned cards (base 5,000). Test resets and admin wins don't count.
+      try {
+        await incrementGameWinCount();
+      } catch (e) {
+        console.error("Game win count increment error:", e);
+      }
     }
 
     // 2. Log to game history

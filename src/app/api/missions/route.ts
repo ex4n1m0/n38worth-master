@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { MISSIONS, getOwnedCount } from "@/lib/missions";
+import { FINAL_MISSION_INDEX, finalGoddessLabel } from "@/lib/missions-data";
+import { getFinalGoddessThreshold } from "@/lib/game-wins";
 
 export async function GET() {
   const session = await auth();
@@ -29,14 +31,20 @@ export async function GET() {
     const ownedCount = await getOwnedCount(userId);
     const allComplete = missionLevel >= MISSIONS.length;
 
-    const current = allComplete
-      ? null
-      : {
-          index: missionLevel,
-          threshold: MISSIONS[missionLevel].threshold,
-          label: MISSIONS[missionLevel].label,
-          progress: Math.min(ownedCount, MISSIONS[missionLevel].threshold),
-        };
+    // The final mission's threshold is dynamic: 5,000 base +1,000 per game won.
+    const finalThreshold = await getFinalGoddessThreshold();
+
+    let current = null;
+    if (!allComplete) {
+      const isFinal = missionLevel === FINAL_MISSION_INDEX;
+      const threshold = isFinal ? finalThreshold : MISSIONS[missionLevel].threshold;
+      current = {
+        index: missionLevel,
+        threshold,
+        label: isFinal ? finalGoddessLabel(threshold) : MISSIONS[missionLevel].label,
+        progress: Math.min(ownedCount, threshold),
+      };
+    }
 
     return NextResponse.json({
       missionLevel,
@@ -44,6 +52,7 @@ export async function GET() {
       totalMissions: MISSIONS.length,
       allComplete,
       current,
+      finalGoddessThreshold: finalThreshold,
     });
   } catch (error) {
     console.error("Missions API error:", error);

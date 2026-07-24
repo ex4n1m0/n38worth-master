@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Settings, Loader2, UserCog, CheckCircle2, Camera } from "lucide-react";
+import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { redirect } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -162,7 +163,7 @@ export default function SettingsPage() {
                 <span className={avatarChanged ? "text-green-400" : "text-gray-500"}>
                   {avatarChanged
                     ? "Custom avatar uploaded"
-                    : "Upload a custom avatar (on your profile page)"}
+                    : "Upload a custom avatar (below)"}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
@@ -215,17 +216,35 @@ export default function SettingsPage() {
             </form>
 
             {!avatarChanged && (
-              <a
-                href="/my-profile"
-                className="inline-flex items-center gap-1.5 text-sm text-amber-300 hover:text-amber-200 transition-colors"
-              >
+              <p className="inline-flex items-center gap-1.5 text-sm text-amber-300">
                 <Camera className="h-4 w-4" />
-                Go to profile to upload avatar
-              </a>
+                Upload your avatar in the section below
+              </p>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* Change Avatar */}
+      <Card className="border-gray-800 bg-gray-900/60">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Camera className="h-5 w-5 text-pink-400" />
+            Change Avatar
+          </CardTitle>
+          <CardDescription className="text-gray-400">
+            Your avatar is your card&apos;s photo across the whole game.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-[240px]">
+            <SquareAvatarUpload
+              currentUrl={player?.avatarUrl ?? null}
+              username={session?.user?.name || ""}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Account Info */}
       <Card className="border-gray-800 bg-gray-900/60">

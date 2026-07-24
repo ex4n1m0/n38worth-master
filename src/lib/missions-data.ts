@@ -73,12 +73,36 @@ export const MISSIONS: Mission[] = [
     label: "Get 2,000 cards to unlock Goddess of War",
   },
   {
-    threshold: 4000,
+    threshold: 5000,
     rewardCards: ["Goddess"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 4,000 cards to unlock the Goddess",
+    label: "Get 5,000 cards to unlock the Goddess",
   },
 ];
+
+/**
+ * The final mission (awards the last Goddess) has a DYNAMIC threshold:
+ * base 5,000 cards, +1,000 for every game won so far (stored server-side in
+ * game_settings as `game_win_count`). The static `threshold` above is the
+ * base; server code and the missions API compute the effective value via
+ * `finalGoddessThreshold(winCount)`.
+ */
+export const FINAL_MISSION_INDEX = MISSIONS.length - 1;
+export const FINAL_GODDESS_CARD = MISSIONS[FINAL_MISSION_INDEX].rewardCards[0];
+export const WIN_THRESHOLD_INCREMENT = 1000;
+
+/** Effective owned-card threshold for the final Goddess given total game wins. */
+export function finalGoddessThreshold(winCount: number): number {
+  return (
+    MISSIONS[FINAL_MISSION_INDEX].threshold +
+    Math.max(0, winCount) * WIN_THRESHOLD_INCREMENT
+  );
+}
+
+/** Label for the final mission at the given effective threshold. */
+export function finalGoddessLabel(threshold: number): string {
+  return `Get ${threshold.toLocaleString("en-US")} cards to unlock the Goddess`;
+}
 
 /**
  * Map of mission-reward card username -> index of the mission that awards it.

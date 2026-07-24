@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerCard } from "@/components/PlayerCard";
 import { MarketActionButton } from "@/components/MarketActionButton";
+import { PhotoAttribution } from "@/components/PhotoAttribution";
 import { DeleteAccountButton } from "@/components/DeleteAccountButton";
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { ResignButton } from "@/components/ResignButton";
@@ -53,6 +54,7 @@ import {
   MessageCircle,
   Wallet,
   ChevronDown,
+  Eye,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
@@ -303,6 +305,14 @@ export default function PlayerProfilePage() {
       (heroAvatarRevealUntil ? new Date(heroAvatarRevealUntil) > new Date() : false),
     viewerHasKnowledge: hasKnowledge,
   });
+  // "View full image" — same rules as the market cards had: hidden for
+  // Unsplash-sourced photos (they get attribution links instead); data-URL
+  // avatars open via the avatar API endpoint.
+  const isShowingUnsplashPhoto = !!player.photoSourceUrl && heroAvatarSrc === player.avatarUrl;
+  const showFullImageLink = !isShowingUnsplashPhoto && !!heroAvatarSrc;
+  const fullImageLinkUrl = heroAvatarSrc?.startsWith("data:")
+    ? `/api/avatar/${encodeURIComponent(player.username)}`
+    : heroAvatarSrc;
   const bioCost = isNpc ? 1000 : 0;
   const canEditBio = isOwnProfile || (isNpc && viewerOwnsTarget);
   const alreadyOwns = player.owners?.some((o: { username: string }) => o.username === session?.user?.name);
@@ -388,6 +398,16 @@ export default function PlayerProfilePage() {
 
           {!inOnboarding && (
           <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20">
+              {isNpc ? <CreditCard className="h-3 w-3" /> : <User className="h-3 w-3" />}
+              {isAgentUsername(player.username) ? "AGI" : isNpc ? "NPC" : "Human"}
+            </span>
+            {(player.photoScore ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-amber-300 bg-amber-500/10 border-amber-500/30">
+                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                Score {formatNumber(player.photoScore)}
+              </span>
+            )}
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getValueRankColor(player.playerValue)}`}><TrendingUp className="h-3 w-3" />{getValueRank(player.playerValue).title}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getOwnedRankColor(player.ownedCount)}`}><Swords className="h-3 w-3" />{getOwnedRank(player.ownedCount).title}</span>
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20"><Shield className="h-3 w-3" />{player.ownerCount} boss{player.ownerCount !== 1 ? "es" : ""}</span>
@@ -450,10 +470,34 @@ export default function PlayerProfilePage() {
           )}
 
           {!inOnboarding && (
-          <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1">
+          <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
             <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(player.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
             <span className="w-1 h-1 rounded-full bg-gray-600" />
             <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{player.lastOnlineAt ? formatLastOnline(player.lastOnlineAt) : "Never seen"}</span>
+            {showFullImageLink && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-gray-600" />
+                <a
+                  href={fullImageLinkUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 underline-offset-2 hover:text-t1-300 hover:underline"
+                >
+                  <Eye className="h-3 w-3" />
+                  View full image
+                </a>
+              </>
+            )}
+            {player.photoAuthorName && (
+              <>
+                <span className="w-1 h-1 rounded-full bg-gray-600" />
+                <PhotoAttribution
+                  authorName={player.photoAuthorName}
+                  authorUrl={player.photoAuthorUrl}
+                  sourceUrl={player.photoSourceUrl}
+                />
+              </>
+            )}
           </div>
           )}
         </div>

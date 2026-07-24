@@ -77,7 +77,7 @@ export function PermBlockButton({
       queryClient.invalidateQueries({ queryKey: ["ownership"] });
       queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] });
     },
-    onError: (err: any) => {
+    onError: (err: Error & { activeBlocks?: ActiveBlock[] }) => {
       if (err.activeBlocks) {
         setActiveBlocks(err.activeBlocks);
         setDialogOpen(true);
@@ -103,7 +103,7 @@ export function PermBlockButton({
 
   const sizeClasses =
     size === "sm"
-      ? "text-[10px] py-1 px-2 h-auto"
+      ? "text-xs py-1 px-2 h-auto"
       : "text-xs py-2 px-3 h-auto";
 
   return (
@@ -111,18 +111,16 @@ export function PermBlockButton({
       <Button
         onClick={handleClick}
         disabled={mutation.isPending}
-        className={`rounded-md flex items-center justify-center gap-1.5 font-bold ${sizeClasses} ${className} ${
+        className={`rounded-md flex items-center justify-center gap-1.5 font-bold ${sizeClasses} ${
           isActive
-            ? "border border-amber-500 text-amber-950 bg-amber-400 hover:bg-amber-300"
-            : isAssigned
-              ? "border border-amber-600/60 text-amber-300 bg-amber-900/50 hover:bg-amber-900/70"
-              : "border border-gray-700 text-gray-300 bg-gray-900/50 hover:bg-gray-800"
-        }`}
+            ? "border border-purple-500 text-white bg-purple-800/60 hover:bg-purple-700/60"
+            : "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white"
+        } ${className}`}
       >
         {mutation.isPending ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-amber-950 text-amber-950" : isAssigned ? "fill-amber-500/60 text-amber-400" : ""}`} />
+          <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-purple-300/60 text-purple-200" : "text-purple-300"}`} />
         )}
         {isAssigned ? "Remove Perm Block" : "Assign Perm Block"}
       </Button>

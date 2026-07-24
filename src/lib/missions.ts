@@ -22,7 +22,8 @@ import { pusher } from "@/lib/pusher-server";
 import { claimLoginReward } from "@/lib/login-reward";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
 // server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
-import { MISSIONS, type Mission, MASS_HIRE_CARD } from "@/lib/missions-data";
+import { MISSIONS, type Mission, MASS_HIRE_CARD, FINAL_MISSION_INDEX } from "@/lib/missions-data";
+import { getFinalGoddessThreshold } from "@/lib/game-wins";
 
 export { MISSIONS };
 export type { Mission };
@@ -250,7 +251,12 @@ export async function checkAndAwardMissions(buyerId: number): Promise<void> {
   let awardedGoddess = false;
   let ownedCount = await getOwnedCount(buyerId);
 
-  while (currentLevel < MISSIONS.length && ownedCount >= MISSIONS[currentLevel].threshold) {
+  // The final mission's threshold is dynamic: 5,000 base +1,000 per game won.
+  const finalThreshold = await getFinalGoddessThreshold();
+  const thresholdFor = (index: number) =>
+    index === FINAL_MISSION_INDEX ? finalThreshold : MISSIONS[index].threshold;
+
+  while (currentLevel < MISSIONS.length && ownedCount >= thresholdFor(currentLevel)) {
     const mission = MISSIONS[currentLevel];
 
     for (const cardName of mission.rewardCards) {

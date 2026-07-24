@@ -59,13 +59,13 @@ export function TenSlotsCard() {
   };
 
   return (
-    <Card className="border-cyan-600/50 bg-cyan-950/30 hover:bg-cyan-900/40 hover:border-cyan-500/60 transition-all duration-200 relative">
+    <Card className="border-cyan-600/50 bg-cyan-950/30 hover:bg-cyan-900/40 hover:border-cyan-500/60 transition-all duration-200 relative pt-0">
       <CardContent className="p-2 relative flex flex-col items-center">
-        {/* Header above avatar: title */}
-        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
+        {/* Header above avatar: title (vertically centered) */}
+        <div className="w-full flex items-center justify-between gap-1.5 mb-1 min-h-[3rem]">
           <h3
             className="font-bold text-cyan-300 leading-tight flex items-center gap-1 flex-wrap"
-            style={{ fontSize: "clamp(0.65rem, 1.2vw, 0.9rem)" }}
+            style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Users className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
             10 Slots

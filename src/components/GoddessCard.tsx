@@ -12,7 +12,7 @@ import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
-import { useMissionLevel } from "@/hooks/useMissionLevel";
+import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact, formatNumber } from "@/lib/utils";
 import { GODDESS_POWERS } from "@/lib/goddesses";
@@ -20,6 +20,7 @@ import {
   isLockablePurchaseCard,
   isPurchaseUnlockedAtLevel,
   purchaseUnlockThreshold,
+  FINAL_GODDESS_CARD,
 } from "@/lib/missions-data";
 
 interface GoddessCardProps {
@@ -90,12 +91,17 @@ export function GoddessCard({
   const { ownedIds } = useOwnedPlayerIds();
   const { play } = useSound();
   const missionLevel = useMissionLevel();
+  const finalGoddessThreshold = useFinalGoddessThreshold();
 
   // Locked until the player has obtained this goddess from its mission once.
   const locked =
     isLockablePurchaseCard(username) &&
     !isPurchaseUnlockedAtLevel(username, missionLevel);
-  const unlockThreshold = purchaseUnlockThreshold(username);
+  // The final Goddess threshold is dynamic (5,000 base +1,000 per game won).
+  const unlockThreshold =
+    username === FINAL_GODDESS_CARD && finalGoddessThreshold !== null
+      ? finalGoddessThreshold
+      : purchaseUnlockThreshold(username);
 
   // All goddesses: value = hire cost = floor = GODDESS_VALUES.
   // Use originalValue as the single source of truth for display and hire.
