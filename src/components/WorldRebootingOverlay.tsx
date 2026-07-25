@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getPusherClient } from "@/lib/pusher-client";
+import { playSound } from "@/hooks/useSound";
 
 /**
  * Full-screen "World is Rebooting" overlay.
@@ -36,6 +37,7 @@ export function WorldRebootingOverlay() {
   useEffect(() => setMounted(true), []);
 
   const activate = (name?: string) => {
+    playSound("win");
     if (name) setWinnerName(name);
     setProgress(0);
     setFadingOut(false);

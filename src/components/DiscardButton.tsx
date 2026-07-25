@@ -41,6 +41,7 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
       return data;
     },
     onSuccess: async () => {
+      play("sell");
       toast.success(`Sold ${otherUsername} for ${cost}¢! Their value resets to 1.`);
       setOpen(false);
       await Promise.all([
@@ -49,9 +50,12 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -61,7 +65,7 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          onClick={() => play("buttons")}
+          onClick={() => play("open")}
           className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
         >
           <DollarSign className="h-4 w-4 mr-2" />

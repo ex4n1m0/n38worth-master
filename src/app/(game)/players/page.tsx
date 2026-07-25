@@ -16,7 +16,7 @@ export default function PlayersPage() {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("last-online");
+  const [sort, setSort] = useState("value");
   const [dir, setDir] = useState<SortDir>("desc");
   // Ownership (relative to me): "" = all, "none" = no owner, "mine" = I own,
   // "other" = owned by someone else, "owns" = this card owns others.
@@ -31,9 +31,9 @@ export default function PlayersPage() {
   const [hasTeam, setHasTeam] = useState(false);
   const [available, setAvailable] = useState(false);
   const [profession, setProfession] = useState("");
-  // Affordable is ON by default — players see only cards they can buy. They
-  // can turn it off manually to browse cards they can't afford yet.
-  const [affordable, setAffordable] = useState(true);
+  // Affordable is OFF by default — players browse all cards and can toggle
+  // it on to see only what they can currently buy.
+  const [affordable, setAffordable] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   // Always 90 cards per page.
   const pageSize = 90;

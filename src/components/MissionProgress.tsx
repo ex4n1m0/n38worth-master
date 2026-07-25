@@ -71,11 +71,11 @@ export function MissionProgress() {
           </span>
         </div>
         <div
-          className="relative w-full overflow-hidden rounded-full border border-t1-500/20 bg-gray-800/80"
-          style={{ height: "clamp(0.25rem, 0.8vw, 0.6rem)" }}
+          className="relative w-full overflow-hidden rounded-full border border-amber-500/20 bg-gray-800/80"
+          style={{ height: "clamp(0.375rem, 1.2vw, 0.9rem)" }}
         >
           <div
-            className="h-full rounded-full bg-gradient-to-r from-t1-500 to-t1-300 shadow-[0_0_10px_rgba(34,211,238,0.6)] transition-all duration-500"
+            className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.6)] transition-all duration-500"
             style={{ width: `${pct}%` }}
           />
         </div>

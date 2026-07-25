@@ -38,13 +38,14 @@ export function TenSlotsCard() {
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
 
   const handleClick = () => {
     if (!canAfford || mutation.isPending) return;
-    play("hire");
+    play("confirm");
     mutation.mutate();
   };
 

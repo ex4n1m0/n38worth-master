@@ -257,10 +257,12 @@ function OwnershipCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
       if (data.countdownStarted) {
+        play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description: "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
           duration: 15000,
@@ -276,6 +278,8 @@ function OwnershipCard({
           queryClient.invalidateQueries({ queryKey: ["players"] }),
           queryClient.invalidateQueries({ queryKey: ["ownership"] }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+          queryClient.invalidateQueries({ queryKey: ["missions"] }),
+          queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
         ]);
       }
     },
@@ -315,6 +319,7 @@ function OwnershipCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
@@ -332,7 +337,7 @@ function OwnershipCard({
   const handlePumpClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    play("hire");
+    play("confirm");
     pumpMutation.mutate();
   };
 
@@ -343,6 +348,7 @@ function OwnershipCard({
     if (!comboSelection || !hasProfession || !item.profession) return;
     e.preventDefault();
     e.stopPropagation();
+    play("toggle");
     comboSelection.onToggle(
       {
         playerId: item.id,
@@ -364,6 +370,7 @@ function OwnershipCard({
       if (!comboSelection || !hasProfession || !item.profession) return;
       e.preventDefault();
       e.stopPropagation();
+      play("toggle");
       comboSelection.onToggle(
         {
           playerId: item.id,

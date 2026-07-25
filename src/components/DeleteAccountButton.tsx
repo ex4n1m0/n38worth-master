@@ -51,6 +51,7 @@ export function DeleteAccountButton({
       await signOut({ callbackUrl: "/login" });
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -60,7 +61,7 @@ export function DeleteAccountButton({
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          onClick={() => play("buttons")}
+          onClick={() => play("open")}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-semibold"
         >
           <Trash2 className="h-4 w-4 mr-2" />

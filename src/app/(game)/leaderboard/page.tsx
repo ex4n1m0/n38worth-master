@@ -1,8 +1,8 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useQuery } from "@tanstack/react-query";
-import { useState, useEffect, type ReactNode } from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,16 +36,9 @@ import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
-const SORT_OPTIONS = [
-  { key: "last-online", label: "Last Online" },
-  { key: "value", label: "Value" },
-  { key: "credits", label: "Credits" },
-  { key: "score", label: "Score" },
-] as const;
-
 const OWNER_FILTERS = [
-  { key: "mine", label: "My Owned" },
   { key: "other", label: "Others Owned" },
+  { key: "mine", label: "My Owned" },
   { key: "none", label: "No Owner" },
   { key: "owns", label: "Owns" },
 ] as const;
@@ -162,17 +155,17 @@ function BrowsePlayersSection({
   comboFilledProfessions?: string[];
   gameUnlocked?: boolean;
 }) {
-  const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("last-online");
-  const [dir, setDir] = useState<"asc" | "desc">("desc");
-  // Always 90 cards per page — plus the pinned Mass Hire and 10 Slots cards.
-  const pageSize = 90;
+  const [sort, setSort] = useState("value");
+  const [dir, setDir] = useState<"asc" | "desc">("asc");
+  // Infinite scroll: cards load in batches as the user approaches the bottom
+  // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
+  const pageSize = 48;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
-  // "Affordable" hides any card the user can't currently buy with their credits.
-  // ON by default — players see only cards they can afford. They can turn it
-  // off manually to browse cards they can't buy yet.
+  // "Affordable" hides owned cards and any card the user can't currently buy
+  // with their credits. ON by default — players land on a view of cards they
+  // can actually shop for, and can toggle it off to browse everything.
   const [affordable, setAffordable] = useState(true);
   const { play } = useSound();
 
@@ -192,7 +185,13 @@ function BrowsePlayersSection({
   });
   const activePerks = new Set(perksData?.activeProfessions ?? []);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: [
       "players",
       debouncedSearch,
@@ -203,13 +202,12 @@ function BrowsePlayersSection({
       playerType,
       profession,
       affordable,
-      page,
       limit,
     ],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
       try {
         const params = new URLSearchParams({
-          page: String(page),
+          page: String(pageParam),
           limit: String(limit),
           sort,
           dir,
@@ -227,9 +225,36 @@ function BrowsePlayersSection({
         throw error;
       }
     },
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) =>
+      lastPageParam < (lastPage.totalPages ?? 1) ? lastPageParam + 1 : undefined,
     staleTime: 30 * 1000,
-    refetchInterval: 300 * 1000,
+    // No polling here: a deep-scrolled list would refetch EVERY loaded batch
+    // on each interval (N requests per tick — Vercel cost). Updates come from
+    // cache invalidation (own actions + Pusher events) instead.
+    refetchOnWindowFocus: false,
   });
+
+  const players = data?.pages.flatMap((p) => p.players ?? []) ?? [];
+  const total: number = data?.pages[0]?.total ?? 0;
+
+  // Sentinel just below the grid: when it enters the viewport (well, 800px
+  // before — roughly two card-rows ahead), load the next batch.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "800px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   // Mass Hire card data (pinned, independent of sort/filter).
   const { data: massHireData } = useQuery<{
@@ -247,24 +272,6 @@ function BrowsePlayersSection({
     refetchInterval: 300 * 1000,
   });
 
-  const totalPages = data?.totalPages ?? 1;
-
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      pages.push(1);
-      if (page > 3) pages.push("...");
-      const start = Math.max(2, page - 1);
-      const end = Math.min(totalPages - 1, page + 1);
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (page < totalPages - 2) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
@@ -273,17 +280,31 @@ function BrowsePlayersSection({
           <Input
             placeholder="Search players..."
             value={search}
-            onChange={(e) => {
-              onSearch(e.target.value);
-              setPage(1);
-            }}
+            onChange={(e) => onSearch(e.target.value)}
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
         {gameUnlocked && comboBar}
         {gameUnlocked && (
         <div className="flex gap-2 flex-wrap items-center">
-          <span className="text-xs text-gray-500 mr-1">Profession:</span>
+          {/* Profession sort: combo-friendly view — only carded players, ranked
+              by value and interleaved across professions to build the 6-set. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("toggle");
+              setSort(sort === "profession" ? "value" : "profession");
+            }}
+            className={
+              sort === "profession"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+            }
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            Profession
+          </Button>
           {PROFESSIONS.map((p) => {
             const inCombo = comboFilledProfessions.includes(p.name);
             const perk = PROFESSION_PERKS[p.name];
@@ -293,7 +314,7 @@ function BrowsePlayersSection({
               key={p.name}
               variant="ghost"
               size="sm"
-              onClick={() => { play("buttons"); setProfession(profession === p.name ? "" : p.name); setPage(1); }}
+              onClick={() => { play("toggle"); setProfession(profession === p.name ? "" : p.name); }}
               title={perk ? `${perk.name}${perkActive ? " (ACTIVE)" : ""} — ${perk.description}` : undefined}
               className={
                 profession === p.name
@@ -305,7 +326,7 @@ function BrowsePlayersSection({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
-              {p.name}
+              {p.name.split(" ")[0]}
               {perkActive && <Zap className="h-3 w-3 ml-1 text-green-400 fill-green-400" />}
               {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
             </Button>
@@ -313,50 +334,16 @@ function BrowsePlayersSection({
           })}
         </div>
         )}
-        <p className="text-xs text-gray-500 font-medium">Press below buttons to sort and filter cards</p>
+        {/* Row 1: My Owned, Others Owned, No Owner, Owns */}
         <div className="flex gap-2 flex-wrap">
-          {SORT_OPTIONS.map((s) => (
-            <Button
-              key={s.key}
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                play("buttons");
-                setSort(s.key);
-                setPage(1);
-              }}
-              className={
-                sort === s.key
-                  ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                  : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-              }
-            >
-              {s.label}
-            </Button>
-          ))}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              play("buttons");
-              setDir(dir === "asc" ? "desc" : "asc");
-              setPage(1);
-            }}
-            title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-            className="rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-          >
-            {dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 mr-1" /> : <ArrowDown className="h-3.5 w-3.5 mr-1" />}
-            {dir === "asc" ? "Asc" : "Desc"}
-          </Button>
           {OWNER_FILTERS.map((f) => (
             <Button
               key={f.key}
               variant="ghost"
               size="sm"
               onClick={() => {
-                play("buttons");
+                play("toggle");
                 setOwnerFilter(ownerFilter === f.key ? "" : f.key);
-                setPage(1);
               }}
               className={
                 ownerFilter === f.key
@@ -372,13 +359,61 @@ function BrowsePlayersSection({
               {f.label}
             </Button>
           ))}
+        </div>
+        {/* Row 2: Value, sort direction, Last Online */}
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
-              play("buttons");
+              play("toggle");
+              setSort("value");
+            }}
+            className={
+              sort === "value"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+            }
+          >
+            Value
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("toggle");
+              setDir(dir === "asc" ? "desc" : "asc");
+            }}
+            title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
+            className="rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+          >
+            {dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 mr-1" /> : <ArrowDown className="h-3.5 w-3.5 mr-1" />}
+            {dir === "asc" ? "Asc" : "Desc"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("toggle");
+              setSort("last-online");
+            }}
+            className={
+              sort === "last-online"
+                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+            }
+          >
+            Last Online
+          </Button>
+        </div>
+        {/* Row 3: Humans, NPC */}
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              play("toggle");
               setPlayerType(playerType === "human" ? "" : "human");
-              setPage(1);
             }}
             className={
               playerType === "human"
@@ -393,9 +428,8 @@ function BrowsePlayersSection({
             variant="ghost"
             size="sm"
             onClick={() => {
-              play("buttons");
+              play("toggle");
               setPlayerType(playerType === "card" ? "" : "card");
-              setPage(1);
             }}
             className={
               playerType === "card"
@@ -406,53 +440,33 @@ function BrowsePlayersSection({
             <CreditCard className="h-3.5 w-3.5 mr-1" />
             NPC
           </Button>
+        </div>
+        {/* Row 4: Affordable */}
+        <div className="flex gap-2 flex-wrap">
+          {/* Affordable — green outline so it stands out (yellow when active);
+              hides owned cards and anything the viewer can't currently buy. */}
           <Button
             variant="ghost"
-            size="sm"
             onClick={() => {
-              play("buttons");
+              play("toggle");
               setAffordable((a) => !a);
-              setPage(1);
             }}
             className={
               affordable
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
+                ? "h-12 px-5 text-lg rounded-lg border-2 border-yellow-500 bg-yellow-500/15 text-yellow-300 font-semibold hover:bg-yellow-500/20 hover:text-yellow-200"
+                : "h-12 px-5 text-lg rounded-lg border-2 border-green-500/60 bg-transparent text-green-400 font-semibold hover:text-green-300 hover:border-green-400 hover:bg-green-500/10"
             }
-            title="Only show cards you can afford with your current credits"
+            title="Only show cards you can afford right now (owned cards hidden)"
           >
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            <Sparkles className="h-5 w-5 mr-1.5" />
             Affordable
           </Button>
-          {gameUnlocked && (
-          <>
-          {/* Profession: combo-friendly view — only carded players, ranked by
-              value and interleaved across professions to build the 6-set. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              play("buttons");
-              setSort(sort === "profession" ? "last-online" : "profession");
-              setPage(1);
-            }}
-            className={
-              sort === "profession"
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-            }
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Profession
-          </Button>
-          </>
-          )}
         </div>
       </div>
 
       {isLoading ? (
         <PlayerCardSkeletonGrid count={12} />
-      ) : data?.players?.length === 0 ? (
+      ) : players.length === 0 ? (
         <Card className="border-gray-800 bg-gray-900/60">
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
@@ -479,7 +493,7 @@ function BrowsePlayersSection({
             {gameUnlocked && <TenSlotsCard />}
             {/* Pinned Reveal card — see all avatars for 10 min, 10% of credits. */}
             {gameUnlocked && <RevealCard />}
-            {data?.players?.map(
+            {players.map(
               (player: {
                 id: number;
                 username: string;
@@ -505,54 +519,34 @@ function BrowsePlayersSection({
                 blockSellUntil?: string | null;
                 permBlockUntil?: string | null;
               }) => (
-                <PlayerCard key={player.id} {...player} leaderboardMode comboSelection={comboSelection} />
+                // content-visibility skips layout/paint for off-screen cards so
+                // the page stays fast even with the whole collection loaded.
+                <div
+                  key={player.id}
+                  style={{ contentVisibility: "auto", containIntrinsicSize: "auto 420px" }}
+                >
+                  <PlayerCard {...player} leaderboardMode comboSelection={comboSelection} />
+                </div>
               )
             )}
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1 pt-2">
-              <button
-                onClick={() => { play("buttons"); setPage((p) => Math.max(1, p - 1)); }}
-                disabled={page === 1}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                ←
-              </button>
-              {getPageNumbers().map((p, i) =>
-                typeof p === "string" ? (
-                  <span
-                    key={`ellipsis-${i}`}
-                    className="px-2 text-gray-500 text-sm"
-                  >
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => { play("buttons"); setPage(p); }}
-                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                      p === page
-                        ? "border-t1-500 bg-t1-600/20 text-t1-400 font-bold"
-                        : "border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-              <button
-                onClick={() => { play("buttons"); setPage((p) => Math.min(totalPages, p + 1)); }}
-                disabled={page === totalPages}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 bg-gray-800 text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                →
-              </button>
-              <span className="text-xs text-gray-500 ml-2">
-                {data?.total ?? 0} players
+          {/* Infinite-scroll sentinel — triggers the next batch ~800px early. */}
+          <div ref={sentinelRef} className="h-1" />
+          <div className="flex items-center justify-center py-3 text-xs text-gray-500">
+            {isFetchingNextPage ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
+                Loading more cards…
               </span>
-            </div>
-          )}
+            ) : hasNextPage ? (
+              <span>
+                {players.length} of {total} cards — scroll for more
+              </span>
+            ) : (
+              <span>All {total} cards loaded</span>
+            )}
+          </div>
         </>
       )}
     </div>

@@ -70,6 +70,8 @@ export function MarketActionButton({
       queryClient.invalidateQueries({ queryKey: ["players"] }),
       queryClient.invalidateQueries({ queryKey: ["ownership"] }),
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+      queryClient.invalidateQueries({ queryKey: ["missions"] }),
+      queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
     ]);
 
   const buyMutation = useMutation({
@@ -83,7 +85,10 @@ export function MarketActionButton({
       if (!res.ok) throw new Error(data.error || "Purchase failed");
       return data;
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      play("error");
+      toast.error(err.message);
+    },
     onSuccess: async (data) => {
       toast.success(`You got ${username}! Their value is now ${formatCompact(data.newValue)}¢ 💰`);
       await refresh();
@@ -101,7 +106,10 @@ export function MarketActionButton({
       if (!res.ok) throw new Error(data.error || "Pump failed");
       return data;
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      play("error");
+      toast.error(err.message);
+    },
     onSuccess: async (data) => {
       toast.success(`🚀 Pumped ${username}! Value → ${formatCompact(data.newValue)}¢`);
       await refresh();
@@ -115,7 +123,7 @@ export function MarketActionButton({
       {isOwned ? (
         <Button
           onClick={() => {
-            play("hire");
+            play("confirm");
             pumpMutation.mutate();
           }}
           disabled={!canAfford || pumpMutation.isPending}

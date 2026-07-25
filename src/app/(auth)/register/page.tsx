@@ -64,6 +64,7 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        play("error");
         setError(data.error || "Demo registration failed");
         setDemoLoading(false);
         return;
@@ -76,6 +77,7 @@ export default function RegisterPage() {
       });
 
       if (result?.error) {
+        play("error");
         setError("Failed to sign in as demo player");
         setDemoLoading(false);
       } else {
@@ -103,6 +105,7 @@ export default function RegisterPage() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (password !== confirmPassword) {
+      play("error");
       setError("Passwords do not match");
       setLoading(false);
       return;
@@ -123,6 +126,7 @@ export default function RegisterPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        play("error");
         setError(data.error || "Registration failed");
         setLoading(false);
         return;
@@ -141,10 +145,12 @@ export default function RegisterPage() {
         // New accounts still need onboarding (avatar + profession); the global
         // Navbar guard routes them to their profile until it's done, after which
         // OnboardingProfessionStep sends them to the End Game page.
+        play("confirm");
         router.push("/my-profile");
         router.refresh();
       }
     } catch {
+      play("error");
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);

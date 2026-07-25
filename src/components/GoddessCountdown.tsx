@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, Timer, Swords, Sparkles } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "sonner";
+import { playSound } from "@/hooks/useSound";
 
 interface CountdownData {
   active: boolean;
@@ -62,6 +63,7 @@ export function GoddessCountdown() {
     const channel = pusher.subscribe("game-global");
 
     channel.bind("countdown-started", (data: { username: string; userId: number; durationMinutes: number }) => {
+      playSound("reveal");
       toast.info(`⏱️ ${data.username} owns all 6 Goddesses!`, {
         description: `They must hold them for ${data.durationMinutes} minutes to win. Hire a Goddess to stop them!`,
         duration: 15000,
@@ -70,6 +72,7 @@ export function GoddessCountdown() {
     });
 
     channel.bind("countdown-cancelled", () => {
+      playSound("sell");
       toast.success("🛡️ Countdown Cancelled!", {
         description: "A Goddess was taken! The countdown has been stopped.",
         duration: 10000,

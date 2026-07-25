@@ -97,6 +97,7 @@ export function ChatNotificationBell({ className }: { className?: string } = {})
           (p: { id: number }) => p.id === msg.sender.id
         );
         if (isOwnedPlayer) {
+          play("message");
           setUnreadCount((prev) => prev + 1);
         }
       }
@@ -108,7 +109,7 @@ export function ChatNotificationBell({ className }: { className?: string } = {})
       privateChannel.unbind("new-message", handleNewMessage);
       pusher.unsubscribe(`chat-private-${userId}`);
     };
-  }, [userId, player?.ownedPlayers]);
+  }, [userId, player?.ownedPlayers, play]);
 
   // On mount, check unread from stored messages
   useEffect(() => {

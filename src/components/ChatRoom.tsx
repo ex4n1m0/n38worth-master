@@ -79,6 +79,8 @@ export function ChatRoom() {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type !== "public") return;
+      // Only ping for other people's messages (own sends already play a sound).
+      if (msg.sender.id !== userId) play("chat");
       setLocalMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
@@ -91,7 +93,7 @@ export function ChatRoom() {
       publicChannel.unbind("new-message", handleNewMessage);
       pusher.unsubscribe("chat-public");
     };
-  }, [userId]);
+  }, [userId, play]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -124,6 +126,7 @@ export function ChatRoom() {
       queryClient.invalidateQueries({ queryKey: ["credits"] });
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -131,7 +134,7 @@ export function ChatRoom() {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
-    play("buttons");
+    play("chat");
     sendMutation.mutate();
   };
 

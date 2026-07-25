@@ -141,10 +141,12 @@ export function GoddessCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
       if (data.countdownStarted) {
+        play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
             "You own all 6 Goddesses! Hold them for 60 minutes to win the game!",
@@ -201,13 +203,16 @@ export function GoddessCard({
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       ]);
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      play("error");
+      toast.error(err.message);
+    },
   });
 
   const handleExtendClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    play("hire");
+    play("confirm");
     extendMutation.mutate();
   };
 
@@ -245,7 +250,7 @@ export function GoddessCard({
   const handleTogglePower = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    play("buttons");
+    play("toggle");
     toggleMutation.mutate();
   };
 

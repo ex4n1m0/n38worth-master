@@ -75,12 +75,15 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
+        play("error");
         setError("Invalid username or password");
       } else {
+        play("confirm");
         router.push("/my-profile");
         router.refresh();
       }
     } catch {
+      play("error");
       setError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);

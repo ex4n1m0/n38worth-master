@@ -44,6 +44,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
       return data;
     },
     onSuccess: async (data) => {
+      play("sell");
       toast.success(
         `Sold out from ${ownerUsername}! Paid ${data.cost}¢. Your value resets to floor.`
       );
@@ -57,6 +58,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -66,7 +68,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
       <DialogTrigger asChild>
         <Button
           variant="outline"
-          onClick={() => play("buttons")}
+          onClick={() => play("open")}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
         >
           <LogOut className="h-7 w-7 mr-2" />

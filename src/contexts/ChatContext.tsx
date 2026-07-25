@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useSession } from "next-auth/react";
 import { getPusherClient } from "@/lib/pusher-client";
+import { playSound } from "@/hooks/useSound";
 
 interface ChatMessage {
   id: number;
@@ -68,6 +69,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type === "private" && msg.recipientId === userId) {
+        playSound("message");
         setMessages((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];

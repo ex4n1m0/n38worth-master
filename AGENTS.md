@@ -47,6 +47,21 @@
   returns wrong results (usually 0). Use a literal `"users"."id"` in raw
   select-field subqueries instead. WHERE/ORDER BY raw sql and joined queries
   render qualified names and are fine.
+- **Instant UI updates despite slow polling:** polls are intentionally slow
+  (cost savings), so navbar indicators rely on cache invalidation for
+  responsiveness. Any action that changes the player's owned-card count
+  (hire, discard, mass-hire, restore, combo sale, break-partnership, and the
+  `ownership-changed` Pusher event) must invalidate BOTH `["missions"]`
+  (mission progress bar) and `["ownership-limit"]` (slots counter) in
+  addition to the usual credits/player/ownership keys. Don't put navbar
+  indicators on raw useState+setInterval — use react-query so invalidation
+  reaches them.
+- **Sound effects:** `useSound()` / `playSound()` in `src/hooks/useSound.ts`
+  (17 semantic types; files in `public/sounds/*.mp3`, Kenney CC0). Mute +
+  volume live in `useSoundSettings` (zustand, localStorage-persisted),
+  toggled from the navbar speaker icon and the Settings page. When adding a
+  new user action or game event, play the matching semantic sound (`error`
+  on failed toasts, `hire`/`sell`/`reward`/etc. on success).
 
 ## Cost controls (2026-07)
 - **Random player creation is DISABLED**: the `/api/cron/random-player` and

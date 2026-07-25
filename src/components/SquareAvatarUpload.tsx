@@ -59,10 +59,12 @@ export function SquareAvatarUpload({
     if (!file) return;
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      play("error");
       toast.error("Please upload a JPEG, PNG, or WebP image");
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
+      play("error");
       toast.error("Image must be less than 2MB");
       return;
     }
@@ -94,14 +96,18 @@ export function SquareAvatarUpload({
       }
       await refreshOnboarding();
       if (data.demoConverted) {
+        play("reward");
         toast.success("Avatar updated! 🎉 Your account is now permanent — it will no longer be deleted!");
       } else if (data.bonusAwarded) {
+        play("reward");
         toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
       } else {
+        play("confirm");
         toast.success("Avatar updated! ✨");
       }
     } catch (error) {
       console.error("Upload error:", error);
+      play("error");
       toast.error("Failed to upload avatar");
     } finally {
       setUploading(false);

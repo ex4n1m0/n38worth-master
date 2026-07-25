@@ -121,7 +121,7 @@ export function LoginReward() {
     ) {
       autoClaimedRef.current = true;
       isAutoClaimRef.current = true;
-      play("hire");
+      play("reward");
       claimMutation.mutate();
     }
   }, [rewardStatus?.canClaim, claimMutation, play]);
@@ -193,7 +193,7 @@ export function LoginReward() {
           ) : canClaim ? (
             <Button
               onClick={() => {
-                play("hire");
+                play("reward");
                 claimMutation.mutate();
               }}
               disabled={claimMutation.isPending}

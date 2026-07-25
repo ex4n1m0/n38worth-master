@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { MessageCircle, Send, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useChat } from "@/contexts/ChatContext";
+import { playSound } from "@/hooks/useSound";
 
 function formatTime(date: string): string {
   const d = new Date(date);
@@ -59,6 +60,7 @@ export function InlineDMChat({
       setMessage("");
     },
     onError: (err: Error) => {
+      playSound("error");
       toast.error(err.message);
     },
   });
@@ -66,6 +68,7 @@ export function InlineDMChat({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    playSound("chat");
     sendMutation.mutate();
   };
 

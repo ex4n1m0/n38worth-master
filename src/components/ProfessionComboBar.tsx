@@ -7,6 +7,7 @@ import { Loader2, Sparkles, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { useSound } from "@/hooks/useSound";
 import type { ComboPlayer, UseProfessionComboSelectionReturn } from "@/hooks/useProfessionComboSelection";
 
 interface ProfessionComboBarProps {
@@ -16,6 +17,7 @@ interface ProfessionComboBarProps {
 export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   const queryClient = useQueryClient();
   const { ownedIds, isSuccess: ownershipLoaded } = useOwnedPlayerIds();
+  const { play } = useSound();
 
   // Drop any selected players that have been stolen since being added (so a
   // combo can't be attempted with cards the user no longer owns). Runs whenever
@@ -59,6 +61,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
           ? `Spawned ${data.createdNpcCount} new NPC${data.createdNpcCount > 1 ? "s" : ""} into the market`
           : "";
 
+      play("win");
       toast.success(`🎉 Combo Sold! +${formatCompact(data.reward)}¢`, {
         description: [humanMsg, spawnMsg].filter(Boolean).join(". "),
         duration: 8000,
@@ -72,14 +75,18 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
 
   const handleSell = () => {
+    play("confirm");
     sellMutation.mutate();
   };
 

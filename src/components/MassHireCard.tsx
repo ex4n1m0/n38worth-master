@@ -114,9 +114,12 @@ export function MassHireCard({
         queryClient.invalidateQueries({ queryKey: ["player"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });

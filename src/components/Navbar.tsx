@@ -36,7 +36,8 @@ import { useEffect, useState, useRef } from "react";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useThemeColor } from "./ThemeContext";
 import { useLanguage } from "./LanguageContext";
-import { useSound } from "@/hooks/useSound";
+import { useSound, useSoundSettings } from "@/hooks/useSound";
+import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
 
 const mainNavLinks = [
@@ -54,6 +55,8 @@ export function Navbar() {
   useEffect(() => { setTheme("green"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { t } = useLanguage();
   const { play } = useSound();
+  const muted = useSoundSettings((s) => s.muted);
+  const toggleMuted = useSoundSettings((s) => s.toggleMuted);
   const { state: onboarding, loading: onboardingLoading } = useOnboarding();
   const { data: credits, isLoading: creditsLoading } = useCredits();
   const { data: playerValue, isLoading: playerValueLoading } = usePlayerValue();
@@ -178,7 +181,7 @@ export function Navbar() {
       <Link key={link.href} href={link.href} onClick={() => play("changepage")} className="flex-1">
         {/* Fixed-height button matching slots indicator height */}
         <div
-          className={`group relative w-full h-[66px] flex items-center justify-center px-4 overflow-hidden rounded-xl border transition-all duration-200 ${
+          className={`group relative w-full h-[33px] flex items-center justify-center px-4 overflow-hidden rounded-lg border transition-all duration-200 ${
             active
               ? "border-cyan-400/70 bg-gradient-to-b from-cyan-500/25 via-blue-600/15 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.35)]"
               : highlight
@@ -216,7 +219,7 @@ export function Navbar() {
           <div className="flex items-center">
 
             {/* Left: single row of nav buttons */}
-            <div className="hidden md:flex items-center flex-1 py-2 gap-2">
+            <div className="hidden md:flex items-center flex-1 py-1 gap-2">
               {allVisibleLinks.map((link) =>
                 renderNavButton(
                   link,
@@ -235,7 +238,7 @@ export function Navbar() {
             </div>
 
             {/* Mobile: just the logo */}
-            <div className="flex md:hidden items-center flex-1 py-3">
+            <div className="flex md:hidden items-center flex-1 py-1.5">
               <Link
                 href="/leaderboard"
                 className="text-xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent"
@@ -245,13 +248,22 @@ export function Navbar() {
             </div>
 
             {/* Right side — left sub-col (slots + bell/theme) | right sub-col (avatar centered) */}
-            <div className="flex items-center pl-4 py-2 border-l border-gray-800/60 ml-4 gap-3">
+            <div className="flex items-center pl-4 py-1 border-l border-gray-800/60 ml-4 gap-3">
               {/* Left sub-column: slots+bell top, buy-slots full bottom */}
               <div className="flex flex-col gap-1 h-full">
                 {/* Top: slots counter + bell side by side */}
                 <div className="flex items-center gap-1 shrink-0">
                   <OwnershipLimit />
                   <ChatNotificationBell className="shrink-0" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => { toggleMuted(); if (muted) play("click"); }}
+                    className="shrink-0 h-8 w-8 text-gray-400 hover:text-white"
+                    title={muted ? "Unmute sounds" : "Mute sounds"}
+                  >
+                    {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </Button>
                 </div>
               </div>
 
@@ -259,10 +271,10 @@ export function Navbar() {
               <div className="flex items-center justify-center">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-16 w-16 rounded-full p-0">
-                    <Avatar className="h-16 w-16">
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                    <Avatar className="h-8 w-8">
                       <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || ""} />
-                      <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-base font-bold">
+                      <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-xs font-bold">
                         {session.user?.name?.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>

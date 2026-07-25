@@ -207,6 +207,7 @@ function PlayerCardImpl({
     if (!canCombo || !comboSelection || !effectiveProfession) return;
     e.preventDefault();
     e.stopPropagation();
+    play("toggle");
     comboSelection.onToggle(
       {
         playerId: id,
@@ -265,11 +266,13 @@ function PlayerCardImpl({
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
       setCountdown(null);
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
       triggerFlip();
       if (data.countdownStarted) {
+        play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
             "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
@@ -285,6 +288,8 @@ function PlayerCardImpl({
           queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["owned-player-ids"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["missions"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["ownership-limit"], refetchType: "active" }),
         ]);
       }
       setCountdown(null);
@@ -322,6 +327,7 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
@@ -341,7 +347,7 @@ function PlayerCardImpl({
   const handlePumpClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    play("hire");
+    play("confirm");
     pumpMutation.mutate();
   };
 
@@ -378,11 +384,13 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
       triggerFlip();
       if (data.countdownStarted) {
+        play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
             "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
@@ -398,6 +406,8 @@ function PlayerCardImpl({
           queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["owned-player-ids"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["leaderboard"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["missions"], refetchType: "active" }),
+          queryClient.invalidateQueries({ queryKey: ["ownership-limit"], refetchType: "active" }),
         ]);
       }
     },
@@ -407,10 +417,12 @@ function PlayerCardImpl({
     e.preventDefault();
     e.stopPropagation();
     if (isPermBlocked) {
+      play("error");
       toast.error("This partnership is unbreakable.");
       return;
     }
     if ((myCredits ?? 0) < totalBreakCost) {
+      play("error");
       toast.error(
         `Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(playerValue)}¢ hire)`
       );

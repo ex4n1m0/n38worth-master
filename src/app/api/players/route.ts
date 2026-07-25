@@ -94,17 +94,20 @@ export async function GET(req: Request) {
       conditions.push(ilike(users.username, `%${search}%`));
     }
     // Affordable: only cards the current user can act on with their credits.
-    // The hire cost is the card's value, but cards under an active sell block
-    // cost extra to acquire (break fee + hire). Mirror the client's displayed
-    // formula (PlayerCard) so the filter hides exactly the cards the UI grays
-    // out: fee = 1000x value for fate seals (>30 days remaining), 0 with War
-    // power, otherwise ceil(hours remaining) x value. Cards the viewer already
-    // owns are PUMP-priced at plain value and only need the base check.
+    // It's a shopping filter for NEW cards, so anything the viewer already
+    // owns is excluded entirely. The hire cost is the card's value, but cards
+    // under an active sell block cost extra to acquire (break fee + hire).
+    // Mirror the client's displayed formula (PlayerCard) so the filter hides
+    // exactly the cards the UI grays out: fee = 1000x value for fate seals
+    // (>30 days remaining), 0 with War power, otherwise
+    // ceil(hours remaining) x value.
     if (affordable && userCredits !== null) {
+      conditions.push(
+        sql`NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId})`
+      );
       conditions.push(sql`"users"."player_value" <= ${userCredits}`);
       conditions.push(sql`(
-        EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId})
-        OR COALESCE((
+        COALESCE((
           SELECT CASE
             WHEN MAX(o.block_sell_until) > NOW() + INTERVAL '30 days'
               THEN "users"."player_value"::numeric * 1001

@@ -39,6 +39,7 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
       return data;
     },
     onSuccess: async (data) => {
+      play("hire");
       const msg = `Restored ${data.hiredCount} player${data.hiredCount !== 1 ? "s" : ""}!${data.skippedCount > 0 ? ` (${data.skippedCount} skipped)` : ""}`;
       toast.success(msg);
       setOpen(false);
@@ -49,9 +50,12 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
         queryClient.invalidateQueries({ queryKey: ["lost-players"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -64,7 +68,7 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={() => play("buttons")}
+          onClick={() => play("open")}
           className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
         >
           <RotateCcw className="h-3.5 w-3.5 mr-1.5" />

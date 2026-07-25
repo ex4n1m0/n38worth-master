@@ -41,6 +41,7 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
       return data;
     },
     onSuccess: async (data) => {
+      play("sell");
       const msg = `Discarded ${data.discardedCount} player${data.discardedCount !== 1 ? "s" : ""} for ${data.totalCreditsEarned}¢!${data.skippedCount > 0 ? ` (${data.skippedCount} skipped due to sell blocks)` : ""}`;
       toast.success(msg);
       setOpen(false);
@@ -50,9 +51,12 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -67,7 +71,7 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
         <Button
           variant="outline"
           size="sm"
-          onClick={() => play("buttons")}
+          onClick={() => play("open")}
           disabled={!canAfford}
           title={!canAfford ? `You need ${formatCompact(totalValue)}¢ to discard all` : undefined}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"

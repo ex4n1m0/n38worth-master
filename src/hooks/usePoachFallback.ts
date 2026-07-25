@@ -74,7 +74,7 @@ export function usePoachFallback(userId: string | undefined) {
         fresh.forEach((p, i) => {
           const timer = setTimeout(() => {
             if (cancelled) return;
-            play("hire");
+            play("poach");
             // Navbar poach feed only — no toast (the sticky feed row is the
             // persistent confirmation).
             usePoachStore.getState().trigger({

@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Loader2, UserCog, CheckCircle2, Camera } from "lucide-react";
+import { Settings, Loader2, UserCog, CheckCircle2, Camera, Volume2, VolumeX } from "lucide-react";
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { redirect } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useLanguage } from "@/components/LanguageContext";
-import { useSound } from "@/hooks/useSound";
+import { useSound, useSoundSettings } from "@/hooks/useSound";
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [changingUsername, setChangingUsername] = useState(false);
   const { t } = useLanguage();
   const { play } = useSound();
+  const { muted, volume, setMuted, setVolume } = useSoundSettings();
   const queryClient = useQueryClient();
 
   const { data: player, isLoading } = useQuery({
@@ -56,6 +57,7 @@ export default function SettingsPage() {
     const confirmPassword = formData.get("confirmPassword") as string;
 
     if (newPassword !== confirmPassword) {
+      play("error");
       toast.error("New passwords do not match");
       setChangingPassword(false);
       return;
@@ -70,12 +72,15 @@ export default function SettingsPage() {
 
       if (!res.ok) {
         const data = await res.json();
+        play("error");
         toast.error(data.error || "Failed to change password");
       } else {
+        play("confirm");
         toast.success("Password changed successfully");
         (e.target as HTMLFormElement).reset();
       }
     } catch {
+      play("error");
       toast.error("Something went wrong");
     } finally {
       setChangingPassword(false);
@@ -100,8 +105,10 @@ export default function SettingsPage() {
       const data = await res.json();
 
       if (!res.ok) {
+        play("error");
         toast.error(data.error || "Failed to change username");
       } else {
+        play("confirm");
         toast.success(
           data.converted
             ? "Username changed! Your account is now permanent — it will no longer be deleted."
@@ -115,6 +122,7 @@ export default function SettingsPage() {
         (e.target as HTMLFormElement).reset();
       }
     } catch {
+      play("error");
       toast.error("Something went wrong");
     } finally {
       setChangingUsername(false);
@@ -241,6 +249,63 @@ export default function SettingsPage() {
             <SquareAvatarUpload
               currentUrl={player?.avatarUrl ?? null}
               username={session?.user?.name || ""}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sound */}
+      <Card className="border-gray-800 bg-gray-900/60">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            {muted ? (
+              <VolumeX className="h-5 w-5 text-gray-400" />
+            ) : (
+              <Volume2 className="h-5 w-5 text-t1-400" />
+            )}
+            Sound
+          </CardTitle>
+          <CardDescription className="text-gray-400">
+            Sound effects for buttons and game events.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-gray-300">Sound effects</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setMuted(!muted);
+                if (muted) play("confirm");
+              }}
+              className={
+                muted
+                  ? "border-gray-700 bg-gray-800 text-gray-400 hover:text-white"
+                  : "border-t1-500/50 bg-t1-900/40 text-t1-400 hover:text-t1-300"
+              }
+            >
+              {muted ? "Off" : "On"}
+            </Button>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-gray-300">Volume</Label>
+              <span className="text-xs font-mono text-gray-500">
+                {Math.round(volume * 100)}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              disabled={muted}
+              onChange={(e) => setVolume(Number(e.target.value) / 100)}
+              onMouseUp={() => play("click")}
+              onTouchEnd={() => play("click")}
+              className="w-full accent-emerald-500 disabled:opacity-40"
             />
           </div>
         </CardContent>

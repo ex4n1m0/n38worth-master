@@ -143,6 +143,7 @@ export function PrivateMessageButton({
 
         // If the message is from the target and dialog is NOT open, mark as unread
         if (msg.sender.id === targetId) {
+          play("message");
           setHasUnread((prev) => {
             // Only set unread if dialog is not currently open
             // We check via a ref-like approach using the current open state
@@ -158,7 +159,7 @@ export function PrivateMessageButton({
       privateChannel.unbind("new-message", handleNewMessage);
       pusher.unsubscribe(`chat-private-${userId}`);
     };
-  }, [userId, targetId]);
+  }, [userId, targetId, play]);
 
   // When dialog opens, mark as read; when it closes, also mark as read
   const handleOpenChange = useCallback(
@@ -227,6 +228,7 @@ export function PrivateMessageButton({
       queryClient.invalidateQueries({ queryKey: ["credits"] });
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -234,6 +236,7 @@ export function PrivateMessageButton({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    play("chat");
     sendMutation.mutate();
   };
 
@@ -250,7 +253,7 @@ export function PrivateMessageButton({
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            play("buttons");
+            play("open");
           }}
           className={
             hasUnread

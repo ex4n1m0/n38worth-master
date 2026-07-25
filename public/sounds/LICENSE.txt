@@ -1,0 +1,10 @@
+Sound effects in this folder are from Kenney (www.kenney.nl):
+- "Interface Sounds" pack (click, changepage, toggle, open, close, chat,
+  message, error, confirm)
+- "Digital Audio" pack (hire, sell, reward, coin, poach, bought, reveal, win)
+
+License: Creative Commons Zero (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+Free to use in personal, educational and commercial projects.
+Converted from .ogg to .mp3 for cross-browser (Safari) compatibility.

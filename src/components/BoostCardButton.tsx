@@ -58,6 +58,7 @@ export function BoostCardButton({
       queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -66,10 +67,11 @@ export function BoostCardButton({
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
+      play("error");
       toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
       return;
     }
-    play("hire");
+    play("confirm");
     mutation.mutate();
   };
 

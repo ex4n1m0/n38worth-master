@@ -38,7 +38,7 @@ export function usePlayerEvents(userId: string | undefined) {
         queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
         queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" });
         queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
-        play("hire");
+        play("bought");
         // You were hired by someone — flash the same effect that fires when one
         // of your owned cards is poached, so being bought is just as visible.
         if (data.amount && data.amount > 0) {
@@ -68,7 +68,7 @@ export function usePlayerEvents(userId: string | undefined) {
       }) => {
         console.log("[poach] revenue-received", data);
         queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
-        play("hire");
+        play("poach");
         // Eye-catching "POACHED!" flash + navbar poach feed + credits bump.
         // (No toast — the sticky poach feed row in the Navbar is the
         // persistent confirmation.)
@@ -84,20 +84,23 @@ export function usePlayerEvents(userId: string | undefined) {
     channel.bind("ownership-changed", (data: { type: string; initiator: string }) => {
       queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["missions"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["ownership-limit"], refetchType: "active" });
       if (data.type === "discard") {
+        play("sell");
         toast.info(`${data.initiator} discarded their relationship with you`);
       }
     });
 
     channel.bind("portfolio-reward", (data: { amount: number; portfolioValue: number }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
-      play("hire");
+      play("reward");
       toast.success(`You earned ${data.amount} credits from your portfolio reward! 💼`);
     });
 
     channel.bind("rank-bonus", (data: { amount: number; category: string; rank: string; position: number }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
-      play("hire");
+      play("reward");
       const positionLabels = ["1st", "2nd", "3rd"];
       const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;
       toast.success(`You earned ${data.amount} credits! You're ${positionLabel} in ${data.category} rank (${data.rank}) 🏆`);

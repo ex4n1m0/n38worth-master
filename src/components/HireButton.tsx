@@ -54,11 +54,13 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      play("error");
       toast.error(err.message);
     },
     onSuccess: async (data) => {
       if (data.countdownStarted) {
         // ⏱️ COUNTDOWN STARTED! Player owns all 6 Goddesses
+        play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
             "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
@@ -77,6 +79,8 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
           queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
           queryClient.invalidateQueries({ queryKey: ["lost-players"] }),
           queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
+          queryClient.invalidateQueries({ queryKey: ["missions"] }),
+          queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
         ]);
         refreshOnboarding();
       }

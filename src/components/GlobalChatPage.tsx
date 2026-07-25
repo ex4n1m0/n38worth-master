@@ -13,6 +13,7 @@ import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import { isAIPlayerUsername } from "@/lib/agent/roster";
+import { playSound } from "@/hooks/useSound";
 
 interface ChatMessage {
   id: number;
@@ -127,6 +128,8 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       if (isAIPlayerUsername(msg.sender.username)) {
         setAgentTyping(false);
       }
+      // Only ping for other people's messages (own sends already play a sound).
+      if (msg.sender.id !== userId) playSound("chat");
       setRealtimeMessages((prev) => {
         if (prev.some((m) => m.id === msg.id)) return prev;
         return [...prev, msg];
@@ -148,7 +151,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       channel.unbind("agent-typing", handleAgentTyping);
       pusher.unsubscribe("chat-public");
     };
-  }, []);
+  }, [userId]);
 
   // Auto-scroll to bottom (only for public chat)
   useEffect(() => {
@@ -180,6 +183,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       }
     },
     onError: (err: Error) => {
+      playSound("error");
       toast.error(err.message);
     },
   });
@@ -187,6 +191,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim()) return;
+    playSound("chat");
     sendMutation.mutate();
   };
 
