@@ -11,12 +11,17 @@
 
 import { db } from "@/db";
 import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
-import { eq, and, sql, asc, ne, isNotNull, notInArray } from "drizzle-orm";
+import { eq, and, sql, asc, ne, isNotNull, notInArray, inArray } from "drizzle-orm";
 import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { AGENT_USERNAMES, isAIPlayerUsername } from "@/lib/agent/roster";
+import {
+  BONUS_CARD_COOLDOWN_MS,
+  getBonusCooldownEnd,
+  setBonusCooldown,
+} from "@/lib/card-cooldowns";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
@@ -28,27 +33,11 @@ export const MASS_HIRE_AVATAR_URL = "/masshire.webp";
 export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
 
 /**
- * Dynamic cooldown based on the buyer's owned card count:
- *   50–100    → 10 sec
- *   100–500   → 20 sec
- *   500–1000  → 30 sec
- *   1000–2000 → 40 sec
- *   2000–3000 → 50 sec
- *   3000–4000 → 60 sec
- *   …each additional 1000 cards adds 10 sec.
+ * Flat 10-minute cooldown, shared by all three bonus cards.
+ * (Previously scaled with owned-card count; now uniform.)
  */
-export function getMassHireCooldownMs(ownedCount: number): number {
-  if (ownedCount < 100) return 10 * 1000;
-  if (ownedCount < 500) return 20 * 1000;
-  if (ownedCount < 1000) return 30 * 1000;
-  // >= 1000: 30 sec base + 10 sec per additional 1000 cards.
-  const extraSecs = (Math.floor((ownedCount - 1000) / 1000) + 1) * 10;
-  return (30 + extraSecs) * 1000;
-}
-
-/** game_settings key storing the buyer's last mass-hire timestamp (epoch ms). */
-function cooldownKey(buyerId: number) {
-  return `mass_hire_last_${buyerId}`;
+export function getMassHireCooldownMs(): number {
+  return BONUS_CARD_COOLDOWN_MS;
 }
 
 /**
@@ -128,12 +117,7 @@ export async function ensureMassHireCard(): Promise<number> {
  * Stored in seconds (not ms) because game_settings.setting_value is a 32-bit integer.
  */
 export async function getMassHireCooldownEnd(buyerId: number): Promise<number> {
-  const [row] = await db
-    .select({ value: gameSettings.settingValue })
-    .from(gameSettings)
-    .where(eq(gameSettings.settingKey, cooldownKey(buyerId)))
-    .limit(1);
-  return row ? Number(row.value) : 0;
+  return getBonusCooldownEnd("massHire", buyerId);
 }
 
 export interface MassHireResult {
@@ -220,39 +204,35 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     }
     const maxHires = Math.min(hireLimit, availableSlots);
 
-    // 5. Find cheapest ownerless players first (excluding self, Mass Hire,
-    //    goddesses, and every AGI). Sort by playerValue ascending.
-    //    Cap ownerless hires at maxHires - 1 so at least 1 slot is reserved for
-    //    a poach (owned card). Poaching awards +1 hire slot.
+    // 5. Build the candidate list, cheapest first (excluding self, Mass Hire,
+    //    goddesses, and every AGI). Both pools are fetched in parallel.
     const excludedSpecialNames = [MASS_HIRE_USERNAME, ...GODDESS_USERNAMES, ...AGENT_USERNAMES];
+    // Over-fetch 3x so skipped rows (races, unaffordable) don't starve the run,
+    // but bound the scan so huge portfolios don't pull thousands of rows.
+    const candidateFetchLimit = Math.min(maxHires * 3, 300);
 
-    const ownerlessCap = Math.max(0, maxHires - 1);
-
-    const ownerlessCandidates = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        playerValue: users.playerValue,
-        isNpc: users.isNpc,
-      })
-      .from(users)
-      .where(
-        and(
-          ne(users.id, buyerId),
-          eq(users.isActive, 1),
-          sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`,
-          notInArray(users.username, excludedSpecialNames)
+    const [ownerlessCandidates, ownedCandidates] = await Promise.all([
+      db
+        .select({
+          id: users.id,
+          username: users.username,
+          playerValue: users.playerValue,
+          isNpc: users.isNpc,
+        })
+        .from(users)
+        .where(
+          and(
+            ne(users.id, buyerId),
+            eq(users.isActive, 1),
+            sql`(SELECT COUNT(*) FROM ownership o WHERE o.owned_id = ${users.id}) = 0`,
+            notInArray(users.username, excludedSpecialNames)
+          )
         )
-      )
-      .orderBy(asc(users.playerValue))
-      .limit(ownerlessCap * 3);
-
-    // Always fetch owned (poachable) candidates to fill the remaining slots
-    // (at least 1). Exclude partnered/blocked players (those with an active
-    // blockSellUntil) and Goddess of Fate holders' teams.
-    let ownedCandidates: typeof ownerlessCandidates = [];
-    if (ownerlessCap < maxHires) {
-      ownedCandidates = await db
+        .orderBy(asc(users.playerValue))
+        .limit(candidateFetchLimit),
+      // Owned (poachable) cards. Excludes cards the buyer already owns and
+      // anything under an active sell/perm block (partnered or Fate-sealed).
+      db
         .select({
           id: users.id,
           username: users.username,
@@ -273,14 +253,56 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
           )
         )
         .orderBy(asc(users.playerValue))
-        .limit((maxHires - Math.min(ownerlessCandidates.length, ownerlessCap)) * 3);
-    }
+        .limit(candidateFetchLimit),
+    ]);
 
-    // Combine: ownerless first, then owned (poachable).
-    const candidates = [...ownerlessCandidates, ...ownedCandidates];
+    // Reserve the final slot for a poach when there's something to poach —
+    // poaching awards +1 hire slot. Leftover ownerless cards are appended as a
+    // fallback so a run never dead-ends when the poach target is unaffordable.
+    const reservedForPoach = ownedCandidates.length > 0 ? 1 : 0;
+    const ownerlessBudget = Math.max(0, maxHires - reservedForPoach);
+    const candidates = [
+      ...ownerlessCandidates.slice(0, ownerlessBudget),
+      ...ownedCandidates,
+      ...ownerlessCandidates.slice(ownerlessBudget),
+    ];
 
     if (candidates.length === 0) {
       return { error: "No players available to hire." };
+    }
+
+    // 5b. Pre-fetch every ownership row for the candidate set in ONE query
+    //     (previously 2 queries per candidate — the main source of Mass Hire's
+    //     slowness). Also pre-count each current owner's portfolio for the
+    //     poach payout multiplier.
+    const candidateIds = candidates.map((c) => c.id);
+    const ownershipRows = await db
+      .select({
+        id: ownership.id,
+        ownerId: ownership.ownerId,
+        ownedId: ownership.ownedId,
+        blockSellUntil: ownership.blockSellUntil,
+        permBlockUntil: ownership.permBlockUntil,
+      })
+      .from(ownership)
+      .where(inArray(ownership.ownedId, candidateIds));
+
+    const ownershipByTarget = new Map(ownershipRows.map((r) => [r.ownedId, r]));
+    const alreadyOwnedByBuyer = new Set(
+      ownershipRows.filter((r) => r.ownerId === buyerId).map((r) => r.ownedId)
+    );
+
+    const prevOwnerIds = [
+      ...new Set(ownershipRows.map((r) => r.ownerId).filter((id) => id !== buyerId)),
+    ];
+    const ownedCountByOwner = new Map<number, number>();
+    if (prevOwnerIds.length > 0) {
+      const counts = await db
+        .select({ ownerId: ownership.ownerId, count: sql<number>`count(*)` })
+        .from(ownership)
+        .where(inArray(ownership.ownerId, prevOwnerIds))
+        .groupBy(ownership.ownerId);
+      for (const row of counts) ownedCountByOwner.set(row.ownerId, Number(row.count));
     }
 
     // 6. Hire candidates from cheapest, while credits last.
@@ -301,31 +323,24 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       remainingPermBlocks = Math.max(0, MAX_PERM_BLOCKS - permCount.count);
     }
 
+    const seen = new Set<number>();
+
     for (const target of candidates) {
       if (hired.length >= maxHires) break;
+      // The list is two concatenated cheapest-first runs, so an unaffordable
+      // entry does NOT mean everything after it is unaffordable — keep scanning
+      // (this used to `break` and silently skip every poachable card).
+      if (seen.has(target.id)) continue;
+      seen.add(target.id);
 
       const cost = Math.max(1, Math.round(Number(target.playerValue)));
-      if (cost > remainingCredits) break;
+      if (cost > remainingCredits) continue;
 
-      // Check not already owned by buyer (race safety).
-      const [existing] = await db
-        .select({ id: ownership.id })
-        .from(ownership)
-        .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, target.id)))
-        .limit(1);
-      if (existing) continue;
+      // Already owned by the buyer (race safety) — pre-fetched, no query.
+      if (alreadyOwnedByBuyer.has(target.id)) continue;
 
-      // Check if this target is currently owned by someone else (poach).
-      const [currentOwner] = await db
-        .select({
-          id: ownership.id,
-          ownerId: ownership.ownerId,
-          blockSellUntil: ownership.blockSellUntil,
-          permBlockUntil: ownership.permBlockUntil,
-        })
-        .from(ownership)
-        .where(eq(ownership.ownedId, target.id))
-        .limit(1);
+      // Current owner, if any (poach). Pre-fetched, no query.
+      const currentOwner = ownershipByTarget.get(target.id);
 
       // Skip partnered/blocked players (shouldn't happen due to query filter,
       // but race safety). Perm blocks are unbreakable.
@@ -346,11 +361,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       // If poaching, pay the previous owner (cost × (1 + 1% per owned player))
       // and remove their ownership.
       if (currentOwner && currentOwner.ownerId !== buyerId) {
-        const [prevOwnerOwnedRow] = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(ownership)
-          .where(eq(ownership.ownerId, currentOwner.ownerId));
-        const prevOwnedCount = Number(prevOwnerOwnedRow?.count ?? 0);
+        const prevOwnedCount = ownedCountByOwner.get(currentOwner.ownerId) ?? 0;
         const bonusMultiplier = 1 + prevOwnedCount * 0.01;
         const ownerShare = Math.floor(cost * bonusMultiplier);
 
@@ -423,16 +434,8 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       return { error: "Could not afford any players." };
     }
 
-    // 7. Set cooldown — duration depends on the buyer's current owned count.
-    const cooldownMs = getMassHireCooldownMs(currentOwned);
-    const cooldownEndsAtSec = Math.floor(Date.now() / 1000) + Math.floor(cooldownMs / 1000);
-    await db
-      .insert(gameSettings)
-      .values({ settingKey: cooldownKey(buyerId), settingValue: cooldownEndsAtSec })
-      .onConflictDoUpdate({
-        target: gameSettings.settingKey,
-        set: { settingValue: cooldownEndsAtSec, updatedAt: new Date() },
-      });
+    // 7. Start the shared 10-minute bonus-card cooldown.
+    const cooldownEndsAtSec = await setBonusCooldown("massHire", buyerId, BONUS_CARD_COOLDOWN_MS);
 
     // 8. Check mission progress (mass hires count toward card count).
     await checkAndAwardMissions(buyerId);

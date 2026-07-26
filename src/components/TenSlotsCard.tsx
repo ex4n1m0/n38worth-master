@@ -2,23 +2,27 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Users } from "lucide-react";
+import { Loader2, Users, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
+import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCooldowns";
 import { formatCompact } from "@/lib/utils";
 
 /**
  * Pinned "10 Slots" card for the market page.
  *
  * Adds +10 hire slots for 10% of the buyer's current credits — the cost
- * scales with wealth so it's always affordable but never trivial. No cooldown.
+ * scales with wealth so it's always affordable but never trivial.
+ * 10-minute cooldown after each use (shared bonus-card cooldown).
  */
 export function TenSlotsCard() {
   const queryClient = useQueryClient();
   const { play } = useSound();
   const { data: myCredits } = useCredits();
+  const { onCooldown, label: cooldownLabel, pct: cooldownPct } = useBonusCooldown("slots");
+  const refreshCooldowns = useRefreshBonusCooldowns();
 
   const cost = Math.max(1, Math.round((myCredits ?? 0) * 0.1));
   const canAfford = (myCredits ?? 0) >= 1;
@@ -32,6 +36,7 @@ export function TenSlotsCard() {
     },
     onSuccess: async (data) => {
       toast.success(`+${data.slotsAdded} hire slots! Now ${data.newSlots} total (-${formatCompact(data.cost)}¢)`);
+      refreshCooldowns();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
@@ -44,14 +49,24 @@ export function TenSlotsCard() {
   });
 
   const handleClick = () => {
-    if (!canAfford || mutation.isPending) return;
+    if (onCooldown) {
+      play("error");
+      toast.error(`10 Slots is on cooldown — ready in ${cooldownLabel}.`);
+      return;
+    }
+    if (!canAfford) {
+      play("error");
+      toast.error("Not enough credits to buy slots.");
+      return;
+    }
+    if (mutation.isPending) return;
     play("confirm");
     mutation.mutate();
   };
 
-  const isDisabled = !canAfford || mutation.isPending;
-  const ringColor = canAfford ? "ring-cyan-500" : "ring-gray-600";
-  const actionColor = canAfford ? "text-cyan-300" : "text-gray-400";
+  const isDisabled = !canAfford || onCooldown || mutation.isPending;
+  const ringColor = onCooldown ? "ring-cyan-700/50" : canAfford ? "ring-cyan-500" : "ring-gray-600";
+  const actionColor = onCooldown ? "text-cyan-400" : canAfford ? "text-cyan-300" : "text-gray-400";
 
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -97,6 +112,11 @@ export function TenSlotsCard() {
             <div className={`text-sm font-bold drop-shadow-sm flex flex-wrap items-center gap-1 ${actionColor}`}>
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : onCooldown ? (
+                <>
+                  <Clock className="h-3 w-3" />
+                  {cooldownLabel}
+                </>
               ) : (
                 <>
                   <Users className="h-3 w-3" />
@@ -104,6 +124,14 @@ export function TenSlotsCard() {
                 </>
               )}
             </div>
+            {onCooldown && (
+              <div className="w-full h-1 rounded-full overflow-hidden bg-cyan-500/15 mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-400 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${cooldownPct}%` }}
+                />
+              </div>
+            )}
           </div>
         </div>
 

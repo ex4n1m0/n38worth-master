@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, rewardHistory } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { checkBonusCooldown, setBonusCooldown } from "@/lib/card-cooldowns";
 
 const REVEAL_DURATION_MS = 10 * 60 * 1000; // 10 minutes per use
 const COST_PERCENT = 0.1; // 10% of the buyer's current credits
@@ -11,7 +12,8 @@ const COST_PERCENT = 0.1; // 10% of the buyer's current credits
  * "Reveal" card — grants temporary Knowledge (see ALL avatars) for 10 minutes,
  * costing 10% of the buyer's current credits. Uses the existing
  * temporary_knowledge_until mechanism honored by getGoddessPowers().
- * Repeated uses extend the window by 10 minutes each.
+ * Shares the 10-minute bonus-card cooldown, so the reveal window has expired
+ * by the time the card can be used again.
  */
 export async function POST() {
   const session = await auth();
@@ -21,6 +23,14 @@ export async function POST() {
 
   try {
     const userId = parseInt(session.user.id);
+
+    const remaining = await checkBonusCooldown("reveal", userId);
+    if (remaining) {
+      return NextResponse.json(
+        { error: `Reveal is on cooldown (${remaining} remaining)` },
+        { status: 400 }
+      );
+    }
 
     const [user] = await db
       .select({ credits: users.credits, temporaryKnowledgeUntil: users.temporaryKnowledgeUntil })
@@ -61,6 +71,8 @@ export async function POST() {
       return NextResponse.json({ error: "Not enough credits." }, { status: 400 });
     }
 
+    const cooldownEndsAt = await setBonusCooldown("reveal", userId);
+
     try {
       await db.insert(rewardHistory).values({
         userId,
@@ -77,6 +89,7 @@ export async function POST() {
       cost,
       revealUntil: newUntil.toISOString(),
       newCredits: Number(updated[0].credits),
+      cooldownEndsAt,
     });
   } catch (error) {
     console.error("Reveal all error:", error);

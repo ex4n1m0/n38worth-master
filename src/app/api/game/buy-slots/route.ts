@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, rewardHistory } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { checkBonusCooldown, setBonusCooldown } from "@/lib/card-cooldowns";
 
 const SLOTS_PER_PURCHASE = 10;
 const COST_PERCENT = 0.1; // 10% of the buyer's current credits
@@ -10,7 +11,7 @@ const COST_PERCENT = 0.1; // 10% of the buyer's current credits
 /**
  * "10 Slots" card — adds +10 hire slots for 10% of the buyer's current
  * credits. The cost scales with wealth so it's always meaningful but never
- * unaffordable. No cooldown.
+ * unaffordable. Shares the 10-minute bonus-card cooldown.
  */
 export async function POST() {
   const session = await auth();
@@ -20,6 +21,14 @@ export async function POST() {
 
   try {
     const userId = parseInt(session.user.id);
+
+    const remaining = await checkBonusCooldown("slots", userId);
+    if (remaining) {
+      return NextResponse.json(
+        { error: `10 Slots is on cooldown (${remaining} remaining)` },
+        { status: 400 }
+      );
+    }
 
     const [user] = await db
       .select({ credits: users.credits, hireSlots: users.hireSlots })
@@ -57,6 +66,8 @@ export async function POST() {
       );
     }
 
+    const cooldownEndsAt = await setBonusCooldown("slots", userId);
+
     try {
       await db.insert(rewardHistory).values({
         userId,
@@ -74,6 +85,7 @@ export async function POST() {
       slotsAdded: SLOTS_PER_PURCHASE,
       newSlots: Number(updated[0].hireSlots),
       newCredits: Number(updated[0].credits),
+      cooldownEndsAt,
     });
   } catch (error) {
     console.error("Buy slots error:", error);

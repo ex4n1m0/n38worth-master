@@ -3,25 +3,30 @@
 import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Eye } from "lucide-react";
+import { Loader2, Eye, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
+import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCooldowns";
 import { formatCompact } from "@/lib/utils";
 
 /**
  * Pinned "Reveal" card for the market page.
  *
  * Grants temporary Knowledge — see ALL avatars — for 10 minutes, costing
- * 10% of the buyer's current credits. Repeat uses stack +10 minutes.
+ * 10% of the buyer's current credits. 10-minute cooldown after each use
+ * (shared bonus-card cooldown), so the reveal window runs out right as the
+ * card becomes usable again.
  */
 export function RevealCard() {
   const queryClient = useQueryClient();
   const { play } = useSound();
   const { data: session } = useSession();
   const { data: myCredits } = useCredits();
+  const { onCooldown, label: cooldownLabel, pct: cooldownPct } = useBonusCooldown("reveal");
+  const refreshCooldowns = useRefreshBonusCooldowns();
   const [revealUntil, setRevealUntil] = useState<string | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
 
@@ -68,6 +73,7 @@ export function RevealCard() {
     onSuccess: async (data) => {
       toast.success(`👁️ All avatars revealed for 10 minutes! (-${formatCompact(data.cost)}¢)`);
       setRevealUntil(data.revealUntil);
+      refreshCooldowns();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["goddess-powers"] }),
@@ -82,14 +88,24 @@ export function RevealCard() {
   });
 
   const handleClick = () => {
-    if (!canAfford || mutation.isPending) return;
+    if (onCooldown) {
+      play("error");
+      toast.error(`Reveal is on cooldown — ready in ${cooldownLabel}.`);
+      return;
+    }
+    if (!canAfford) {
+      play("error");
+      toast.error("Not enough credits to reveal avatars.");
+      return;
+    }
+    if (mutation.isPending) return;
     play("reveal");
     mutation.mutate();
   };
 
-  const isDisabled = !canAfford || mutation.isPending;
-  const ringColor = canAfford ? "ring-violet-500" : "ring-gray-600";
-  const actionColor = canAfford ? "text-violet-300" : "text-gray-400";
+  const isDisabled = !canAfford || onCooldown || mutation.isPending;
+  const ringColor = onCooldown ? "ring-violet-700/50" : canAfford ? "ring-violet-500" : "ring-gray-600";
+  const actionColor = onCooldown ? "text-violet-400" : canAfford ? "text-violet-300" : "text-gray-400";
 
   const handleAvatarClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -135,16 +151,29 @@ export function RevealCard() {
             <div className={`text-sm font-bold drop-shadow-sm flex flex-wrap items-center gap-1 ${actionColor}`}>
               {mutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin text-white" />
+              ) : onCooldown ? (
+                <>
+                  <Clock className="h-3 w-3" />
+                  {cooldownLabel}
+                </>
               ) : (
                 <>
                   <Eye className="h-3 w-3" />
-                  {isActive ? "EXTEND" : "REVEAL"} {formatCompact(cost)}¢
+                  REVEAL {formatCompact(cost)}¢
                 </>
               )}
             </div>
             {isActive && (
               <div className="text-[9px] text-violet-300/90 tabular-nums leading-none mt-0.5">
                 {mins}m {secs}s active
+              </div>
+            )}
+            {onCooldown && (
+              <div className="w-full h-1 rounded-full overflow-hidden bg-violet-500/15 mt-1.5">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-400 transition-[width] duration-1000 ease-linear"
+                  style={{ width: `${cooldownPct}%` }}
+                />
               </div>
             )}
           </div>
