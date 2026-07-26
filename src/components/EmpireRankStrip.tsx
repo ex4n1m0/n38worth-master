@@ -1,15 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Users, Briefcase, Coins, Crown, Calendar, Star, Trophy } from "lucide-react";
-import React from "react";
+import { Users, Coins, Crown, Calendar, Star, Trophy, Clock } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatCompact } from "@/lib/utils";
+import { formatCompact, formatLastOnline } from "@/lib/utils";
 
 /**
- * Shorten goddess usernames for compact UIs (Live Ranks) by hiding the
- * "Goddess of " prefix — "Goddess of Wealth" → "Wealth", "Goddess" → "Goddess".
- * The full name is still used everywhere else in the game.
+ * Shorten goddess usernames for compact UIs (Live Activity and Ranks) by hiding
+ * the "Goddess of " prefix — "Goddess of Wealth" → "Wealth", "Goddess" →
+ * "Goddess". The full name is still used everywhere else in the game.
  */
 function shortName(username: string): string {
   if (username === "Goddess") return "Goddess";
@@ -40,6 +40,16 @@ interface ChampionEntry {
   wonAt: string;
 }
 
+interface OnlineHuman {
+  id: number;
+  username: string;
+  lastOnlineAt: string;
+}
+
+interface SidebarData {
+  lastOnlineHumans: OnlineHuman[];
+}
+
 interface StripConfig {
   key: keyof RanksResponse;
   label: string;
@@ -60,15 +70,6 @@ const STRIPS: StripConfig[] = [
     getValue: (p) => p.ownedCount,
   },
   {
-    key: "topPortfolio",
-    label: "Top Portfolio",
-    icon: Briefcase,
-    iconClass: "text-emerald-400",
-    labelClass: "text-emerald-300",
-    getValue: (p) => p.portfolioValue,
-    suffix: "¢",
-  },
-  {
     key: "topCredits",
     label: "Most Credits",
     icon: Coins,
@@ -82,18 +83,56 @@ const STRIPS: StripConfig[] = [
 // Medal colouring for the top 3 positions.
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
-/** A single compact, always-visible ranking card showing the top 3. */
+/** Shared shell for every card in the strip. */
+function StripCard({
+  icon: Icon,
+  iconClass,
+  label,
+  labelClass,
+  children,
+  transparent = false,
+  accent,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  iconClass: string;
+  label: string;
+  labelClass: string;
+  children: React.ReactNode;
+  transparent?: boolean;
+  /** Optional border/background override (used by Hall of Champions). */
+  accent?: string;
+}) {
+  const shell =
+    accent ??
+    (transparent ? "border border-white/10 bg-transparent" : "border border-white/10 bg-white/[0.03]");
+  return (
+    <div className={`rounded-xl p-2.5 ${shell}`}>
+      <div className={`flex items-center gap-1.5 mb-2 ${labelClass}`}>
+        <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
+        <span className="text-[11px] font-bold uppercase tracking-wide truncate">{label}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function EmptyList({ text = "No entries yet" }: { text?: string }) {
+  return <p className="text-[11px] text-gray-600 italic">{text}</p>;
+}
+
+/** A compact, always-visible ranking card showing the top 5. */
 function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; entries: RankPlayer[]; transparent?: boolean }) {
-  const Icon = cfg.icon;
   const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (
-    <div className={`rounded-xl p-2.5 ${transparent ? "border border-white/10 bg-transparent" : "border border-white/10 bg-white/[0.03]"}`}>
-      <div className={`flex items-center gap-1.5 mb-2 ${cfg.labelClass}`}>
-        <Icon className={`h-4 w-4 shrink-0 ${cfg.iconClass}`} />
-        <span className="text-[11px] font-bold uppercase tracking-wide truncate">{cfg.label}</span>
-      </div>
+    <StripCard
+      icon={cfg.icon}
+      iconClass={cfg.iconClass}
+      label={cfg.label}
+      labelClass={cfg.labelClass}
+      transparent={transparent}
+    >
       {top.length === 0 ? (
-        <p className="text-[11px] text-gray-600 italic">No entries yet</p>
+        <EmptyList />
       ) : (
         <ol className="space-y-1">
           {top.map((p, i) => (
@@ -112,10 +151,16 @@ function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; ent
           ))}
         </ol>
       )}
-    </div>
+    </StripCard>
   );
 }
 
+/**
+ * "Live Activity and Ranks" — a single row combining recent activity and the
+ * headline rankings: Recently Online, Biggest Empire, Most Credits, and the
+ * Hall of Champions. Used on the landing page (transparent) and the in-game
+ * Cards page (default).
+ */
 export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
   const transparent = variant === "transparent";
 
@@ -130,6 +175,17 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
     refetchInterval: 300 * 1000,
   });
 
+  const { data: sidebarData } = useQuery<SidebarData>({
+    queryKey: ["leaderboard-sidebars"],
+    queryFn: async () => {
+      const res = await fetch("/api/leaderboard-sidebars");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 15 * 1000,
+    refetchInterval: 150 * 1000,
+  });
+
   const { data: champions = [] } = useQuery<ChampionEntry[]>({
     queryKey: ["hall-of-fame"],
     queryFn: async () => {
@@ -140,27 +196,83 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
     staleTime: 60 * 1000,
   });
 
+  const humans = sidebarData?.lastOnlineHumans ?? [];
   const topChampions = champions.slice(0, 5);
+
+  // Ticking clock so "online" badges stay accurate without calling Date.now()
+  // during render (which would be impure).
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 30 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // "Online" = last online within the last 3 minutes.
+  const isOnline = (lastOnlineAt: string) =>
+    now > 0 && now - new Date(lastOnlineAt).getTime() < 3 * 60 * 1000;
 
   return (
     <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <Trophy className="h-5 w-5 text-t1-400" />
-        <h2 className="font-bold text-white">Live Rankings</h2>
+        <h2 className="font-bold text-white">Live Activity and Ranks</h2>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {/* 1. Recently Online */}
+        <StripCard
+          icon={Clock}
+          iconClass="text-emerald-400"
+          label="Recently Online"
+          labelClass="text-emerald-300"
+          transparent={transparent}
+        >
+          {humans.length === 0 ? (
+            <EmptyList />
+          ) : (
+            <ol className="space-y-1">
+              {humans.slice(0, 5).map((h, i) => {
+                const online = isOnline(h.lastOnlineAt);
+                return (
+                  <li key={h.id} className="flex items-center gap-1.5 text-[11px] leading-tight">
+                    <span className="w-3.5 shrink-0 text-center font-mono font-bold text-gray-500">
+                      {i + 1}
+                    </span>
+                    {online && (
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
+                    )}
+                    <Link href={`/players/${h.username}`} className={`flex-1 truncate font-medium hover:underline ${online ? "text-emerald-300" : "text-gray-200"}`}>
+                      {shortName(h.username)}
+                    </Link>
+                    <span className="shrink-0 text-gray-500">
+                      {online ? "online" : formatLastOnline(h.lastOnlineAt)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </StripCard>
+
+        {/* 2. Biggest Empire · 3. Most Credits */}
         {STRIPS.map((cfg) => (
           <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} transparent={transparent} />
         ))}
 
-        {/* Hall of Champions — latest 3 winners, always visible. */}
-        <div className={`rounded-xl p-2.5 ${transparent ? "border border-yellow-500/20 bg-transparent" : "border border-yellow-500/20 bg-yellow-500/[0.04]"}`}>
-          <div className="flex items-center gap-1.5 mb-2 text-yellow-300">
-            <Crown className="h-4 w-4 shrink-0 text-yellow-400" />
-            <span className="text-[11px] font-bold uppercase tracking-wide truncate">Hall of Champions</span>
-          </div>
+        {/* 4. Hall of Champions — latest winners, always visible. */}
+        <StripCard
+          icon={Crown}
+          iconClass="text-yellow-400"
+          label="Hall of Champions"
+          labelClass="text-yellow-300"
+          accent={
+            transparent
+              ? "border border-yellow-500/20 bg-transparent"
+              : "border border-yellow-500/20 bg-yellow-500/[0.04]"
+          }
+        >
           {topChampions.length === 0 ? (
-            <p className="text-[11px] text-gray-600 italic">No champions yet</p>
+            <EmptyList text="No champions yet" />
           ) : (
             <ol className="space-y-1">
               {topChampions.map((w, i) => (
@@ -183,7 +295,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
               ))}
             </ol>
           )}
-        </div>
+        </StripCard>
       </div>
     </div>
   );

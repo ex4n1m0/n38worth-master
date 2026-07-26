@@ -25,7 +25,6 @@ import {
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
-import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
@@ -97,13 +96,10 @@ export default function LeaderboardPage() {
           <CreditBalance />
         </div>
 
-        {/* Live Rankings — top players by empire, value, credits.
+        {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
+            Credits, Hall of Champions in a single row.
             Hidden until the player completes mission 0 (Own 20 cards). */}
         {gameUnlocked && <EmpireRankStrip />}
-
-        {/* Live Activity sidebars — 4 compact rank lists.
-            Hidden until the player completes mission 0. */}
-        {gameUnlocked && <LeaderboardSidebars />}
 
         {/* Browse Players — the profession combo bar sits inside, just below
             the sort/filter buttons and above the card grid.

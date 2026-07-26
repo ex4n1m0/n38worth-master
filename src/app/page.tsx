@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
-import { LeaderboardSidebars } from "@/components/LeaderboardSidebars";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 
 /* ─── Types ─── */
@@ -147,7 +146,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
       {/* ═══ Hero ═══ */}
-      <section className="relative min-h-[100svh] flex flex-col items-center justify-center px-6 pt-20 pb-10 text-center overflow-x-clip">
+      {/* overflow-clip (not just overflow-x-clip) so the parallax image can't
+          slide out past the section's bottom edge, where the darkening
+          overlays no longer cover it. */}
+      <section className="relative min-h-[100svh] flex flex-col items-center justify-center px-6 pt-20 pb-10 text-center overflow-clip">
         {/* Parallax background */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -180,58 +182,18 @@ export default function Home() {
 
         {/* Hero content — centered in the viewport */}
         <div className="relative z-10 flex flex-col items-center gap-6">
+          {/* Pushed down so the logo sits around where the stats/countdown
+              block used to be — leaves the hero image visible above it. */}
           <Link
             href="/register"
-            className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
+            className="lp-fade-up lp-gradient-text mt-32 sm:mt-44 bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
             style={{ animationDelay: "0.1s" }}
           >
             n38worth
           </Link>
 
-          <p className="lp-fade-up text-lg sm:text-xl text-gray-400 max-w-md" style={{ animationDelay: "0.2s" }}>
-            A social game of ambition. Build your empire. Collect the Goddesses. Reset the world.
-          </p>
-
-          {/* Buttons */}
-          <div className="lp-fade-up flex flex-col sm:flex-row items-center gap-3" style={{ animationDelay: "0.3s" }}>
-            <button
-              type="button"
-              onClick={() => setGameplayOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-8 py-4 text-lg font-semibold text-gray-100 backdrop-blur-sm hover:bg-white/10 hover:scale-105 active:scale-100 transition-all"
-            >
-              How to Play
-            </button>
-            <Link
-              href="/register"
-              className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_30px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
-            >
-              Play Now
-            </Link>
-            <button
-              onClick={handleDemoPlay}
-              disabled={demoLoading}
-              className="inline-flex items-center gap-2 rounded-full border border-green-500/40 bg-green-500/10 px-8 py-4 text-lg font-semibold text-green-300 hover:bg-green-500/20 hover:scale-105 active:scale-100 transition-all disabled:opacity-50"
-            >
-              {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Try as Guest"}
-            </button>
-          </div>
-
-          {/* Support — under Play Now */}
-          <a
-            href="https://n38worth.com/chat"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="lp-fade-up inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-semibold text-gray-300 backdrop-blur-sm hover:bg-white/10 hover:text-white hover:scale-105 active:scale-100 transition-all"
-            style={{ animationDelay: "0.35s" }}
-          >
-            Support
-          </a>
-
-          {/* Active countdown */}
-          {countdown && <CountdownBanner countdown={countdown} />}
-
           {/* Live stats */}
-          <div className="lp-fade-up mt-6 flex items-center gap-6 sm:gap-10" style={{ animationDelay: "0.4s" }}>
+          <div className="lp-fade-up flex items-center gap-6 sm:gap-10" style={{ animationDelay: "0.3s" }}>
             <Stat label="Cards" value={stats?.totalPlayers ?? 0} />
             <div className="h-8 w-px bg-white/15" />
             <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
@@ -239,45 +201,28 @@ export default function Home() {
             <Stat label="Players" value={stats?.totalHumans ?? 0} />
           </div>
 
-          {/* Live Rankings — top players by empire, portfolio, credits.
-              Right below the live stats so visitors see real game activity
-              immediately, without scrolling. Transparent background to blend
-              with the hero. */}
+          {/* Active countdown */}
+          {countdown && <CountdownBanner countdown={countdown} />}
+
+          {/* Single entry point — the How to Play walkthrough. Play Now and
+              Try as Guest live at the BOTTOM of that dialog, so new players
+              read the rules on their way to signing up. */}
+          <div className="lp-fade-up mt-2 flex justify-center" style={{ animationDelay: "0.4s" }}>
+            <button
+              type="button"
+              onClick={() => setGameplayOpen(true)}
+              className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-14 py-6 text-2xl sm:text-3xl font-bold text-white shadow-[0_0_40px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+            >
+              Start Here
+            </button>
+          </div>
+
+          {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
+              Credits, Hall of Champions. Right below the live stats so visitors
+              see real game activity immediately, without scrolling.
+              Transparent background to blend with the hero. */}
           <div className="lp-fade-up w-full max-w-5xl mt-8 text-left" style={{ animationDelay: "0.5s" }}>
             <EmpireRankStrip variant="transparent" />
-          </div>
-
-          {/* Live Activity — 4 compact rank lists (Recently Online, Latest
-              GETs, Latest PUMPs, Top Score). Placed just below Live Rankings,
-              matching the in-game leaderboard layout. */}
-          <div className="lp-fade-up w-full max-w-5xl mt-4 text-left" style={{ animationDelay: "0.6s" }}>
-            <LeaderboardSidebars variant="transparent" />
-          </div>
-        </div>
-      </section>
-
-      {/* ═══ Avatar Grid ═══ */}
-      <section className="relative bg-black px-6 py-10">
-        <div className="relative z-10 w-full max-w-7xl mx-auto">
-          <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
-            {(data?.topNpcs ?? []).map((npc) => (
-              <a
-                key={npc.username}
-                href={`/api/avatar/${encodeURIComponent(npc.username)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group block"
-              >
-                {npc.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={npc.avatarUrl} alt={npc.username} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="h-full w-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center text-xs text-gray-500">
-                    {npc.username.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </a>
-            ))}
           </div>
         </div>
       </section>
@@ -310,10 +255,10 @@ export default function Home() {
               <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
               <ol className="space-y-3">
                 {[
-                  { title: "Create your card", body: "Register, upload your avatar and pick a profession. You start with 100¢ — everyone starts equal." },
+                  { title: "Create your card", body: "Register, upload your avatar and pick a profession. You start with 100¢ and 20 hire slots — everyone starts equal." },
                   { title: "Hire your first cards", body: "Hiring costs the card's current value, and every hire pumps that card's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
                   { title: "Get 20 cards", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
-                  { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — taken from the richest player, so the rich never run away with the game." },
+                  { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — transferred from the richest player, so the rich never run away with the game. If you ARE the richest, you get nothing that day." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
@@ -329,15 +274,48 @@ export default function Home() {
             </section>
 
             <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">Earning Credits</h3>
+              <p className="text-sm leading-relaxed text-gray-300 mb-3">
+                Credits are the fuel for everything. Four ways to earn them:
+              </p>
+              <ul className="space-y-1.5 text-sm text-gray-300">
+                <li>
+                  <span className="font-semibold text-amber-300">Portfolio reward</span> — every
+                  hour you collect 0.2% of your portfolio value (the combined value of the cards
+                  you own, multiplied by how many owners you yourself have).
+                </li>
+                <li>
+                  <span className="font-semibold text-amber-300">Getting hired</span> — when
+                  someone hires or pumps your card, you get paid, and your value goes up.
+                </li>
+                <li>
+                  <span className="font-semibold text-amber-300">Rank bonuses</span> — placing
+                  top 3 in a ranking category pays out hourly.
+                </li>
+                <li>
+                  <span className="font-semibold text-amber-300">Daily login reward</span> — the
+                  Goddess of Wealth&apos;s value, once every 24 hours.
+                </li>
+              </ul>
+              <p className="text-sm leading-relaxed text-gray-400 mt-3">
+                One catch: if someone owns your card they are your boss, and they skim 10% of your
+                portfolio reward. Hire slots cap how many cards you can hold at once — you start
+                with 20 and gain more from missions, poaching, and the 10 Slots card.
+              </p>
+            </section>
+
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
-                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire a card for its current value. The previous owner gets paid, the card's value multiplies, and it joins your team." },
-                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your card's value to double it, gift the cost to the card, and extend its sell block by 10 minutes. Your main value-growth engine." },
-                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects a card from being hired away: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
-                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × card value) straight to the owner, then hire the card. Blocks marked Unbreakable can't be broken." },
-                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block that refreshes while you're online. You can move these blocks between your cards." },
-                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 cards) bulk-hires the cheapest available cards — 1 + 10% of your owned count per press, on a short cooldown." },
+                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire a card for its current value. The card and its previous owner both get paid, its value jumps (2× under 1,000¢, tapering to 1.1× above 1M), and it joins your team. Poaching a card from another player also earns you +1 hire slot." },
+                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your card's value to double it, gift the cost to the card, and extend its sell block by 10 minutes (12h max). Your main value-growth engine." },
+                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects a card from being hired away. Costs the card's value: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
+                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × card value) straight to the owner, then hire the card. Fate-sealed cards cost 1000× to break, and blocks marked Unbreakable can't be broken at all." },
+                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block. You can move a block to a different card at any time, which restarts its 24 hours. Only regular NPC cards can be perm-blocked." },
+                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 cards) bulk-hires the cheapest available cards — 1 + 10% of your owned count per press — then goes on a 10-minute cooldown." },
+                  { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", body: "The 10 Slots card adds +10 hire slots for 10% of your current credits. 10-minute cooldown." },
+                  { chip: "REVEAL", cls: "from-violet-600 to-purple-500", body: "The Reveal card unmasks every hidden avatar in the game for 10 minutes, for 10% of your current credits. 10-minute cooldown." },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -401,17 +379,68 @@ export default function Home() {
               <p className="text-sm leading-relaxed text-gray-300">
                 Hold all six Goddesses at once and a 1-hour countdown begins — visible to
                 everyone. Rivals will do anything to break one card away from you before time
-                runs out. Survive the hour and the world resets: every player starts fresh, and
-                your name joins the Hall of Champions forever. Watch out for the six AGI players —
-                autonomous rivals that compete for cards and talk in chat when real humans are online.
+                runs out; if they manage it you get a 2-minute grace window to take her back
+                before the countdown is cancelled. Survive the hour and the world resets: every
+                player starts fresh, and your name joins the Hall of Champions forever.
+              </p>
+              <p className="text-sm leading-relaxed text-gray-400 mt-3">
+                You&apos;re not only up against humans. Six autonomous divine players hunt cards
+                around the clock — they buy, pump and poach just like you, but never speak. A
+                separate support Agent is the one you&apos;ll meet in chat: ask it anything about
+                the game and it answers while other humans are online.
               </p>
             </section>
 
+            {/* Highest-value NPC cards — the avatar grid, moved here from the
+                landing page so it sits right above the sign-up buttons. */}
+            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+              <h3 className="mb-3 text-lg font-semibold text-t1-400">Highest-Value NPC Cards</h3>
+              <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
+                {(data?.topNpcs ?? []).map((npc) => (
+                  <a
+                    key={npc.username}
+                    href={`/api/avatar/${encodeURIComponent(npc.username)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`${npc.username} — ${formatCompact(npc.playerValue)}¢`}
+                    className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group block hover:border-white/40 transition-colors"
+                  >
+                    {npc.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={npc.avatarUrl}
+                        alt={npc.username}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center text-xs text-gray-500">
+                        {npc.username.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            </section>
+
           </div>
-          <div className="flex justify-center pb-2">
-            <Link href="/register" className="inline-flex items-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-8 py-3 text-base font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 transition-all">
+          {/* Sign-up actions — the only place they appear, so players reach
+              them by scrolling through the rules above. */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-2">
+            <Link
+              href="/register"
+              className="lp-shine relative overflow-hidden inline-flex items-center justify-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+            >
               Play Now
             </Link>
+            <button
+              onClick={handleDemoPlay}
+              disabled={demoLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-green-500/40 bg-green-500/10 px-8 py-4 text-lg font-semibold text-green-300 hover:bg-green-500/20 hover:scale-105 active:scale-100 transition-all disabled:opacity-50"
+            >
+              {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Try as Guest"}
+            </button>
           </div>
         </DialogContent>
       </Dialog>
