@@ -178,7 +178,17 @@ export function Navbar() {
     );
 
     return (
-      <Link key={link.href} href={link.href} onClick={() => play("changepage")} className="flex-1">
+      <Link
+        key={link.href}
+        href={link.href}
+        onClick={() => {
+          if (link.href === "/leaderboard") {
+            sessionStorage.removeItem("auto-navigate-cards");
+          }
+          play("changepage");
+        }}
+        className="flex-1"
+      >
         {/* Fixed-height button matching slots indicator height */}
         <div
           className={`group relative w-full h-[33px] flex items-center justify-center px-4 overflow-hidden rounded-lg border transition-all duration-200 ${
@@ -241,6 +251,7 @@ export function Navbar() {
             <div className="flex md:hidden items-center flex-1 py-1.5">
               <Link
                 href="/leaderboard"
+                onClick={() => sessionStorage.removeItem("auto-navigate-cards")}
                 className="text-xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent"
               >
                 n38worth
@@ -311,7 +322,11 @@ export function Navbar() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-gray-800" />
                   <DropdownMenuItem
-                    onClick={() => { play("buttons"); signOut({ callbackUrl: "/" }); }}
+                    onClick={() => {
+                      sessionStorage.removeItem("auto-navigate-cards");
+                      play("buttons");
+                      signOut({ callbackUrl: "/" });
+                    }}
                     className="text-red-400 cursor-pointer"
                   >
                     <LogOut className="h-4 w-4 mr-2" />

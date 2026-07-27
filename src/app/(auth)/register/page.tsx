@@ -39,7 +39,7 @@ export default function RegisterPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/my-profile");
+        router.push("/my-profile?autoCards=1");
       });
     }
 
@@ -85,7 +85,7 @@ export default function RegisterPage() {
         // up before the page loads. A soft router.push here raced with the
         // session refresh. Demo players start on their profile page, where
         // their daily reward auto-claims (see LoginReward).
-        window.location.href = "/my-profile";
+        window.location.href = "/my-profile?autoCards=1";
       }
     } catch {
       setError("Something went wrong. Please try again.");
@@ -146,7 +146,7 @@ export default function RegisterPage() {
         // Navbar guard routes them to their profile until it's done, after which
         // OnboardingProfessionStep sends them to the End Game page.
         play("confirm");
-        router.push("/my-profile");
+        router.push("/my-profile?autoCards=1");
         router.refresh();
       }
     } catch {
@@ -276,14 +276,14 @@ export default function RegisterPage() {
                 if (isCapacitor()) {
                   // Use system browser for Capacitor to avoid disallowed_useragent error
                   try {
-                    await signInWithGoogleInBrowser("/my-profile");
+                    await signInWithGoogleInBrowser("/my-profile?autoCards=1");
                   } catch {
                     setError("Google sign-in failed. Please try again.");
                     setGoogleLoading(false);
                   }
                 } else {
                   // Use NextAuth signIn directly for web
-                  signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
+                  signIn("google", { callbackUrl: "/my-profile?autoCards=1" }).catch(() => {
                     setError("Google sign-in failed. Please try again.");
                     setGoogleLoading(false);
                   });

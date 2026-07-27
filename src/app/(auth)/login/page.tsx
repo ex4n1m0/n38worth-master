@@ -39,7 +39,7 @@ export default function LoginPage() {
       setupBrowserAuthListener(() => {
         // Refresh the page to pick up the new session
         router.refresh();
-        router.push("/my-profile");
+        router.push("/my-profile?autoCards=1");
       });
     }
 
@@ -79,7 +79,7 @@ export default function LoginPage() {
         setError("Invalid username or password");
       } else {
         play("confirm");
-        router.push("/my-profile");
+        router.push("/my-profile?autoCards=1");
         router.refresh();
       }
     } catch {
@@ -166,14 +166,14 @@ export default function LoginPage() {
                 if (isCapacitor()) {
                   // Use system browser for Capacitor to avoid disallowed_useragent error
                   try {
-                    await signInWithGoogleInBrowser("/my-profile");
+                    await signInWithGoogleInBrowser("/my-profile?autoCards=1");
                   } catch {
                     setError("Google sign-in failed. Please try again.");
                     setGoogleLoading(false);
                   }
                 } else {
                   // Use NextAuth signIn directly for web
-                  signIn("google", { callbackUrl: "/my-profile" }).catch(() => {
+                  signIn("google", { callbackUrl: "/my-profile?autoCards=1" }).catch(() => {
                     setError("Google sign-in failed. Please try again.");
                     setGoogleLoading(false);
                   });

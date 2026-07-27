@@ -11,6 +11,9 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.name) {
+      if (new URLSearchParams(window.location.search).get("autoCards") === "1") {
+        sessionStorage.setItem("auto-navigate-cards", "1");
+      }
       router.replace(`/players/${session.user.name}`, { scroll: true });
     }
   }, [session, status, router]);

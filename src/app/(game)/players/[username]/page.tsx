@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
@@ -93,6 +93,7 @@ const BIO_MAX = 160;
 
 export default function PlayerProfilePage() {
   const params = useParams();
+  const router = useRouter();
   const username = decodeURIComponent(params.username as string);
   const { data: session } = useSession();
   const { t } = useLanguage();
@@ -183,6 +184,29 @@ export default function PlayerProfilePage() {
   const isOwnProfileEarly =
     !!session?.user?.name &&
     session.user.name.toLowerCase() === username.toLowerCase();
+  const hasPlayer = !!player;
+
+  // After a fresh login/registration, give the player a moment to see their
+  // profile (and auto-claim the daily reward), then guide them to Cards.
+  useEffect(() => {
+    if (
+      !isOwnProfileEarly ||
+      isLoading ||
+      !hasPlayer ||
+      onboardingLoading ||
+      !onboarding.onboardingComplete ||
+      sessionStorage.getItem("auto-navigate-cards") !== "1"
+    ) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      sessionStorage.removeItem("auto-navigate-cards");
+      router.push("/leaderboard");
+    }, 10_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [isOwnProfileEarly, isLoading, hasPlayer, onboardingLoading, onboarding.onboardingComplete, router]);
 
   const teamItemsNoAvatars = useMemo(() => {
     const all = player?.ownedPlayers ?? [];
