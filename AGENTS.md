@@ -56,6 +56,11 @@
   addition to the usual credits/player/ownership keys. Don't put navbar
   indicators on raw useState+setInterval — use react-query so invalidation
   reaches them.
+- **Shared 1s clock:** use `useNow()` from `src/hooks/useNow.ts` for any
+  countdown/ticker UI (one module-level interval shared by all subscribers).
+  Never add per-component `setInterval(…, 1000)` timers — with 50+ cards on
+  screen that meant 50+ intervals. Also avoids calling `Date.now()` during
+  render, which the react-hooks/purity lint rule rejects.
 - **Sound effects:** `useSound()` / `playSound()` in `src/hooks/useSound.ts`
   (17 semantic types; files in `public/sounds/*.mp3`, Kenney CC0). Mute +
   volume live in `useSoundSettings` (zustand, localStorage-persisted),
