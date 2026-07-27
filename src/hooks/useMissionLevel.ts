@@ -22,7 +22,8 @@ function useMissionData() {
     },
     enabled: !!session,
     staleTime: 60 * 1000,
-    refetchInterval: 300 * 1000,
+    // Slow fallback poll — ownership-changed events invalidate ["missions"].
+    refetchInterval: 600 * 1000,
   });
   return data;
 }

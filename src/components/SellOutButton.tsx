@@ -43,6 +43,15 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
       if (!res.ok) throw new Error(data.error || "Sell out failed");
       return data;
     },
+    onMutate: async () => {
+      // Optimistic update: the seller pays `cost` credits immediately.
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old - cost : undefined
+      );
+      return { previousCredits };
+    },
     onSuccess: async (data) => {
       play("sell");
       toast.success(
@@ -57,7 +66,10 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
       play("error");
       toast.error(err.message);
     },

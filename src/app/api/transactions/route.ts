@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { transactions, users } from "@/db/schema";
-import { eq, desc, sql } from "drizzle-orm";
+import { desc, sql, inArray } from "drizzle-orm";
 
 // A user id is visible if the user is an NPC or a human with avatar uploaded.
 const visibleUserSql = (idCol: string) => sql.raw(
@@ -38,27 +38,23 @@ export async function GET(req: Request) {
       .limit(limit)
       .offset(offset);
 
-    // Enrich with usernames
-    const enrichedTxns = await Promise.all(
-      txns.map(async (txn) => {
-        const [buyer] = await db
-          .select({ username: users.username, avatarUrl: users.avatarUrl })
+    // Enrich with usernames — one batched lookup for all buyers + targets
+    // instead of two queries per transaction.
+    const userIds = [...new Set(txns.flatMap((t) => [t.buyerId, t.targetId]))];
+    const txnUsers = userIds.length
+      ? await db
+          .select({ id: users.id, username: users.username, avatarUrl: users.avatarUrl })
           .from(users)
-          .where(eq(users.id, txn.buyerId));
+          .where(inArray(users.id, userIds))
+      : [];
+    const userById = new Map(txnUsers.map((u) => [u.id, u]));
 
-        const [target] = await db
-          .select({ username: users.username, avatarUrl: users.avatarUrl })
-          .from(users)
-          .where(eq(users.id, txn.targetId));
-
-        return {
-          ...txn,
-          buyer: buyer || { username: "Unknown", avatarUrl: null },
-          target: target || { username: "Unknown", avatarUrl: null },
-          isInitiator: txn.buyerId === userId,
-        };
-      })
-    );
+    const enrichedTxns = txns.map((txn) => ({
+      ...txn,
+      buyer: userById.get(txn.buyerId) ?? { username: "Unknown", avatarUrl: null },
+      target: userById.get(txn.targetId) ?? { username: "Unknown", avatarUrl: null },
+      isInitiator: txn.buyerId === userId,
+    }));
 
     return NextResponse.json({ transactions: enrichedTxns });
   } catch (error) {

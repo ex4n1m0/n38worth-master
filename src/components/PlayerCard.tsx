@@ -10,6 +10,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
+import { useNow } from "@/hooks/useNow";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import {
   cn,
@@ -165,26 +166,11 @@ function PlayerCardImpl({
   };
 
   const isPermBlocked = permBlockUntil ? new Date(permBlockUntil) > new Date() : false;
-  const [blockRemainingMs, setBlockRemainingMs] = useState(() =>
-    Math.max(0, getBlockEnd() - Date.now())
-  );
+  // Shared 1s clock (single interval per page instead of one per card).
+  const now = useNow();
+  const blockRemainingMs = Math.max(0, getBlockEnd() - now);
   const isHireBlocked = blockRemainingMs > 0;
   const isFateSealed = isHireBlocked && blockRemainingMs > 30 * 24 * 60 * 60 * 1000;
-
-  useEffect(() => {
-    const getEnd = () => {
-      const blockEnd = blockSellUntil ? new Date(blockSellUntil).getTime() : 0;
-      const permEnd = permBlockUntil ? new Date(permBlockUntil).getTime() : 0;
-      return Math.max(blockEnd, permEnd);
-    };
-    const update = () => {
-      const ms = Math.max(0, getEnd() - Date.now());
-      setBlockRemainingMs(ms);
-    };
-    update();
-    const intervalId = setInterval(update, 1000);
-    return () => clearInterval(intervalId);
-  }, [blockSellUntil, permBlockUntil]);
 
   const isBonusCard = false;
   const isGoddess = GODDESS_USERNAMES.includes(username);

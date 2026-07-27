@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Wallet, TrendingUp, Coins, Crown, Handshake, Target } from "lucide-react";
+import { useSound } from "@/hooks/useSound";
 
 const STORAGE_KEY = "n38worth_new_player_guide_dismissed";
 const GUIDE_STEPS = [
@@ -48,8 +49,10 @@ export function NewPlayerGuide() {
     return true;
   });
   const [isClosing, setIsClosing] = useState(false);
+  const { play } = useSound();
 
   const handleDismiss = () => {
+    play("close");
     setIsClosing(true);
     // Store in localStorage for 24 hours
     const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours

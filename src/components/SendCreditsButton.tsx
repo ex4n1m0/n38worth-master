@@ -34,6 +34,15 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
       if (!res.ok) throw new Error(data.error || "Failed to send credits");
       return data;
     },
+    onMutate: async () => {
+      // Optimistic update: the sender gifts 1% of their credits immediately.
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old - old * 0.01 : undefined
+      );
+      return { previousCredits };
+    },
     onSuccess: (data) => {
       toast.success(
         `Gifted ${formatNumber(data.amount.toFixed(2))}¢ to ${targetUsername}! 🎁`
@@ -42,7 +51,11 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
+      play("error");
       toast.error(err.message);
     },
   });

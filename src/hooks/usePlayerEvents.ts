@@ -37,6 +37,7 @@ export function usePlayerEvents(userId: string | undefined) {
       }) => {
         queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
         queryClient.invalidateQueries({ queryKey: ["players"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["player-value"], refetchType: "active" });
         queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
         play("bought");
         // You were hired by someone — flash the same effect that fires when one
@@ -105,6 +106,20 @@ export function usePlayerEvents(userId: string | undefined) {
       const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;
       toast.success(`You earned ${data.amount} credits! You're ${positionLabel} in ${data.category} rank (${data.rank}) 🏆`);
     });
+
+    channel.bind(
+      "boss-tax",
+      (data: { amount: number; fromPlayer?: string; toBoss?: string; type: string; reason?: string }) => {
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
+        play("coin");
+        if (data.amount >= 0) {
+          toast.success(`You collected ${data.amount} credits in boss tax from ${data.fromPlayer} 👑`);
+        } else {
+          toast.info(`You paid ${-data.amount} credits in tax to your boss ${data.toBoss}`);
+        }
+      }
+    );
 
     // Multi-account warnings disabled
     // channel.bind("multi-account-warning", (data: { message: string }) => {

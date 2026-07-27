@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { eq, sql, desc, asc, and, isNotNull, notInArray } from "drizzle-orm";
+import { eq, sql, desc, asc, and, isNotNull, notInArray, inArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
@@ -18,33 +18,31 @@ const visibleHumanWhere = and(
 const VALID_TYPES = ["portfolio", "demand", "empire", "legacy", "credits", "value"] as const;
 type RankType = (typeof VALID_TYPES)[number];
 
-async function enrichPlayers(
-  players: {
-    id: number;
-    username: string;
-    avatarUrl: string | null;
-    playerValue: number;
-    createdAt: Date | null;
-    credits?: number;
-  }[]
-) {
-  return Promise.all(
-    players.map(async (p) => {
-      const [ownerCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(ownership)
-        .where(eq(ownership.ownedId, p.id));
-      const [ownedCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(ownership)
-        .where(eq(ownership.ownerId, p.id));
-      return {
-        ...p,
-        ownerCount: Number(ownerCount.count),
-        ownedCount: Number(ownedCount.count),
-      };
-    })
-  );
+async function enrichPlayers<T extends { id: number }>(players: T[]) {
+  // Two batched GROUP BY queries instead of 2 queries per player.
+  const ids = players.map((p) => p.id);
+  const [ownerRows, ownedRows] = ids.length
+    ? await Promise.all([
+        db
+          .select({ id: ownership.ownedId, count: sql<number>`count(*)` })
+          .from(ownership)
+          .where(inArray(ownership.ownedId, ids))
+          .groupBy(ownership.ownedId),
+        db
+          .select({ id: ownership.ownerId, count: sql<number>`count(*)` })
+          .from(ownership)
+          .where(inArray(ownership.ownerId, ids))
+          .groupBy(ownership.ownerId),
+      ])
+    : [[], []];
+  const ownerCountById = new Map(ownerRows.map((r) => [r.id, Number(r.count)]));
+  const ownedCountById = new Map(ownedRows.map((r) => [r.id, Number(r.count)]));
+
+  return players.map((p) => ({
+    ...p,
+    ownerCount: ownerCountById.get(p.id) ?? 0,
+    ownedCount: ownedCountById.get(p.id) ?? 0,
+  }));
 }
 
 async function getPortfolioLeaderboard() {
@@ -72,27 +70,12 @@ async function getPortfolioLeaderboard() {
     .orderBy(desc(portfolioSql))
     .limit(5);
 
-  // Enrich with owner/owned counts
-  const results = await Promise.all(
-    topPortfolioRaw.map(async (p) => {
-      const [ownerCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(ownership)
-        .where(eq(ownership.ownedId, p.id));
-      const [ownedCount] = await db
-        .select({ count: sql<number>`count(*)` })
-        .from(ownership)
-        .where(eq(ownership.ownerId, p.id));
-      return {
-        ...p,
-        portfolioValue: Math.round(Number(p.portfolioValue) * 100) / 100,
-        ownerCount: Number(ownerCount.count),
-        ownedCount: Number(ownedCount.count),
-      };
-    })
-  );
-
-  return results;
+  // Enrich with owner/owned counts (batched)
+  const enriched = await enrichPlayers(topPortfolioRaw);
+  return enriched.map((p) => ({
+    ...p,
+    portfolioValue: Math.round(Number(p.portfolioValue) * 100) / 100,
+  }));
 }
 
 async function getDemandLeaderboard() {

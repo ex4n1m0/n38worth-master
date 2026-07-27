@@ -18,7 +18,7 @@ interface OwnershipLimitData {
  * invalidate it for an instant update; the slow poll is just a fallback.
  */
 export function OwnershipLimit() {
-  const { data } = useQuery<OwnershipLimitData>({
+  const { data, isPending } = useQuery<OwnershipLimitData>({
     queryKey: ["ownership-limit"],
     queryFn: async () => {
       const res = await fetch("/api/settings/ownership-limit");
@@ -26,8 +26,18 @@ export function OwnershipLimit() {
       return res.json();
     },
     staleTime: 15 * 1000,
-    refetchInterval: 150 * 1000,
+    // Slow fallback poll — ownership-changed events invalidate this key.
+    refetchInterval: 300 * 1000,
   });
+
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 px-2.5 py-1 animate-pulse">
+        <Users className="h-4 w-4 text-gray-600" />
+        <div className="h-4 w-10 rounded bg-gray-700/70" />
+      </div>
+    );
+  }
 
   if (!data) return null;
 

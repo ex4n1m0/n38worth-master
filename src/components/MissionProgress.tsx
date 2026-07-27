@@ -23,7 +23,7 @@ interface MissionData {
  * once the current one is completed. Renders nothing when all missions are done.
  */
 export function MissionProgress() {
-  const { data } = useQuery<MissionData>({
+  const { data, isPending } = useQuery<MissionData>({
     queryKey: ["missions"],
     queryFn: async () => {
       const res = await fetch("/api/missions");
@@ -31,8 +31,21 @@ export function MissionProgress() {
       return res.json();
     },
     staleTime: 15 * 1000,
-    refetchInterval: 150 * 1000,
+    // Slow fallback poll — ownership-changed events invalidate ["missions"].
+    refetchInterval: 300 * 1000,
   });
+
+  if (isPending) {
+    return (
+      <div className="flex items-center gap-2 sm:gap-3 animate-pulse">
+        <div className="h-6 w-10 rounded bg-gray-800/80 shrink-0" />
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="h-4 w-1/3 rounded bg-gray-800/80" />
+          <div className="h-2.5 w-full rounded-full bg-gray-800/80" />
+        </div>
+      </div>
+    );
+  }
 
   if (!data || data.allComplete || !data.current) return null;
 

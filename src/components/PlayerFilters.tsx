@@ -62,7 +62,8 @@ export function FilterPill({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors ${
+      aria-pressed={active}
+      className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors active:scale-95 ${
         active ? activeCls : "border-gray-700 text-gray-500 hover:text-gray-300"
       }`}
     >
@@ -95,7 +96,8 @@ export function SortBar({
         type="button"
         onClick={onToggleDir}
         title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-        className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors"
+        aria-label={dir === "asc" ? "Sort ascending, activate for descending" : "Sort descending, activate for ascending"}
+        className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95"
       >
         {dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
         {dir === "asc" ? "Asc" : "Desc"}

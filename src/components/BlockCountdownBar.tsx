@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+import { useNow } from "@/hooks/useNow";
 
 interface BlockCountdownBarProps {
   /** ISO string / Date for when the sell block ends. */
@@ -19,34 +20,27 @@ interface BlockCountdownBarProps {
  */
 export function BlockCountdownBar({ blockSellUntil, className }: BlockCountdownBarProps) {
   const endMs = blockSellUntil ? new Date(blockSellUntil).getTime() : 0;
-  const [pct, setPct] = useState(100);
-  const totalRef = useRef<number | null>(null);
+  const now = useNow();
+  const [total, setTotal] = useState<number | null>(null);
 
   useEffect(() => {
     if (!endMs) return;
 
     const key = `block-bar-total:${endMs}`;
-    if (totalRef.current == null) {
-      const stored = typeof window !== "undefined" ? sessionStorage.getItem(key) : null;
-      if (stored) {
-        totalRef.current = Number(stored);
-      } else {
-        totalRef.current = Math.max(1, endMs - Date.now());
-        if (typeof window !== "undefined") sessionStorage.setItem(key, String(totalRef.current));
-      }
+    const stored = sessionStorage.getItem(key);
+    if (stored) {
+      setTotal(Number(stored));
+    } else {
+      const t = Math.max(1, endMs - Date.now());
+      sessionStorage.setItem(key, String(t));
+      setTotal(t);
     }
-
-    const update = () => {
-      const remaining = Math.max(0, endMs - Date.now());
-      const total = totalRef.current || remaining || 1;
-      setPct(Math.max(0, Math.min(100, (remaining / total) * 100)));
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
   }, [endMs]);
 
-  if (!endMs || endMs <= Date.now()) return null;
+  if (!endMs || endMs <= now) return null;
+
+  const remaining = Math.max(0, endMs - now);
+  const pct = Math.max(0, Math.min(100, (remaining / (total ?? (remaining || 1))) * 100));
 
   return (
     <div className={`w-full h-1 rounded-full overflow-hidden bg-amber-500/15 ${className ?? ""}`}>

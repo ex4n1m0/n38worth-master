@@ -224,6 +224,7 @@ export function ChatRoom() {
         <form onSubmit={handleSend} className="flex gap-2">
           <Input
             placeholder="Type a public message to earn credits..."
+            aria-label="Public chat message"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={280}
@@ -231,6 +232,7 @@ export function ChatRoom() {
           />
           <Button
             type="submit"
+            aria-label="Send public message"
             disabled={sendMutation.isPending || !message.trim()}
             className="shrink-0 bg-green-600 hover:bg-green-500 text-white"
             size="sm"

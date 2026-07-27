@@ -46,6 +46,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
     },
     onError: (err: Error) => {
+      play("error");
       toast.error(err.message);
     },
   });
@@ -54,6 +55,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
+      play("error");
       toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
       return;
     }

@@ -157,6 +157,7 @@ export function InlineDMChat({
       <form onSubmit={handleSend} className="flex gap-1.5 mt-2">
         <Input
           placeholder={`Message ${targetUsername}...`}
+          aria-label={`Message ${targetUsername}`}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           maxLength={280}
@@ -164,6 +165,7 @@ export function InlineDMChat({
         />
         <Button
           type="submit"
+          aria-label={`Send message to ${targetUsername}`}
           disabled={sendMutation.isPending || !message.trim()}
           className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white h-8 px-2"
           size="sm"

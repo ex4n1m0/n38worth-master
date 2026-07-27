@@ -43,14 +43,6 @@ export async function GET(req: Request) {
           gt(rewardHistory.amount, 0)
         );
 
-    const portfolioTaxRows = await db
-      .select({
-        amount: rewardHistory.amount,
-        details: rewardHistory.details,
-      })
-      .from(rewardHistory)
-      .where(conditions);
-
     // Query no-income tax entries (only positive amounts = income received)
     const noIncomeConditions = cutoffDate
       ? and(
@@ -65,13 +57,23 @@ export async function GET(req: Request) {
           gt(rewardHistory.amount, 0)
         );
 
-    const noIncomeTaxRows = await db
-      .select({
-        amount: rewardHistory.amount,
-        details: rewardHistory.details,
-      })
-      .from(rewardHistory)
-      .where(noIncomeConditions);
+    // Both tax streams in parallel — they are independent.
+    const [portfolioTaxRows, noIncomeTaxRows] = await Promise.all([
+      db
+        .select({
+          amount: rewardHistory.amount,
+          details: rewardHistory.details,
+        })
+        .from(rewardHistory)
+        .where(conditions),
+      db
+        .select({
+          amount: rewardHistory.amount,
+          details: rewardHistory.details,
+        })
+        .from(rewardHistory)
+        .where(noIncomeConditions),
+    ]);
 
     // Calculate totals
     const portfolioTax = portfolioTaxRows.reduce((sum, row) => sum + Number(row.amount), 0);

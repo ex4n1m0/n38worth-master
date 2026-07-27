@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
-import { useSound } from "@/hooks/useSound";
+import { useSound, playSound } from "@/hooks/useSound";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
 
@@ -118,6 +118,7 @@ export function StarterNpcsSection({
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Auto-hire failed");
 
+        playSound("hire");
         toast.success(`Auto-hired! 🎉`);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -129,6 +130,7 @@ export function StarterNpcsSection({
         ]);
         onPurchase();
       } catch (err: unknown) {
+        playSound("error");
         toast.error(err instanceof Error ? err.message : "Auto-hire failed");
       } finally {
         // Remove the hired NPC from queue; schedule next if any remain.

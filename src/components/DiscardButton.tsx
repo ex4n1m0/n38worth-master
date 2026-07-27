@@ -40,6 +40,15 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
       if (!res.ok) throw new Error(data.error || "Sell failed");
       return data;
     },
+    onMutate: async () => {
+      // Optimistic update: the seller receives `cost` credits immediately.
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old + cost : undefined
+      );
+      return { previousCredits };
+    },
     onSuccess: async () => {
       play("sell");
       toast.success(`Sold ${otherUsername} for ${cost}¢! Their value resets to 1.`);
@@ -54,7 +63,10 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
       play("error");
       toast.error(err.message);
     },
@@ -66,6 +78,7 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         <Button
           variant="outline"
           onClick={() => play("open")}
+          aria-label={`Sell ${otherUsername} for ${cost} credits`}
           className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
         >
           <DollarSign className="h-4 w-4 mr-2" />

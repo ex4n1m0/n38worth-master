@@ -12,6 +12,7 @@ export function usePlayerValue() {
       return typeof data.playerValue === "number" ? data.playerValue : Number(data.playerValue) || 0;
     },
     staleTime: 60 * 1000,
-    refetchInterval: 300 * 1000,
+    // Slow fallback poll — the "purchased" Pusher event invalidates this key.
+    refetchInterval: 600 * 1000,
   });
 }

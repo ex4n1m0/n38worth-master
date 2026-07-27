@@ -181,6 +181,8 @@ export function Navbar() {
       <Link
         key={link.href}
         href={link.href}
+        aria-label={link.label}
+        aria-current={active ? "page" : undefined}
         onClick={() => {
           if (link.href === "/leaderboard") {
             sessionStorage.removeItem("auto-navigate-cards");
@@ -196,7 +198,7 @@ export function Navbar() {
               ? "border-cyan-400/70 bg-gradient-to-b from-cyan-500/25 via-blue-600/15 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.35)]"
               : highlight
                 ? "border-amber-400/70 bg-gradient-to-b from-amber-500/25 via-amber-600/15 to-transparent shadow-[0_0_18px_rgba(251,191,36,0.35)] hover:border-amber-300 hover:shadow-[0_0_22px_rgba(251,191,36,0.5)] animate-pulse"
-                : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/25 hover:shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+                : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/25 hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] active:bg-white/[0.12]"
           }`}
         >
           {/* subtle top sheen */}

@@ -58,7 +58,32 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
   const pageSize = data?.pageSize ?? 21;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  if (isLoading && lostPlayers.length === 0 && total === 0) return null;
+  if (isLoading && lostPlayers.length === 0 && total === 0) {
+    return (
+      <div>
+        <div className="flex items-center gap-3 mb-3">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Swords className="h-4 w-4 text-red-400" />
+            Taken From{" "}
+            {session?.user?.name?.toLowerCase() === profileUsername.toLowerCase()
+              ? "Me"
+              : profileUsername}
+          </h3>
+        </div>
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 animate-pulse">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-2xl border border-white/10 bg-gray-950/70 overflow-hidden">
+              <div className="w-full aspect-square bg-gray-800/80" />
+              <div className="p-2 space-y-1.5">
+                <div className="h-3 w-3/4 rounded bg-gray-800/80" />
+                <div className="h-3 w-1/2 rounded bg-gray-800/60" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (!isLoading && total === 0) return null;
 
   const viewerUsername = session?.user?.name;

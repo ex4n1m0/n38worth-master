@@ -40,6 +40,16 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
       if (!res.ok) throw new Error(data.error || "Discard all failed");
       return data;
     },
+    onMutate: async () => {
+      // Optimistic update: pay totalValue upfront, receive ~50% back.
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      const netCost = totalValue - Math.floor(totalValue / 2);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old - netCost : undefined
+      );
+      return { previousCredits };
+    },
     onSuccess: async (data) => {
       play("sell");
       const msg = `Discarded ${data.discardedCount} player${data.discardedCount !== 1 ? "s" : ""} for ${data.totalCreditsEarned}¢!${data.skippedCount > 0 ? ` (${data.skippedCount} skipped due to sell blocks)` : ""}`;
@@ -55,7 +65,10 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
         queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
       play("error");
       toast.error(err.message);
     },

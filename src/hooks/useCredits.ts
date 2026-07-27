@@ -12,6 +12,8 @@ export function useCredits() {
       return typeof data.credits === "number" ? data.credits : Number(data.credits) || 0;
     },
     staleTime: 60 * 1000,
-    refetchInterval: 300 * 1000,
+    // Slow fallback poll — Pusher events (credits-updated, purchased,
+    // portfolio-reward, rank-bonus, boss-tax) invalidate this key instantly.
+    refetchInterval: 600 * 1000,
   });
 }

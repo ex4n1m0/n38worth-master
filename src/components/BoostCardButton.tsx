@@ -45,6 +45,15 @@ export function BoostCardButton({
       }
       return data;
     },
+    onMutate: async () => {
+      // Optimistic update: the block costs `cost` credits immediately.
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined ? old - cost : undefined
+      );
+      return { previousCredits };
+    },
     onSuccess: (data) => {
       toast.success(
         `Sell Block on ${targetUsername}! +1h block (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
@@ -57,7 +66,10 @@ export function BoostCardButton({
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
       queryClient.invalidateQueries({ queryKey: ["chat-messages"] });
     },
-    onError: (err: Error) => {
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
       play("error");
       toast.error(err.message);
     },

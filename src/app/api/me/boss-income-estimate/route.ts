@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
-import { sql, eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { safePortfolioValue, safeReward } from "@/lib/safeguards";
 
 /**
@@ -21,17 +20,35 @@ export async function GET() {
   const userId = parseInt(session.user.id);
 
   try {
-    // Get all players owned by the current user
-    const ownedPlayers = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        playerValue: users.playerValue,
-        credits: users.credits,
-      })
-      .from(ownership)
-      .innerJoin(users, eq(ownership.ownedId, users.id))
-      .where(eq(ownership.ownerId, userId));
+    // One batched query for all owned players (was 3 queries per player):
+    // each row carries the player's portfolio owned-value (same formula as the
+    // portfolio-reward cron), their owner count, and how much they themselves own.
+    const result = await db.execute(sql`
+      SELECT
+        p.id AS id,
+        p.player_value AS "playerValue",
+        p.credits AS credits,
+        (SELECT COUNT(*) FROM ownership oc WHERE oc.owned_id = p.id) AS "ownerCount",
+        (SELECT COUNT(*) FROM ownership ow WHERE ow.owner_id = p.id) AS "ownedCount",
+        COALESCE((
+          SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id)))
+          FROM ownership o1
+          INNER JOIN users u2 ON u2.id = o1.owned_id
+          WHERE o1.owner_id = p.id
+        ), 0) AS "ownedValue"
+      FROM ownership o
+      INNER JOIN users p ON p.id = o.owned_id
+      WHERE o.owner_id = ${userId}
+    `);
+
+    const ownedPlayers = result.rows as {
+      id: number;
+      playerValue: number;
+      credits: number;
+      ownerCount: string | number;
+      ownedCount: string | number;
+      ownedValue: string | number;
+    }[];
 
     if (ownedPlayers.length === 0) {
       return NextResponse.json({
@@ -46,41 +63,18 @@ export async function GET() {
     let hourlyTaxPerHour = 0;
 
     for (const player of ownedPlayers) {
-      // Calculate the player's portfolio value (same as portfolio-reward cron)
-      const [portfolioResult] = await db
-        .select({
-          ownedValue: sql<number>`COALESCE(SUM(${users.playerValue} * (1 + (SELECT COUNT(*) FROM ownership o2 WHERE o2.owner_id = ${users.id}))), 0)`.as("owned_value"),
-        })
-        .from(ownership)
-        .innerJoin(users, eq(ownership.ownedId, users.id))
-        .where(eq(ownership.ownerId, player.id));
+      const ownedValue = Number(player.ownedValue ?? 0);
+      const ownerCount = Number(player.ownerCount ?? 0);
 
-      const [ownerCountResult] = await db
-        .select({
-          ownerCount: sql<number>`COUNT(*)`.as("owner_count"),
-        })
-        .from(ownership)
-        .where(eq(ownership.ownedId, player.id));
-
-      const ownedValue = Number(portfolioResult?.ownedValue ?? 0);
-      const ownerCount = Number(ownerCountResult?.ownerCount ?? 0);
-
-      const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
+      const portfolioValue = safePortfolioValue(Number(player.playerValue), ownedValue, ownerCount);
 
       // Portfolio tax: 10% of 0.2% portfolio reward per cycle × 30 cycles/hour
       const grossRewardPerCycle = safeReward(portfolioValue, 0.002);
       const bossTaxPerCycle = Math.floor(grossRewardPerCycle * 0.1);
       portfolioTaxPerHour += bossTaxPerCycle * 30;
 
-      // Check if this player owns 0 players → they pay hourly tax (1% of credits, once/hour)
-      const [ownedCountResult] = await db
-        .select({
-          count: sql<number>`COUNT(*)`.as("owned_count"),
-        })
-        .from(ownership)
-        .where(eq(ownership.ownerId, player.id));
-
-      const ownedCount = Number(ownedCountResult?.count ?? 0);
+      // Players who own 0 players pay hourly tax (1% of credits, once/hour)
+      const ownedCount = Number(player.ownedCount ?? 0);
       if (ownedCount === 0) {
         const hourlyTax = Math.floor(Number(player.credits) * 0.01);
         if (hourlyTax > 0) {

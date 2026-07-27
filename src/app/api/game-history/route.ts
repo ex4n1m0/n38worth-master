@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { gameHistory, users } from "@/db/schema";
-import { desc, eq, sql, and } from "drizzle-orm";
+import { desc, eq, sql, and, inArray } from "drizzle-orm";
 
 // Only filter out events where the actor or target is a deleted user.
 // NULL actor/target ids pass (system events).
@@ -49,42 +49,37 @@ export async function GET(req: Request) {
       .limit(limit)
       .offset(offset);
 
-    // Enrich with actor usernames where available
-    const enrichedHistory = await Promise.all(
-      history.map(async (event) => {
-        let actorUsername = null;
-        let actorAvatarUrl = null;
+    // Enrich with actor usernames where available — one batched lookup
+    // instead of one query per event.
+    const actorIds = [...new Set(history.map((e) => e.actorId).filter((id): id is number => id !== null))];
+    const actors = actorIds.length
+      ? await db
+          .select({ id: users.id, username: users.username, avatarUrl: users.avatarUrl })
+          .from(users)
+          .where(inArray(users.id, actorIds))
+      : [];
+    const actorById = new Map(actors.map((a) => [a.id, a]));
 
-        if (event.actorId) {
-          const [actor] = await db
-            .select({ username: users.username, avatarUrl: users.avatarUrl })
-            .from(users)
-            .where(eq(users.id, event.actorId));
-          
-          if (actor) {
-            actorUsername = actor.username;
-            actorAvatarUrl = actor.avatarUrl;
-          }
+    const enrichedHistory = history.map((event) => {
+      const actor = event.actorId !== null ? actorById.get(event.actorId) : undefined;
+
+      // Parse details JSON if present
+      let parsedDetails = null;
+      if (event.details) {
+        try {
+          parsedDetails = JSON.parse(event.details);
+        } catch {
+          parsedDetails = { raw: event.details };
         }
+      }
 
-        // Parse details JSON if present
-        let parsedDetails = null;
-        if (event.details) {
-          try {
-            parsedDetails = JSON.parse(event.details);
-          } catch {
-            parsedDetails = { raw: event.details };
-          }
-        }
-
-        return {
-          ...event,
-          actorUsername,
-          actorAvatarUrl,
-          details: parsedDetails,
-        };
-      })
-    );
+      return {
+        ...event,
+        actorUsername: actor?.username ?? null,
+        actorAvatarUrl: actor?.avatarUrl ?? null,
+        details: parsedDetails,
+      };
+    });
 
     return NextResponse.json({ history: enrichedHistory });
   } catch (error) {

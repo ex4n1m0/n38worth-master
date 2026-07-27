@@ -35,7 +35,7 @@ export function MyProfileCard() {
   const { data: session } = useSession();
   const username = session?.user?.name;
 
-  const { data: player } = useQuery({
+  const { data: player, isPending } = useQuery({
     queryKey: ["player", username],
     queryFn: async () => {
       const res = await fetch(`/api/players/${username}`);
@@ -43,11 +43,34 @@ export function MyProfileCard() {
       return res.json();
     },
     enabled: !!username,
-    refetchInterval: 300 * 1000,
+    // Slow fallback poll — own-profile changes arrive via Pusher events
+    // (purchased / credits-updated) which invalidate ["player"].
+    refetchInterval: 600 * 1000,
     staleTime: 20 * 1000,
   });
 
-  if (!username || !player) return null;
+  if (!username) return null;
+
+  if (isPending) {
+    return (
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gray-950/70 p-4 sm:p-5 animate-pulse">
+        <div className="flex items-center gap-4">
+          <div className="shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gray-800/80" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="h-5 w-40 rounded bg-gray-800/80" />
+            <div className="h-3 w-56 rounded bg-gray-800/60" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-8 rounded bg-gray-800/60" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!player) return null;
 
   return (
     <Link

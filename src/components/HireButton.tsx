@@ -113,6 +113,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
         mutation.mutate();
       }}
       disabled={disabled || mutation.isPending}
+      aria-label={`Hire ${targetUsername} for ${formatCompact(cost)} credits`}
       size={compact ? "sm" : "lg"}
       className={compact
         ? "w-full bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white font-bold shadow-md shadow-t1-500/20 text-[10px] sm:text-xs px-1.5 py-1.5 h-auto rounded-md whitespace-nowrap"

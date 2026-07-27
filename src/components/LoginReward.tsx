@@ -197,6 +197,7 @@ export function LoginReward() {
                 claimMutation.mutate();
               }}
               disabled={claimMutation.isPending}
+              aria-label={`Claim your ${formatCompact(rewardStatus?.rewardAmount ?? 0)} credits reward`}
               className="bg-green-600 hover:bg-green-500 text-white shrink-0"
               size="sm"
             >
