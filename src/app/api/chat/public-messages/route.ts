@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, notInArray } from "drizzle-orm";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -23,6 +24,7 @@ export async function GET(req: Request) {
       .where(
         and(
           eq(messages.type, "public"),
+          notInArray(users.username, [...REMOVED_AGENT_USERNAMES]),
           sql`(${users.isNpc} = 1 OR (${users.avatarUrl} IS NOT NULL AND ${users.avatarCompleted} = 1))`
         )
       )

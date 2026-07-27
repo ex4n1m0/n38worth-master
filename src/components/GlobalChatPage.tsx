@@ -12,7 +12,6 @@ import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { InlineDMChat } from "@/components/InlineDMChat";
-import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { playSound } from "@/hooks/useSound";
 
 interface ChatMessage {
@@ -60,7 +59,6 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
   const { data: session, status } = useSession();
   const [message, setMessage] = useState("");
   const [realtimeMessages, setRealtimeMessages] = useState<ChatMessage[]>([]);
-  const [agentTyping, setAgentTyping] = useState(false);
   const [activeDM, setActiveDM] = useState<HumanPlayer | null>(null);
   const [guestLoading, setGuestLoading] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -124,10 +122,6 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
 
     const handleNewMessage = (msg: ChatMessage) => {
       if (msg.type !== "public") return;
-      // Hide the typing indicator when any AI player's (AGI or goddess) message arrives.
-      if (isAIPlayerUsername(msg.sender.username)) {
-        setAgentTyping(false);
-      }
       // Only ping for other people's messages (own sends already play a sound).
       if (msg.sender.id !== userId) playSound("chat");
       setRealtimeMessages((prev) => {
@@ -136,19 +130,10 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       });
     };
 
-    const handleAgentTyping = (data: unknown) => {
-      console.log("[chat] agent-typing event received", data);
-      setAgentTyping(true);
-      // Safety: auto-hide after 10s in case the LLM call fails silently
-      setTimeout(() => setAgentTyping(false), 10000);
-    };
-
     channel.bind("new-message", handleNewMessage);
-    channel.bind("agent-typing", handleAgentTyping);
 
     return () => {
       channel.unbind("new-message", handleNewMessage);
-      channel.unbind("agent-typing", handleAgentTyping);
       pusher.unsubscribe("chat-public");
     };
   }, [userId]);
@@ -160,7 +145,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
     if (container) {
       container.scrollTop = container.scrollHeight;
     }
-  }, [localMessages.length, activeDM, agentTyping]);
+  }, [localMessages.length, activeDM]);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
@@ -328,25 +313,6 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               </div>
             );
           })}
-          {agentTyping && (
-            <div className="flex gap-2.5">
-              <Avatar className="h-8 w-8 ring-1 ring-gray-700/50 shrink-0">
-                <AvatarFallback className="bg-gradient-to-br from-purple-600 to-pink-600 text-white text-[10px] font-bold">
-                  AG
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col items-start">
-                <span className="text-[11px] font-semibold text-gray-300 mb-0.5">AGI is typing</span>
-                <div className="rounded-2xl rounded-tl-sm bg-gray-800/90 px-4 py-3 shadow-sm">
-                  <div className="flex gap-1">
-                    <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="h-2 w-2 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Send form or CTA */}

@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, notInArray } from "drizzle-orm";
 import { claimLoginReward } from "@/lib/login-reward";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
 const GODDESS_OF_WEALTH_USERNAME = "Goddess of Wealth";
@@ -17,7 +18,7 @@ async function computeLoginReward(claimerId: number) {
   const [richest] = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.isNpc, 0), eq(users.isActive, 1)))
+    .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
     .orderBy(desc(users.credits))
     .limit(1);
 

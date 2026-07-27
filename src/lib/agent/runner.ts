@@ -12,8 +12,8 @@ import { getProfessionPerks } from "@/lib/professionPerks";
 
 const DAY_KEY = "agent_day"; // YYYYMMDD
 const DAY_SPENT_KEY = "agent_day_spent"; // credits spent today
-// Per-agent last-play timestamp (epoch seconds). Each AI player is gated
-// independently so the 12-player roster distributes evenly.
+// Per-agent last-play timestamp (epoch seconds). Each goddess is gated
+// independently so the 6-player roster distributes evenly.
 const LAST_PLAY_KEY = "agent_last_play_at";
 
 function agentSettingKey(base: string, agentId: number): string {
@@ -21,13 +21,10 @@ function agentSettingKey(base: string, agentId: number): string {
 }
 
 // ── Per-agent play intervals (mode-dependent) ──
-// ACTIVE: at least one real human is online. Each AI plays every 6 min — the
-//   cron picks 2 agents per 1-min tick, covering all 12 in 6 min. This keeps
-//   agents ever-present without overwhelming the DB (2 plays/min, same order
-//   of magnitude as the old 1-per-tick design).
-// IDLE: no humans online. Each AI plays once per hour so the world stays
-//   alive (NPCs still get hired/pumped) without burning credits or LLM tokens
-//   in an empty room. 12 agents × 1 play/hour = 1 play every 5 min.
+// ACTIVE: at least one real human is online. Each goddess may play every
+//   6 min, keeping them ever-present without overwhelming the DB.
+// IDLE: no humans online. Each goddess may play once per hour so the world
+//   stays alive without burning credits or LLM tokens in an empty room.
 const ACTIVE_PLAY_INTERVAL_SECONDS = 6 * 60;   // 6 min between turns per agent
 const IDLE_PLAY_INTERVAL_SECONDS = 60 * 60;     // 60 min between turns per agent
 
@@ -199,10 +196,9 @@ export async function runAgentTurn(
   }
 
   // ── Mode-dependent play gating ──
-  // ACTIVE (humans online): each AI plays every 6 min — the cron picks 2 agents
-  //   per 1-min tick, covering all 12 in 6 min. Agents compete alongside humans.
-  // IDLE (no humans): each AI plays once per hour so the world stays alive
-  //   (cards still get hired/pumped) without burning credits in an empty room.
+  // ACTIVE (humans online): each goddess may play every 6 min.
+  // IDLE (no humans): each goddess may play once per hour so the world stays
+  //   alive (cards still get hired/pumped) without burning credits in an empty room.
   const onlineHumans = await countOnlineHumans();
   const isActive = onlineHumans > 0;
   const playInterval = isActive ? ACTIVE_PLAY_INTERVAL_SECONDS : IDLE_PLAY_INTERVAL_SECONDS;

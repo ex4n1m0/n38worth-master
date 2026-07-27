@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, notInArray } from "drizzle-orm";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET() {
         lastOnlineAt: users.lastOnlineAt,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1)))
+      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
       .orderBy(desc(users.lastOnlineAt), sql`"users"."username" ASC`);
 
     // Public player list polled every 120s — cache at the CDN.

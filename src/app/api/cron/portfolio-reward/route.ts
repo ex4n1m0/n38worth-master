@@ -6,7 +6,7 @@ import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
 
     // Get all active players eligible for portfolio rewards: real humans
     // (isNpc=0) plus the 6 goddesses (isNpc=1 but autonomous AI players).
-    // Excludes the chat-only support Agent and regular NPC cards.
+    // Excludes the removed support Agent and regular NPC cards.
     const allPlayers = await db
       .select({
         id: users.id,
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
         credits: users.credits,
       })
       .from(users)
-      .where(sql`${users.isActive} = 1 AND (${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})) AND ${users.username} NOT IN (${sql.join(AGENT_USERNAMES.map((u) => sql`${u}`), sql`, `)})`);
+      .where(sql`${users.isActive} = 1 AND (${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})) AND ${users.username} NOT IN (${sql.join(REMOVED_AGENT_USERNAMES.map((u) => sql`${u}`), sql`, `)})`);
 
     // --- Batch-fetch portfolio data for ALL active players in 3 queries total ---
     // This eliminates the N+1 pattern (3 queries × N players = 3N queries).

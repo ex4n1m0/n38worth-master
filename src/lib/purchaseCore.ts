@@ -8,7 +8,7 @@ import { getCountdownState, startCountdown, clearCountdown } from "@/lib/goddess
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { getProfessionPerks } from "@/lib/professionPerks";
-import { isAIPlayerUsername, isAgentUsername } from "@/lib/agent/roster";
+import { isAIPlayerUsername, isRemovedAgentUsername } from "@/lib/agent/roster";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -74,9 +74,9 @@ export async function buyPlayerCore(
       return { error: "Player not found" };
     }
 
-    // The Agent is chat-only support, not a hireable card.
-    if (isAgentUsername(target.username)) {
-      return { error: "The Agent is not a hireable card." };
+    // The removed support Agent can exist in older databases, but is not a card.
+    if (isRemovedAgentUsername(target.username)) {
+      return { error: "Player not found" };
     }
 
     // 2. Get buyer
@@ -356,8 +356,7 @@ export async function buyPlayerCore(
 
     let permBlockUntil = null;
     // Auto-assign a 24h perm block to the first 10 cards a non-AI buyer acquires,
-    // but ONLY for regular NPC cards — not Goddesses, the Agent, other AGIs, or
-    // human players.
+    // but ONLY for regular NPC cards — not Goddesses or human players.
     if (!isAIPlayerUsername(buyer.username) && target.isNpc === 1 && !isAIPlayerUsername(target.username)) {
       const [permCount] = await db
         .select({ count: sql<number>`count(*)` })

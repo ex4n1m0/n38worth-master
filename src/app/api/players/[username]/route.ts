@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 const visibleSql = sql`("users"."is_npc" = 1 OR ("users"."avatar_url" IS NOT NULL AND "users"."avatar_completed" = 1))`;
 
@@ -11,6 +12,9 @@ export async function GET(
   { params }: { params: Promise<{ username: string }> }
 ) {
   const { username } = await params;
+  if (REMOVED_AGENT_USERNAMES.includes(username)) {
+    return NextResponse.json({ error: "Player not found" }, { status: 404 });
+  }
   const url = new URL(req.url);
 
   const lite = url.searchParams.get("lite") === "1";

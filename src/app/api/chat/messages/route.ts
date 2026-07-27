@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
-import { eq, or, and, desc, sql } from "drizzle-orm";
+import { eq, or, and, desc, sql, notInArray } from "drizzle-orm";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -37,6 +38,7 @@ export async function GET(req: Request) {
             and(eq(messages.type, "private"), eq(messages.recipientId, userId))
           ),
           // Sender must be visible (NPC, the current user, or a human with avatar uploaded)
+          notInArray(users.username, [...REMOVED_AGENT_USERNAMES]),
           sql`(${users.isNpc} = 1 OR ${users.id} = ${userId} OR (${users.avatarUrl} IS NOT NULL AND ${users.avatarCompleted} = 1))`
         )
       )

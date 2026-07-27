@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { and, eq, desc, isNotNull, ne, or } from "drizzle-orm";
+import { and, eq, desc, isNotNull, ne, notInArray, or } from "drizzle-orm";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 // Latest 40 online players (humans + NPCs) with avatars, sorted by most recently online.
 export async function GET() {
@@ -23,6 +24,7 @@ export async function GET() {
             and(eq(users.isNpc, 0), eq(users.avatarCompleted, 1)),
           ),
           eq(users.isProtected, 0),
+          notInArray(users.username, [...REMOVED_AGENT_USERNAMES]),
         )
       )
       .orderBy(desc(users.lastOnlineAt))

@@ -31,7 +31,6 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { isAgentUsername } from "@/lib/agent/roster";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PermBlockButton } from "@/components/PermBlockButton";
@@ -212,8 +211,7 @@ function OwnershipCard({
   const isOwnCard = session?.user?.name === item.username;
   const isBonus = false; // Bonus cards removed from the game.
   const isGoddess = GODDESS_USERNAMES.includes(item.username);
-  const isAgent = isAgentUsername(item.username);
-  const isSpecialCard = isAgent || isGoddess || isBonus;
+  const isSpecialCard = isGoddess || isBonus;
   const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
@@ -463,9 +461,9 @@ function OwnershipCard({
             )}
           </Button>
 
-          {/* Perm blocks only apply to regular NPC cards — not Goddesses,
-              the Agent, other AGIs, or human players. */}
-          {item.playerType === "card" && !isGoddess && !isAgent && (
+          {/* Perm blocks only apply to regular NPC cards — not Goddesses
+              or human players. */}
+          {item.playerType === "card" && !isGoddess && (
             <PermBlockButton
               targetId={item.id}
               targetUsername={item.username}

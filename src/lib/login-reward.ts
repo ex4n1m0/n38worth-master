@@ -8,8 +8,9 @@
  */
 import { db } from "@/db";
 import { users, rewardHistory } from "@/db/schema";
-import { and, eq, lte, or, isNull, sql, desc } from "drizzle-orm";
+import { and, eq, lte, or, isNull, sql, desc, notInArray } from "drizzle-orm";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { getProfessionPerks } from "@/lib/professionPerks";
 
 const HOURS_24_IN_MS = 24 * 60 * 60 * 1000;
@@ -19,7 +20,7 @@ async function computeLoginReward(claimerId: number) {
   const [richest] = await db
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.isNpc, 0), eq(users.isActive, 1)))
+    .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
     .orderBy(desc(users.credits))
     .limit(1);
 

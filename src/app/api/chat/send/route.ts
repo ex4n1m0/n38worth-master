@@ -1,12 +1,10 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { messages, users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { ensureAgents } from "@/lib/agent/seed";
-import { isAIPlayerUsername, AGENT_USERNAME } from "@/lib/agent/roster";
-import { maybeAgentChat } from "@/lib/agent/chat";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 const PUBLIC_REWARD = 0; // Credits earned per public message (disabled)
 const MAX_LENGTH = 280;
@@ -54,6 +52,10 @@ export async function POST(req: Request) {
     let recipientId: number | null = null;
 
     if (isPrivate) {
+      if (REMOVED_AGENT_USERNAMES.includes(recipientUsername)) {
+        return NextResponse.json({ error: "Recipient not found" }, { status: 404 });
+      }
+
       const [recipient] = await db
         .select({
           id: users.id,
@@ -120,33 +122,9 @@ export async function POST(req: Request) {
       } else {
         // Send the user's message
         await pusher.trigger("chat-public", "new-message", messagePayload);
-        // Show a generic AGI typing indicator only for messages from real humans.
-        if (sender.isNpc === 0 && !isAIPlayerUsername(sender.username)) {
-          pusher.trigger("chat-public", "agent-typing", { typing: true }).catch((e: unknown) => {
-            console.error("[chat] AGI typing trigger failed:", e);
-          });
-        }
       }
     } catch (pusherError) {
       console.error("Pusher error:", pusherError);
-    }
-
-    // When a real human posts publicly, the support "Agent" AGI may reply
-    // immediately if the message looks like a game-related question. Only the
-    // Agent speaks now — all other AGIs and Goddesses are silent. AGI messages
-    // never trigger other AGIs, preventing bot loops.
-    if (!isPrivate && sender.isNpc === 0 && !isAIPlayerUsername(sender.username)) {
-      after(async () => {
-        try {
-          const agents = await ensureAgents();
-          const respondingAgent = agents.find((a) => a.username === AGENT_USERNAME);
-          if (respondingAgent) {
-            await maybeAgentChat(respondingAgent.id, { force: true });
-          }
-        } catch (e) {
-          console.error("Agent support-reply error:", e);
-        }
-      });
     }
 
     return NextResponse.json({

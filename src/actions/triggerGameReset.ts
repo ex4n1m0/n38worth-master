@@ -30,9 +30,9 @@ import { incrementGameWinCount } from "@/lib/game-wins";
  * Reset semantics (per game spec):
  *   - All ownership rows are deleted
  *   - All transactions, messages, and avatar reveals are deleted
- *   - NOTHING is deleted from the users table: every human, every NPC, and the
- *     Agent are KEPT and reset to the fresh-start baseline (the world persists,
- *     only its state is wiped). Goddess cards are kept and reset to floor values.
+ *   - NOTHING is deleted from the users table: every human and every NPC is
+ *     KEPT and reset to the fresh-start baseline (the world persists, only its
+ *     state is wiped). Goddess cards are kept and reset to floor values.
  *   - All non-goddess accounts are reset to credits=100, playerValue=1,
  *     valueFloor=1 with rank-bonus / login-reward timestamps cleared (derived
  *     ranks drop back to the lowest tier automatically)
@@ -142,8 +142,8 @@ export async function triggerGameReset(
     // (all ownership is gone), so wipe the table to reset reveal state.
     await db.delete(avatarReveals);
 
-    // 6. No purge. Every account is KEPT — all humans, all NPCs, the Agent, and
-    // the goddess cards. Nothing is deleted; only world state (ownership,
+    // 6. No purge. Every account is KEPT — all humans, all NPCs, and the
+    // goddess cards. Nothing is deleted; only world state (ownership,
     // economy, missions, blocks) is wiped and every account is reset to the
     // fresh-start baseline below. The winner was recorded in hall_of_fame above.
 
@@ -174,7 +174,7 @@ export async function triggerGameReset(
       }),
     });
 
-    // 7b. Reset ALL non-goddess accounts (every human + every NPC + the Agent)
+    // 7b. Reset ALL non-goddess accounts (every human + every NPC)
     // to the same fresh-start baseline and leave them ownerless. Keep
     // onboardingComplete / avatar fields intact.
     // Set wasReset = 2 to indicate GAME reset (not account reset).

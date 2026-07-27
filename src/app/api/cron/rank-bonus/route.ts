@@ -11,18 +11,18 @@ import {
 import { pusher } from "@/lib/pusher-server";
 import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 // Allow up to 60 seconds for this function (Pro plan)
 export const maxDuration = 60;
 
 // Eligible for rank bonuses: real humans (isNpc=0) plus the 6 goddesses
-// (isNpc=1 but autonomous AI players). Excludes the chat-only support Agent
+// (isNpc=1 but autonomous AI players). Excludes the removed support Agent
 // and regular NPC cards.
 const eligibleForRewards = sql`(${users.isNpc} = 0 OR ${users.username} IN (${sql.join(
   GODDESS_USERNAMES.map((u) => sql`${u}`),
   sql`, `
-)}) AND ${users.username} NOT IN (${sql.join(AGENT_USERNAMES.map((u) => sql`${u}`), sql`, `)})`;
+)}) AND ${users.username} NOT IN (${sql.join(REMOVED_AGENT_USERNAMES.map((u) => sql`${u}`), sql`, `)})`;
 
 // Track last successful rank bonus distribution time
 let lastRankBonusTime: Date | null = null;

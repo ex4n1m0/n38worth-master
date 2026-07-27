@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, gameHistory } from "@/db/schema";
 import { eq, and, sql, desc, isNotNull, inArray, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export async function GET() {
     const [onlineHumans, getEvents, pumpEvents, topScore] = await Promise.all([
       // 1. Last 10 players online (sorted by lastOnlineAt desc — most recent
       //    first). Includes humans (isNpc=0) and the 6 goddesses (isNpc=1
-      //    but autonomous AI players). Excludes the chat-only support Agent.
+      //    but autonomous AI players). Excludes the removed support Agent.
       //    All must have an avatar to be visible.
       db
         .select({
@@ -38,7 +38,7 @@ export async function GET() {
           sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
           eq(users.isActive, 1),
           isNotNull(users.avatarUrl),
-          notInArray(users.username, [...AGENT_USERNAMES])
+          notInArray(users.username, [...REMOVED_AGENT_USERNAMES])
         ))
         .orderBy(desc(users.lastOnlineAt))
         .limit(5),

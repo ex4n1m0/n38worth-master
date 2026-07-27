@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { sql, eq, inArray, and, isNotNull, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export async function GET() {
   try {
     // ── 1. Fetch ALL players once (NO avatarUrl — base64 causes OOM on Neon) ──
     // Include the 6 goddesses (isNpc=1 but autonomous AI players) alongside
-    // humans (isNpc=0). Exclude the chat-only support Agent. All must have a
+    // humans (isNpc=0). Exclude the removed support Agent. All must have a
     // completed avatar to be visible.
     const allPlayers = await db
       .select({
@@ -28,7 +28,7 @@ export async function GET() {
         sql`${users.isNpc} = 0 OR ${users.username} IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`,
         isNotNull(users.avatarUrl),
         eq(users.avatarCompleted, 1),
-        notInArray(users.username, [...AGENT_USERNAMES])
+        notInArray(users.username, [...REMOVED_AGENT_USERNAMES])
       ));
 
     const totalPlayers = allPlayers.length;

@@ -1,25 +1,20 @@
 import { db } from "@/db";
 import { users, gameSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
-  AGENT_ROSTER,
   GODDESS_ROSTER,
-  AGENT_USERNAME,
+  REMOVED_AGENT_USERNAMES,
   type AgentDefinition,
 } from "@/lib/agent/roster";
 import { GODDESS_VALUES } from "@/lib/goddesses";
 
 export {
-  AGENT_ROSTER,
   GODDESS_ROSTER,
-  AGENT_USERNAME,
-  AGENT_AVATAR_URL,
-  AGENT_USERNAMES,
   GODDESS_AGENT_USERNAMES,
+  REMOVED_AGENT_USERNAMES,
   AI_PLAYER_USERNAMES,
-  getAgentDefinition,
   getAutonomousPlayerDefinition,
-  isAgentUsername,
+  isRemovedAgentUsername,
   isAIPlayerUsername,
   type AgentDefinition,
 } from "@/lib/agent/roster";
@@ -28,95 +23,31 @@ function idKey(username: string): string {
   return `agent_user_id_${username.toLowerCase()}`;
 }
 
-/** Ensures one AGI player exists and returns its user id. */
-export async function ensureAgent(definition: AgentDefinition = AGENT_ROSTER[0]): Promise<number> {
-  const key = idKey(definition.username);
-  const [cached] = await db
-    .select({ value: gameSettings.settingValue })
-    .from(gameSettings)
-    .where(eq(gameSettings.settingKey, key))
-    .limit(1);
-
-  if (cached?.value) {
-    const [existing] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, cached.value))
-      .limit(1);
-    if (existing) {
-      await db
-        .update(users)
-        .set({ avatarUrl: definition.avatarUrl, avatarCompleted: 1, isNpc: 0, isActive: 1, onboardingComplete: 1 })
-        .where(eq(users.id, existing.id));
-      return existing.id;
-    }
-  }
-
-  const [byName] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.username, definition.username))
-    .limit(1);
-
-  let agentId: number;
-  if (byName) {
-    agentId = byName.id;
-    await db
-      .update(users)
-      .set({ avatarUrl: definition.avatarUrl, avatarCompleted: 1, isNpc: 0, isActive: 1, onboardingComplete: 1 })
-      .where(eq(users.id, agentId));
-  } else {
-    const [created] = await db
-      .insert(users)
-      .values({
-        username: definition.username,
-        passwordHash: null,
-        avatarUrl: definition.avatarUrl,
-        avatarCompleted: 1,
-        credits: 100,
-        playerValue: 1,
-        valueFloor: 1,
-        isActive: 1,
-        isVerified: 0,
-        isNpc: 0,
-        onboardingComplete: 1,
-      })
-      .returning({ id: users.id });
-    agentId = created.id;
-  }
-
-  await db
-    .insert(gameSettings)
-    .values({ settingKey: key, settingValue: agentId })
-    .onConflictDoUpdate({
-      target: gameSettings.settingKey,
-      set: { settingValue: agentId, updatedAt: new Date() },
-    });
-
-  if (definition.username === AGENT_USERNAME) {
-    await db
-      .insert(gameSettings)
-      .values({ settingKey: "agent_user_id", settingValue: agentId })
-      .onConflictDoUpdate({
-        target: gameSettings.settingKey,
-        set: { settingValue: agentId, updatedAt: new Date() },
-      });
-  }
-
-  return agentId;
+/** Deactivates the historical support account if an old database still has it. */
+export async function deactivateRemovedAgents(): Promise<number> {
+  const updated = await db
+    .update(users)
+    .set({ isActive: 0, updatedAt: new Date() })
+    .where(
+      and(
+        inArray(users.username, [...REMOVED_AGENT_USERNAMES]),
+        eq(users.isActive, 1)
+      )
+    )
+    .returning({ id: users.id });
+  return updated.length;
 }
 
 /**
  * Ensures a goddess exists as an autonomous AI player and returns her user id.
  *
- * NON-DESTRUCTIVE on the goddess card: unlike ensureAgent, this never flips
- * isNpc, never overwrites her avatar / playerValue / valueFloor / isProtected /
- * credits / hireSlots. It only marks her as an active, fully-onboarded player
- * (isActive / avatarCompleted / onboardingComplete) so the runner and chat
- * treat her like any other AI actor. Goddesses are expected to already exist
- * (seeded by scripts/create-goddess-npcs.ts and preserved across resets via
- * isProtected=1); a missing goddess is created with her canonical value as a
- * fallback so the world stays playable.
+ * NON-DESTRUCTIVE on the goddess card: this never flips isNpc and never
+ * overwrites her avatar / playerValue / valueFloor / isProtected / credits /
+ * hireSlots. It only marks her as an active, fully-onboarded player so the
+ * runner treats her like any other autonomous player. Goddesses are expected
+ * to already exist (seeded by scripts/create-goddess-npcs.ts and preserved
+ * across resets via isProtected=1); a missing goddess is created with her
+ * canonical value as a fallback so the world stays playable.
  */
 export async function ensureGoddess(definition: AgentDefinition): Promise<number> {
   const key = idKey(definition.username);
@@ -190,16 +121,9 @@ export async function ensureGoddess(definition: AgentDefinition): Promise<number
   return goddessId;
 }
 
-/**
- * Ensures the complete AI roster — the chat-only Agent plus the 6 goddesses
- * (the only gameplay AI players) — and returns definitions paired with IDs.
- * The cron rotates through the 6 goddesses for gameplay; the Agent is never
- * picked for gameplay turns (chat-only).
- */
+/** Ensures the complete autonomous roster — now only the six goddesses. */
 export async function ensureAgents(): Promise<Array<AgentDefinition & { id: number }>> {
-  const defs = [...AGENT_ROSTER, ...GODDESS_ROSTER];
-  const ids = await Promise.all(
-    defs.map((def) => (def.isGoddess ? ensureGoddess(def) : ensureAgent(def)))
-  );
-  return defs.map((def, index) => ({ ...def, id: ids[index] }));
+  await deactivateRemovedAgents();
+  const ids = await Promise.all(GODDESS_ROSTER.map((def) => ensureGoddess(def)));
+  return GODDESS_ROSTER.map((def, index) => ({ ...def, id: ids[index] }));
 }

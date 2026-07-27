@@ -26,7 +26,7 @@ import { isAIPlayerUsername } from "@/lib/agent/roster";
  *   - Target must not be the admin themselves (self-delete keeps its own
  *     sign-out plumbing).
  *   - Target must not be protected (goddesses) and must not be an autonomous
- *     AI player (AGI agents or goddesses — they are permanent game fixtures).
+ *     goddess — they are permanent game fixtures.
  *     Regular NPC cards and human players CAN be deleted.
  *
  * Audit row uses `eventType: "admin_deletion"` and stores `actorId` =
@@ -64,7 +64,7 @@ export async function adminDeletePlayer(targetUserId: number) {
       return { error: "This account is protected and cannot be deleted." } as const;
     }
     if (isAIPlayerUsername(target.username)) {
-      return { error: "Autonomous AI players (AGIs and goddesses) cannot be deleted." } as const;
+      return { error: "Autonomous goddesses cannot be deleted." } as const;
     }
 
     const refundPerOwner = Math.floor(target.playerValue / 2);

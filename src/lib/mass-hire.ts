@@ -16,7 +16,7 @@ import { capPlayerValue, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { AGENT_USERNAMES, isAIPlayerUsername } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES, isAIPlayerUsername } from "@/lib/agent/roster";
 import {
   BONUS_CARD_COOLDOWN_MS,
   getBonusCooldownEnd,
@@ -42,7 +42,7 @@ export function getMassHireCooldownMs(): number {
 
 /**
  * Ensures the "Mass Hire" special NPC card exists in the database.
- * Returns its user id. Like the Agent seed, the id is cached in game_settings.
+ * Returns its user id. The id is cached in game_settings.
  */
 export async function ensureMassHireCard(): Promise<number> {
   const CACHE_KEY = "mass_hire_card_id";
@@ -205,8 +205,8 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const maxHires = Math.min(hireLimit, availableSlots);
 
     // 5. Build the candidate list, cheapest first (excluding self, Mass Hire,
-    //    goddesses, and every AGI). Both pools are fetched in parallel.
-    const excludedSpecialNames = [MASS_HIRE_USERNAME, ...GODDESS_USERNAMES, ...AGENT_USERNAMES];
+    //    goddesses, and the removed Agent). Both pools are fetched in parallel.
+    const excludedSpecialNames = [MASS_HIRE_USERNAME, ...GODDESS_USERNAMES, ...REMOVED_AGENT_USERNAMES];
     // Over-fetch 3x so skipped rows (races, unaffordable) don't starve the run,
     // but bound the scan so huge portfolios don't pull thousands of rows.
     const candidateFetchLimit = Math.min(maxHires * 3, 300);
@@ -408,8 +408,8 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .where(eq(users.id, target.id));
 
       // Create ownership with a 30-second sell block. Grant a permanent 24h block
-      // for the first 10 regular NPC cards this user acquires (not Goddesses,
-      // Agent, AGIs, or human players).
+      // for the first 10 regular NPC cards this user acquires (not Goddesses
+      // or human players).
       let permBlockUntil = null;
       if (remainingPermBlocks > 0 && target.isNpc === 1 && !isAIPlayerUsername(target.username)) {
         permBlockUntil = new Date(Date.now() + PERM_BLOCK_MS);

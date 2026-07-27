@@ -2,7 +2,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql, eq, or, and, notInArray } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
 
 /**
@@ -54,10 +54,8 @@ const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
  * Counts active human users whose `lastOnlineAt` heartbeat is within the
  * online threshold. NPCs and deactivated accounts are excluded.
  *
- * The AI Agent is also excluded: it is an `isNpc=0` player that refreshes its
- * own `lastOnlineAt` every turn, so counting it would create a self-sustaining
- * "online" state that kept the random-NPC cron firing every minute even when
- * no real human is present.
+ * The removed support Agent is also excluded so an old database row can never
+ * create a self-sustaining "online" state without a real human present.
  */
 export async function countOnlineHumans(): Promise<number> {
   const cutoff = new Date(Date.now() - ONLINE_THRESHOLD_MINUTES * 60 * 1000);
@@ -68,7 +66,7 @@ export async function countOnlineHumans(): Promise<number> {
       and(
         eq(users.isNpc, 0),
         eq(users.isActive, 1),
-        notInArray(users.username, AGENT_USERNAMES),
+        notInArray(users.username, [...REMOVED_AGENT_USERNAMES]),
         sql`${users.lastOnlineAt} >= ${cutoff}`
       )
     );
@@ -77,7 +75,7 @@ export async function countOnlineHumans(): Promise<number> {
 
 /**
  * Returns the highest owned-player count among all humans (excluding NPCs and
- * the Agent). Used by the Agent to avoid getting too far ahead of real players.
+ * the removed Agent). Used by goddesses to avoid getting too far ahead of real players.
  */
 export async function getTopHumanOwnedCount(): Promise<number> {
   // Literal "users"."id" — drizzle renders `${users.id}` unqualified in raw
@@ -86,7 +84,7 @@ export async function getTopHumanOwnedCount(): Promise<number> {
   const [row] = await db
     .select({ count: ownedCount.as("owned_count") })
     .from(users)
-    .where(and(eq(users.isNpc, 0), notInArray(users.username, AGENT_USERNAMES)))
+    .where(and(eq(users.isNpc, 0), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
     .orderBy(sql`${ownedCount} DESC`)
     .limit(1);
   return Number(row?.count ?? 0);

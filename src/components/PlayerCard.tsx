@@ -17,7 +17,6 @@ import {
   formatCompact,
 } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { isAgentUsername } from "@/lib/agent/roster";
 import { getProfessionImage } from "@/lib/professions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -189,8 +188,7 @@ function PlayerCardImpl({
 
   const isBonusCard = false;
   const isGoddess = GODDESS_USERNAMES.includes(username);
-  const isAgent = isAgentUsername(username);
-  const isSpecialCard = isAgent || isGoddess || isBonusCard;
+  const isSpecialCard = isGoddess || isBonusCard;
   const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
 
   const hasOwner = (ownerCount ?? 0) > 0;
@@ -573,7 +571,7 @@ function PlayerCardImpl({
   })();
 
   const canAssignProfession =
-    ownedIds.has(id) && !isGoddess && !isAgent && playerType !== "human" && !isOwnProfile;
+    ownedIds.has(id) && !isGoddess && playerType !== "human" && !isOwnProfile;
 
   const showMeta = effectiveProfession || leaderboardMode;
 
@@ -726,7 +724,7 @@ function PlayerCardImpl({
           />
         )}
 
-        {ownedIds.has(id) && !isGoddess && !isAgent && playerType !== "human" && (
+        {ownedIds.has(id) && !isGoddess && playerType !== "human" && (
           <PermBlockButton
             targetId={id}
             targetUsername={username}

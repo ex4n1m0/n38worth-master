@@ -9,6 +9,7 @@ import {
   MOST_EXPENSIVE_GODDESS_ECONOMY_SHARE,
   MOST_EXPENSIVE_GODDESS_MIN_VALUE,
 } from "@/lib/goddesses";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 // Each press extends the partnership by 10 minutes. The cost equals the
 // goddess's current value and is BURNED (removed from the economy — not paid to
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
     if (target.username === MOST_EXPENSIVE_GODDESS) {
       const [econ] = await db
         .select({
-          total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
+          total: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${sql.join(REMOVED_AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `)}) THEN credits ELSE 0 END), 0)`,
         })
         .from(users);
       cost = Math.max(

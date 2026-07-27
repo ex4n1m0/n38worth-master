@@ -3,14 +3,15 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, desc, and, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 // Humans must have an avatar to be visible; NPCs always visible.
 // Used inside `and(...)` — combine with isNpc=0 checks to form: human + has avatar.
 const humanVisibleSql = sql`("users"."avatar_url" IS NOT NULL AND "users"."avatar_completed" = 1)`;
-// Exclude the chat-only support Agent from leaderboard queries — it's not a
+// Exclude the removed support Agent from leaderboard queries — it's not a
 // real player and shouldn't appear in rankings.
-const excludeAgentSql = notInArray(users.username, [...AGENT_USERNAMES]);
+const excludeAgentSql = notInArray(users.username, [...REMOVED_AGENT_USERNAMES]);
+const removedAgentNamesSql = sql.join(REMOVED_AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -65,31 +66,31 @@ export async function GET(req: Request) {
           db
             .select({ position: sql<number>`COUNT(*) + 1` })
             .from(users)
-            .where(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = users.id) > ${ownedCount} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+            .where(sql`(SELECT COUNT(*) FROM ownership o WHERE o.owner_id = users.id) > ${ownedCount} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1 AND users.username NOT IN (${removedAgentNamesSql})`),
 
           // Legacy position (account age)
           db
             .select({ position: sql<number>`COUNT(*) + 1` })
             .from(users)
-            .where(sql`users.created_at < ${currentUser.createdAt} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+            .where(sql`users.created_at < ${currentUser.createdAt} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1 AND users.username NOT IN (${removedAgentNamesSql})`),
 
           // Credits position
           db
             .select({ position: sql<number>`COUNT(*) + 1` })
             .from(users)
-            .where(sql`users.credits > ${credits} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+            .where(sql`users.credits > ${credits} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1 AND users.username NOT IN (${removedAgentNamesSql})`),
 
           // Value position
           db
             .select({ position: sql<number>`COUNT(*) + 1` })
             .from(users)
-            .where(sql`users.player_value > ${playerValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+            .where(sql`users.player_value > ${playerValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1 AND users.username NOT IN (${removedAgentNamesSql})`),
 
           // Portfolio position
           db
             .select({ position: sql<number>`COUNT(*) + 1` })
             .from(users)
-            .where(sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1`),
+            .where(sql`COALESCE((SELECT SUM(u2.player_value * (1 + (SELECT COUNT(*) FROM ownership o3 WHERE o3.owner_id = u2.id))) FROM ownership o JOIN users u2 ON o.owned_id = u2.id WHERE o.owner_id = users.id), 0) * GREATEST((SELECT COUNT(*) FROM ownership o4 WHERE o4.owned_id = users.id), 1) > ${portfolioValue} AND users.is_npc = 0 AND users.avatar_url IS NOT NULL AND users.avatar_completed = 1 AND users.username NOT IN (${removedAgentNamesSql})`),
         ]);
 
         const empirePosition = empireRows[0];

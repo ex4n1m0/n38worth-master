@@ -18,8 +18,7 @@ interface ActiveBlock {
 
 /**
  * A card is eligible for a perm block only if it's a regular NPC — i.e. an NPC
- * that is NOT an AI player (Goddess, Agent, or any AGI). Human players and all
- * AI players are excluded.
+ * that is NOT a goddess. Human players and goddesses are excluded.
  */
 async function isPermEligible(targetId: number): Promise<boolean> {
   const [target] = await db
@@ -57,8 +56,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "You do not own this player" }, { status: 403 });
     }
 
-    // Perm blocks can only be assigned to regular NPC cards — not to Goddesses,
-    // the Agent, other AGIs, or human players.
+    // Perm blocks can only be assigned to regular NPC cards — not to Goddesses
+    // or human players.
     const eligible = await isPermEligible(targetId);
     if (!eligible) {
       return NextResponse.json(

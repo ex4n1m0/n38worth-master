@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 /**
  * Serves a player's avatar as a raw image response (with proper Content-Type
@@ -19,6 +20,10 @@ export async function GET(
   { params }: { params: Promise<{ username: string }> }
 ) {
   const { username } = await params;
+
+  if (REMOVED_AGENT_USERNAMES.includes(username)) {
+    return new NextResponse("Not found", { status: 404 });
+  }
 
   const [user] = await db
     .select({ avatarUrl: users.avatarUrl })

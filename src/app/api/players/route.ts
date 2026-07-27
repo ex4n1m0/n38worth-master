@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, ilike, desc, asc, and, ne, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 
 export async function GET(req: Request) {
@@ -160,9 +160,9 @@ export async function GET(req: Request) {
     // separately at the top-left of the market page.
     conditions.push(sql`"users"."username" <> 'Mass Hire'`);
 
-    // Exclude the chat-only support Agent — it's not a hireable card and
+    // Exclude the removed support Agent — it's not a hireable card and
     // shouldn't appear in the player browser.
-    conditions.push(notInArray(users.username, [...AGENT_USERNAMES]));
+    conditions.push(notInArray(users.username, [...REMOVED_AGENT_USERNAMES]));
 
     // Hide onboarding NPCs from other players until the creator completes onboarding
     if (currentUserId) {

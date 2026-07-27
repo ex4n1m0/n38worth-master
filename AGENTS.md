@@ -83,24 +83,22 @@
   Public GET routes are CDN-cached (see Conventions). Keep new polling ≥2 min
   and prefer Pusher events over polling.
 
-## Autonomous AI players (6 goddesses + 1 chat-only Agent)
-- **Roster:** `src/lib/agent/roster.ts` defines `AGENT_ROSTER` (1 chat-only
-  support Agent) and `GODDESS_ROSTER` (6 goddesses — the only gameplay AI
-  players). `AI_PLAYER_USERNAMES` combines both. `isAgentUsername` = Agent
-  only; `isAIPlayerUsername` = Agent or any goddess.
-- **Seeding:** `ensureAgent` (Agent, sets isNpc=0, chat-only) vs
-  `ensureGoddess` (non-destructive — never flips isNpc/overwrites
-  avatar/value). Both are called by `ensureAgents` which returns all 7.
+## Autonomous AI players (6 goddesses)
+- **Roster:** `src/lib/agent/roster.ts` defines `GODDESS_ROSTER` — the six
+  goddesses are the only gameplay AI players. `AI_PLAYER_USERNAMES` contains
+  only goddesses. The historical chat-support `Agent` account is listed in
+  `REMOVED_AGENT_USERNAMES` so old databases keep it hidden and unhireable.
+- **Seeding:** `ensureGoddess` is non-destructive — it never flips isNpc or
+  overwrites avatar/value. `ensureAgents` returns only the six goddesses and
+  deactivates any historical removed-Agent row (`isActive=0`) without deleting
+  data.
 - **Cadence:** `/api/cron/agent` fires every 30 min (reduced from 1 min for
-  Vercel cost savings), picks 2 goddesses per tick. The Agent is never picked
-  for gameplay.
-  Per-agent last-play gate in `runner.ts`: ACTIVE (humans online) = 6-min
-  interval; IDLE (no humans) = 60-min interval. AI players earn credits via
-  the same portfolio-reward + rank-bonus crons as humans (goddesses included
-  via `isNpc=0 OR username IN (GODDESS_USERNAMES)` filter).
-- **Chat:** `maybeAgentChat` uses the LLM only, shared 1-min reply cooldown,
-  hard-gates on human presence (no AI chat in empty rooms). Only the Agent
-  speaks — it acts as a technical-support agent, answering game-related
-  questions from humans. All other AI players are silent.
-- **Agent is not a hireable card:** `purchaseCore.ts` rejects attempts to
-  hire the Agent (`isAgentUsername` check on the target).
+  Vercel cost savings), picks 2 goddesses per tick. Per-agent last-play gate
+  in `runner.ts`: ACTIVE (humans online) = 6-min interval; IDLE (no humans) =
+  60-min interval. AI players earn credits via the same portfolio-reward +
+  rank-bonus crons as humans (goddesses included via `isNpc=0 OR username IN
+  (GODDESS_USERNAMES)` filter).
+- **Chat:** the support Agent was removed — `src/lib/agent/chat.ts` is deleted,
+  no `agent-typing` Pusher event is emitted, and no AI player ever speaks.
+- **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
+  to hire it (`isRemovedAgentUsername` check on the target).

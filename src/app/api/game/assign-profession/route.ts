@@ -4,7 +4,6 @@ import { db } from "@/db";
 import { users, ownership, gameHistory } from "@/db/schema";
 import { and, eq, ne, isNotNull, sql, inArray } from "drizzle-orm";
 import { PROFESSIONS } from "@/lib/professions";
-import { isAgentUsername } from "@/lib/agent/roster";
 import { capPlayerValue } from "@/lib/safeguards";
 
 const CHANGE_UNIT_COST = 1000;
@@ -73,9 +72,7 @@ export async function POST(request: Request) {
     if (!npc) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    // Allow assigning professions to NPC cards and roster AGIs (isNpc=0 but
-    // autonomous players, not regular humans).
-    if (npc.isNpc !== 1 && !isAgentUsername(npc.username)) {
+    if (npc.isNpc !== 1) {
       return NextResponse.json({ error: "Can only assign professions to NPC cards" }, { status: 400 });
     }
     if (npc.profession === profession) {

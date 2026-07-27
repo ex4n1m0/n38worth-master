@@ -3,20 +3,20 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql, eq, and, notInArray } from "drizzle-orm";
 import { ONLINE_THRESHOLD_MINUTES } from "@/lib/random-player";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const agiNamesSql = sql.join(AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
+    const removedAgentNamesSql = sql.join(REMOVED_AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
     const result = await db
       .select({
-        totalPlayers: sql<number>`COUNT(*)`,
-        totalCredits: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
-        totalValues: sql<number>`COALESCE(SUM(player_value), 0)`,
+        totalPlayers: sql<number>`COUNT(*) FILTER (WHERE username NOT IN (${removedAgentNamesSql}))`,
+        totalCredits: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${removedAgentNamesSql}) THEN credits ELSE 0 END), 0)`,
+        totalValues: sql<number>`COALESCE(SUM(CASE WHEN username NOT IN (${removedAgentNamesSql}) THEN player_value ELSE 0 END), 0)`,
         totalNpcs: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 1 THEN 1 ELSE 0 END), 0)`,
-        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${agiNamesSql}) THEN 1 ELSE 0 END), 0)`,
+        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${removedAgentNamesSql}) THEN 1 ELSE 0 END), 0)`,
       })
       .from(users);
 
@@ -25,7 +25,7 @@ export async function GET() {
 
     // Online humans: same definition as the random-player cron (lastOnlineAt
     // heartbeat within the online threshold, excluding NPCs, deactivated
-    // accounts, and the AI Agent).
+    // accounts, and the removed Agent).
     const cutoff = new Date(Date.now() - ONLINE_THRESHOLD_MINUTES * 60 * 1000);
     const [onlineRow] = await db
       .select({ count: sql<number>`COUNT(*)::int` })
@@ -34,7 +34,7 @@ export async function GET() {
         and(
           eq(users.isNpc, 0),
           eq(users.isActive, 1),
-          notInArray(users.username, AGENT_USERNAMES),
+          notInArray(users.username, [...REMOVED_AGENT_USERNAMES]),
           sql`${users.lastOnlineAt} >= ${cutoff}`
         )
       );

@@ -27,7 +27,6 @@ import { useCredits } from "@/hooks/useCredits";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { isAgentUsername } from "@/lib/agent/roster";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
@@ -135,8 +134,7 @@ export default function PlayerProfilePage() {
   });
 
   const { data: credits } = useCredits();
-  const isSpecialCard =
-    !!player?.username && (GODDESS_USERNAMES.includes(player.username) || isAgentUsername(player.username));
+  const isSpecialCard = !!player?.username && GODDESS_USERNAMES.includes(player.username);
   const heroAvatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const heroProfession = isSpecialCard ? null : player?.profession ?? null;
   const professionImage = getProfessionImage(heroProfession);
@@ -424,7 +422,7 @@ export default function PlayerProfilePage() {
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20">
               {isNpc ? <CreditCard className="h-3 w-3" /> : <User className="h-3 w-3" />}
-              {isAgentUsername(player.username) ? "AGI" : isNpc ? "NPC" : "Human"}
+              {isNpc ? "NPC" : "Human"}
             </span>
             {(player.photoScore ?? 0) > 0 && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-amber-300 bg-amber-500/10 border-amber-500/30">

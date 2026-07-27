@@ -385,9 +385,7 @@ export default function Home() {
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
                 You&apos;re not only up against humans. Six autonomous divine players hunt cards
-                around the clock — they buy, pump and poach just like you, but never speak. A
-                separate support Agent is the one you&apos;ll meet in chat: ask it anything about
-                the game and it answers while other humans are online.
+                around the clock — they buy, pump and poach just like you, but never speak.
               </p>
             </section>
 

@@ -14,22 +14,8 @@ export interface AgentDefinition {
 }
 
 /**
- * The support Agent — chat-only, no gameplay. Exists solely to answer game
- * questions in Global Chat. Not a hireable card, not picked for cron turns.
- */
-export const AGENT_ROSTER: readonly AgentDefinition[] = [
-  {
-    username: "Agent",
-    avatarUrl: "/NewAIPlayer.webp",
-    identity: "the support AGI",
-    personality: "Professional, helpful, and concise — a technical-support specialist who answers game questions.",
-  },
-] as const;
-
-/**
- * The six goddesses, now also autonomous AI players. They reuse the exact same
- * runner/strategy/heuristic gameplay as the AGI roster and use the LLM only for
- * chat — same as the agents. Each speaks in-character for her domain.
+ * The six goddesses are the only autonomous AI players. They reuse the shared
+ * runner/strategy/heuristic gameplay and each has her own identity.
  *
  * Usernames MUST match GODDESS_USERNAMES in src/lib/goddesses.ts exactly.
  * `avatarUrl` is intentionally empty: goddess avatars are seeded into the DB
@@ -80,47 +66,30 @@ export const GODDESS_ROSTER: readonly AgentDefinition[] = [
   },
 ] as const;
 
-export const AGENT_USERNAME = AGENT_ROSTER[0].username;
-export const AGENT_AVATAR_URL = AGENT_ROSTER[0].avatarUrl;
-export const AGENT_USERNAMES = AGENT_ROSTER.map((agent) => agent.username);
 export const GODDESS_AGENT_USERNAMES = GODDESS_ROSTER.map((g) => g.username);
 
 /**
- * Every autonomous AI actor — the chat-only Agent plus the 6 goddesses (the
- * only gameplay AI players). Used to keep AI players out of "human" counts and
- * to prevent AI→AI chat loops. Goddesses are also `isNpc=1` so most human-count
- * filters already exclude them, but this set is the authoritative "is this an
- * AI actor?" check for chat + gameplay gates.
+ * Historical chat-support account removed from the game. Keep it excluded even
+ * though it is no longer seeded: older databases may still contain the row.
  */
-export const AI_PLAYER_USERNAMES: readonly string[] = [
-  ...AGENT_USERNAMES,
-  ...GODDESS_AGENT_USERNAMES,
-];
+export const REMOVED_AGENT_USERNAMES: readonly string[] = ["Agent"];
 
-/** True for the chat-only support Agent (NOT the goddesses). For display labels. */
-export function isAgentUsername(username: string | null | undefined): boolean {
-  return !!username && AGENT_USERNAMES.includes(username);
+/** The only autonomous AI actors now: the six goddesses. */
+export const AI_PLAYER_USERNAMES: readonly string[] = GODDESS_AGENT_USERNAMES;
+
+/** True for a removed support account that must stay hidden and unhireable. */
+export function isRemovedAgentUsername(username: string | null | undefined): boolean {
+  return !!username && REMOVED_AGENT_USERNAMES.includes(username);
 }
 
-/** True for any autonomous AI actor — the Agent OR a goddess. */
+/** True for any current autonomous AI actor — a goddess. */
 export function isAIPlayerUsername(username: string | null | undefined): boolean {
   return !!username && AI_PLAYER_USERNAMES.includes(username);
 }
 
-export function getAgentDefinition(username: string): AgentDefinition | undefined {
-  return AGENT_ROSTER.find((agent) => agent.username === username);
-}
-
-/**
- * Looks up the autonomous-player definition (identity + personality) for either
- * an AGI agent or a goddess. Used by the chat layer so every AI player speaks
- * in its own voice.
- */
+/** Looks up a goddess's autonomous-player definition. */
 export function getAutonomousPlayerDefinition(
   username: string
 ): AgentDefinition | undefined {
-  return (
-    AGENT_ROSTER.find((a) => a.username === username) ??
-    GODDESS_ROSTER.find((g) => g.username === username)
-  );
+  return GODDESS_ROSTER.find((g) => g.username === username);
 }

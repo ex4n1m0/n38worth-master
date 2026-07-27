@@ -5,7 +5,7 @@ import { sql, eq, desc, and, inArray, notInArray } from "drizzle-orm";
 import { getCountdownState } from "@/lib/goddess-countdown";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { ONLINE_THRESHOLD_MINUTES } from "@/lib/random-player";
-import { AGENT_USERNAMES } from "@/lib/agent/roster";
+import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
 export const dynamic = "force-dynamic";
 
@@ -16,16 +16,16 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    const agiNamesSql = sql.join(AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
+    const removedAgentNamesSql = sql.join(REMOVED_AGENT_USERNAMES.map((name) => sql`${name}`), sql`, `);
 
     // 1. Game stats
     const [statsRow] = await db
       .select({
-        totalPlayers: sql<number>`COUNT(*)`,
-        totalCredits: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 THEN credits ELSE 0 END), 0)`,
-        totalValues: sql<number>`COALESCE(SUM(player_value), 0)`,
+        totalPlayers: sql<number>`COUNT(*) FILTER (WHERE username NOT IN (${removedAgentNamesSql}))`,
+        totalCredits: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${removedAgentNamesSql}) THEN credits ELSE 0 END), 0)`,
+        totalValues: sql<number>`COALESCE(SUM(CASE WHEN username NOT IN (${removedAgentNamesSql}) THEN player_value ELSE 0 END), 0)`,
         totalNpcs: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 1 THEN 1 ELSE 0 END), 0)`,
-        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${agiNamesSql}) THEN 1 ELSE 0 END), 0)`,
+        totalHumans: sql<number>`COALESCE(SUM(CASE WHEN is_npc = 0 AND username NOT IN (${removedAgentNamesSql}) THEN 1 ELSE 0 END), 0)`,
       })
       .from(users);
 
@@ -33,7 +33,7 @@ export async function GET() {
     const [onlineRow] = await db
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(users)
-      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, AGENT_USERNAMES), sql`${users.lastOnlineAt} >= ${cutoff}`));
+      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES]), sql`${users.lastOnlineAt} >= ${cutoff}`));
 
     // 2. Recent game events (last 20) for the activity ticker
     const events = await db
@@ -111,7 +111,7 @@ export async function GET() {
       };
     }
 
-    // 5. Top player for profile teaser (highest value human, not Agent)
+    // 5. Top player for profile teaser (highest value human, not removed Agent)
     const [topPlayer] = await db
       .select({
         id: users.id,
@@ -121,7 +121,7 @@ export async function GET() {
         profession: users.profession,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, AGENT_USERNAMES)))
+      .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
       .orderBy(desc(users.playerValue))
       .limit(1);
 
@@ -143,7 +143,7 @@ export async function GET() {
         playerValue: users.playerValue,
       })
       .from(users)
-      .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), notInArray(users.username, AGENT_USERNAMES), sql`${users.username} NOT LIKE 'Goddess%'`))
+      .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES]), sql`${users.username} NOT LIKE 'Goddess%'`))
       .orderBy(desc(users.playerValue))
       .limit(72);
 
