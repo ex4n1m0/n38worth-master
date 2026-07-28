@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
 import { UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
@@ -22,8 +21,12 @@ interface OwnedPlayer {
  * Avatar grid of the cards a player owns, same look & feel as the landing
  * page's "Highest-Value NPC Cards" grid. Shows the most valuable owned cards
  * that fit, sorted top-left → bottom-right. Every avatar links to that
- * card's profile page. Avatars are ALWAYS visible here (no hidden-card
- * masking) — it's a showcase of the player's collection.
+ * card's profile page.
+ *
+ * Avatars are ALWAYS visible here (no hidden-card masking) — it's a showcase
+ * of the player's collection. Images are served via the public, CDN-cached
+ * /api/avatar/[username] route so it works identically on your own profile
+ * and on anyone else's, at ~zero function cost.
  */
 export function OwnedAvatarGrid({
   ownerUsername,
@@ -42,28 +45,6 @@ export function OwnedAvatarGrid({
     [players]
   );
 
-  // On your own profile the lite team query strips avatars — fetch the real
-  // ones for the grid ids (same endpoint + cache key the team grid uses).
-  const gridIds = useMemo(
-    () => topPlayers.map((p) => p.id).sort((a, b) => a - b),
-    [topPlayers]
-  );
-  const { data: avatarsData } = useQuery<{ avatarMap: Record<string, string | null> }>({
-    queryKey: ["owned-avatars", ownerUsername, gridIds],
-    queryFn: async () => {
-      const res = await fetch(`/api/players/${ownerUsername}/owned-avatars`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: gridIds }),
-      });
-      if (!res.ok) return { avatarMap: {} };
-      return res.json();
-    },
-    enabled: isOwnProfile && gridIds.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-  const avatarMap = avatarsData?.avatarMap ?? {};
-
   if (topPlayers.length === 0) return null;
 
   return (
@@ -76,30 +57,29 @@ export function OwnedAvatarGrid({
         </span>
       </h2>
       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
-        {topPlayers.map((p) => {
-          const rawUrl = isOwnProfile
-            ? avatarMap[String(p.id)] ?? p.avatarUrl
-            : p.avatarUrl;
-          const src = rawUrl || UNHIRED_AVATAR_SRC;
-          return (
-            <Link
-              key={p.id}
-              href={`/players/${encodeURIComponent(p.username)}`}
-              title={`${p.username} — ${formatCompact(p.playerValue)}¢`}
-              aria-label={`View ${p.username}'s profile`}
-              className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative block hover:border-white/40 hover:scale-[1.03] transition-all"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={src}
-                alt={p.username}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            </Link>
-          );
-        })}
+        {topPlayers.map((p) => (
+          <Link
+            key={p.id}
+            href={`/players/${encodeURIComponent(p.username)}`}
+            title={`${p.username} — ${formatCompact(p.playerValue)}¢`}
+            aria-label={`View ${p.username}'s profile`}
+            className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative block hover:border-white/40 hover:scale-[1.03] transition-all"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`/api/avatar/${encodeURIComponent(p.username)}`}
+              alt={p.username}
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                // No avatar stored (404) → masked placeholder.
+                const el = e.currentTarget;
+                if (!el.src.endsWith(UNHIRED_AVATAR_SRC)) el.src = UNHIRED_AVATAR_SRC;
+              }}
+              className="h-full w-full object-cover"
+            />
+          </Link>
+        ))}
       </div>
     </div>
   );
