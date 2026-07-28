@@ -30,6 +30,7 @@ import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { RevealCard } from "@/components/RevealCard";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
+import { useOthersOwnPlayers } from "@/hooks/useOthersOwnPlayers";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
@@ -156,7 +157,14 @@ function BrowsePlayersSection({
   // Infinite scroll: cards load in batches as the user approaches the bottom
   // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
   const pageSize = 48;
+  // "Others Owned" defaults to ON when other players actually own cards (same
+  // behavior as the market /players page), so players land on a view with
+  // stealable targets. Falls back to "none" (No Owner) when nobody else owns
+  // anything. Manual clicks after mount are authoritative — the effect below
+  // only sets the initial default once.
+  const othersOwnPlayers = useOthersOwnPlayers();
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
+  const [ownerFilterInitialized, setOwnerFilterInitialized] = useState(false);
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   // "Affordable" hides owned cards and any card the user can't currently buy
@@ -180,6 +188,15 @@ function BrowsePlayersSection({
     refetchInterval: 300 * 1000,
   });
   const activePerks = new Set(perksData?.activeProfessions ?? []);
+
+  // Settle the ownerFilter default once the other-owners check resolves. Only
+  // runs once (guarded by ownerFilterInitialized) so manual clicks win after.
+  useEffect(() => {
+    if (!ownerFilterInitialized && othersOwnPlayers !== undefined) {
+      setOwnerFilter(othersOwnPlayers ? "other" : "none");
+      setOwnerFilterInitialized(true);
+    }
+  }, [othersOwnPlayers, ownerFilterInitialized]);
 
   const {
     data,
@@ -330,22 +347,27 @@ function BrowsePlayersSection({
           })}
         </div>
         )}
-        {/* Row 1: My Owned, Others Owned, No Owner, Owns */}
+        {/* Row 1: My Owned, Others Owned, No Owner, Owns. All four buttons
+            share one footprint (fixed min-width) and identical hover/press
+            effects — only the color tokens change between on and off. */}
         <div className="flex gap-2 flex-wrap">
-          {OWNER_FILTERS.map((f) => (
+          {OWNER_FILTERS.map((f) => {
+            const isOn = ownerFilter === f.key;
+            return (
             <Button
               key={f.key}
               variant="ghost"
               size="sm"
               onClick={() => {
                 play("toggle");
-                setOwnerFilter(ownerFilter === f.key ? "" : f.key);
+                setOwnerFilter(isOn ? "" : f.key);
               }}
-              className={
-                ownerFilter === f.key
-                  ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                  : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-              }
+              aria-pressed={isOn}
+              className={`rounded-lg border font-semibold min-w-[8.25rem] justify-center transition-colors active:scale-95 ${
+                isOn
+                  ? "border-amber-500/60 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15 hover:text-amber-200"
+                  : "border-gray-700 bg-transparent text-gray-400 hover:text-white hover:border-gray-500 hover:bg-white/5"
+              }`}
             >
               {f.key === "none" ? (
                 <Crown className="h-3.5 w-3.5 mr-1" />
@@ -354,7 +376,8 @@ function BrowsePlayersSection({
               )}
               {f.label}
             </Button>
-          ))}
+            );
+          })}
         </div>
         {/* Row 2: Value, sort direction, Last Online */}
         <div className="flex gap-2 flex-wrap">
