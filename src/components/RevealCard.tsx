@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Eye, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCooldowns";

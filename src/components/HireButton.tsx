@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { ShoppingCart, Loader2, Shield } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";

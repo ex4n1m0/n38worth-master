@@ -15,7 +15,7 @@ import {
   Loader2,
   CirclePlus,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { useSound } from "@/hooks/useSound";

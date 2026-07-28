@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Loader2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";

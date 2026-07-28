@@ -15,6 +15,7 @@ import { ChatNotificationBell } from "./ChatNotificationBell";
 import { GlobalInfoBar } from "./GlobalInfoBar";
 import { MissionProgress } from "./MissionProgress";
 import { CoachMark } from "./CoachMark";
+import { EventFeedBar } from "./EventFeedBar";
 import { WorldRebootingOverlay } from "./WorldRebootingOverlay";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import {
@@ -99,7 +100,6 @@ export function Navbar() {
 
   // Briefly "bump" the credits counter whenever a poach payday lands.
   const bumpKey = usePoachStore((s) => s.bumpKey);
-  const poachEvent = usePoachStore((s) => s.event);
   const [creditsBump, setCreditsBump] = useState(false);
   useEffect(() => {
     if (bumpKey === 0) return;
@@ -390,28 +390,9 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Poach feed — own row below credits bar (inside sticky block) */}
-      {poachEvent && (
-        <div className="border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
-          <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
-            <div
-              key={poachEvent.id}
-              className="poach-pop flex items-center gap-2 sm:gap-3 py-1.5 pl-4 min-w-0 overflow-hidden"
-            >
-              <span className="truncate text-xs sm:text-sm font-bold text-gray-100">
-                <span className="text-yellow-400">{poachEvent.buyer}</span> hired{" "}
-                <span className="text-white">{poachEvent.player}</span>
-              </span>
-              <span
-                className="poach-coins font-mono font-bold text-orange-400"
-                style={{ fontSize: "clamp(0.55rem, 1vw, 0.77rem)" }}
-              >
-                +{formatCompact(poachEvent.amount)}¢
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Game event feed — own row below credits bar (inside sticky block).
+          Latest event always visible inline; expands to recent history. */}
+      <EventFeedBar />
 
       </div>{/* end sticky header block */}
 

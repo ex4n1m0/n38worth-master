@@ -11,7 +11,7 @@ import { Settings, Loader2, UserCog, CheckCircle2, Camera, Volume2, VolumeX } fr
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { redirect } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound, useSoundSettings } from "@/hooks/useSound";
 

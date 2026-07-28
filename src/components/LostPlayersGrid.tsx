@@ -135,6 +135,7 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
             isVerified={player.isVerified}
             ownerName={player.currentOwnerUsername}
             leaderboardMode
+            alwaysShowAvatar
           />
         ))}
       </div>

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getPusherClient } from "@/lib/pusher-client";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 

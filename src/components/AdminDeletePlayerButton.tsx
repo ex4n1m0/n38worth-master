@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Trash2, Loader2, AlertTriangle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

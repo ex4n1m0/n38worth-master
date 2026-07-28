@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { formatCompact } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 import { CoachMark } from "@/components/CoachMark";

@@ -7,7 +7,7 @@ import { Crown, User, ShoppingCart, Loader2, Shield, Lock, Clock, Power } from "
 import Link from "next/link";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";

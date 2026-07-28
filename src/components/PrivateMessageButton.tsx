@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MessageCircle, Send, Lock, Loader2, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { getPusherClient } from "@/lib/pusher-client";
 import { useSound } from "@/hooks/useSound";
 

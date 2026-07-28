@@ -22,7 +22,7 @@ import {
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";

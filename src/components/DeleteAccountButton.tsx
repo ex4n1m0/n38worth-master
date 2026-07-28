@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Trash2, Loader2, AlertTriangle } from "lucide-react";
 import {
   Dialog,

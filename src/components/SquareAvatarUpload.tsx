@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Gift } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";

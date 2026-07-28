@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Shield, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

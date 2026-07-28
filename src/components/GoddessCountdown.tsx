@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Crown, Timer, Swords, Sparkles } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { playSound } from "@/hooks/useSound";
 
 interface CountdownData {

@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   Crown,
   Users,
+  UserX,
   Loader2,
   Search,
   User,
@@ -26,6 +27,7 @@ import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
 import { LockedFeature } from "@/components/LockedFeature";
 import { CoachMark } from "@/components/CoachMark";
+import { FilterPill } from "@/components/PlayerFilters";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
@@ -40,10 +42,10 @@ import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 
 const OWNER_FILTERS = [
-  { key: "other", label: "Others Owned" },
-  { key: "mine", label: "My Owned" },
-  { key: "none", label: "No Owner" },
-  { key: "owns", label: "Owns" },
+  { key: "other", label: "Stealable" },
+  { key: "mine", label: "Mine" },
+  { key: "none", label: "Free" },
+  { key: "owns", label: "Has Team" },
 ] as const;
 
 export default function LeaderboardPage() {
@@ -386,139 +388,92 @@ function BrowsePlayersSection({
             threshold={UNLOCK_GAME_THRESHOLD}
           />
         )}
-        {/* Row 1: My Owned, Others Owned, No Owner, Owns. All four buttons
-            share one footprint (fixed min-width) and identical hover/press
-            effects — only the color tokens change between on and off. */}
-        <div className="flex gap-2 flex-wrap">
-          {OWNER_FILTERS.map((f) => {
-            const isOn = ownerFilter === f.key;
-            return (
-            <Button
-              key={f.key}
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                play("toggle");
-                setOwnerFilter(isOn ? "" : f.key);
-              }}
-              aria-pressed={isOn}
-              className={`rounded-lg border font-semibold min-w-[8.25rem] justify-center transition-colors active:scale-95 ${
-                isOn
-                  ? "border-amber-500/60 bg-amber-500/10 text-amber-300 hover:bg-amber-500/15 hover:text-amber-200"
-                  : "border-gray-700 bg-transparent text-gray-400 hover:text-white hover:border-gray-500 hover:bg-white/5"
-              }`}
-            >
-              {f.key === "none" ? (
-                <Crown className="h-3.5 w-3.5 mr-1" />
-              ) : (
-                <Users className="h-3.5 w-3.5 mr-1" />
-              )}
-              {f.label}
-            </Button>
-            );
-          })}
-        </div>
-        {/* Row 2: Value, sort direction, Last Online */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="ghost"
-            size="sm"
+        {/* Filters — three labeled rows, one pill style everywhere
+            (FilterPill, amber = active). Sort is single-select: tapping the
+            active sort pill flips its direction. "All" makes the empty
+            (no-filter) state explicit and tappable. */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 mr-1">Sort:</span>
+          <FilterPill
+            active={sort === "value"}
             onClick={() => {
               play("toggle");
-              setSort("value");
+              if (sort === "value") setDir((d) => (d === "asc" ? "desc" : "asc"));
+              else setSort("value");
             }}
-            className={
-              sort === "value"
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-            }
+            tone="amber"
+            title="Sort by card value — tap again to flip direction"
           >
             Value
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+            {sort === "value" && (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+          </FilterPill>
+          <FilterPill
+            active={sort === "last-online"}
             onClick={() => {
               play("toggle");
-              setDir(dir === "asc" ? "desc" : "asc");
+              if (sort === "last-online") setDir((d) => (d === "asc" ? "desc" : "asc"));
+              else setSort("last-online");
             }}
-            title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-            className="rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-          >
-            {dir === "asc" ? <ArrowUp className="h-3.5 w-3.5 mr-1" /> : <ArrowDown className="h-3.5 w-3.5 mr-1" />}
-            {dir === "asc" ? "Asc" : "Desc"}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              play("toggle");
-              setSort("last-online");
-            }}
-            className={
-              sort === "last-online"
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-            }
+            tone="amber"
+            title="Sort by last online — tap again to flip direction"
           >
             Last Online
-          </Button>
+            {sort === "last-online" && (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+          </FilterPill>
         </div>
-        {/* Row 3: Humans, NPC */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              play("toggle");
-              setPlayerType(playerType === "human" ? "" : "human");
-            }}
-            className={
-              playerType === "human"
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-            }
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 mr-1">Owner:</span>
+          <FilterPill
+            active={ownerFilter === ""}
+            onClick={() => { play("toggle"); setOwnerFilter(""); }}
+            tone="amber"
           >
-            <User className="h-3.5 w-3.5 mr-1" />
-            Humans
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              play("toggle");
-              setPlayerType(playerType === "card" ? "" : "card");
-            }}
-            className={
-              playerType === "card"
-                ? "rounded-lg border border-amber-500/60 bg-amber-500/10 text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "rounded-lg border border-gray-700 bg-transparent text-gray-400 font-semibold hover:text-white hover:border-gray-500 hover:bg-white/5"
-            }
-          >
-            <CreditCard className="h-3.5 w-3.5 mr-1" />
-            NPC
-          </Button>
+            All
+          </FilterPill>
+          {OWNER_FILTERS.map((f) => (
+            <FilterPill
+              key={f.key}
+              active={ownerFilter === f.key}
+              onClick={() => { play("toggle"); setOwnerFilter(ownerFilter === f.key ? "" : f.key); }}
+              tone="amber"
+            >
+              {f.key === "mine" ? <Crown className="h-3 w-3" /> : f.key === "none" ? <UserX className="h-3 w-3" /> : <Users className="h-3 w-3" />}
+              {f.label}
+            </FilterPill>
+          ))}
         </div>
-        {/* Row 4: Affordable */}
-        <div className="flex gap-2 flex-wrap">
-          {/* Affordable — green outline so it stands out (yellow when active);
-              hides owned cards and anything the viewer can't currently buy. */}
-          <Button
-            variant="ghost"
-            onClick={() => {
-              play("toggle");
-              setAffordable((a) => !a);
-            }}
-            className={
-              affordable
-                ? "h-12 px-5 text-lg rounded-lg border-2 border-yellow-500 bg-yellow-500/15 text-yellow-300 font-semibold hover:bg-yellow-500/20 hover:text-yellow-200"
-                : "h-12 px-5 text-lg rounded-lg border-2 border-green-500/60 bg-transparent text-green-400 font-semibold hover:text-green-300 hover:border-green-400 hover:bg-green-500/10"
-            }
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-500 mr-1">Type:</span>
+          <FilterPill
+            active={playerType === ""}
+            onClick={() => { play("toggle"); setPlayerType(""); }}
+            tone="amber"
+          >
+            All
+          </FilterPill>
+          <FilterPill
+            active={playerType === "human"}
+            onClick={() => { play("toggle"); setPlayerType(playerType === "human" ? "" : "human"); }}
+            tone="amber"
+          >
+            <User className="h-3 w-3" /> Humans
+          </FilterPill>
+          <FilterPill
+            active={playerType === "card"}
+            onClick={() => { play("toggle"); setPlayerType(playerType === "card" ? "" : "card"); }}
+            tone="amber"
+          >
+            <CreditCard className="h-3 w-3" /> NPC
+          </FilterPill>
+          <span className="w-px h-4 bg-gray-700 mx-1" />
+          <FilterPill
+            active={affordable}
+            onClick={() => { play("toggle"); setAffordable((a) => !a); }}
+            tone="amber"
             title="Only show cards you can afford right now (owned cards hidden)"
           >
-            <Sparkles className="h-5 w-5 mr-1.5" />
-            Affordable
-          </Button>
+            <Sparkles className="h-3 w-3" /> Affordable
+          </FilterPill>
         </div>
       </div>
 

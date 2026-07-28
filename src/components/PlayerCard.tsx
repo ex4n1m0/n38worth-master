@@ -3,7 +3,7 @@
 import { useEffect, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
@@ -78,6 +78,9 @@ interface PlayerCardProps {
   onboardingComplete?: number;
   actionsOnly?: boolean;
   leaderboardMode?: boolean;
+  /** Bypass hidden-card masking and always show the real avatar (served via
+      the public, CDN-cached /api/avatar route). Used on profile showcases. */
+  alwaysShowAvatar?: boolean;
   comboSelection?: {
     isSelected: (playerId: number) => boolean;
     onToggle: (
@@ -114,6 +117,7 @@ function PlayerCardImpl({
   playerType,
   avatarRevealUntil,
   leaderboardMode = false,
+  alwaysShowAvatar = false,
   comboSelection,
 }: PlayerCardProps) {
   const { data: session } = useSession();
@@ -218,8 +222,9 @@ function PlayerCardImpl({
     ownerCount,
   });
 
-  const displayedAvatarSrc =
-    resolvedAvatarSrc === UNHIRED_AVATAR_SRC && professionImage
+  const displayedAvatarSrc = alwaysShowAvatar
+    ? `/api/avatar/${encodeURIComponent(username)}`
+    : resolvedAvatarSrc === UNHIRED_AVATAR_SRC && professionImage
       ? professionImage
       : resolvedAvatarSrc;
 

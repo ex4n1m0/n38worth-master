@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Button } from "@/components/ui/button";
 import { Loader2, Repeat, X, Check, Coins } from "lucide-react";
 import { formatCompact } from "@/lib/utils";

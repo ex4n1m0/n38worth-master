@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useRouter } from "next/navigation";
 
 /**

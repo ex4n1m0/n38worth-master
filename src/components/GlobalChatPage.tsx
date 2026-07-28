@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Send, Loader2, LogIn, ArrowLeft, Users } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { getPusherClient } from "@/lib/pusher-client";
 import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";

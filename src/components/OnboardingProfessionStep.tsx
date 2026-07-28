@@ -6,7 +6,7 @@ import { useOnboarding } from "@/components/OnboardingContext";
 import { PROFESSIONS } from "@/lib/professions";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 
 export function OnboardingProfessionStep() {
   const { state, loading, refresh } = useOnboarding();

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Gift, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useCredits } from "@/hooks/useCredits";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";

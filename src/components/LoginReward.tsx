@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Gift, Clock, Check, Loader2, Crown } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
 

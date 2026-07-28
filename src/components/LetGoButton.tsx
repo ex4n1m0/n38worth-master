@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { HandHeart, Loader2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";

@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import { toast } from "sonner";
+import { toast } from "@/lib/event-feed";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PlayerCard } from "@/components/PlayerCard";
@@ -459,7 +459,7 @@ export default function PlayerProfilePage() {
                   >
                     <Avatar className="w-full h-full rounded-lg">
                       <AvatarImage
-                        src={getAvatarSrc({ avatarUrl: profileOwner.avatarUrl, playerId: profileOwner.id, playerUsername: profileOwner.username, viewerUsername: session?.user?.name, ownedIds })}
+                        src={`/api/avatar/${encodeURIComponent(profileOwner.username)}`}
                         alt={profileOwner.username}
                         className="object-cover"
                       />
@@ -747,7 +747,7 @@ export default function PlayerProfilePage() {
 
           <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {teamPaginated.map((p: { id: number; username: string; avatarUrl: string | null; playerValue: number; valueFloor?: number; ownerCount: number; ownedCount: number; credits?: number; portfolioValue?: number; blockSellUntil?: string | Date | null; permBlockUntil?: string | Date | null; estimatedDeletionAt?: string | Date | null; isActive?: number; lastOnlineAt?: string | Date | null; totalOnlineMinutes?: number; createdAt?: string | Date | null; isVerified?: number; playerType?: string; photoAuthorName?: string | null; photoAuthorUrl?: string | null; photoSourceUrl?: string | null; lastRankBonusAt?: string | Date | null; ownerName?: string | null; ownerValue?: number | null; purchaseCount?: number; bio?: string | null; profession?: string | null; avatarRevealUntil?: string | Date | null; onboardingComplete?: number }) => (
-              <PlayerCard key={p.id} {...p} leaderboardMode />
+              <PlayerCard key={p.id} {...p} leaderboardMode alwaysShowAvatar />
             ))}
           </div>
 
@@ -769,7 +769,7 @@ export default function PlayerProfilePage() {
           <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
           <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
             <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
-            <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={getAvatarSrc({ avatarUrl: profileOwner.avatarUrl, playerId: profileOwner.id, playerUsername: profileOwner.username, viewerUsername: session?.user?.name, ownedIds })} /></div></ChatProvider>
+            <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={`/api/avatar/${encodeURIComponent(profileOwner.username)}`} /></div></ChatProvider>
           </div>
         </div>
       )}
