@@ -14,6 +14,7 @@ import { ChatNotificationBell } from "./ChatNotificationBell";
 
 import { GlobalInfoBar } from "./GlobalInfoBar";
 import { MissionProgress } from "./MissionProgress";
+import { CoachMark } from "./CoachMark";
 import { WorldRebootingOverlay } from "./WorldRebootingOverlay";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import {
@@ -382,6 +383,10 @@ export function Navbar() {
             <GlobalInfoBar />
 
           </div>
+          <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
+            Earn credits when other players hire your cards, plus portfolio
+            rewards every 30 minutes. Your value grows every time you get hired.
+          </CoachMark>
         </div>
       </div>
 

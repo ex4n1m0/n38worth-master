@@ -7,6 +7,7 @@ import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
+import { NewPlayerGuide } from "@/components/NewPlayerGuide";
 import { PoachEffect } from "@/components/PoachEffect";
 // import { MultiAccountNotification } from "@/components/MultiAccountNotification";
 
@@ -50,6 +51,7 @@ export default function GameLayout({
       <main className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-bottom-nav overflow-x-hidden">
         <AccountResetNotification />
         {/* <MultiAccountNotification /> */}
+        <NewPlayerGuide />
         {children}
       </main>
       {/* Onboarding: Profession Selection Overlay — shown after avatar upload, before NPC hiring */}

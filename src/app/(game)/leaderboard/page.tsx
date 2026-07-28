@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { CreditBalance } from "@/components/CreditBalance";
+import { LockedFeature } from "@/components/LockedFeature";
+import { CoachMark } from "@/components/CoachMark";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
@@ -35,6 +37,7 @@ import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
+import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 
 const OWNER_FILTERS = [
   { key: "other", label: "Others Owned" },
@@ -55,6 +58,18 @@ export default function LeaderboardPage() {
   const combo = useProfessionComboSelection();
   const missionLevel = useMissionLevel();
   const gameUnlocked = missionLevel >= 1;
+
+  // Owned-card count for locked-feature previews (shares the ["missions"]
+  // cache with useMissionLevel — no extra request).
+  const { data: missionsData } = useQuery<{ ownedCount: number }>({
+    queryKey: ["missions"],
+    queryFn: async () => {
+      const res = await fetch("/api/missions");
+      if (!res.ok) throw new Error("Failed to fetch missions");
+      return res.json();
+    },
+  });
+  const ownedCount = missionsData?.ownedCount ?? 0;
 
   // Onboarding gate: until the user finishes the starter-NPC step, the
   // market/leaderboard is fully hidden. Send them back to their profile
@@ -99,17 +114,27 @@ export default function LeaderboardPage() {
 
         {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
             Credits, Hall of Champions in a single row.
-            Hidden until the player completes mission 0 (Own 20 cards). */}
-        {gameUnlocked && <EmpireRankStrip />}
+            Locked behind mission 0 (Own 20 cards) — shown as a preview with
+            the unlock condition until then. */}
+        {gameUnlocked ? (
+          <EmpireRankStrip />
+        ) : (
+          <LockedFeature
+            title="Ranks, live activity & Hall of Champions"
+            ownedCount={ownedCount}
+            threshold={UNLOCK_GAME_THRESHOLD}
+          />
+        )}
 
         {/* Browse Players — the profession combo bar sits inside, just below
             the sort/filter buttons and above the card grid.
-            Profession filters + combo bar are hidden until mission 0. */}
+            Profession filters + combo bar show as locked previews until mission 0. */}
         <BrowsePlayersSection
           search={search}
           onSearch={handleSearch}
           debouncedSearch={debouncedSearch}
           gameUnlocked={gameUnlocked}
+          ownedCount={ownedCount}
           comboFilledProfessions={gameUnlocked ? combo.slots.filter((s) => s.player !== null).map((s) => s.profession) : []}
           comboSelection={gameUnlocked ? {
             isSelected: combo.isSelected,
@@ -130,6 +155,7 @@ function BrowsePlayersSection({
   comboBar,
   comboFilledProfessions = [],
   gameUnlocked = true,
+  ownedCount = 0,
 }: {
   search: string;
   onSearch: (value: string) => void;
@@ -151,6 +177,7 @@ function BrowsePlayersSection({
   comboBar?: ReactNode;
   comboFilledProfessions?: string[];
   gameUnlocked?: boolean;
+  ownedCount?: number;
 }) {
   const [sort, setSort] = useState("value");
   const [dir, setDir] = useState<"asc" | "desc">("asc");
@@ -297,8 +324,14 @@ function BrowsePlayersSection({
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
-        {gameUnlocked && comboBar}
-        {gameUnlocked && (
+        {gameUnlocked ? comboBar : (
+          <LockedFeature
+            title="Profession combos — collect all 6, sell for 10x"
+            ownedCount={ownedCount}
+            threshold={UNLOCK_GAME_THRESHOLD}
+          />
+        )}
+        {gameUnlocked ? (
         <div className="flex gap-2 flex-wrap items-center">
           {/* Profession sort: combo-friendly view — only carded players, ranked
               by value and interleaved across professions to build the 6-set. */}
@@ -346,6 +379,12 @@ function BrowsePlayersSection({
             );
           })}
         </div>
+        ) : (
+          <LockedFeature
+            title="Profession filters & hourly perks"
+            ownedCount={ownedCount}
+            threshold={UNLOCK_GAME_THRESHOLD}
+          />
         )}
         {/* Row 1: My Owned, Others Owned, No Owner, Owns. All four buttons
             share one footprint (fixed min-width) and identical hover/press
@@ -482,6 +521,12 @@ function BrowsePlayersSection({
           </Button>
         </div>
       </div>
+
+      <CoachMark id="hire-get" className="max-w-lg">
+        Tap <span className="font-bold text-green-300">GET</span> on a card to
+        hire it. Each hire raises that card&apos;s value — and pays credits to
+        the previous owner. Own cards, then earn when others hire them from you!
+      </CoachMark>
 
       {isLoading ? (
         <PlayerCardSkeletonGrid count={12} />

@@ -24,6 +24,7 @@ import { claimLoginReward } from "@/lib/login-reward";
 // server consumers can keep importing MISSIONS / Mission from "@/lib/missions".
 import { MISSIONS, type Mission, MASS_HIRE_CARD, FINAL_MISSION_INDEX } from "@/lib/missions-data";
 import { getFinalGoddessThreshold } from "@/lib/game-wins";
+import { generateRandomNpcName } from "@/lib/npc-names";
 
 export { MISSIONS };
 export type { Mission };
@@ -233,6 +234,107 @@ async function maybeStartGoddessCountdown(buyerId: number, buyerUsername: string
 }
 
 /**
+ * Award a free NPC to the player for completing a mission.
+ *
+ * Claims one from the pre-generated onboarding pool when available (instant —
+ * no external API call in the request path). If the pool is empty, creates a
+ * simple hidden-avatar NPC directly (still no Unsplash hit). The NPC is
+ * immediately owned by the player (purchasePrice 0), publicly visible on the
+ * market (onboardingCreatedBy cleared), and earnable/stealable like any card.
+ *
+ * Returns the awarded NPC, or null if a unique username couldn't be generated.
+ */
+async function awardMissionNpc(
+  buyerId: number,
+  buyerUsername: string,
+  missionIndex: number
+): Promise<{ id: number; username: string } | null> {
+  // 1. Claim one from the pre-generated pool.
+  const [poolNpc] = await db
+    .select({ id: users.id, username: users.username })
+    .from(users)
+    .where(eq(users.isOnboardingPool, 1))
+    .limit(1);
+
+  let npc: { id: number; username: string } | null = null;
+
+  if (poolNpc) {
+    // Reset value to 1 (pool NPCs may have accumulated value over time) and
+    // clear the visibility restriction so the card is a normal market card.
+    await db
+      .update(users)
+      .set({ isOnboardingPool: 0, onboardingCreatedBy: null, playerValue: 1, valueFloor: 1 })
+      .where(eq(users.id, poolNpc.id));
+    npc = poolNpc;
+  } else {
+    // 2. Pool empty — create a hidden-avatar NPC directly (no Unsplash call).
+    for (let attempt = 0; attempt < 10 && !npc; attempt++) {
+      const username = generateRandomNpcName();
+      const existing = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.username, username));
+      if (existing.length > 0) continue;
+      try {
+        const [created] = await db
+          .insert(users)
+          .values({
+            username,
+            passwordHash: null,
+            avatarUrl: "/NEW_HIDDEN.webp",
+            playerValue: 1,
+            valueFloor: 1,
+            credits: 0,
+            isActive: 1,
+            isVerified: 0,
+            isNpc: 1,
+            isOnboardingPool: 0,
+            onboardingCreatedBy: null,
+            profession: null,
+          })
+          .returning({ id: users.id, username: users.username });
+        npc = created;
+      } catch (e) {
+        console.error("Mission NPC fallback creation error:", e);
+      }
+    }
+  }
+
+  if (!npc) return null;
+
+  await db.insert(ownership).values({
+    ownerId: buyerId,
+    ownedId: npc.id,
+    purchasePrice: 0,
+  });
+
+  try {
+    await db.insert(gameHistory).values({
+      eventType: "mission_reward",
+      actorId: buyerId,
+      targetId: npc.id,
+      targetUsername: npc.username,
+      details: JSON.stringify({ reason: "mission_npc_award", missionIndex }),
+    });
+  } catch (e) {
+    console.error("Mission NPC game history insert error:", e);
+  }
+
+  // Instant UI update for the owner (slots counter, mission bar, owned grid).
+  try {
+    await pusher.trigger(`player-${buyerId}`, "ownership-changed", {
+      type: "mission_npc",
+      initiator: "Mission reward",
+    });
+  } catch (e) {
+    console.error("Mission NPC pusher error:", e);
+  }
+
+  console.log(`Awarded mission NPC "${npc.username}" (id: ${npc.id}) to ${buyerUsername} (mission ${missionIndex})`);
+  return npc;
+}
+
+/**
  * Check the buyer's mission progress and award reward cards for every mission
  * whose threshold is now met. Advances mission_level as missions complete.
  * Safe to call after any successful hire; no-ops if the column is missing.
@@ -270,6 +372,15 @@ export async function checkAndAwardMissions(buyerId: number): Promise<void> {
         .update(users)
         .set({ hireSlots: sql`${users.hireSlots} + ${mission.addHireSlots}`, updatedAt: new Date() })
         .where(eq(users.id, buyerId));
+    }
+
+    // Every completed mission also awards a free NPC, automatically owned by
+    // the player. Best-effort: a pool/creation failure must not block the
+    // mission advance.
+    try {
+      await awardMissionNpc(buyerId, buyer.username, currentLevel);
+    } catch (e) {
+      console.error("Mission NPC award error:", e);
     }
 
     currentLevel += 1;
