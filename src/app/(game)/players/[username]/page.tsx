@@ -50,6 +50,7 @@ import {
   User,
   Search,
   Crown,
+  Coins,
   MessageCircle,
   Wallet,
   ChevronDown,
@@ -59,6 +60,7 @@ import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
+import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
 import {
   getOwnedRank,
   getValueRank,
@@ -338,6 +340,14 @@ export default function PlayerProfilePage() {
   const bioCost = isNpc ? 1000 : 0;
   const canEditBio = isOwnProfile || (isNpc && viewerOwnsTarget);
   const alreadyOwns = player.owners?.some((o: { username: string }) => o.username === session?.user?.name);
+  // The player's primary owner ("boss"), shown in the mirrored hero header.
+  const profileOwner = (player?.owners?.[0] ?? null) as {
+    id: number;
+    username: string;
+    avatarUrl: string | null;
+    playerValue: number;
+    ownershipId: number;
+  } | null;
 
   if (isOwnProfile && onboardingLoading) {
     return (
@@ -387,36 +397,115 @@ export default function PlayerProfilePage() {
       )}
 
       <Card className="relative border-0 bg-transparent overflow-hidden p-0 rounded-3xl">
-        <div className="relative w-full flex justify-start rounded-t-3xl overflow-hidden py-4 px-4">
-          <div className={`relative rounded-lg overflow-hidden ${inOnboarding ? "w-[150px] h-[150px]" : "w-full md:w-1/2 lg:w-1/3"}`} style={inOnboarding ? {} : { aspectRatio: "1 / 1", flexShrink: 0 }}>
-            {isOwnProfile ? (
+        {inOnboarding ? (
+          <div className="relative w-full flex justify-start rounded-t-3xl overflow-hidden py-4 px-4">
+            <div className="relative rounded-lg overflow-hidden w-[150px] h-[150px]">
               <SquareAvatarUpload currentUrl={player.avatarUrl ?? null} username={player.username} avatarCompleted={onboarding.avatarCompleted} variant="banner" />
-            ) : (
-              <img src={heroAvatarSrc} alt={player.username} className={`w-full h-full ${heroAvatarFitClass}`} />
-            )}
-            {!isOwnProfile && player.isActive === 0 && (
-              <div className="absolute top-3 left-3 bg-red-500/80 backdrop-blur-sm text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-lg">Inactive</div>
-            )}
-          </div>
-        </div>
-
-        <div className="relative border border-white/10 backdrop-blur-sm bg-gray-950/70 rounded-b-3xl px-5 sm:px-8 py-5 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-            <div className="flex items-start gap-2 flex-wrap min-w-0">
-              <h1 className="text-xl sm:text-4xl font-black text-white break-all leading-tight">{player.username}</h1>
-              <div className="flex items-center gap-1 mt-1">
-                {player.valueFloor >= 100 && (
-                  <Gem className="h-6 w-6 sm:h-7 sm:w-7 text-purple-400 shrink-0 drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
-                )}
-                {player.valueFloor >= 10 && player.valueFloor < 100 && (
-                  <Star className="h-6 w-6 sm:h-7 sm:w-7 text-yellow-400 shrink-0 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
-                )}
-                {isOwnProfile && (
-                  <Badge className="bg-gradient-to-r from-t1-500 to-t2-500 text-white border-0 shrink-0"><Sparkles className="h-3 w-3 mr-1" />You</Badge>
-                )}
-              </div>
             </div>
           </div>
+        ) : (
+          /* Mirrored hero: the player on the left, their owner ("leader") on
+             the right — same avatar sizes, same stat rows, icons mirrored. */
+          <div className="relative w-full grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-t-3xl overflow-hidden py-4 px-4">
+            {/* ── The player (left half) ── */}
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0">
+              <div className="relative rounded-lg overflow-hidden w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0">
+                {isOwnProfile ? (
+                  <SquareAvatarUpload currentUrl={player.avatarUrl ?? null} username={player.username} avatarCompleted={onboarding.avatarCompleted} variant="banner" />
+                ) : (
+                  <img src={heroAvatarSrc} alt={player.username} className={`w-full h-full ${heroAvatarFitClass}`} />
+                )}
+                {!isOwnProfile && player.isActive === 0 && (
+                  <div className="absolute top-2 left-2 bg-red-500/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">Inactive</div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-start gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-2xl font-black text-white break-all leading-tight">{player.username}</h1>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {player.valueFloor >= 100 && (
+                      <Gem className="h-5 w-5 text-purple-400 shrink-0 drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
+                    )}
+                    {player.valueFloor >= 10 && player.valueFloor < 100 && (
+                      <Star className="h-5 w-5 text-yellow-400 shrink-0 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                    )}
+                    {isOwnProfile && (
+                      <Badge className="bg-gradient-to-r from-t1-500 to-t2-500 text-white border-0 shrink-0"><Sparkles className="h-3 w-3 mr-1" />You</Badge>
+                    )}
+                  </div>
+                </div>
+                <p className="flex items-center gap-1.5 text-sm">
+                  <TrendingUp className="h-3.5 w-3.5 text-t1-400 shrink-0" />
+                  <span className="text-gray-500">Value</span>
+                  <span className="font-mono font-bold text-t1-300">{formatNumber(player.playerValue)}¢</span>
+                </p>
+                <p className="flex items-center gap-1.5 text-sm">
+                  <Coins className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                  <span className="text-gray-500">Credits</span>
+                  <span className="font-mono font-bold text-yellow-300">{formatNumber(player.credits ?? 0)}¢</span>
+                </p>
+              </div>
+            </div>
+
+            {/* ── The owner (right half, mirrored: avatar on the outer right
+                edge, text right-aligned, icons trailing) ── */}
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-row-reverse text-right">
+              {profileOwner ? (
+                <>
+                  <a
+                    href={`/players/${profileOwner.username}`}
+                    className="relative rounded-lg overflow-hidden w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0 ring-2 ring-yellow-500/30 hover:ring-yellow-500/60 transition-all block"
+                    aria-label={`View ${profileOwner.username}'s profile`}
+                  >
+                    <Avatar className="w-full h-full rounded-lg">
+                      <AvatarImage
+                        src={getAvatarSrc({ avatarUrl: profileOwner.avatarUrl, playerId: profileOwner.id, playerUsername: profileOwner.username, viewerUsername: session?.user?.name, ownedIds })}
+                        alt={profileOwner.username}
+                        className="object-cover"
+                      />
+                      <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl">
+                        {profileOwner.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </a>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <div className="flex items-start gap-2 flex-wrap justify-end">
+                      <h2 className="text-lg sm:text-2xl font-black text-white break-all leading-tight">
+                        <a href={`/players/${profileOwner.username}`} className="hover:text-yellow-300 transition-colors">
+                          {profileOwner.username}
+                        </a>
+                      </h2>
+                      <Crown className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                    </div>
+                    <p className="flex items-center gap-1.5 text-sm justify-end">
+                      <span className="text-gray-500">Value</span>
+                      <span className="font-mono font-bold text-yellow-300">{formatNumber(profileOwner.playerValue)}¢</span>
+                      <TrendingUp className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                    </p>
+                    <p className="flex items-center gap-1.5 text-sm justify-end">
+                      <span className="font-semibold text-yellow-400/90">{isOwnProfile ? "Your Leader" : `${player.username}'s Leader`}</span>
+                      <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="relative rounded-lg w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0 border-2 border-dashed border-gray-700 bg-gray-900/40 flex items-center justify-center">
+                    <Crown className="h-8 w-8 text-gray-600" />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <h2 className="text-lg sm:text-2xl font-black text-gray-500 leading-tight">No leader yet</h2>
+                    <p className="text-sm text-gray-500 leading-snug">
+                      When someone hires {isOwnProfile ? "you" : player.username}, they&apos;ll appear here.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="relative border border-white/10 backdrop-blur-sm bg-gray-950/70 rounded-b-3xl px-5 sm:px-8 py-5 space-y-3">
 
           {!inOnboarding && (
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -432,7 +521,7 @@ export default function PlayerProfilePage() {
             )}
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getValueRankColor(player.playerValue)}`}><TrendingUp className="h-3 w-3" />{getValueRank(player.playerValue).title}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getOwnedRankColor(player.ownedCount)}`}><Swords className="h-3 w-3" />{getOwnedRank(player.ownedCount).title}</span>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20"><Shield className="h-3 w-3" />{player.ownerCount} boss{player.ownerCount !== 1 ? "es" : ""}</span>
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20"><Shield className="h-3 w-3" />{player.ownerCount} leader{player.ownerCount !== 1 ? "s" : ""}</span>
             {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
             {!isOwnProfile && viewerOwnsTarget && !isSpecialCard && (
               <AssignProfessionDialog
@@ -525,6 +614,17 @@ export default function PlayerProfilePage() {
         </div>
       </Card>
 
+      {/* Avatar grid of this player's owned cards, most valuable first —
+          same look as the landing page grid, each avatar links to the card's
+          profile. */}
+      {!isOwnProfile && !inOnboarding && player?.ownedPlayers?.length > 0 && (
+        <OwnedAvatarGrid
+          ownerUsername={player.username}
+          players={player.ownedPlayers}
+          isOwnProfile={false}
+        />
+      )}
+
       {/* Direct-message chat with this player (other profiles only) — same
           look & feel as the "chat with your leader" box on your own profile. */}
       {!isOwnProfile && !inOnboarding && (
@@ -584,6 +684,15 @@ export default function PlayerProfilePage() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Avatar grid of your owned cards, most valuable first. */}
+          {player?.ownedPlayers?.length > 0 && (
+            <OwnedAvatarGrid
+              ownerUsername={player.username}
+              players={player.ownedPlayers}
+              isOwnProfile
+            />
           )}
 
           {/* Global chat room — hidden until the player completes mission 0. */}
@@ -652,27 +761,18 @@ export default function PlayerProfilePage() {
         </div>
       )}
 
-      {isOwnProfile && !inOnboarding && (() => {
-        const owner = player?.owners?.[0] ?? null;
-        return (
-          <div className="space-y-3">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader{owner && (<span className="text-sm font-normal text-gray-400">— {owner.username}</span>)}</h2>
-            {!owner ? (
-              <div className="text-center py-10 text-gray-500 border border-gray-800 rounded-xl bg-gray-900/60"><Crown className="h-10 w-10 mx-auto mb-2 opacity-30" /><p>You don&apos;t have a leader yet</p></div>
-            ) : (
-              <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
-                <a href={`/players/${owner.username}`} className="flex items-center gap-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700 hover:border-t1-500 transition-all group">
-                  <Avatar className="h-14 w-14 ring-2 ring-yellow-500/30 group-hover:ring-yellow-500/60 transition-all shrink-0"><AvatarImage src={getAvatarSrc({ avatarUrl: owner.avatarUrl, playerId: owner.id, playerUsername: owner.username, viewerUsername: session?.user?.name, ownedIds })} alt={owner.username} /><AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-sm">{owner.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0"><h3 className="font-semibold text-white group-hover:text-t1-400 transition-colors text-base">{owner.username}</h3><p className="text-sm text-gray-400 truncate">Value: {formatNumber(owner.playerValue)}¢</p></div>
-                  <Crown className="h-5 w-5 text-yellow-400 shrink-0" />
-                </a>
-                <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={owner.ownershipId} ownerUsername={owner.username} userCredits={player?.credits ?? 0} /></div>
-                <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={owner.id} targetUsername={owner.username} targetAvatarUrl={getAvatarSrc({ avatarUrl: owner.avatarUrl, playerId: owner.id, playerUsername: owner.username, viewerUsername: session?.user?.name, ownedIds })} /></div></ChatProvider>
-              </div>
-            )}
+      {/* Leader actions + chat. The leader identity itself lives in the
+          mirrored hero header at the top of this page; this section is only
+          the resign action and the DM channel. */}
+      {isOwnProfile && !inOnboarding && profileOwner && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
+          <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
+            <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
+            <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={getAvatarSrc({ avatarUrl: profileOwner.avatarUrl, playerId: profileOwner.id, playerUsername: profileOwner.username, viewerUsername: session?.user?.name, ownedIds })} /></div></ChatProvider>
           </div>
-        );
-      })()}
+        </div>
+      )}
 
       {!inOnboarding && <LostPlayersGrid profileUsername={username} />}
     </div>
