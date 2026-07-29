@@ -369,7 +369,7 @@ function BrowsePlayersSection({
               else setSort("value");
             }}
             tone="amber"
-            title="Sort by card value — tap again to flip direction"
+            title="Sort by avatar value — tap again to flip direction"
           >
             Value
             {sort === "value" && (dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
@@ -437,7 +437,7 @@ function BrowsePlayersSection({
             active={affordable}
             onClick={() => { play("toggle"); setAffordable((a) => !a); }}
             tone="amber"
-            title="Only show cards you can afford right now (owned cards hidden)"
+            title="Only show avatars you can afford right now (owned avatars hidden)"
           >
             <Sparkles className="h-3 w-3" /> Affordable
           </FilterPill>
@@ -454,9 +454,9 @@ function BrowsePlayersSection({
       </div>
 
       <CoachMark id="hire-get" className="max-w-lg">
-        Tap <span className="font-bold text-green-300">GET</span> on a card to
-        hire it. Each hire raises that card&apos;s value — and pays credits to
-        the previous owner. Own cards, then earn when others hire them from you!
+        Tap <span className="font-bold text-green-300">GET</span> on an avatar to
+        hire it. Each hire raises that avatar&apos;s value — and pays credits to
+        the previous owner. Own avatars, then earn when others hire them from you!
       </CoachMark>
 
       {isLoading ? (

@@ -71,7 +71,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
       play("error");
       toast.error(
         unlockThreshold !== null
-          ? `🔒 Mass Hire unlocks at ${formatCompact(unlockThreshold)} owned cards (you have ${formatCompact(ownedCount)}).`
+          ? `🔒 Mass Hire unlocks at ${formatCompact(unlockThreshold)} owned avatars (you have ${formatCompact(ownedCount)}).`
           : "🔒 Mass Hire is still locked."
       );
       return;

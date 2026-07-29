@@ -183,6 +183,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Boost card error:", error);
-    return NextResponse.json({ error: "Failed to boost card" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to boost avatar" }, { status: 500 });
   }
 }

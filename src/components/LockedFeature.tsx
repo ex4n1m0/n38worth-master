@@ -22,7 +22,7 @@ export function LockedFeature({ title, ownedCount, threshold }: LockedFeaturePro
   return (
     <div
       className="rounded-xl border border-gray-800 p-3 sm:p-4 flex items-center gap-3"
-      aria-label={`${title} — locked, unlocks at ${formatCompact(threshold)} owned cards`}
+      aria-label={`${title} — locked, unlocks at ${formatCompact(threshold)} owned avatars`}
     >
       <div className="p-2 rounded-lg bg-gray-800/60 shrink-0">
         <Lock className="h-4 w-4 text-gray-500" />
@@ -30,7 +30,7 @@ export function LockedFeature({ title, ownedCount, threshold }: LockedFeaturePro
       <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-300 truncate">{title}</p>
         <p className="text-xs text-gray-500">
-          Unlocks at {formatCompact(threshold)} owned cards — you have{" "}
+          Unlocks at {formatCompact(threshold)} owned avatars — you have{" "}
           <span className="font-semibold text-gray-400">{formatCompact(ownedCount)}</span>
           {remaining > 0 && ` (${formatCompact(remaining)} to go)`}
         </p>

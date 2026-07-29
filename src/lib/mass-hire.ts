@@ -178,7 +178,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .where(eq(ownership.ownerId, buyerId));
       const currentOwned = Number(ownedCountRow?.count ?? 0);
       return {
-        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} cards (Mission 1). You own ${currentOwned}.`,
+        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} avatars (Mission 1). You own ${currentOwned}.`,
       };
     }
 

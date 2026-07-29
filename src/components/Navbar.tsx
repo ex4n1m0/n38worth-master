@@ -44,7 +44,7 @@ import { useOnboarding } from "./OnboardingContext";
 
 const mainNavLinks = [
   { href: "/my-profile", label: "Home", icon: Users },
-  { href: "/leaderboard", label: "Cards", icon: Search },
+  { href: "/leaderboard", label: "Avatars", icon: Search },
   { href: "/hall-of-fame", label: "End Game", icon: Medal },
 ];
 

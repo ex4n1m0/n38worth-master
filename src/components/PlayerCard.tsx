@@ -493,7 +493,7 @@ function PlayerCardImpl({
     if (isOwnProfile) return "Your profile";
     if (isPurchaseLocked)
       return unlockThreshold !== null
-        ? `Own ${formatCompact(unlockThreshold)} cards to unlock`
+        ? `Own ${formatCompact(unlockThreshold)} avatars to unlock`
         : "Locked";
     if (isHireBlocked && isPermBlocked) return "Unbreakable partnership";
     if (!canAffordAction) return `Need ${formatNumber(actionCost)}¢`;

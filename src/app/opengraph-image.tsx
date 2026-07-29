@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
-export const alt = "n38worth — Massive Multiplayer Online Card Trading Game";
+export const alt = "n38worth — Massive Multiplayer Online Avatar Trading Game";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/jpeg";
 

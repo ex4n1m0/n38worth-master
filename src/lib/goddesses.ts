@@ -14,12 +14,12 @@ export const GODDESS_USERNAMES: string[] = [
 
 /** Power description shown on each goddess card */
 export const GODDESS_POWERS: Record<string, string> = {
-  "Goddess of Wealth": "The player holding this card earns double credits from their portfolio rewards, and double on the boss tax they collect from players they own.",
-  "Goddess of Knowledge": "The player holding this card automatically sees every avatar, including ones that are otherwise hidden.",
-  "Goddess of Fate": "While the player holds this card, all players they own get a permanent sell block. Other players can break the block, but it costs 1000× the player's current value.",
-  "Goddess of Time": "The player holding this card collects their portfolio rewards (and pays their boss's tax) twice as often as everyone else, halving their own wait between payouts.",
-  "Goddess of War": "The player holding this card breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window, which no one can break.",
-  "Goddess": "The player holding this card activates the powers of all other goddess cards, whether or not they hold those cards.",
+  "Goddess of Wealth": "The player holding this avatar earns double credits from their portfolio rewards, and double on the boss tax they collect from players they own.",
+  "Goddess of Knowledge": "The player holding this avatar automatically sees every avatar, including ones that are otherwise hidden.",
+  "Goddess of Fate": "While the player holds this avatar, all players they own get a permanent sell block. Other players can break the block, but it costs 1000× the player's current value.",
+  "Goddess of Time": "The player holding this avatar collects their portfolio rewards (and pays their boss's tax) twice as often as everyone else, halving their own wait between payouts.",
+  "Goddess of War": "The player holding this avatar breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window, which no one can break.",
+  "Goddess": "The player holding this avatar activates the powers of all other goddess avatars, whether or not they hold those avatars.",
 };
 
 /**

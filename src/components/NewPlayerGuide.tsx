@@ -101,14 +101,14 @@ export function NewPlayerGuide() {
     {
       icon: Camera,
       title: "Upload your avatar",
-      hint: "Your card needs a face before anyone can hire you.",
+      hint: "Your avatar needs a face before anyone can hire you.",
       done: onboarding.avatarCompleted,
       progress: null as string | null,
     },
     {
       icon: UserPlus,
-      title: "Hire your first 3 cards",
-      hint: "Owned cards earn you credits every time someone hires them from you.",
+      title: "Hire your first 3 avatars",
+      hint: "Owned avatars earn you credits every time someone hires them from you.",
       done: ownedCount >= 3,
       progress: ownedCount >= 3 ? null : `${Math.min(ownedCount, 3)}/3`,
     },
@@ -121,8 +121,8 @@ export function NewPlayerGuide() {
     },
     {
       icon: Users,
-      title: `Own ${UNLOCK_GAME_THRESHOLD} cards to unlock the Game`,
-      hint: "Unlocks ranks, professions & combos. Hire cheap ownerless cards first!",
+      title: `Own ${UNLOCK_GAME_THRESHOLD} avatars to unlock the Game`,
+      hint: "Unlocks ranks, professions & combos. Hire cheap ownerless avatars first!",
       done: missionLevel >= 1,
       progress:
         missionLevel >= 1

@@ -341,7 +341,7 @@ export function GoddessCard({
                 </span>
                 {unlockThreshold !== null && (
                   <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
-                    Collect {formatCompact(unlockThreshold)} cards to unlock
+                    Collect {formatCompact(unlockThreshold)} avatars to unlock
                   </span>
                 )}
               </div>

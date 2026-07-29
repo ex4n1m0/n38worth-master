@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       .from(ownership)
       .where(and(eq(ownership.ownerId, callerId), eq(ownership.ownedId, targetId)));
     if (!owned) {
-      return NextResponse.json({ error: "You don't own this card" }, { status: 403 });
+      return NextResponse.json({ error: "You don't own this avatar" }, { status: 403 });
     }
 
     // 2. Fetch the NPC card.
@@ -70,13 +70,13 @@ export async function POST(request: Request) {
       .where(eq(users.id, targetId));
 
     if (!npc) {
-      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+      return NextResponse.json({ error: "Avatar not found" }, { status: 404 });
     }
     if (npc.isNpc !== 1) {
-      return NextResponse.json({ error: "Can only assign professions to NPC cards" }, { status: 400 });
+      return NextResponse.json({ error: "Can only assign professions to NPC avatars" }, { status: 400 });
     }
     if (npc.profession === profession) {
-      return NextResponse.json({ error: "This card already has this profession" }, { status: 400 });
+      return NextResponse.json({ error: "This avatar already has this profession" }, { status: 400 });
     }
 
     // 3. Compute the cost (same logic as change-profession).

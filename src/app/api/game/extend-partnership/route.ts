@@ -37,7 +37,7 @@ export async function POST(req: Request) {
       .where(eq(users.id, targetId));
 
     if (!target) {
-      return NextResponse.json({ error: "Card not found" }, { status: 404 });
+      return NextResponse.json({ error: "Avatar not found" }, { status: 404 });
     }
     if (!GODDESS_USERNAMES.includes(target.username)) {
       return NextResponse.json({ error: "Only goddess partnerships can be extended" }, { status: 400 });

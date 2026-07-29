@@ -48,7 +48,7 @@ export async function GET(req: Request) {
 
     const poaches = rows.map((r) => {
       let buyer = "Someone";
-      let player = "your card";
+      let player = "your avatar";
       if (r.details) {
         try {
           const d = JSON.parse(r.details) as {

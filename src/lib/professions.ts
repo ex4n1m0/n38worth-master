@@ -97,7 +97,7 @@ export const PROFESSION_PERKS: Record<string, { name: string; description: strin
   },
   "Scrap Alchemist": {
     name: "Transmutation",
-    description: "Pumping costs 10% less but still doubles the card's value.",
+    description: "Pumping costs 10% less but still doubles the avatar's value.",
   },
   "Spirit Archivist": {
     name: "Recorded Fortunes",
@@ -109,6 +109,6 @@ export const PROFESSION_PERKS: Record<string, { name: string; description: strin
   },
   "Plague Cartographer": {
     name: "Charted Spread",
-    description: "Mass Hire grabs +1 extra card.",
+    description: "Mass Hire grabs +1 extra avatar.",
   },
 };

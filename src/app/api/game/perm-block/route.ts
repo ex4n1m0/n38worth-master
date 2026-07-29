@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     const eligible = await isPermEligible(targetId);
     if (!eligible) {
       return NextResponse.json(
-        { error: "Permanent blocks can only be assigned to NPC cards" },
+        { error: "Permanent blocks can only be assigned to NPC avatars" },
         { status: 400 }
       );
     }

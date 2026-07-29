@@ -239,7 +239,7 @@ export default function Home() {
 
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
-        <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto bg-gray-950 border-gray-800 text-gray-100">
+        <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto bg-gray-950/60 backdrop-blur-md border-gray-800 text-gray-100">
           <DialogHeader>
             <DialogTitle className="text-center text-3xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent">
               How to Play
@@ -253,8 +253,8 @@ export default function Home() {
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">What is n38worth?</h3>
               <p className="text-sm leading-relaxed text-gray-300">
-                A multiplayer card-trading game where every player — human or NPC — is a card
-                with a value. Hire cards to build your empire, grow their value, protect them
+                A multiplayer avatar-trading game where every player — human or NPC — is an avatar
+                with a value. Hire avatars to build your empire, grow their value, protect them
                 from rivals, and climb the mission ladder to earn the six legendary Goddesses.
                 Hold all six for one hour and you win: the world resets and your name is carved
                 into the Hall of Champions.
@@ -265,9 +265,9 @@ export default function Home() {
               <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
               <ol className="space-y-3">
                 {[
-                  { title: "Create your card", body: "Register, upload your avatar and pick a profession. You start with 100¢ and 20 hire slots — everyone starts equal." },
-                  { title: "Hire your first cards", body: "Hiring costs the card's current value, and every hire pumps that card's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
-                  { title: "Get 20 cards", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
+                  { title: "Create your avatar", body: "Register, upload your avatar and pick a profession. You start with 100¢ and 20 hire slots — everyone starts equal." },
+                  { title: "Hire your first avatars", body: "Hiring costs the avatar's current value, and every hire pumps that avatar's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
+                  { title: "Get 20 avatars", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
                   { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — transferred from the richest player, so the rich never run away with the game. If you ARE the richest, you get nothing that day." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
@@ -318,14 +318,14 @@ export default function Home() {
               <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
-                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire a card for its current value. The card and its previous owner both get paid, its value jumps (2× under 1,000¢, tapering to 1.1× above 1M), and it joins your team. Poaching a card from another player also earns you +1 hire slot." },
-                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your card's value to double it, gift the cost to the card, and extend its sell block by 10 minutes (12h max). Your main value-growth engine." },
-                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects a card from being hired away. Costs the card's value: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
-                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × card value) straight to the owner, then hire the card. Fate-sealed cards cost 1000× to break, and blocks marked Unbreakable can't be broken at all." },
-                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block. You can move a block to a different card at any time, which restarts its 24 hours. Only regular NPC cards can be perm-blocked." },
-                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 cards) bulk-hires the cheapest available cards — 1 + 10% of your owned count per press — then goes on a 10-minute cooldown." },
-                  { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", body: "The 10 Slots card adds +10 hire slots for 10% of your current credits. 10-minute cooldown." },
-                  { chip: "REVEAL", cls: "from-violet-600 to-purple-500", body: "The Reveal card unmasks every hidden avatar in the game for 10 minutes, for 10% of your current credits. 10-minute cooldown." },
+                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire an avatar for its current value. The avatar and its previous owner both get paid, its value jumps (2× under 1,000¢, tapering to 1.1× above 1M), and it joins your team. Poaching a card from another player also earns you +1 hire slot." },
+                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your avatar's value to double it, gift the cost to the avatar, and extend its sell block by 10 minutes (12h max). Your main value-growth engine." },
+                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects an avatar from being hired away. Costs the avatar's value: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
+                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × avatar value) straight to the owner, then hire the card. Fate-sealed cards cost 1000× to break, and blocks marked Unbreakable can't be broken at all." },
+                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block. You can move a block to a different avatar at any time, which restarts its 24 hours. Only regular NPC cards can be perm-blocked." },
+                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 avatars) bulk-hires the cheapest available avatars — 1 + 10% of your owned count per press — then goes on a 10-minute cooldown." },
+                  { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", body: "The 10 Slots avatar adds +10 hire slots for 10% of your current credits. 10-minute cooldown." },
+                  { chip: "REVEAL", cls: "from-violet-600 to-purple-500", body: "The Reveal avatar unmasks every hidden avatar in the game for 10 minutes, for 10% of your current credits. 10-minute cooldown." },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -350,7 +350,7 @@ export default function Home() {
                 <li><span className="font-semibold text-amber-300">Scrap Alchemist</span> — pumping costs 10% less.</li>
                 <li><span className="font-semibold text-amber-300">Spirit Archivist</span> — your daily login reward is 25% bigger.</li>
                 <li><span className="font-semibold text-amber-300">Iron Choir Marshal</span> — +2 hire slots.</li>
-                <li><span className="font-semibold text-amber-300">Plague Cartographer</span> — Mass Hire grabs +1 extra card.</li>
+                <li><span className="font-semibold text-amber-300">Plague Cartographer</span> — Mass Hire grabs +1 extra avatar.</li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-300 mt-3">
                 <span className="font-semibold text-amber-300">Combo:</span> collect one card of
@@ -368,7 +368,7 @@ export default function Home() {
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
                 <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
-                <li><span className="font-mono text-t1-400">50</span> — Mass Hire card</li>
+                <li><span className="font-mono text-t1-400">50</span> — Mass Hire avatar</li>
                 <li><span className="font-mono text-t1-400">100</span> — Goddess of Wealth</li>
                 <li><span className="font-mono text-t1-400">250</span> — Goddess of Knowledge</li>
                 <li><span className="font-mono text-t1-400">500</span> — Goddess of Fate</li>
@@ -402,7 +402,7 @@ export default function Home() {
             {/* Highest-value NPC cards — the avatar grid, moved here from the
                 landing page so it sits right above the sign-up buttons. */}
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-3 text-lg font-semibold text-t1-400">Highest-Value NPC Cards</h3>
+              <h3 className="mb-3 text-lg font-semibold text-t1-400">Highest-Value NPC Avatars</h3>
               <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
                 {(data?.topNpcs ?? []).map((npc) => (
                   <a

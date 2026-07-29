@@ -34,49 +34,49 @@ export const MISSIONS: Mission[] = [
     threshold: 20,
     rewardCards: [],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 20 cards to unlock the Game",
+    label: "Get 20 avatars to unlock the Game",
   },
   {
     threshold: 50,
     rewardCards: ["Mass Hire"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 50 cards to unlock Mass Hire",
+    label: "Get 50 avatars to unlock Mass Hire",
   },
   {
     threshold: 100,
     rewardCards: ["Goddess of Wealth"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 100 cards to unlock Goddess of Wealth",
+    label: "Get 100 avatars to unlock Goddess of Wealth",
   },
   {
     threshold: 250,
     rewardCards: ["Goddess of Knowledge"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 250 cards to unlock Goddess of Knowledge",
+    label: "Get 250 avatars to unlock Goddess of Knowledge",
   },
   {
     threshold: 500,
     rewardCards: ["Goddess of Fate"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 500 cards to unlock Goddess of Fate",
+    label: "Get 500 avatars to unlock Goddess of Fate",
   },
   {
     threshold: 1000,
     rewardCards: ["Goddess of Time"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 1,000 cards to unlock Goddess of Time",
+    label: "Get 1,000 avatars to unlock Goddess of Time",
   },
   {
     threshold: 2000,
     rewardCards: ["Goddess of War"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 2,000 cards to unlock Goddess of War",
+    label: "Get 2,000 avatars to unlock Goddess of War",
   },
   {
     threshold: 5000,
     rewardCards: ["Goddess"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 5,000 cards to unlock the Goddess",
+    label: "Get 5,000 avatars to unlock the Goddess",
   },
 ];
 
@@ -101,7 +101,7 @@ export function finalGoddessThreshold(winCount: number): number {
 
 /** Label for the final mission at the given effective threshold. */
 export function finalGoddessLabel(threshold: number): string {
-  return `Get ${threshold.toLocaleString("en-US")} cards to unlock the Goddess`;
+  return `Get ${threshold.toLocaleString("en-US")} avatars to unlock the Goddess`;
 }
 
 /**
