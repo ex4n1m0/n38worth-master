@@ -128,7 +128,7 @@ export function LoginReward() {
 
   if (isLoading) {
     return (
-      <Card className="border-gray-800 bg-gradient-to-br from-purple-900/30 to-gray-900/80">
+      <Card className="border-gray-800 bg-transparent">
         <CardContent className="p-4">
           <div className="flex items-center justify-center">
             <Loader2 className="h-5 w-5 animate-spin text-purple-400" />
@@ -148,7 +148,7 @@ export function LoginReward() {
           ? "bg-gradient-to-br from-amber-900/30 to-yellow-900/20 border-amber-700/40"
           : canClaim
             ? "bg-gradient-to-br from-green-900/40 to-emerald-900/30 border-green-700/50 shadow-lg shadow-green-900/20"
-            : "bg-gradient-to-br from-gray-900/80 to-gray-950/80"
+            : "bg-transparent"
       }`}
     >
       <CardContent className="p-4">

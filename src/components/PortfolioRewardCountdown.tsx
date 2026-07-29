@@ -33,7 +33,7 @@ export function PortfolioRewardCountdown() {
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   return (
-    <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
+    <div className="rounded-xl border border-gray-800 p-3">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-5 w-5 text-t1-400" />
         <h3 className="text-sm font-semibold text-t1-400">
@@ -88,7 +88,7 @@ export function PortfolioRewardCountdown() {
 
       {/* Breakdown Section */}
       {showBreakdown && session?.user?.name && (
-        <div className="mt-3 p-3 rounded-lg bg-gray-900/60 border border-gray-700/50 space-y-3">
+        <div className="mt-3 p-3 rounded-lg border border-gray-700/50 space-y-3">
           <h4 className="text-xs font-semibold text-gray-300 flex items-center gap-1">
             <Users className="h-3 w-3" />
             Portfolio Calculation Breakdown

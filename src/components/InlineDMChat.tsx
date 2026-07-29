@@ -102,7 +102,7 @@ export function InlineDMChat({
       {/* Messages area */}
       <div
         ref={messagesContainerRef}
-        className="flex-1 overflow-y-auto rounded-lg bg-gray-950/50 border border-gray-800 p-2 space-y-1.5 h-[280px] max-h-[280px]"
+        className="flex-1 overflow-y-auto rounded-lg border border-gray-800 p-2 space-y-1.5 h-[280px] max-h-[280px]"
       >
         {localMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-gray-600 text-xs">

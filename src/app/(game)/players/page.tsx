@@ -151,7 +151,7 @@ export default function PlayersPage() {
       {isLoading ? (
         <PlayerCardSkeletonGrid count={12} />
       ) : data?.players?.length === 0 ? (
-        <Card className="border-gray-800 bg-gray-900/60">
+        <Card className="border-gray-800 bg-transparent">
           <CardContent className="py-20 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
             <p className="text-gray-400">{t.noPlayersFound}</p>

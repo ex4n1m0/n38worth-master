@@ -250,11 +250,13 @@ async function awardMissionNpc(
   buyerUsername: string,
   missionIndex: number
 ): Promise<{ id: number; username: string } | null> {
-  // 1. Claim one from the pre-generated pool.
+  // 1. Claim one from the pre-generated pool. Only UNOWNED pool NPCs are
+  // claimable — a pool NPC that somehow got hired while still flagged would
+  // otherwise crash the ownership insert with a duplicate-key error.
   const [poolNpc] = await db
     .select({ id: users.id, username: users.username })
     .from(users)
-    .where(eq(users.isOnboardingPool, 1))
+    .where(sql`${users.isOnboardingPool} = 1 AND NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = ${users.id})`)
     .limit(1);
 
   let npc: { id: number; username: string } | null = null;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, ownership } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { createOnboardingNpcsForUser } from "@/lib/onboarding-npc";
 
@@ -31,11 +31,13 @@ export async function POST() {
       return NextResponse.json({ npcIds: existingNpcs, alreadyAssigned: true });
     }
 
-    // Grab 3 NPCs from the pre-generated pool (avoids Unsplash rate limits)
+    // Grab 3 NPCs from the pre-generated pool (avoids Unsplash rate limits).
+    // Only UNOWNED pool NPCs — claiming an already-owned one would crash the
+    // ownership insert downstream with a duplicate-key error.
     const poolNpcs = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.isOnboardingPool, 1))
+      .where(sql`${users.isOnboardingPool} = 1 AND NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = ${users.id})`)
       .limit(3);
 
     let npcIds: number[] = [];

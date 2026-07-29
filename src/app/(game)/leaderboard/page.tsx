@@ -24,7 +24,6 @@ import {
   ArrowDown,
 } from "lucide-react";
 import { GoddessCountdown } from "@/components/GoddessCountdown";
-import { CreditBalance } from "@/components/CreditBalance";
 import { LockedFeature } from "@/components/LockedFeature";
 import { CoachMark } from "@/components/CoachMark";
 import { FilterPill } from "@/components/PlayerFilters";
@@ -109,17 +108,12 @@ export default function LeaderboardPage() {
         {/* Goddess Countdown Banner */}
         <GoddessCountdown />
 
-        {/* Credit Balance - Mobile Only */}
-        <div className="sm:hidden">
-          <CreditBalance />
-        </div>
-
         {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
             Credits, Hall of Champions in a single row.
             Locked behind mission 0 (Own 20 cards) — shown as a preview with
             the unlock condition until then. */}
         {gameUnlocked ? (
-          <EmpireRankStrip />
+          <EmpireRankStrip variant="transparent" />
         ) : (
           <LockedFeature
             title="Ranks, live activity & Hall of Champions"
@@ -317,15 +311,6 @@ function BrowsePlayersSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <Input
-            placeholder="Search players..."
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
-          />
-        </div>
         {gameUnlocked ? comboBar : (
           <LockedFeature
             title="Profession combos — collect all 6, sell for 10x"
@@ -475,6 +460,15 @@ function BrowsePlayersSection({
             <Sparkles className="h-3 w-3" /> Affordable
           </FilterPill>
         </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Input
+            placeholder="Search players..."
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            className="pl-10 bg-transparent border-gray-800 text-white placeholder:text-gray-500"
+          />
+        </div>
       </div>
 
       <CoachMark id="hire-get" className="max-w-lg">
@@ -486,7 +480,7 @@ function BrowsePlayersSection({
       {isLoading ? (
         <PlayerCardSkeletonGrid count={12} />
       ) : players.length === 0 ? (
-        <Card className="border-gray-800 bg-gray-900/60">
+        <Card className="border-gray-800 bg-transparent">
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
             <p className="text-gray-400">No players found</p>

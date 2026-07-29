@@ -71,7 +71,7 @@ export function RankBonusCountdown() {
   }
 
   return (
-    <div className="rounded-xl bg-gray-900/60 border border-gray-800 p-3">
+    <div className="rounded-xl border border-gray-800 p-3">
       <div className="flex items-center gap-2">
         <Trophy className="h-5 w-5 text-t2-400" />
         <h3 className="text-sm font-semibold text-t2-400">

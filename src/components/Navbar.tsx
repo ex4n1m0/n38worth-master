@@ -222,9 +222,48 @@ export function Navbar() {
   return (
     <>
 
-      {/* Sticky header block — nav + mission bar + credits bar stick together
+      {/* Sticky header block — credits bar + nav + mission bar stick together
           as one unit so nothing slides under the navbar while scrolling. */}
       <div className="sticky top-0 z-50">
+
+      {/* Credits + Player Value Bar — topmost row, above the navbar */}
+      <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
+        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-1.5">
+            <div className="flex items-center gap-2">
+              <Coins className="h-4 w-4 text-t1-400 shrink-0" />
+              <span className="text-gray-500 text-xs sm:text-sm">My Credits</span>
+              {creditsLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
+              ) : (
+                <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
+                  {formatCompact(credits ?? 0)}¢
+                </span>
+              )}
+            </div>
+            <div className="hidden sm:block w-px h-4 bg-gray-700" />
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-t1-400 shrink-0" />
+              <span className="text-gray-500 text-xs sm:text-sm">My Value</span>
+              {playerValueLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
+              ) : (
+                <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
+                  {formatCompact(playerValue ?? 0)}¢
+                </span>
+              )}
+            </div>
+
+            {/* Global game stats — occupies the empty right side of this bar. */}
+            <GlobalInfoBar />
+
+          </div>
+          <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
+            Earn credits when other players hire your cards, plus portfolio
+            rewards every 30 minutes. Your value grows every time you get hired.
+          </CoachMark>
+        </div>
+      </div>
 
       {/* Top Navbar — two rows of nav buttons + right-side controls spanning full height */}
       <nav className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-xl">
@@ -351,47 +390,8 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Credits + Player Value Bar */}
-      <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
-        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-1.5">
-            <div className="flex items-center gap-2">
-              <Coins className="h-4 w-4 text-t1-400 shrink-0" />
-              <span className="text-gray-500 text-xs sm:text-sm">My Credits</span>
-              {creditsLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
-              ) : (
-                <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatCompact(credits ?? 0)}¢
-                </span>
-              )}
-            </div>
-            <div className="hidden sm:block w-px h-4 bg-gray-700" />
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-t1-400 shrink-0" />
-              <span className="text-gray-500 text-xs sm:text-sm">My Value</span>
-              {playerValueLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
-              ) : (
-                <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatCompact(playerValue ?? 0)}¢
-                </span>
-              )}
-            </div>
-
-            {/* Global game stats — occupies the empty right side of this bar. */}
-            <GlobalInfoBar />
-
-          </div>
-          <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
-            Earn credits when other players hire your cards, plus portfolio
-            rewards every 30 minutes. Your value grows every time you get hired.
-          </CoachMark>
-        </div>
-      </div>
-
-      {/* Game event feed — own row below credits bar (inside sticky block).
-          Latest event always visible inline; expands to recent history. */}
+      {/* Game event feed — own row below the mission bar (inside sticky
+          block). Latest event always visible inline; expands to history. */}
       <EventFeedBar />
 
       </div>{/* end sticky header block */}

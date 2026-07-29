@@ -21,7 +21,7 @@ export function LockedFeature({ title, ownedCount, threshold }: LockedFeaturePro
   const remaining = Math.max(0, threshold - ownedCount);
   return (
     <div
-      className="rounded-xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4 flex items-center gap-3"
+      className="rounded-xl border border-gray-800 p-3 sm:p-4 flex items-center gap-3"
       aria-label={`${title} — locked, unlocks at ${formatCompact(threshold)} owned cards`}
     >
       <div className="p-2 rounded-lg bg-gray-800/60 shrink-0">

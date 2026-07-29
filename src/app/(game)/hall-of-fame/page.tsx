@@ -85,10 +85,9 @@ export default function HallOfFamePage() {
         )}
       </div>
 
-      {/* Hall of Champions — on desktop this lives in the rank-strip dropdown
-          above; the full list below is shown on mobile only (the strip is
-          hidden on small screens). */}
-      <div className="md:hidden space-y-6">
+      {/* Hall of Champions — always shown at the bottom of the End Game page,
+          on every screen size. */}
+      <div className="space-y-6">
       {/* Champions header */}
       <div className="pt-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">

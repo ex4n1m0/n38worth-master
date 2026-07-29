@@ -201,7 +201,7 @@ export default function SettingsPage() {
                   maxLength={30}
                   pattern="^[a-zA-Z0-9_]+$"
                   placeholder="Choose a new username"
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-transparent border-gray-700 text-white"
                 />
                 <p className="text-xs text-gray-500">
                   3–30 characters. Letters, numbers, and underscores only.
@@ -234,7 +234,7 @@ export default function SettingsPage() {
       )}
 
       {/* Change Avatar */}
-      <Card className="border-gray-800 bg-gray-900/60">
+      <Card className="border-gray-800 bg-transparent">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Camera className="h-5 w-5 text-pink-400" />
@@ -255,7 +255,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Sound */}
-      <Card className="border-gray-800 bg-gray-900/60">
+      <Card className="border-gray-800 bg-transparent">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             {muted ? (
@@ -312,7 +312,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Account Info */}
-      <Card className="border-gray-800 bg-gray-900/60">
+      <Card className="border-gray-800 bg-transparent">
         <CardHeader>
           <CardTitle className="text-white">{t.settingsTitle}</CardTitle>
         </CardHeader>
@@ -322,7 +322,7 @@ export default function SettingsPage() {
             <Input
               value={session?.user?.name || ""}
               disabled
-              className="bg-gray-800 border-gray-700 text-gray-400"
+              className="bg-transparent border-gray-700 text-gray-400"
             />
             <p className="text-xs text-gray-500">
               {t.username}
@@ -341,7 +341,7 @@ export default function SettingsPage() {
                   : ""
               }
               disabled
-              className="bg-gray-800 border-gray-700 text-gray-400"
+              className="bg-transparent border-gray-700 text-gray-400"
             />
           </div>
         </CardContent>
@@ -349,7 +349,7 @@ export default function SettingsPage() {
 
       {/* Change Password — hidden for demo players (they have no password) */}
       {!isDemoPlayer && (
-        <Card className="border-gray-800 bg-gray-900/60">
+        <Card className="border-gray-800 bg-transparent">
           <CardHeader>
             <CardTitle className="text-white">{t.changePassword}</CardTitle>
             <CardDescription className="text-gray-400">
@@ -367,7 +367,7 @@ export default function SettingsPage() {
                   name="currentPassword"
                   type="password"
                   required
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-transparent border-gray-700 text-white"
                 />
               </div>
               <Separator className="bg-gray-800" />
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                   type="password"
                   required
                   minLength={6}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-transparent border-gray-700 text-white"
                 />
               </div>
               <div className="space-y-2">
@@ -394,7 +394,7 @@ export default function SettingsPage() {
                   type="password"
                   required
                   minLength={6}
-                  className="bg-gray-800 border-gray-700 text-white"
+                  className="bg-transparent border-gray-700 text-white"
                 />
               </div>
               <Button

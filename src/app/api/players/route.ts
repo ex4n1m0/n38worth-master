@@ -66,6 +66,12 @@ export async function GET(req: Request) {
       conditions.push(sql`"users"."profession" IS NOT NULL AND "users"."profession" <> ''`);
     }
 
+    // Never show onboarding-pool NPCs in the market. Pool members exist only
+    // to be claimed by starter assignment / mission rewards — a pool NPC that
+    // gets hired through the market keeps its pool flag while owned, which
+    // later crashes pool claims with a duplicate-ownership error.
+    conditions.push(ne(users.isOnboardingPool, 1));
+
     // Exclude the current user from browse results
     if (currentUserId) {
       conditions.push(ne(users.id, currentUserId));

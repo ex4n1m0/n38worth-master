@@ -37,7 +37,6 @@ import {
   Star,
   Gem,
   Shield,
-  Swords,
   Calendar,
   Clock,
   Camera,
@@ -61,12 +60,6 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
 import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
-import {
-  getOwnedRank,
-  getValueRank,
-  getOwnedRankColor,
-  getValueRankColor,
-} from "@/lib/ranks";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
 // Code-split heavy components that are only needed on the profile page.
@@ -386,11 +379,11 @@ export default function PlayerProfilePage() {
       )}
 
       {isDemoPlayer && isOwnProfile && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-4">
-          <p className="text-amber-400 text-sm font-semibold text-center">
+        <div className="border border-amber-500/30 rounded-lg p-3 mb-4">
+          <p className="text-amber-400 text-3xl font-semibold text-center">
             ⚠️ Demo Player: This account will be automatically deleted after 1 hour
           </p>
-          <p className="text-amber-300/70 text-xs text-center mt-1">
+          <p className="text-amber-300/70 text-2xl text-center mt-1">
             Go to <a href="/settings" className="underline hover:text-amber-200">Settings</a> to change your username and avatar to make this account permanent
           </p>
         </div>
@@ -505,7 +498,7 @@ export default function PlayerProfilePage() {
           </div>
         )}
 
-        <div className="relative border border-white/10 backdrop-blur-sm bg-gray-950/70 rounded-b-3xl px-5 sm:px-8 py-5 space-y-3">
+        <div className="relative border border-white/10 rounded-b-3xl px-5 sm:px-8 py-5 space-y-3">
 
           {!inOnboarding && (
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -519,9 +512,6 @@ export default function PlayerProfilePage() {
                 Score {formatNumber(player.photoScore)}
               </span>
             )}
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getValueRankColor(player.playerValue)}`}><TrendingUp className="h-3 w-3" />{getValueRank(player.playerValue).title}</span>
-            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${getOwnedRankColor(player.ownedCount)}`}><Swords className="h-3 w-3" />{getOwnedRank(player.ownedCount).title}</span>
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20"><Shield className="h-3 w-3" />{player.ownerCount} leader{player.ownerCount !== 1 ? "s" : ""}</span>
             {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
             {!isOwnProfile && viewerOwnsTarget && !isSpecialCard && (
               <AssignProfessionDialog
@@ -653,10 +643,19 @@ export default function PlayerProfilePage() {
 
       {isOwnProfile && !inOnboarding && (
         <>
+          {/* Avatar grid of your owned cards, most valuable first. */}
+          {player?.ownedPlayers?.length > 0 && (
+            <OwnedAvatarGrid
+              ownerUsername={player.username}
+              players={player.ownedPlayers}
+              isOwnProfile
+            />
+          )}
+
           {/* Rewards & Income — collapsible, open by default.
               Hidden until the player completes mission 0 (Own 20 cards). */}
           {gameUnlocked && currentUserId && (
-            <div className="rounded-2xl border border-gray-800 bg-gray-900/40 overflow-hidden">
+            <div className="rounded-2xl border border-gray-800 overflow-hidden">
               <button
                 onClick={() => setShowRewards((v) => !v)}
                 className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
@@ -684,15 +683,6 @@ export default function PlayerProfilePage() {
                 </div>
               )}
             </div>
-          )}
-
-          {/* Avatar grid of your owned cards, most valuable first. */}
-          {player?.ownedPlayers?.length > 0 && (
-            <OwnedAvatarGrid
-              ownerUsername={player.username}
-              players={player.ownedPlayers}
-              isOwnProfile
-            />
           )}
 
           {/* Global chat room — hidden until the player completes mission 0. */}

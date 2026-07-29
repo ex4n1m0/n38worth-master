@@ -90,7 +90,6 @@ function StripCard({
   label,
   labelClass,
   children,
-  transparent = false,
   accent,
 }: {
   icon: React.ComponentType<{ className?: string }>;
@@ -98,13 +97,10 @@ function StripCard({
   label: string;
   labelClass: string;
   children: React.ReactNode;
-  transparent?: boolean;
   /** Optional border/background override (used by Hall of Champions). */
   accent?: string;
 }) {
-  const shell =
-    accent ??
-    (transparent ? "border border-white/10 bg-transparent" : "border border-white/10 bg-white/[0.03]");
+  const shell = accent ?? "border border-white/10 bg-transparent";
   return (
     <div className={`rounded-xl p-2.5 ${shell}`}>
       <div className={`flex items-center gap-1.5 mb-2 ${labelClass}`}>
@@ -121,7 +117,7 @@ function EmptyList({ text = "No entries yet" }: { text?: string }) {
 }
 
 /** A compact, always-visible ranking card showing the top 5. */
-function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; entries: RankPlayer[]; transparent?: boolean }) {
+function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
   const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (
     <StripCard
@@ -129,7 +125,6 @@ function RankCard({ cfg, entries, transparent = false }: { cfg: StripConfig; ent
       iconClass={cfg.iconClass}
       label={cfg.label}
       labelClass={cfg.labelClass}
-      transparent={transparent}
     >
       {top.length === 0 ? (
         <EmptyList />
@@ -213,7 +208,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
     now > 0 && now - new Date(lastOnlineAt).getTime() < 3 * 60 * 1000;
 
   return (
-    <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 bg-gray-900/40 p-3 sm:p-4"}>
+    <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 p-3 sm:p-4"}>
       <div className="flex items-center gap-2 mb-3">
         <Trophy className="h-5 w-5 text-t1-400" />
         <h2 className="font-bold text-white">Live Activity and Ranks</h2>
@@ -225,7 +220,6 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
           iconClass="text-emerald-400"
           label="Recently Online"
           labelClass="text-emerald-300"
-          transparent={transparent}
         >
           {humans.length === 0 ? (
             <EmptyList />
@@ -256,7 +250,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
 
         {/* 2. Biggest Empire · 3. Most Credits */}
         {STRIPS.map((cfg) => (
-          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} transparent={transparent} />
+          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
         ))}
 
         {/* 4. Hall of Champions — latest winners, always visible. */}

@@ -423,7 +423,7 @@ export function RewardHistory() {
     : allRewards.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <div className="rounded-xl bg-gradient-to-br from-gray-900/40 to-gray-800/20 border border-gray-700/40 p-4">
+    <div className="rounded-xl border border-gray-700/40 p-4">
       {/* Header — always visible */}
       <button
         onClick={() => setIsOpen((v) => !v)}

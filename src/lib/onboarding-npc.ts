@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { users, ownership } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
@@ -252,11 +252,12 @@ export async function assignOnboardingNpcsToUser(userId: number): Promise<number
     return existing;
   }
 
-  // 1. Try the pre-generated pool first (no Unsplash hit, instant)
+  // 1. Try the pre-generated pool first (no Unsplash hit, instant).
+  //    Only UNOWNED pool NPCs are claimable.
   const poolNpcs = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.isOnboardingPool, 1))
+    .where(sql`${users.isOnboardingPool} = 1 AND NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = ${users.id})`)
     .limit(3);
 
   const claimedIds: number[] = poolNpcs.map((n) => n.id);

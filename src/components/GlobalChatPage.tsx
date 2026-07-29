@@ -184,12 +184,12 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
     <div
       className={
         embedded
-          ? "flex flex-col rounded-xl border border-gray-800 bg-gray-900/50 overflow-hidden h-[70vh]"
-          : "min-h-screen bg-gradient-to-b from-gray-950 via-gray-950 to-black flex flex-col"
+          ? "flex flex-col rounded-xl border border-gray-800 overflow-hidden h-[70vh]"
+          : "min-h-screen flex flex-col"
       }
     >
       {/* Header */}
-      <div className="border-b border-gray-800 bg-gray-900/70 backdrop-blur-md px-4 py-4 shrink-0 sticky top-0 z-20">
+      <div className="border-b border-gray-800 px-4 py-4 shrink-0 sticky top-0 z-20">
         <div className="w-full flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-t1-600 to-t2-600 shadow-[0_0_20px_var(--t1-600)]">
@@ -241,7 +241,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
           <>
         <div
           ref={messagesContainerRef}
-          className="flex-1 overflow-y-auto rounded-xl bg-gray-900/60 border border-gray-800 p-4 space-y-3 min-h-0"
+          className="flex-1 overflow-y-auto rounded-xl border border-gray-800 p-4 space-y-3 min-h-0"
           style={embedded ? undefined : { maxHeight: "calc(100vh - 220px)" }}
         >
           {isLoading && (
@@ -324,7 +324,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 maxLength={280}
-                className="bg-gray-800/80 border-gray-700 text-white text-sm placeholder:text-gray-500 flex-1 rounded-full focus-visible:ring-t1-500"
+                className="bg-transparent border-gray-700 text-white text-sm placeholder:text-gray-500 flex-1 rounded-full focus-visible:ring-t1-500"
                 autoFocus
               />
               <Button
@@ -340,7 +340,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               </Button>
             </form>
           ) : (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border border-gray-700 rounded-xl px-4 py-3">
               <p className="text-gray-400 text-sm">
                 <span className="text-white font-medium">Sign in</span> to join the conversation
               </p>
@@ -382,7 +382,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
             )}
           </div>
           <div
-            className="flex-1 overflow-y-auto rounded-xl bg-gray-900/60 border border-gray-800 divide-y divide-gray-800/60"
+            className="flex-1 overflow-y-auto rounded-xl border border-gray-800 divide-y divide-gray-800/60"
           >
             {humanPlayers.length === 0 && (
               <div className="flex items-center justify-center py-8 text-gray-600 text-xs">

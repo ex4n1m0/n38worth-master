@@ -96,7 +96,7 @@ export default function GameHistoryPage() {
         ))}
       </div>
 
-      <Card className="border-gray-800 bg-gray-900/60">
+      <Card className="border-gray-800 bg-transparent">
         <CardHeader>
           <CardTitle className="text-white">
             {filter ? eventTypeConfig[filter as keyof typeof eventTypeConfig]?.label ?? "History" : "All Events"}
@@ -141,7 +141,7 @@ export default function GameHistoryPage() {
                   return (
                     <div
                       key={event.id}
-                      className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg bg-gray-800/50"
+                      className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-4 rounded-lg"
                     >
                       <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
                         <div className={`p-2 rounded-lg ${config.bgColor} flex-shrink-0`}>
