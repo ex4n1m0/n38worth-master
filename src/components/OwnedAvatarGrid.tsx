@@ -51,7 +51,7 @@ export function OwnedAvatarGrid({
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-white flex items-center gap-2">
         <Users className="h-5 w-5 text-t1-400" />
-        {isOwnProfile ? "Your" : `${ownerUsername}'s`} Most Valuable Cards
+        {isOwnProfile ? "Your" : `${ownerUsername}'s`} Most Valuable Avatars
         <span className="text-sm font-normal text-gray-400">
           (top {topPlayers.length} of {players.length})
         </span>
