@@ -90,10 +90,12 @@ export function PermBlockButton({
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isAssigned) {
+    if (isActive) {
       const ok = window.confirm(`Remove permanent block from ${targetUsername}?`);
       if (!ok) return;
     }
+    // Expired blocks (assigned but no longer active) fall through here and
+    // get a FRESH block assigned — the server treats expired as unassigned.
     mutation.mutate({});
   };
 
@@ -122,7 +124,7 @@ export function PermBlockButton({
         ) : (
           <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-purple-300/60 text-purple-200" : "text-purple-300"}`} />
         )}
-        {isAssigned ? "Remove Perm Block" : "Assign Perm Block"}
+        {isActive ? "Remove Perm Block" : "Assign Perm Block"}
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

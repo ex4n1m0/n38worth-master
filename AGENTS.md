@@ -23,8 +23,11 @@
   reward card(s) (Mass Hire / goddesses), AND one free NPC auto-owned by the
   player (`awardMissionNpc` in `src/lib/missions.ts`). The NPC is claimed from
   the `isOnboardingPool` pre-generated pool first (no Unsplash call in the
-  request path); hidden-avatar fallback if the pool is empty. Never create
-  Unsplash NPCs synchronously in a request path — use the pool or the fallback.
+  request path); if the pool is empty, fall back to a compressed picsum
+  avatar (`fetchFallbackNpcAvatar` in `src/lib/npc-fallback-avatar.ts`) —
+  the hidden placeholder is the last resort only. Never create Unsplash NPCs
+  synchronously in a request path. Stale hidden-avatar NPCs can be repaired
+  with `npm run backfill:hidden-avatars`.
 - Player (card) values are capped at `MAX_PLAYER_VALUE` (1e12) via
   `capPlayerValue` / `MAX_PLAYER_VALUE_SQL` in `src/lib/safeguards.ts`. Clamp any
   new value-growth site with these so values never approach `MAX_SAFE_INTEGER`

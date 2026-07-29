@@ -107,8 +107,12 @@ export async function POST(req: Request) {
       });
     }
 
-    // No source: toggle the target's own permanent block.
-    if (targetRecord.permBlockUntil) {
+    // No source: toggle the target's own permanent block. An EXPIRED block
+    // counts as no block (stale rows are cleaned up by the offline-penalty
+    // cron) — toggling an expired block assigns a fresh one.
+    const hasActivePermBlock =
+      targetRecord.permBlockUntil && new Date(targetRecord.permBlockUntil).getTime() > now;
+    if (hasActivePermBlock) {
       // Remove the permanent block.
       await db
         .update(ownership)
@@ -122,11 +126,15 @@ export async function POST(req: Request) {
       });
     }
 
-    // Count how many permanent blocks are already assigned.
+    // Count how many ACTIVE (unexpired) permanent blocks are already assigned.
     const [permCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(ownership)
-      .where(and(eq(ownership.ownerId, ownerId), isNotNull(ownership.permBlockUntil)));
+      .where(and(
+        eq(ownership.ownerId, ownerId),
+        isNotNull(ownership.permBlockUntil),
+        sql`${ownership.permBlockUntil} > NOW()`
+      ));
 
     if (permCount.count < MAX_PERM_BLOCKS) {
       await db
@@ -141,7 +149,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Limit reached: return the active blocks so the client can choose one to move.
+    // Limit reached: return the active (unexpired) blocks so the client can
+    // choose one to move.
     const activeBlocksRaw = await db
       .select({
         ownershipId: ownership.id,
@@ -152,7 +161,12 @@ export async function POST(req: Request) {
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
-      .where(and(eq(ownership.ownerId, ownerId), isNotNull(ownership.permBlockUntil), ne(ownership.ownedId, targetId)));
+      .where(and(
+        eq(ownership.ownerId, ownerId),
+        isNotNull(ownership.permBlockUntil),
+        sql`${ownership.permBlockUntil} > NOW()`,
+        ne(ownership.ownedId, targetId)
+      ));
 
     const activeBlocks: ActiveBlock[] = activeBlocksRaw.map((b) => ({
       ...b,

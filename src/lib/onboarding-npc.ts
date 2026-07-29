@@ -3,6 +3,7 @@ import { users } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
+import { fetchFallbackNpcAvatar } from "@/lib/npc-fallback-avatar";
 
 // Unsplash credentials must be provided via env. No hardcoded fallback — a
 // missing key should cause a clear failure rather than silently leaking a
@@ -289,7 +290,8 @@ export async function assignOnboardingNpcsToUser(userId: number): Promise<number
   let npcIds = [...claimedIds, ...freshIds];
 
   // 3. Hard fallback: if pool+Unsplash still left us short, create simple NPCs
-  //    with the default hidden-card avatar so the NPC step always has 3 entries.
+  //    (picsum avatars — hidden placeholder only if picsum also fails) so the
+  //    NPC step always has 3 entries without faceless cards.
   const stillNeeded = 3 - npcIds.length;
   if (stillNeeded > 0) {
     console.log(`assignOnboardingNpcsToUser: pool+Unsplash only gave ${npcIds.length}/3 for user ${userId}. Creating ${stillNeeded} fallback NPCs.`);
@@ -297,13 +299,14 @@ export async function assignOnboardingNpcsToUser(userId: number): Promise<number
     for (let i = 0; i < stillNeeded; i++) {
       const fallbackUsername = await generateUniqueUsername(null);
       if (!fallbackUsername) continue;
+      const fallbackAvatar = await fetchFallbackNpcAvatar();
       try {
         const [fallbackNpc] = await db
           .insert(users)
           .values({
             username: fallbackUsername,
             passwordHash: null,
-            avatarUrl: "/NEW_HIDDEN.webp",
+            avatarUrl: fallbackAvatar?.avatarUrl ?? "/NEW_HIDDEN.webp",
             playerValue: 1,
             valueFloor: 1,
             credits: 0,
@@ -313,6 +316,9 @@ export async function assignOnboardingNpcsToUser(userId: number): Promise<number
             isOnboardingPool: 0,
             onboardingCreatedBy: userId,
             profession: null,
+            photoAuthorName: fallbackAvatar?.photoAuthorName ?? null,
+            photoAuthorUrl: fallbackAvatar?.photoAuthorUrl ?? null,
+            photoSourceUrl: fallbackAvatar?.photoSourceUrl ?? null,
           })
           .returning({ id: users.id });
         fallbackIds.push(fallbackNpc.id);

@@ -25,6 +25,7 @@ import { claimLoginReward } from "@/lib/login-reward";
 import { MISSIONS, type Mission, MASS_HIRE_CARD, FINAL_MISSION_INDEX } from "@/lib/missions-data";
 import { getFinalGoddessThreshold } from "@/lib/game-wins";
 import { generateRandomNpcName } from "@/lib/npc-names";
+import { fetchFallbackNpcAvatar } from "@/lib/npc-fallback-avatar";
 
 export { MISSIONS };
 export type { Mission };
@@ -267,7 +268,11 @@ async function awardMissionNpc(
       .where(eq(users.id, poolNpc.id));
     npc = poolNpc;
   } else {
-    // 2. Pool empty — create a hidden-avatar NPC directly (no Unsplash call).
+    // 2. Pool empty — create an NPC directly (no Unsplash call in the request
+    // path). Uses a picsum fallback avatar so reward cards never enter the
+    // game faceless; only degrades to the hidden placeholder if picsum also
+    // fails.
+    const fallbackAvatar = await fetchFallbackNpcAvatar();
     for (let attempt = 0; attempt < 10 && !npc; attempt++) {
       const username = generateRandomNpcName();
       const existing = await db
@@ -281,7 +286,7 @@ async function awardMissionNpc(
           .values({
             username,
             passwordHash: null,
-            avatarUrl: "/NEW_HIDDEN.webp",
+            avatarUrl: fallbackAvatar?.avatarUrl ?? "/NEW_HIDDEN.webp",
             playerValue: 1,
             valueFloor: 1,
             credits: 0,
@@ -291,6 +296,9 @@ async function awardMissionNpc(
             isOnboardingPool: 0,
             onboardingCreatedBy: null,
             profession: null,
+            photoAuthorName: fallbackAvatar?.photoAuthorName ?? null,
+            photoAuthorUrl: fallbackAvatar?.photoAuthorUrl ?? null,
+            photoSourceUrl: fallbackAvatar?.photoSourceUrl ?? null,
           })
           .returning({ id: users.id, username: users.username });
         npc = created;
