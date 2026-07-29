@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, sql, isNotNull, and } from "drizzle-orm";
-import { safePortfolioValue, safeReward } from "@/lib/safeguards";
+import { safePortfolioValue, safeRewardFractional } from "@/lib/safeguards";
 // import { extractIp, checkMultiAccount } from "@/lib/multi-account";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
   const portfolioValue = safePortfolioValue(user.playerValue, ownedValue, ownerCount);
 
   // Calculate 0.2% reward — same formula as portfolio-reward cron and rankings
-  const portfolioReward = safeReward(portfolioValue, 0.002);
+  const portfolioReward = safeRewardFractional(portfolioValue, 0.002);
 
   // wasReset flag is included in the response.
   // It is NOT auto-cleared here — the client must explicitly acknowledge it

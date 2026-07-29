@@ -33,7 +33,6 @@ import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { RevealCard } from "@/components/RevealCard";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
-import { useOthersOwnPlayers } from "@/hooks/useOthersOwnPlayers";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
@@ -175,25 +174,17 @@ function BrowsePlayersSection({
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
-  const [sort, setSort] = useState("value");
-  const [dir, setDir] = useState<"asc" | "desc">("asc");
+  // Default view (user-specified): free (ownerless) cards, most recently
+  // online first, all types, affordable filter off.
+  const [sort, setSort] = useState("last-online");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
   // Infinite scroll: cards load in batches as the user approaches the bottom
   // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
   const pageSize = 48;
-  // "Others Owned" defaults to ON when other players actually own cards (same
-  // behavior as the market /players page), so players land on a view with
-  // stealable targets. Falls back to "none" (No Owner) when nobody else owns
-  // anything. Manual clicks after mount are authoritative — the effect below
-  // only sets the initial default once.
-  const othersOwnPlayers = useOthersOwnPlayers();
-  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
-  const [ownerFilterInitialized, setOwnerFilterInitialized] = useState(false);
+  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("none");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
-  // "Affordable" hides owned cards and any card the user can't currently buy
-  // with their credits. ON by default — players land on a view of cards they
-  // can actually shop for, and can toggle it off to browse everything.
-  const [affordable, setAffordable] = useState(true);
+  const [affordable, setAffordable] = useState(false);
   const { play } = useSound();
 
   const limit = pageSize;
@@ -211,15 +202,6 @@ function BrowsePlayersSection({
     refetchInterval: 300 * 1000,
   });
   const activePerks = new Set(perksData?.activeProfessions ?? []);
-
-  // Settle the ownerFilter default once the other-owners check resolves. Only
-  // runs once (guarded by ownerFilterInitialized) so manual clicks win after.
-  useEffect(() => {
-    if (!ownerFilterInitialized && othersOwnPlayers !== undefined) {
-      setOwnerFilter(othersOwnPlayers ? "other" : "none");
-      setOwnerFilterInitialized(true);
-    }
-  }, [othersOwnPlayers, ownerFilterInitialized]);
 
   const {
     data,

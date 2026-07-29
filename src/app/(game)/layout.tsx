@@ -1,7 +1,8 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
+import { redirect, usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
@@ -10,6 +11,15 @@ import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep"
 import { NewPlayerGuide } from "@/components/NewPlayerGuide";
 import { PoachEffect } from "@/components/PoachEffect";
 // import { MultiAccountNotification } from "@/components/MultiAccountNotification";
+
+/** Scrolls every game page back to the top on client-side navigation. */
+function ScrollToTop() {
+  const pathname = usePathname();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
 export default function GameLayout({
   children,
@@ -46,6 +56,7 @@ export default function GameLayout({
       />
       <div className="fixed inset-0 bg-black/90 pointer-events-none" />
       <div className="relative z-10">
+      <ScrollToTop />
       <PoachEffect />
       <Navbar />
       <main className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-bottom-nav overflow-x-hidden">

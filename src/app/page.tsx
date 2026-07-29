@@ -192,13 +192,23 @@ export default function Home() {
             n38worth
           </Link>
 
+          {/* Tagline — same gradient/bold style as the title, sized so its
+              line is narrower than the title but wider than the stats row
+              below: an inverted pyramid of text. */}
+          <p
+            className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 font-bold uppercase tracking-[0.32em] md:tracking-[0.4em] text-[1.35rem] sm:text-2xl md:text-[1.8rem] select-none drop-shadow-[0_0_20px_var(--t1-500)]"
+            style={{ animationDelay: "0.2s" }}
+          >
+            social media game
+          </p>
+
           {/* Live stats */}
           <div className="lp-fade-up flex items-center gap-6 sm:gap-10" style={{ animationDelay: "0.3s" }}>
-            <Stat label="Cards" value={stats?.totalPlayers ?? 0} />
+            <Stat label="Avatars" value={stats?.totalPlayers ?? 0} />
             <div className="h-8 w-px bg-white/15" />
             <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
             <div className="h-8 w-px bg-white/15" />
-            <Stat label="Players" value={stats?.totalHumans ?? 0} />
+            <Stat label="Humans" value={stats?.totalHumans ?? 0} />
           </div>
 
           {/* Active countdown */}
@@ -211,7 +221,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setGameplayOpen(true)}
-              className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-14 py-6 text-2xl sm:text-3xl font-bold text-white shadow-[0_0_40px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+              className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-transparent border border-t1-500/40 px-14 py-6 text-2xl sm:text-3xl font-bold text-white shadow-[0_0_40px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
             >
               Start Here
             </button>
@@ -240,7 +250,7 @@ export default function Home() {
           </DialogHeader>
           <div className="space-y-3 py-4">
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">What is n38worth?</h3>
               <p className="text-sm leading-relaxed text-gray-300">
                 A multiplayer card-trading game where every player — human or NPC — is a card
@@ -251,7 +261,7 @@ export default function Home() {
               </p>
             </section>
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
               <ol className="space-y-3">
                 {[
@@ -273,7 +283,7 @@ export default function Home() {
               </ol>
             </section>
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Earning Credits</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
                 Credits are the fuel for everything. Four ways to earn them:
@@ -304,7 +314,7 @@ export default function Home() {
               </p>
             </section>
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
@@ -327,7 +337,7 @@ export default function Home() {
               </ul>
             </section>
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
                 There are 6 professions. You pick one for yourself, and you can assign one to any
@@ -350,7 +360,7 @@ export default function Home() {
               </p>
             </section>
 
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
                 Grow your empire to earn the legendary cards. Every completed mission also adds
@@ -391,7 +401,7 @@ export default function Home() {
 
             {/* Highest-value NPC cards — the avatar grid, moved here from the
                 landing page so it sits right above the sign-up buttons. */}
-            <section className="rounded-xl border border-gray-800 bg-gray-900/40 p-5">
+            <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-3 text-lg font-semibold text-t1-400">Highest-Value NPC Cards</h3>
               <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
                 {(data?.topNpcs ?? []).map((npc) => (

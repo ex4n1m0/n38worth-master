@@ -319,13 +319,14 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
         <div className="mt-3 shrink-0">
           {status === "loading" ? null : session ? (
             <form onSubmit={handleSend} className="flex gap-2">
+              {/* No autoFocus — this component lazy-loads on the profile page,
+                  and focusing late scrolls the page down to the chat. */}
               <Input
                 placeholder="Send a message to the world..."
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 maxLength={280}
                 className="bg-transparent border-gray-700 text-white text-sm placeholder:text-gray-500 flex-1 rounded-full focus-visible:ring-t1-500"
-                autoFocus
               />
               <Button
                 type="submit"

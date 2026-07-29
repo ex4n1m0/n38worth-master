@@ -2,14 +2,17 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { sql } from "drizzle-orm";
-import { safePortfolioValue, safeReward } from "@/lib/safeguards";
+import { safePortfolioValue, safeRewardFractional } from "@/lib/safeguards";
 
 /**
  * Returns the estimated boss income PER HOUR based on current ownership state.
  *
- * Two tax streams:
- * 1. Portfolio tax: 10% of each owned player's 0.2% portfolio reward × 30 cycles/hour
- * 2. Hourly tax: 1% of credits for owned players who own 0 players (once/hour)
+ * Two tax streams (schedule factors pinned to the actual cron cadences):
+ * 1. Portfolio tax: 10% of each owned player's 0.2% portfolio reward × 1
+ *    full cycle/hour (portfolio-reward cron only does a full run at :00; the
+ *    :30 tick is Time-holders only, which we ignore in the estimate).
+ * 2. Hourly tax: 1% of credits for owned players who own 0 players, × 0.5
+ *    (boss-tax cron only runs every 2 hours).
  */
 export async function GET() {
   const session = await auth();
@@ -68,17 +71,18 @@ export async function GET() {
 
       const portfolioValue = safePortfolioValue(Number(player.playerValue), ownedValue, ownerCount);
 
-      // Portfolio tax: 10% of 0.2% portfolio reward per cycle × 30 cycles/hour
-      const grossRewardPerCycle = safeReward(portfolioValue, 0.002);
-      const bossTaxPerCycle = Math.floor(grossRewardPerCycle * 0.1);
-      portfolioTaxPerHour += bossTaxPerCycle * 30;
+      // Portfolio tax: 10% of the 0.2% reward × 1 full cycle/hour (see header)
+      const grossRewardPerCycle = safeRewardFractional(portfolioValue, 0.002);
+      const bossTaxPerCycle = grossRewardPerCycle * 0.1;
+      portfolioTaxPerHour += bossTaxPerCycle;
 
-      // Players who own 0 players pay hourly tax (1% of credits, once/hour)
+      // Players who own 0 players pay 1% of credits — boss-tax cron runs
+      // every 2 hours, so × 0.5 per hour
       const ownedCount = Number(player.ownedCount ?? 0);
       if (ownedCount === 0) {
         const hourlyTax = Math.floor(Number(player.credits) * 0.01);
         if (hourlyTax > 0) {
-          hourlyTaxPerHour += hourlyTax;
+          hourlyTaxPerHour += hourlyTax * 0.5;
         }
       }
     }

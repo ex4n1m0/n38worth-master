@@ -9,7 +9,7 @@ import {
   PORTFOLIO_RANKS,
 } from "@/lib/ranks";
 import { pusher } from "@/lib/pusher-server";
-import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { safePortfolioValue, safeRewardFractional, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
@@ -113,7 +113,7 @@ export async function GET(req: Request) {
       const portfolioValue = safePortfolioValue(playerValue, ownedValue, ownerCount);
 
       // Calculate 0.2% reward using BigInt-safe arithmetic
-      const reward = safeReward(portfolioValue, 0.002);
+      const reward = safeRewardFractional(portfolioValue, 0.002);
       portfolioRewardCache.set(playerId, reward);
       return reward;
     };

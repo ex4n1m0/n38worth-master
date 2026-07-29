@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, DollarSign, ChevronDown, ChevronUp, Users, Info } from "lucide-react";
+import { TrendingUp, DollarSign } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
 
 export function PortfolioRewardCountdown() {
@@ -26,11 +25,8 @@ export function PortfolioRewardCountdown() {
 
   // portfolioValue and portfolioReward are computed server-side in /api/me
   // using the same BigInt-safe formula as the cron and leaderboard — no client recompute needed.
-  const playerValue = playerData?.playerValue ?? 0;
   const portfolioValue: number = playerData?.portfolioValue ?? 0;
   const potentialReward: number = playerData?.portfolioReward ?? 0;
-  
-  const [showBreakdown, setShowBreakdown] = useState(false);
 
   return (
     <div className="rounded-xl border border-gray-800 p-3">
@@ -69,47 +65,6 @@ export function PortfolioRewardCountdown() {
       <p className="text-xs text-gray-500 mt-2">
         Earn 0.2% of your portfolio value as credits.
       </p>
-      
-      {/* Breakdown Toggle */}
-      {session?.user?.name && portfolioValue > 0 && (
-        <button
-          onClick={() => setShowBreakdown(!showBreakdown)}
-          className="mt-3 flex items-center gap-1 text-xs text-t1-400 hover:text-t1-300 transition-colors"
-        >
-          <Info className="h-3 w-3" />
-          {showBreakdown ? "Hide" : "Show"} Calculation Breakdown
-          {showBreakdown ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )}
-        </button>
-      )}
-
-      {/* Breakdown Section */}
-      {showBreakdown && session?.user?.name && (
-        <div className="mt-3 p-3 rounded-lg border border-gray-700/50 space-y-3">
-          <h4 className="text-xs font-semibold text-gray-300 flex items-center gap-1">
-            <Users className="h-3 w-3" />
-            Portfolio Calculation Breakdown
-          </h4>
-
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400">Your Base Value</span>
-            <span className="text-white font-medium">{formatCompact(playerValue)}¢</span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-700">
-            <span className="text-gray-300 font-medium">Final Portfolio Value</span>
-            <span className="text-white font-bold">{formatCompact(portfolioValue)}¢</span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs bg-t1-500/10 rounded px-2 py-1">
-            <span className="text-t1-300">0.2% Reward</span>
-            <span className="text-t1-400 font-bold">+{formatCompact(potentialReward)}¢</span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

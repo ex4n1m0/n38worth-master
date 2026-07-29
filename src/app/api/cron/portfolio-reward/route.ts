@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, ownership, rewardHistory } from "@/db/schema";
 import { sql, eq, inArray, notInArray } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
-import { safePortfolioValue, safeReward, MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { safePortfolioValue, safeRewardFractional, MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
@@ -119,10 +119,10 @@ export async function GET(req: Request) {
         const bossId = bossInfo?.bossId;
         const bossUsername = bossInfo?.bossUsername;
         const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
-        const grossReward = safeReward(portfolioValue, 0.002);
+        const grossReward = safeRewardFractional(portfolioValue, 0.002);
 
         if (grossReward > 0) {
-          const bossTax = bossId ? Math.floor(grossReward * 0.1) : 0;
+          const bossTax = bossId ? grossReward * 0.1 : 0;
           const baseNetReward = grossReward - bossTax;
           const playerNetReward = playerPowers.hasWealth ? baseNetReward * 2 : baseNetReward;
 
@@ -189,12 +189,12 @@ export async function GET(req: Request) {
       // Use BigInt-safe portfolio calculation to avoid overflow with large player values
       const portfolioValue = safePortfolioValue(player.playerValue, ownedValue, ownerCount);
 
-      // Calculate 0.2% reward using BigInt-safe arithmetic
-      const grossReward = safeReward(portfolioValue, 0.002);
+      // Calculate 0.2% reward — fractional (sub-1¢ rewards are real credits)
+      const grossReward = safeRewardFractional(portfolioValue, 0.002);
 
       if (grossReward > 0) {
         // Calculate boss tax: 10% goes to boss, player keeps 90%
-        const bossTax = bossId ? Math.floor(grossReward * 0.1) : 0;
+        const bossTax = bossId ? grossReward * 0.1 : 0;
         const baseNetReward = grossReward - bossTax;
         // Wealth / Creation power: 2x portfolio reward for the holder
         const playerNetReward = playerPowers.hasWealth ? baseNetReward * 2 : baseNetReward;

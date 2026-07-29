@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Users, Coins, Crown, Calendar, Star, Trophy, Clock } from "lucide-react";
+import { Calendar, Star } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { formatCompact, formatLastOnline } from "@/lib/utils";
@@ -53,9 +53,6 @@ interface SidebarData {
 interface StripConfig {
   key: keyof RanksResponse;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconClass: string;
-  labelClass: string;
   getValue: (p: RankPlayer) => number;
   suffix?: string;
 }
@@ -64,17 +61,11 @@ const STRIPS: StripConfig[] = [
   {
     key: "topEmpire",
     label: "Biggest Empire",
-    icon: Users,
-    iconClass: "text-purple-400",
-    labelClass: "text-purple-300",
     getValue: (p) => p.ownedCount,
   },
   {
     key: "topCredits",
     label: "Most Credits",
-    icon: Coins,
-    iconClass: "text-cyan-400",
-    labelClass: "text-cyan-300",
     getValue: (p) => p.credits,
     suffix: "¢",
   },
@@ -83,19 +74,13 @@ const STRIPS: StripConfig[] = [
 // Medal colouring for the top 3 positions.
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
-/** Shared shell for every card in the strip. */
+/** Shared shell for every card in the strip. Titles are always plain white. */
 function StripCard({
-  icon: Icon,
-  iconClass,
   label,
-  labelClass,
   children,
   accent,
 }: {
-  icon: React.ComponentType<{ className?: string }>;
-  iconClass: string;
   label: string;
-  labelClass: string;
   children: React.ReactNode;
   /** Optional border/background override (used by Hall of Champions). */
   accent?: string;
@@ -103,9 +88,8 @@ function StripCard({
   const shell = accent ?? "border border-white/10 bg-transparent";
   return (
     <div className={`rounded-xl p-2.5 ${shell}`}>
-      <div className={`flex items-center gap-1.5 mb-2 ${labelClass}`}>
-        <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
-        <span className="text-[11px] font-bold uppercase tracking-wide truncate">{label}</span>
+      <div className="mb-2">
+        <span className="text-[11px] font-bold uppercase tracking-wide truncate text-white">{label}</span>
       </div>
       {children}
     </div>
@@ -121,10 +105,7 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
   const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (
     <StripCard
-      icon={cfg.icon}
-      iconClass={cfg.iconClass}
       label={cfg.label}
-      labelClass={cfg.labelClass}
     >
       {top.length === 0 ? (
         <EmptyList />
@@ -209,17 +190,10 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
 
   return (
     <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 p-3 sm:p-4"}>
-      <div className="flex items-center gap-2 mb-3">
-        <Trophy className="h-5 w-5 text-t1-400" />
-        <h2 className="font-bold text-white">Live Activity and Ranks</h2>
-      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {/* 1. Recently Online */}
         <StripCard
-          icon={Clock}
-          iconClass="text-emerald-400"
           label="Recently Online"
-          labelClass="text-emerald-300"
         >
           {humans.length === 0 ? (
             <EmptyList />
@@ -255,10 +229,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
 
         {/* 4. Hall of Champions — latest winners, always visible. */}
         <StripCard
-          icon={Crown}
-          iconClass="text-yellow-400"
           label="Hall of Champions"
-          labelClass="text-yellow-300"
           accent={
             transparent
               ? "border border-yellow-500/20 bg-transparent"

@@ -255,7 +255,7 @@ export function GoddessCard({
   };
 
   return (
-    <Card className={`border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 transition-all duration-200 group overflow-hidden`}>
+    <Card className={`border-gray-800 bg-transparent transition-all duration-200 group overflow-hidden`}>
       <CardContent className="p-0">
         {/* Clean Avatar Section - No overlay */}
         <div className="aspect-square">
@@ -279,7 +279,7 @@ export function GoddessCard({
           
           {/* Stats */}
           <div className="grid grid-cols-1 gap-2">
-            <div className="bg-gray-800/50 rounded-lg p-2">
+            <div className="rounded-lg p-2">
               <p className="text-gray-400 text-xs">Owner</p>
               {isOwned ? (
                 <Link 
@@ -298,7 +298,7 @@ export function GoddessCard({
           {GODDESS_POWERS[username] && (
             <div className={`rounded-lg p-2.5 border ${
               isViewerOwner && !powerOn
-                ? "bg-gray-800/30 border-gray-700/30 opacity-60"
+                ? "border-gray-700/30 opacity-60"
                 : "bg-purple-900/20 border-purple-500/20"
             }`}>
               <div className="flex items-center justify-between mb-1">
@@ -331,7 +331,7 @@ export function GoddessCard({
               Locked until the awarding mission is completed. */}
           {session && !isOwnProfile && !isViewerOwner && (
             locked ? (
-              <div className="w-full flex flex-col items-center gap-1 rounded-md bg-gray-800/70 border border-gray-700 py-2 px-2 min-h-[2.5rem] justify-center">
+              <div className="w-full flex flex-col items-center gap-1 rounded-md border border-gray-700 py-2 px-2 min-h-[2.5rem] justify-center">
                 <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-gray-300 leading-none">
                   <Lock className="h-3 w-3" />
                   Locked

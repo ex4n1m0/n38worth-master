@@ -145,7 +145,7 @@ export default function HallOfFamePage() {
                     ? "border-yellow-500/40 bg-gradient-to-r from-yellow-500/10 via-amber-500/5 to-yellow-500/10 shadow-lg shadow-yellow-500/5"
                     : isTop3
                       ? "border-amber-500/20 bg-gradient-to-r from-amber-500/5 to-transparent"
-                      : "border-gray-800 bg-gray-900/60 hover:border-gray-700"
+                      : "border-gray-800 bg-transparent hover:border-gray-700"
                 }`}
               >
                 <div className="flex items-center gap-4">

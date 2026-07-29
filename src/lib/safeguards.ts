@@ -97,6 +97,17 @@ export function safePortfolioValue(
 /**
  * Safe reward / bonus calculation: multiplies then caps at MAX_CREDITS.
  */
+/**
+ * Fractional variant of safeReward — pays the exact percentage instead of
+ * flooring to whole credits. Credits are double-precision, so sub-1¢ rewards
+ * (e.g. 0.31¢ from a small portfolio) are representable; flooring them meant
+ * portfolios below ~500¢ earned exactly 0 forever.
+ */
+export function safeRewardFractional(portfolioValue: number, percentage: number): number {
+  if (!Number.isFinite(portfolioValue) || portfolioValue <= 0) return 0;
+  return Math.min(portfolioValue * percentage, MAX_CREDITS);
+}
+
 export function safeReward(portfolioValue: number, percentage: number): number {
   try {
     const bigPV = BigInt(Math.round(portfolioValue));

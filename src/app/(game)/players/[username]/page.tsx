@@ -73,9 +73,7 @@ const LostPlayersGrid = dynamic(() => import("@/components/LostPlayersGrid").the
 const InlineDMChat = dynamic(() => import("@/components/InlineDMChat").then((m) => m.InlineDMChat), {
   loading: () => <div className="h-48 flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-gray-500" /></div>,
 });
-const RewardHistory = dynamic(() => import("@/components/RewardHistory").then((m) => m.RewardHistory), {
-  loading: () => <div className="h-32" />,
-});
+
 const ChangeProfessionDialog = dynamic(() => import("@/components/ChangeProfessionDialog").then((m) => m.ChangeProfessionDialog), {
   ssr: false,
 });
@@ -679,7 +677,6 @@ export default function PlayerProfilePage() {
                     <BossIncomeCard userId={currentUserId} />
                   </div>
                   <LoginReward />
-                  <RewardHistory />
                 </div>
               )}
             </div>
