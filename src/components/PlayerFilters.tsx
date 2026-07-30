@@ -63,8 +63,8 @@ export function FilterPill({
       onClick={onClick}
       title={title}
       aria-pressed={active}
-      className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border transition-colors active:scale-95 ${
-        active ? activeCls : "border-gray-700 text-gray-500 hover:text-gray-300"
+      className={`flex items-center gap-2.5 text-xl font-semibold px-10 py-5 rounded-xl border transition-colors active:scale-95 ${
+        active ? activeCls : "border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400"
       }`}
     >
       {children}
@@ -86,10 +86,10 @@ export function SortBar({
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-gray-500 mr-1">Sort:</span>
+      <span className="text-base text-gray-400 mr-1">Sort:</span>
       {PLAYER_SORTS.map(({ key, label, icon: Icon }) => (
         <FilterPill key={key} active={sort === key} onClick={() => onSortChange(key)} tone="amber">
-          <Icon className="h-3 w-3" /> {label}
+          <Icon className="h-6 w-6" /> {label}
         </FilterPill>
       ))}
       <button
@@ -97,9 +97,9 @@ export function SortBar({
         onClick={onToggleDir}
         title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
         aria-label={dir === "asc" ? "Sort ascending, activate for descending" : "Sort descending, activate for ascending"}
-        className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95"
+        className="flex items-center gap-2.5 text-xl font-semibold px-10 py-5 rounded-xl border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95"
       >
-        {dir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+        {dir === "asc" ? <ArrowUp className="h-6 w-6" /> : <ArrowDown className="h-6 w-6" />}
         {dir === "asc" ? "Asc" : "Desc"}
       </button>
     </div>
@@ -116,7 +116,7 @@ export function ProfessionFilterBar({
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className="text-xs text-gray-500 mr-1">Profession:</span>
+      <span className="text-base text-gray-400 mr-1">Profession:</span>
       {PROFESSIONS.map((p) => (
         <FilterPill
           key={p.name}
@@ -125,7 +125,7 @@ export function ProfessionFilterBar({
           onClick={() => onSelect(selected === p.name ? "" : p.name)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={p.imagePath} alt="" className="h-3.5 w-3.5 object-contain" /> {p.name}
+          <img src={p.imagePath} alt="" className="h-7 w-7 object-contain" /> {p.name}
         </FilterPill>
       ))}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Coins, Bot, User, Circle } from "lucide-react";
+import { Users, Coins, User, Circle } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 import { formatCompact, formatNumber } from "@/lib/utils";
 
@@ -51,14 +51,6 @@ export function GlobalInfoBar() {
         <span className="text-gray-500">{t.totalEconomy}</span>
         <span className="text-white">
           {formatCompact(stats.totalEconomy)}¢
-        </span>
-      </div>
-      <div className="hidden sm:block w-px h-3 bg-gray-700" />
-      <div className="flex items-center gap-1.5">
-        <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-purple-400 shrink-0" />
-        <span className="text-gray-500">NPCs</span>
-        <span className="text-white">
-          {formatCompact(stats.totalNpcs)}
         </span>
       </div>
       <div className="hidden sm:block w-px h-3 bg-gray-700" />

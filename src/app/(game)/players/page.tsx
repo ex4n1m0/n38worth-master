@@ -16,7 +16,7 @@ export default function PlayersPage() {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState("value");
+  const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<SortDir>("desc");
   // Ownership (relative to me): "" = all, "none" = no owner, "mine" = I own,
   // "other" = owned by someone else, "owns" = this card owns others.
@@ -93,7 +93,7 @@ export default function PlayersPage() {
           an Asc/Desc toggle; every filter row below is freely combinable. */}
       <div className="space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 text-gray-500" />
           <Input
             placeholder={t.searchPlayers}
             value={search}
@@ -110,35 +110,35 @@ export default function PlayersPage() {
         />
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-500 mr-1">Filter:</span>
+          <span className="text-base text-gray-400 mr-1">Filter:</span>
           <FilterPill active={playerType === "human"} onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }} tone="amber">
-            <User className="h-3 w-3" /> Human
+            <User className="h-7 w-7" /> Human
           </FilterPill>
           <FilterPill active={playerType === "card"} onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }} tone="amber">
-            <CreditCard className="h-3 w-3" /> NPC
+            <CreditCard className="h-7 w-7" /> NPC
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
           <FilterPill active={ownerFilter === "none"} onClick={() => { setOwnerFilter(ownerFilter === "none" ? "" : "none"); setPage(1); }} tone="amber">
-            <UserX className="h-3 w-3" /> No Owner
+            <UserX className="h-7 w-7" /> No Owner
           </FilterPill>
           <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }} tone="amber">
-            <Crown className="h-3 w-3" /> My Owned
+            <Crown className="h-7 w-7" /> My Owned
           </FilterPill>
           <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }} tone="amber">
-            <Users className="h-3 w-3" /> Others Owned
+            <Users className="h-7 w-7" /> Others Owned
           </FilterPill>
           <FilterPill active={ownerFilter === "owns"} onClick={() => { setOwnerFilter(ownerFilter === "owns" ? "" : "owns"); setPage(1); }} tone="amber">
-            <Users className="h-3 w-3" /> Owns
+            <Users className="h-7 w-7" /> Owns
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
           <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }} tone="amber">
-            <Users className="h-3 w-3" /> Has Team
+            <Users className="h-7 w-7" /> Has Team
           </FilterPill>
           <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }} tone="amber">
-            <Shield className="h-3 w-3" /> Available
+            <Shield className="h-7 w-7" /> Available
           </FilterPill>
           <FilterPill active={affordable} onClick={() => { setAffordable(!affordable); setPage(1); }} tone="amber">
-            <Sparkles className="h-3 w-3" /> Affordable
+            <Sparkles className="h-7 w-7" /> Affordable
           </FilterPill>
         </div>
 
@@ -198,7 +198,7 @@ export default function PlayersPage() {
                 disabled={page === 1}
                 className="border-gray-700 text-gray-400"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
+                <ChevronLeft className="h-7 w-7 mr-1" />
                 {t.previous}
               </Button>
               <span className="text-sm text-gray-400">
@@ -212,7 +212,7 @@ export default function PlayersPage() {
                 className="border-gray-700 text-gray-400"
               >
                 {t.next}
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <ChevronRight className="h-7 w-7 ml-1" />
               </Button>
             </div>
           )}
