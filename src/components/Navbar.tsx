@@ -31,7 +31,6 @@ import {
   Settings,
   LogOut,
   Search,
-  Medal,
   History,
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
@@ -45,7 +44,6 @@ import { useOnboarding } from "./OnboardingContext";
 const mainNavLinks = [
   { href: "/my-profile", label: "Home", icon: Users },
   { href: "/leaderboard", label: "Avatars", icon: Search },
-  { href: "/hall-of-fame", label: "End Game", icon: Medal },
 ];
 
 export function Navbar() {
@@ -108,13 +106,11 @@ export function Navbar() {
     return () => clearTimeout(t);
   }, [bumpKey]);
 
-  // Filter nav links based on onboarding state and game unlock.
+  // Filter nav links based on onboarding state.
   // - During onboarding: only Home is visible.
-  // - After onboarding but before 20 cards (mission 0): Home + Market (simple).
-  // - After mission 0: all links including End Game.
+  // - After onboarding: all links.
   const getVisibleLinks = () => {
     if (!onboarding.onboardingComplete) return mainNavLinks.filter((l) => l.href === "/my-profile");
-    if (!gameUnlocked) return mainNavLinks.filter((l) => l.href !== "/hall-of-fame");
     return mainNavLinks;
   };
 
@@ -138,7 +134,7 @@ export function Navbar() {
     const isCurrentPathAllowed = allowedPaths.some(
       (p) => pathname === p || pathname.startsWith("/players/") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
     );
-    if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/hall-of-fame") && !pathname.startsWith("/history")) {
+    if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/history")) {
       // During onboarding (avatar OR starter-NPC step) the only legitimate
       // landing page is the user's own profile — the avatar uploader and the
       // 3 starter-NPC cards now both live there.
@@ -342,12 +338,6 @@ export function Navbar() {
                     <Link href={`/players/${session.user?.name}`} onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
                       <Users className="h-4 w-4 mr-2" />
                       {t.myProfile}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/hall-of-fame" onClick={() => play("buttons")} className="text-yellow-400 cursor-pointer">
-                      <Medal className="h-4 w-4 mr-2" />
-                      End Game
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

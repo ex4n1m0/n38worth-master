@@ -35,7 +35,6 @@ import {
   Star,
   Gem,
   Loader2,
-  Coins,
   BadgeCheck,
   Shield,
   Eye,
@@ -183,8 +182,8 @@ function PlayerCardImpl({
 
   const hasOwner = (ownerCount ?? 0) > 0;
   const cardClassName = hasOwner
-    ? "border-purple-700/60 bg-purple-950/50 hover:bg-purple-900/60 hover:border-purple-600 transition-all duration-200 cursor-pointer group"
-    : "border-gray-800 bg-gray-900/60 hover:bg-gray-900/90 hover:border-gray-700 transition-all duration-200 cursor-pointer group";
+    ? "border-purple-700/60 bg-transparent hover:bg-purple-900/30 hover:border-purple-600 transition-all duration-200 cursor-pointer group"
+    : "border-gray-800 bg-transparent hover:bg-gray-900/40 hover:border-gray-700 transition-all duration-200 cursor-pointer group";
 
   const effectiveProfession = isBonusCard || isGoddess ? null : profession;
   const professionImage = getProfessionImage(effectiveProfession);
@@ -683,11 +682,10 @@ function PlayerCardImpl({
           )}
 
           {/* Bottom overlay: value and action label */}
-          <div className="absolute inset-x-0 bottom-0 z-10 p-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent pointer-events-none">
+          <div className="absolute inset-x-0 bottom-0 z-10 p-2 pointer-events-none">
             <div className="flex flex-wrap items-end justify-between gap-1.5">
-              <div className="flex items-center gap-1 text-sm font-bold drop-shadow-sm">
-                <Coins className={cn("h-3.5 w-3.5 shrink-0", isMine ? "text-yellow-300/90" : "text-t1-400")} />
-                <span className={isMine ? "text-yellow-300/90" : "text-t1-400"}>{formatCompact(playerValue)}¢</span>
+              <div className="flex items-center gap-1.5 text-7xl font-bold drop-shadow-sm">
+                <span className={isMine ? "text-yellow-300/90" : "text-white"}>{formatCompact(playerValue)}<span className="text-[0.5em]">¢</span></span>
               </div>
               <div
                 className={cn(

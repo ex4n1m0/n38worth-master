@@ -34,11 +34,11 @@ export function AccountResetNotification() {
             description:
               "A player has collected all 6 Goddesses and won the game! " +
               "The world has been reset. Everyone starts fresh with 100¢. " +
-              "Check the Hall of Fame to see the champion!",
+              "Check the Hall of Fame on your profile to see the champion!",
             duration: 20000,
             action: {
               label: "Hall of Fame",
-              onClick: () => router.push("/hall-of-fame"),
+              onClick: () => router.push("/my-profile"),
             },
           });
 

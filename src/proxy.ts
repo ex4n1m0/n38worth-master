@@ -24,7 +24,6 @@ const AVATAR_REQUIRED_ROUTES = [
   "/ranks",
   "/history",
   "/transactions",
-  "/hall-of-fame",
 ];
 
 export default auth((req) => {
@@ -92,7 +91,6 @@ export const config = {
     "/ranks/:path*",
     "/history/:path*",
     "/transactions/:path*",
-    "/hall-of-fame",
     "/login",
     "/register",
   ],

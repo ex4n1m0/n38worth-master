@@ -60,6 +60,7 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
 import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
+import { EndGameContent } from "@/components/EndGameContent";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
 // Code-split heavy components that are only needed on the profile page.
@@ -428,7 +429,7 @@ export default function PlayerProfilePage() {
                 <p className="flex items-center gap-1.5 text-sm">
                   <TrendingUp className="h-3.5 w-3.5 text-t1-400 shrink-0" />
                   <span className="text-gray-500">Value</span>
-                  <span className="font-mono font-bold text-t1-300">{formatNumber(player.playerValue)}¢</span>
+                  <span className="font-mono font-bold text-white">{formatNumber(player.playerValue)}¢</span>
                 </p>
                 <p className="flex items-center gap-1.5 text-sm">
                   <Coins className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
@@ -762,6 +763,14 @@ export default function PlayerProfilePage() {
       )}
 
       {!inOnboarding && <LostPlayersGrid profileUsername={username} />}
+
+      {/* End Game content (How to Win + goddesses + Hall of Champions) —
+          lives at the very bottom of your own profile (Home). */}
+      {isOwnProfile && !inOnboarding && (
+        <div className="pt-6 border-t border-white/10">
+          <EndGameContent />
+        </div>
+      )}
     </div>
   );
 }

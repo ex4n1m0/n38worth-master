@@ -8,7 +8,7 @@ export default function RanksPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/hall-of-fame");
+    router.replace("/my-profile");
   }, [router]);
 
   return (
