@@ -685,7 +685,7 @@ function PlayerCardImpl({
           {/* Bottom overlay: value and action label */}
           <div className="absolute inset-x-0 bottom-0 z-10 p-2 pointer-events-none">
             <div className="flex flex-wrap items-end justify-between gap-1.5">
-              <div className="flex items-center gap-1.5 text-7xl font-bold drop-shadow-sm">
+              <div className="flex items-center gap-1.5 text-5xl font-bold drop-shadow-sm">
                 <span className={isMine ? "text-yellow-300/90" : "text-white"}>{formatCompact(playerValue)}<span className="text-[0.5em]">¢</span></span>
               </div>
               <div
