@@ -77,7 +77,7 @@ export async function GET() {
         .where(and(eq(users.isNpc, 0), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES])))
         .orderBy(desc(users.playerValue))
         .limit(1),
-      // 7. Top 72 NPCs by value (for the landing page avatar grid — 12x6)
+      // 7. Top 36 NPCs by value (for the landing page avatar grid — 12x3)
       db
         .select({
           username: users.username,
@@ -87,7 +87,7 @@ export async function GET() {
         .from(users)
         .where(and(eq(users.isNpc, 1), eq(users.isActive, 1), notInArray(users.username, [...REMOVED_AGENT_USERNAMES]), sql`${users.username} NOT LIKE 'Goddess%'`))
         .orderBy(desc(users.playerValue))
-        .limit(72),
+        .limit(36),
       // 6. Goddess data for flip cards
       db
         .select({

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
+import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 /* ─── Types ─── */
 type Stats = { totalPlayers: number; totalEconomy: number; totalNpcs: number; totalHumans: number; onlineHumans: number };
@@ -240,35 +241,19 @@ export default function Home() {
       {/* About dialog */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
         <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto bg-gray-950/60 backdrop-blur-md border-gray-800 text-gray-100">
-          <DialogHeader>
-            <DialogTitle className="text-center text-3xl font-bold bg-gradient-to-r from-t1-400 to-t2-400 bg-clip-text text-transparent">
-              How to Play
-            </DialogTitle>
-            <p className="pt-1 text-center text-sm text-gray-400">
-              A social game of connection, ambition, and the hunt for the Goddesses.
-            </p>
+          <DialogHeader className="sr-only">
+            <DialogTitle>How to Play</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">
-
-            <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">What is n38worth?</h3>
-              <p className="text-sm leading-relaxed text-gray-300">
-                A multiplayer avatar-trading game where every player — human or NPC — is an avatar
-                with a value. Hire avatars to build your empire, grow their value, protect them
-                from rivals, and climb the mission ladder to earn the six legendary Goddesses.
-                Hold all six for one hour and you win: the world resets and your name is carved
-                into the Hall of Champions.
-              </p>
-            </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
               <ol className="space-y-3">
                 {[
-                  { title: "Create your avatar", body: "Register, upload your avatar and pick a profession. You start with 100¢ and 20 hire slots — everyone starts equal." },
-                  { title: "Hire your first avatars", body: "Hiring costs the avatar's current value, and every hire pumps that avatar's value up. Your first 10 hires get a 24-hour unbreakable block so no one can steal them while you learn." },
-                  { title: "Get 20 avatars", body: "This unlocks the full game: rankings, filters, activity feeds and the mission ladder. Each mission you complete also adds +50 hire slots." },
-                  { title: "Claim your daily reward", body: "Once every 24h you can claim a login reward equal to the Goddess of Wealth's current value — transferred from the richest player, so the rich never run away with the game. If you ARE the richest, you get nothing that day." },
+                  { title: "Create your avatar", body: "Register, upload your avatar, pick a profession. Everyone starts equal: 100¢ and 20 hire slots." },
+                  { title: "Hire your first avatars", body: "Hiring costs the avatar's value and pumps it up. Your first 10 hires get a 24-hour unbreakable block." },
+                  { title: "Get 20 avatars", body: "Unlocks the full game: rankings, filters, feeds and missions. Each mission also adds +50 hire slots." },
+                  { title: "Claim your daily reward", body: "Every 24h, claim the Goddess of Wealth's value — taken from the richest player. If that's you, no reward that day." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
@@ -286,46 +271,42 @@ export default function Home() {
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Earning Credits</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Credits are the fuel for everything. Four ways to earn them:
+                Four ways to earn:
               </p>
               <ul className="space-y-1.5 text-sm text-gray-300">
                 <li>
-                  <span className="font-semibold text-amber-300">Portfolio reward</span> — every
-                  hour you collect 0.2% of your portfolio value (the combined value of the cards
-                  you own, multiplied by how many owners you yourself have).
+                  <span className="font-semibold text-amber-300">Portfolio reward</span> — 0.2%
+                  of your portfolio value, every hour.
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Getting hired</span> — when
-                  someone hires or pumps your card, you get paid, and your value goes up.
+                  <span className="font-semibold text-amber-300">Getting hired</span> — you get
+                  paid and your value rises when someone hires or pumps you.
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Rank bonuses</span> — placing
-                  top 3 in a ranking category pays out hourly.
+                  <span className="font-semibold text-amber-300">Rank bonuses</span> — top 3 in a
+                  ranking category pays hourly.
                 </li>
                 <li>
                   <span className="font-semibold text-amber-300">Daily login reward</span> — the
-                  Goddess of Wealth&apos;s value, once every 24 hours.
+                  Goddess of Wealth&apos;s value, every 24h.
                 </li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                One catch: if someone owns your card they are your boss, and they skim 10% of your
-                portfolio reward. Hire slots cap how many cards you can hold at once — you start
-                with 20 and gain more from missions, poaching, and the 10 Slots card.
+                Whoever owns your card skims 10% of your portfolio reward. Hire slots cap how many
+                cards you can hold — earn more from missions, poaching, and the 10 Slots card.
               </p>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
+              {/* Core action buttons — available on every card. */}
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
-                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire an avatar for its current value. The avatar and its previous owner both get paid, its value jumps (2× under 1,000¢, tapering to 1.1× above 1M), and it joins your team. Poaching a card from another player also earns you +1 hire slot." },
-                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of your avatar's value to double it, gift the cost to the avatar, and extend its sell block by 10 minutes (12h max). Your main value-growth engine." },
-                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Block Sell protects an avatar from being hired away. Costs the avatar's value: +1 hour per press (12h max), bumps its value +10%, and pays 90% of the cost to the card." },
-                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's sell block by paying a fee (hours remaining × avatar value) straight to the owner, then hire the card. Fate-sealed cards cost 1000× to break, and blocks marked Unbreakable can't be broken at all." },
-                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires carry a 24-hour unbreakable Perm Block. You can move a block to a different avatar at any time, which restarts its 24 hours. Only regular NPC cards can be perm-blocked." },
-                  { chip: "MASS", cls: "from-amber-600 to-yellow-500", body: "Mass Hire (unlocked at 50 avatars) bulk-hires the cheapest available avatars — 1 + 10% of your owned count per press — then goes on a 10-minute cooldown." },
-                  { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", body: "The 10 Slots avatar adds +10 hire slots for 10% of your current credits. 10-minute cooldown." },
-                  { chip: "REVEAL", cls: "from-violet-600 to-purple-500", body: "The Reveal avatar unmasks every hidden avatar in the game for 10 minutes, for 10% of your current credits. 10-minute cooldown." },
+                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire at current value. The avatar and its previous owner get paid, and its value jumps (2× under 1,000¢, tapering to 1.1× above 1M). Poaching also earns +1 hire slot." },
+                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of value to double it, gift the cost to the avatar, extend its sell block 10 min (12h max). Your main growth engine." },
+                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Protect from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the card." },
+                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's block by paying hours remaining × value to the owner. Fate-sealed cards cost 1000×; Unbreakable can't be broken." },
+                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable block — movable between regular NPC cards, restarting the 24h." },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -335,38 +316,73 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+
+              {/* Bonus cards — special avatars with their own buttons. */}
+              <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
+                  Bonus Cards
+                </p>
+                <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm leading-relaxed">
+                  {[
+                    { chip: "MASS", cls: "from-amber-600 to-yellow-500", img: "/masshire.webp", body: "Bulk-hires the cheapest avatars — 1 + 10% of your owned count per press. Unlocks at 50 avatars. 10-min cooldown." },
+                    { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", img: "/10slots.webp", body: "+10 hire slots for 10% of your credits. 10-min cooldown." },
+                    { chip: "REVEAL", cls: "from-violet-600 to-purple-500", img: "/reveal.webp", body: "Unmasks every hidden avatar for 10 minutes, for 10% of your credits. 10-min cooldown." },
+                  ].map((a) => (
+                    <li key={a.chip} className="text-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={a.img}
+                        alt={`${a.chip} card`}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-square w-full rounded-lg border border-white/15 object-cover shadow-lg"
+                      />
+                      <span className={`mt-2 inline-flex w-14 items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
+                        {a.chip}
+                      </span>
+                      <p className="mt-1.5 text-left text-gray-300">{a.body}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                There are 6 professions. You pick one for yourself, and you can assign one to any
-                NPC you own. Owning an NPC also lets you <span className="font-semibold text-amber-300">rename
-                it once</span> — if the card gets hired away, the new owner gets their own rename.
-                Owning at least one card of a profession (or being it yourself)
-                activates its passive perk:
+                Pick one for yourself, assign one to any NPC you own (and <span className="font-semibold text-amber-300">rename
+                it once</span>). Being a profession or owning its card activates its perk:
               </p>
-              <ul className="space-y-1.5 text-sm text-gray-300">
-                <li><span className="font-semibold text-amber-300">Rift Binder</span> — your sell blocks last 50% longer.</li>
-                <li><span className="font-semibold text-amber-300">Hexblade Courier</span> — break fees you pay are 20% cheaper.</li>
-                <li><span className="font-semibold text-amber-300">Scrap Alchemist</span> — pumping costs 10% less.</li>
-                <li><span className="font-semibold text-amber-300">Spirit Archivist</span> — your daily login reward is 25% bigger.</li>
-                <li><span className="font-semibold text-amber-300">Iron Choir Marshal</span> — +2 hire slots.</li>
-                <li><span className="font-semibold text-amber-300">Plague Cartographer</span> — Mass Hire grabs +1 extra avatar.</li>
+              <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {PROFESSIONS.map((p) => (
+                  <li key={p.name} className="rounded-lg border border-gray-800 bg-black/40 p-2.5 text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={p.imagePath}
+                      alt={p.name}
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-square w-full rounded-md border border-white/10 object-cover shadow-lg"
+                    />
+                    <p className="mt-2 text-xs font-semibold text-amber-300">{p.name}</p>
+                    <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
+                      {PROFESSION_PERKS[p.name]?.description}
+                    </p>
+                  </li>
+                ))}
               </ul>
               <p className="text-sm leading-relaxed text-gray-300 mt-3">
-                <span className="font-semibold text-amber-300">Combo:</span> collect one card of
-                each profession and sell all 6 together for <span className="font-bold text-amber-300">10× their
-                combined value</span>. The sold cards reset to floor value and 6 fresh NPCs spawn —
-                but you also give up those perks until you rebuild. Choose wisely.
+                <span className="font-semibold text-amber-300">Combo:</span> sell one card of each
+                profession together for <span className="font-bold text-amber-300">10× their combined
+                value</span>. The cards reset to floor and 6 fresh NPCs spawn — but you lose the
+                perks until you rebuild.
               </p>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Grow your empire to earn the legendary cards. Every completed mission also adds
-                +50 hire slots:
+                Grow your empire to earn the legendary cards (+50 hire slots per mission):
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
                 <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
@@ -379,32 +395,51 @@ export default function Home() {
                 <li><span className="font-mono text-t1-400">5,000+</span> — the Goddess (+1,000 per game won)</li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Each Goddess grants a power while you hold her: Wealth doubles your rewards,
-                Knowledge reveals every hidden avatar, Fate gives your whole team permanent sell
-                blocks (1000× fee to break), Time halves your payout wait, War lets you break
-                blocks for free — and the Goddess activates all powers at once.
+                Held goddesses grant powers: Wealth doubles rewards, Knowledge reveals hidden
+                avatars, Fate seals your team&apos;s blocks (1000× break fee), Time halves payout
+                waits, War makes your breaks free — the Goddess grants all at once.
               </p>
             </section>
 
             <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Winning the World</h3>
+              <div className="mb-3 grid grid-cols-3 gap-3">
+                {[
+                  { src: "/NewGoddessWealth.webp", alt: "Goddess of Wealth" },
+                  { src: "/NewGoddessKnowledge.webp", alt: "Goddess of Knowledge" },
+                  { src: "/NewGoddessFate.webp", alt: "Goddess of Fate" },
+                  { src: "/NewGoddessTime.webp", alt: "Goddess of Time" },
+                  { src: "/NewGoddessWar.webp", alt: "Goddess of War" },
+                  { src: "/NewGoddess.webp", alt: "Goddess" },
+                ].map((g) => (
+                  <div key={g.src} className="text-center">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={g.src}
+                      alt={g.alt}
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-square w-full rounded-lg border border-t1-500/30 object-cover shadow-[0_0_15px_var(--t1-900)]"
+                    />
+                    <p className="mt-1.5 text-xs font-semibold text-amber-300">{g.alt}</p>
+                  </div>
+                ))}
+              </div>
               <p className="text-sm leading-relaxed text-gray-300">
-                Hold all six Goddesses at once and a 1-hour countdown begins — visible to
-                everyone. Rivals will do anything to break one card away from you before time
-                runs out; if they manage it you get a 2-minute grace window to take her back
-                before the countdown is cancelled. Survive the hour and the world resets: every
-                player starts fresh, and your name joins the Hall of Champions forever.
+                Hold all six Goddesses to start a 1-hour countdown, visible to everyone. If a
+                rival breaks one away, you have 2 minutes to take her back. Survive the hour and
+                the world resets — your name joins the Hall of Champions forever.
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                You&apos;re not only up against humans. Six autonomous divine players hunt cards
-                around the clock — they buy, pump and poach just like you, but never speak.
+                Six autonomous divine players also hunt cards around the clock — they buy, pump
+                and poach, but never speak.
               </p>
             </section>
 
             {/* Highest-value NPC cards — the avatar grid, moved here from the
                 landing page so it sits right above the sign-up buttons. */}
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-3 text-lg font-semibold text-t1-400">Highest-Value NPC Avatars</h3>
+              <h3 className="mb-3 text-lg font-semibold text-t1-400">Current Highest-Value Avatars</h3>
               <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
                 {(data?.topNpcs ?? []).map((npc) => (
                   <a
