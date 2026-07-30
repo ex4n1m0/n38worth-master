@@ -7,6 +7,8 @@ import { useMemo } from "react";
 interface OwnedPlayer {
   id: number;
   username: string;
+  /** Set when the current owner has used their one rename on this NPC. */
+  renamedAt?: string | null;
 }
 
 interface PlayerResponse {
@@ -54,9 +56,19 @@ export function useOwnedPlayerIds() {
     return set;
   }, [query.data]);
 
+  // Owned cards whose one-per-owner rename has already been used.
+  const renamedIds = useMemo(() => {
+    const set = new Set<number>();
+    query.data?.ownedPlayers?.forEach((p) => {
+      if (p.renamedAt) set.add(p.id);
+    });
+    return set;
+  }, [query.data]);
+
   return {
     ownedIds,
     ownedUsernames,
+    renamedIds,
     isOwned: (id: number) => ownedIds.has(id),
     isOwnedByUsername: (username: string) => ownedUsernames.has(username),
     isLoading: query.isLoading,

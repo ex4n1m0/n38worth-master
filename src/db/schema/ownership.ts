@@ -23,6 +23,9 @@ export const ownership = pgTable(
     lastBoostPressAt: timestamp("last_boost_press_at"),
     revealPressCount: integer("reveal_press_count").default(0),
     lastRevealPressAt: timestamp("last_reveal_press_at"),
+    // Stamped when the CURRENT owner renames this NPC card. Each ownership
+    // stint gets one rename — a fresh row means a fresh rename.
+    renamedAt: timestamp("renamed_at"),
   },
   (table) => [
     index("idx_ownership_owner").on(table.ownerId),

@@ -341,7 +341,9 @@ export default function Home() {
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
                 There are 6 professions. You pick one for yourself, and you can assign one to any
-                NPC you own. Owning at least one card of a profession (or being it yourself)
+                NPC you own. Owning an NPC also lets you <span className="font-semibold text-amber-300">rename
+                it once</span> — if the card gets hired away, the new owner gets their own rename.
+                Owning at least one card of a profession (or being it yourself)
                 activates its passive perk:
               </p>
               <ul className="space-y-1.5 text-sm text-gray-300">

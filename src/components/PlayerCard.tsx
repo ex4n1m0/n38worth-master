@@ -23,6 +23,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
+import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import {
@@ -123,7 +124,7 @@ function PlayerCardImpl({
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: myCredits } = useCredits();
-  const { ownedIds } = useOwnedPlayerIds();
+  const { ownedIds, renamedIds } = useOwnedPlayerIds();
   const { hasKnowledge, hasWar } = useKnowledgePower();
   const missionLevel = useMissionLevel();
   const finalGoddessThreshold = useFinalGoddessThreshold();
@@ -704,6 +705,19 @@ function PlayerCardImpl({
             targetId={id}
             targetUsername={username}
             currentProfession={effectiveProfession ?? null}
+            triggerClassName={cn(
+              "w-full mt-2 rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-auto px-2 py-1 text-xs",
+              isMine
+                ? "text-yellow-300/90 hover:text-yellow-200"
+                : "text-purple-200 hover:text-white"
+            )}
+          />
+        )}
+
+        {canAssignProfession && !renamedIds.has(id) && (
+          <RenameNpcDialog
+            targetId={id}
+            targetUsername={username}
             triggerClassName={cn(
               "w-full mt-2 rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-auto px-2 py-1 text-xs",
               isMine

@@ -24,7 +24,11 @@ export async function GET() {
 
   try {
     const ownedPlayers = await db
-      .select({ id: users.id, username: users.username })
+      .select({
+        id: users.id,
+        username: users.username,
+        renamedAt: ownership.renamedAt,
+      })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
       .where(eq(ownership.ownerId, userId));
