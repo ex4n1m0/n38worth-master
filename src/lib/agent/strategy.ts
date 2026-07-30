@@ -173,7 +173,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
           AND ${users.isProtected} = 0
           AND ${users.isOnboardingPool} = 0
           AND ${users.id} <> ${agentId}
-          AND ${users.playerValue} <= ${credits}
+          AND ${users.playerValue}::numeric <= ${credits}
           AND (${ownership.ownerId} IS NULL OR ${ownership.ownerId} <> ${agentId})
           AND (${ownership.blockSellUntil} IS NULL OR ${ownership.blockSellUntil} <= NOW())`
       )
@@ -240,7 +240,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
       sql`${users.isProtected} = 0
         AND ${users.isOnboardingPool} = 0
         AND ${users.id} <> ${agentId}
-        AND ${users.playerValue} <= ${credits}
+        AND ${users.playerValue}::numeric <= ${credits}
         AND ${users.username} NOT IN (${sql.join(
           excludedUsernames.map((u) => sql`${u}`),
           sql`, `

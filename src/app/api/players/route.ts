@@ -111,7 +111,9 @@ export async function GET(req: Request) {
       conditions.push(
         sql`NOT EXISTS (SELECT 1 FROM ownership o WHERE o.owned_id = "users"."id" AND o.owner_id = ${currentUserId})`
       );
-      conditions.push(sql`"users"."player_value" <= ${userCredits}`);
+      // player_value is bigint; credits are fractional, so compare as numeric
+      // (a raw decimal param against bigint aborts the query with 22P02).
+      conditions.push(sql`"users"."player_value"::numeric <= ${userCredits}`);
       conditions.push(sql`(
         COALESCE((
           SELECT CASE
