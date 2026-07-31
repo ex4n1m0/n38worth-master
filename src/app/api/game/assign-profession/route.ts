@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users, ownership, gameHistory } from "@/db/schema";
-import { and, eq, ne, isNotNull, sql, inArray } from "drizzle-orm";
+import { and, eq, ne, isNotNull, sql } from "drizzle-orm";
 import { PROFESSIONS } from "@/lib/professions";
 import { capPlayerValue } from "@/lib/safeguards";
 
@@ -16,6 +16,9 @@ const CHANGE_UNIT_COST = 1000;
  * - Cost = (other players with that profession) × 1000 × change-number,
  *   same as the player change-profession logic. A profession nobody else
  *   has is free.
+ * - FIRST assignment (NPC had no profession): the cheapest profession(s)
+ *   — fewest other holders, ties included — are free. Later changes pay
+ *   the normal cost.
  * - On assignment, the NPC's value is reset to its floor value
  *   (valueFloor), making it cheap and fresh for combo use.
  * - The NPC is NOT deleted — it stays owned by the caller.
@@ -46,29 +49,51 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Verify the caller owns this NPC card.
-    const [owned] = await db
-      .select({ id: ownership.id })
-      .from(ownership)
-      .where(and(eq(ownership.ownerId, callerId), eq(ownership.ownedId, targetId)));
+    // 1-4. Run all independent reads in ONE parallel batch — neon-http pays
+    // ~10-100ms per round trip, so serializing them dominated the latency.
+    const [ownedRows, npcRows, countRows, paidRow, callerRows] = await Promise.all([
+      // 1. Verify the caller owns this NPC card.
+      db
+        .select({ id: ownership.id })
+        .from(ownership)
+        .where(and(eq(ownership.ownerId, callerId), eq(ownership.ownedId, targetId))),
+      // 2. Fetch the NPC card.
+      db
+        .select({
+          id: users.id,
+          username: users.username,
+          profession: users.profession,
+          valueFloor: users.valueFloor,
+          playerValue: users.playerValue,
+          isNpc: users.isNpc,
+          isProtected: users.isProtected,
+        })
+        .from(users)
+        .where(eq(users.id, targetId)),
+      // 3. Compute the cost (same logic as change-profession).
+      db
+        .select({ profession: users.profession, count: sql<number>`count(*)` })
+        .from(users)
+        .where(and(isNotNull(users.profession), ne(users.id, callerId)))
+        .groupBy(users.profession),
+      // Use the caller's paid profession changes for the multiplier.
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(gameHistory)
+        .where(and(eq(gameHistory.actorId, callerId), eq(gameHistory.eventType, "profession_change"))),
+      // 4. Caller credits.
+      db
+        .select({ credits: users.credits })
+        .from(users)
+        .where(eq(users.id, callerId)),
+    ]);
+
+    const [owned] = ownedRows;
     if (!owned) {
       return NextResponse.json({ error: "You don't own this avatar" }, { status: 403 });
     }
 
-    // 2. Fetch the NPC card.
-    const [npc] = await db
-      .select({
-        id: users.id,
-        username: users.username,
-        profession: users.profession,
-        valueFloor: users.valueFloor,
-        playerValue: users.playerValue,
-        isNpc: users.isNpc,
-        isProtected: users.isProtected,
-      })
-      .from(users)
-      .where(eq(users.id, targetId));
-
+    const [npc] = npcRows;
     if (!npc) {
       return NextResponse.json({ error: "Avatar not found" }, { status: 404 });
     }
@@ -79,33 +104,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "This avatar already has this profession" }, { status: 400 });
     }
 
-    // 3. Compute the cost (same logic as change-profession).
-    const countRows = await db
-      .select({ profession: users.profession, count: sql<number>`count(*)` })
-      .from(users)
-      .where(and(isNotNull(users.profession), ne(users.id, callerId)))
-      .groupBy(users.profession);
     const counts: Record<string, number> = {};
     for (const row of countRows) {
       if (row.profession) counts[row.profession] = Number(row.count);
     }
     const otherCount = counts[profession] ?? 0;
 
-    // Use the caller's paid profession changes for the multiplier.
-    const [paidRow] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(gameHistory)
-      .where(and(eq(gameHistory.actorId, callerId), eq(gameHistory.eventType, "profession_change")));
-    const paidChanges = Number(paidRow?.count ?? 0);
+    const paidChanges = Number(paidRow[0]?.count ?? 0);
     const multiplier = paidChanges + 1;
     const base = otherCount * CHANGE_UNIT_COST;
-    const cost = base === 0 ? 0 : base * multiplier;
+    let cost = base === 0 ? 0 : base * multiplier;
+
+    // First assignment (the NPC had no profession — the forced choice when it
+    // is hired): the CHEAPEST profession(s) are free. Cheapest = fewest other
+    // holders; when several professions tie for the minimum, all of them are
+    // free. Normal costs apply to every later change.
+    const isFirstAssignment = npc.profession === null;
+    if (isFirstAssignment && cost > 0) {
+      const minCount = Math.min(...PROFESSIONS.map((p) => counts[p.name] ?? 0));
+      if (otherCount === minCount) cost = 0;
+    }
 
     // 4. Check credits.
-    const [caller] = await db
-      .select({ credits: users.credits })
-      .from(users)
-      .where(eq(users.id, callerId));
+    const [caller] = callerRows;
     if (!caller) {
       return NextResponse.json({ error: "Caller not found" }, { status: 404 });
     }
@@ -125,37 +146,44 @@ export async function POST(request: Request) {
 
     if (cost > 0) {
       updateData.credits = sql`GREATEST(credits - ${cost}, 0)`;
-      // Also deduct from the caller.
-      await db
-        .update(users)
-        .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
-        .where(eq(users.id, callerId));
-
-      try {
-        await db.insert(gameHistory).values({
-          eventType: "profession_change",
-          actorId: callerId,
-          targetId: npc.id,
-          targetUsername: npc.username,
-          details: JSON.stringify({
-            from: npc.profession ?? null,
-            to: profession,
-            cost,
-            multiplier,
-            npcAssignment: true,
-            valueReset: newValue,
-          }),
-        });
-      } catch (e) {
-        console.error("NPC profession-change history log error:", e);
-      }
     }
 
-    // Update the NPC card.
-    await db
-      .update(users)
-      .set(updateData)
-      .where(eq(users.id, npc.id));
+    // Writes are independent of each other — fire them in one parallel batch
+    // (caller deduction + history log + NPC update), then re-read credits.
+    const writes: Promise<unknown>[] = [
+      db.update(users).set(updateData).where(eq(users.id, npc.id)),
+    ];
+    if (cost > 0) {
+      // Also deduct from the caller.
+      writes.push(
+        db
+          .update(users)
+          .set({ credits: sql`GREATEST(credits - ${cost}, 0)` })
+          .where(eq(users.id, callerId))
+      );
+      writes.push(
+        db
+          .insert(gameHistory)
+          .values({
+            eventType: "profession_change",
+            actorId: callerId,
+            targetId: npc.id,
+            targetUsername: npc.username,
+            details: JSON.stringify({
+              from: npc.profession ?? null,
+              to: profession,
+              cost,
+              multiplier,
+              npcAssignment: true,
+              valueReset: newValue,
+            }),
+          })
+          .catch((e) => {
+            console.error("NPC profession-change history log error:", e);
+          })
+      );
+    }
+    await Promise.all(writes);
 
     const [updatedCaller] = await db
       .select({ credits: users.credits })

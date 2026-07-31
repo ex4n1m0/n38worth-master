@@ -15,8 +15,9 @@
   never download/compress Unsplash photos into the DB.
 
 ## Workflow preferences
-- **Always commit AND deploy together.** When deploying, also commit the changes
-  to git (and vice versa). Don't leave deployed work uncommitted.
+- **Work locally; commit and deploy ONLY when the user explicitly asks.**
+  When a commit/deploy is requested, do them together (never deploy
+  uncommitted work or commit without deploying what was committed).
 
 ## Commands
 - Build: `npm run build`

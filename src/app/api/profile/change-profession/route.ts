@@ -54,17 +54,22 @@ export async function GET() {
   const callerId = parseInt(session.user.id);
 
   try {
-    const [caller] = await db
-      .select({ profession: users.profession, credits: users.credits, isNpc: users.isNpc })
-      .from(users)
-      .where(eq(users.id, callerId));
+    // All three reads are independent — one parallel batch (each neon-http
+    // round trip has real latency; serializing them dominated this route).
+    const [callerRows, counts, paidChanges] = await Promise.all([
+      db
+        .select({ profession: users.profession, credits: users.credits, isNpc: users.isNpc })
+        .from(users)
+        .where(eq(users.id, callerId)),
+      getOtherCounts(callerId),
+      getPaidChanges(callerId),
+    ]);
+    const [caller] = callerRows;
 
     if (!caller) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const counts = await getOtherCounts(callerId);
-    const paidChanges = await getPaidChanges(callerId);
     const multiplier = paidChanges + 1;
 
     const options = PROFESSIONS.map((p) => {
@@ -115,11 +120,17 @@ export async function POST(request: Request) {
     }
 
     // A player can only change their OWN profession — we act solely on the
-    // authenticated caller, never on another player.
-    const [caller] = await db
-      .select({ profession: users.profession, credits: users.credits, isNpc: users.isNpc })
-      .from(users)
-      .where(eq(users.id, callerId));
+    // authenticated caller, never on another player. All three reads are
+    // independent — one parallel batch.
+    const [callerRows, counts, paidChanges] = await Promise.all([
+      db
+        .select({ profession: users.profession, credits: users.credits, isNpc: users.isNpc })
+        .from(users)
+        .where(eq(users.id, callerId)),
+      getOtherCounts(callerId),
+      getPaidChanges(callerId),
+    ]);
+    const [caller] = callerRows;
 
     if (!caller) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -132,9 +143,7 @@ export async function POST(request: Request) {
     }
 
     // Recompute the cost server-side (authoritative — never trust the client).
-    const counts = await getOtherCounts(callerId);
     const otherCount = counts[profession] ?? 0;
-    const paidChanges = await getPaidChanges(callerId);
     const multiplier = paidChanges + 1;
     const cost = computeCost(otherCount, multiplier);
 
@@ -147,26 +156,32 @@ export async function POST(request: Request) {
 
     // Apply the change. Deduct credits and log the paid change (which also
     // increments the multiplier for next time). Free changes are not logged.
+    // Update + history insert are independent — one parallel batch.
+    const writes: Promise<unknown>[] = [
+      cost > 0
+        ? db
+            .update(users)
+            .set({ profession, credits: sql`GREATEST(credits - ${cost}, 0)` })
+            .where(eq(users.id, callerId))
+        : db.update(users).set({ profession }).where(eq(users.id, callerId)),
+    ];
     if (cost > 0) {
-      await db
-        .update(users)
-        .set({ profession, credits: sql`GREATEST(credits - ${cost}, 0)` })
-        .where(eq(users.id, callerId));
-
-      try {
-        await db.insert(gameHistory).values({
-          eventType: "profession_change",
-          actorId: callerId,
-          targetId: callerId,
-          targetUsername: session.user.name ?? null,
-          details: JSON.stringify({ from: caller.profession ?? null, to: profession, cost, multiplier }),
-        });
-      } catch (e) {
-        console.error("Profession-change history log error:", e);
-      }
-    } else {
-      await db.update(users).set({ profession }).where(eq(users.id, callerId));
+      writes.push(
+        db
+          .insert(gameHistory)
+          .values({
+            eventType: "profession_change",
+            actorId: callerId,
+            targetId: callerId,
+            targetUsername: session.user.name ?? null,
+            details: JSON.stringify({ from: caller.profession ?? null, to: profession, cost, multiplier }),
+          })
+          .catch((e) => {
+            console.error("Profession-change history log error:", e);
+          })
+      );
     }
+    await Promise.all(writes);
 
     const [updated] = await db
       .select({ credits: users.credits })

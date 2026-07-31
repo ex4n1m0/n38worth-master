@@ -6,6 +6,7 @@ import { toast } from "@/lib/event-feed";
 import { ShoppingCart, Loader2, Shield } from "lucide-react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
+import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { useOnboarding } from "./OnboardingContext";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
@@ -58,6 +59,13 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
       toast.error(err.message);
     },
     onSuccess: async (data) => {
+      // Hired an NPC with no profession → forced assignment pops up instantly.
+      if (data.needsProfession) {
+        useForcedProfessionStore.getState().require({
+          targetId: data.targetId,
+          targetUsername: data.targetUsername,
+        });
+      }
       if (data.countdownStarted) {
         // ⏱️ COUNTDOWN STARTED! Player owns all 6 Goddesses
         play("win");

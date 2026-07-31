@@ -133,11 +133,13 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
 
 /**
  * "Live Activity and Ranks" — a single row combining recent activity and the
- * headline rankings: Recently Online, Biggest Empire, Most Credits, and the
- * Hall of Champions. Used on the landing page (transparent) and the in-game
- * Cards page (default).
+ * headline rankings: Recently Online, Biggest Empire, Most Credits, and
+ * (optionally) the Hall of Champions. Used on the landing page (transparent)
+ * and the in-game Cards page (default). The in-game page passes
+ * showChampions={false} because the Hall of Champions lives at the top of
+ * the History page there.
  */
-export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
+export function EmpireRankStrip({ variant = "default", showChampions = true }: { variant?: "default" | "transparent"; showChampions?: boolean } = {}) {
   const transparent = variant === "transparent";
 
   const { data } = useQuery<RanksResponse>({
@@ -169,6 +171,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: showChampions,
     staleTime: 60 * 1000,
   });
 
@@ -190,7 +193,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
 
   return (
     <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 p-3 sm:p-4"}>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className={`grid grid-cols-2 gap-2 ${showChampions ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         {/* 1. Recently Online */}
         <StripCard
           label="Recently Online"
@@ -227,40 +230,43 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
           <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
         ))}
 
-        {/* 4. Hall of Champions — latest winners, always visible. */}
-        <StripCard
-          label="Hall of Champions"
-          accent={
-            transparent
-              ? "border border-yellow-500/20 bg-transparent"
-              : "border border-yellow-500/20 bg-yellow-500/[0.04]"
-          }
-        >
-          {topChampions.length === 0 ? (
-            <EmptyList text="No champions yet" />
-          ) : (
-            <ol className="space-y-1">
-              {topChampions.map((w, i) => (
-                <li key={w.id} className="flex items-center gap-1.5 text-[11px] leading-tight">
-                  <span className="w-3.5 shrink-0 flex items-center justify-center">
-                    {i === 0 ? (
-                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                    ) : (
-                      <span className="font-mono font-bold text-gray-500">{champions.length - i}</span>
-                    )}
-                  </span>
-                  <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
-                    {shortName(w.username)}
-                  </Link>
-                  <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
-                    <Calendar className="h-2.5 w-2.5" />
-                    {new Date(w.wonAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </StripCard>
+        {/* 4. Hall of Champions — latest winners. Skipped in-game (the list
+            lives at the top of the History page); shown on the landing page. */}
+        {showChampions && (
+          <StripCard
+            label="Hall of Champions"
+            accent={
+              transparent
+                ? "border border-yellow-500/20 bg-transparent"
+                : "border border-yellow-500/20 bg-yellow-500/[0.04]"
+            }
+          >
+            {topChampions.length === 0 ? (
+              <EmptyList text="No champions yet" />
+            ) : (
+              <ol className="space-y-1">
+                {topChampions.map((w, i) => (
+                  <li key={w.id} className="flex items-center gap-1.5 text-[11px] leading-tight">
+                    <span className="w-3.5 shrink-0 flex items-center justify-center">
+                      {i === 0 ? (
+                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      ) : (
+                        <span className="font-mono font-bold text-gray-500">{champions.length - i}</span>
+                      )}
+                    </span>
+                    <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
+                      {shortName(w.username)}
+                    </Link>
+                    <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
+                      <Calendar className="h-2.5 w-2.5" />
+                      {new Date(w.wonAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </StripCard>
+        )}
       </div>
     </div>
   );

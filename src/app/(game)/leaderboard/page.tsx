@@ -16,8 +16,6 @@ import {
   UserX,
   Loader2,
   Search,
-  User,
-  CreditCard,
   Sparkles,
   Zap,
   ArrowUp,
@@ -108,14 +106,15 @@ export default function LeaderboardPage() {
         <GoddessCountdown />
 
         {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
-            Credits, Hall of Champions in a single row.
+            Credits in a single row (the Hall of Champions lives at the top
+            of the History page).
             Locked behind mission 0 (Own 20 cards) — shown as a preview with
             the unlock condition until then. */}
         {gameUnlocked ? (
-          <EmpireRankStrip variant="transparent" />
+          <EmpireRankStrip variant="transparent" showChampions={false} />
         ) : (
           <LockedFeature
-            title="Ranks, live activity & Hall of Champions"
+            title="Ranks & live activity"
             ownedCount={ownedCount}
             threshold={UNLOCK_GAME_THRESHOLD}
           />
@@ -174,17 +173,15 @@ function BrowsePlayersSection({
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
-  // Default view (user-specified): all cards (any owner status), most
-  // recently online first, all types, affordable filter off.
+  // Default view (user-specified): all cards (any owner status, any type),
+  // most recently online first.
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   // Infinite scroll: cards load in batches as the user approaches the bottom
   // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
   const pageSize = 48;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
-  const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
-  const [affordable, setAffordable] = useState(false);
   const { play } = useSound();
 
   const limit = pageSize;
@@ -217,9 +214,7 @@ function BrowsePlayersSection({
       dir,
       pageSize,
       ownerFilter,
-      playerType,
       profession,
-      affordable,
       limit,
     ],
     queryFn: async ({ pageParam }) => {
@@ -231,9 +226,7 @@ function BrowsePlayersSection({
           dir,
           ...(debouncedSearch && { search: debouncedSearch }),
           ...(ownerFilter && { ownerFilter }),
-          ...(playerType && { playerType }),
           ...(profession && { profession }),
-          ...(affordable && { affordable: "true" }),
         });
         const res = await fetch(`/api/players?${params}`);
         if (!res.ok) throw new Error("Failed to fetch players");
@@ -408,39 +401,6 @@ function BrowsePlayersSection({
               {f.label}
             </FilterPill>
           ))}
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base text-gray-400 mr-1">Type:</span>
-          <FilterPill
-            active={playerType === ""}
-            onClick={() => { play("toggle"); setPlayerType(""); }}
-            tone="amber"
-          >
-            All
-          </FilterPill>
-          <FilterPill
-            active={playerType === "human"}
-            onClick={() => { play("toggle"); setPlayerType(playerType === "human" ? "" : "human"); }}
-            tone="amber"
-          >
-            <User className="h-7 w-7" /> Humans
-          </FilterPill>
-          <FilterPill
-            active={playerType === "card"}
-            onClick={() => { play("toggle"); setPlayerType(playerType === "card" ? "" : "card"); }}
-            tone="amber"
-          >
-            <CreditCard className="h-7 w-7" /> NPC
-          </FilterPill>
-          <span className="w-px h-4 bg-gray-700 mx-1" />
-          <FilterPill
-            active={affordable}
-            onClick={() => { play("toggle"); setAffordable((a) => !a); }}
-            tone="amber"
-            title="Only show avatars you can afford right now (owned avatars hidden)"
-          >
-            <Sparkles className="h-7 w-7" /> Affordable
-          </FilterPill>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 text-gray-500" />

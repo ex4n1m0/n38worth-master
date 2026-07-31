@@ -9,6 +9,7 @@ import { BlockCountdownBar } from "@/components/BlockCountdownBar";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
+import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { formatCompact } from "@/lib/utils";
 
 interface MarketActionButtonProps {
@@ -91,6 +92,13 @@ export function MarketActionButton({
     },
     onSuccess: async (data) => {
       toast.success(`You got ${username}! Their value is now ${formatCompact(data.newValue)}¢ 💰`);
+      // Hired an NPC with no profession → forced assignment pops up instantly.
+      if (data.needsProfession) {
+        useForcedProfessionStore.getState().require({
+          targetId: data.targetId,
+          targetUsername: data.targetUsername,
+        });
+      }
       await refresh();
     },
   });

@@ -27,6 +27,7 @@ import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
+import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
@@ -259,6 +260,13 @@ function OwnershipCard({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
+      // Hired an NPC with no profession → forced assignment pops up instantly.
+      if (data.needsProfession) {
+        useForcedProfessionStore.getState().require({
+          targetId: data.targetId,
+          targetUsername: data.targetUsername,
+        });
+      }
       if (data.countdownStarted) {
         play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {

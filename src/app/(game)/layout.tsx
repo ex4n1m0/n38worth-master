@@ -8,6 +8,7 @@ import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
+import { ForcedProfessionAssignment } from "@/components/ForcedProfessionAssignment";
 import { NewPlayerGuide } from "@/components/NewPlayerGuide";
 import { PoachEffect } from "@/components/PoachEffect";
 // import { MultiAccountNotification } from "@/components/MultiAccountNotification";
@@ -67,6 +68,8 @@ export default function GameLayout({
       </main>
       {/* Onboarding: Profession Selection Overlay — shown after avatar upload, before NPC hiring */}
       <OnboardingProfessionStep />
+      {/* Forced profession picker — pops up instantly when a GET hires an NPC with no profession */}
+      <ForcedProfessionAssignment />
       </div>
     </div>
   );

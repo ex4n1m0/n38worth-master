@@ -179,8 +179,9 @@ export async function triggerGameReset(
     // onboardingComplete / avatar fields intact.
     // Set wasReset = 2 to indicate GAME reset (not account reset).
     // Clear rank-bonus / login-reward timestamps so those UIs start clean,
-    // and bump lastDividendAt to now so the next portfolio-reward cron tick
-    // doesn't retroactively pay for time before the reset.
+    // bump lastDividendAt to now so the next portfolio-reward cron tick
+    // doesn't retroactively pay for time before the reset, and wipe every
+    // profession (humans AND NPCs) so the new world starts professionless.
     const resetNow = new Date();
     await db
       .update(users)
@@ -189,6 +190,7 @@ export async function triggerGameReset(
         playerValue: 1,
         valueFloor: 1,
         wasReset: 2,
+        profession: null,
         blockSellUntil: null,
         blockSellBy: null,
         estimatedDeletionAt: null,

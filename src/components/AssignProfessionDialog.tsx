@@ -33,6 +33,14 @@ interface AssignProfessionDialogProps {
   currentProfession: string | null;
   /** Optional override for the trigger button styling (e.g. pill look on cards). */
   triggerClassName?: string;
+  /** Forced mode: no trigger button, parent-controlled open state, and the
+      dialog cannot be dismissed — used for the mandatory first profession
+      right after hiring a professionless NPC. */
+  forced?: boolean;
+  /** Controls visibility in forced mode. */
+  forcedOpen?: boolean;
+  /** Called after a successful assignment in forced mode. */
+  onForcedAssigned?: () => void;
 }
 
 /**
@@ -45,14 +53,21 @@ export function AssignProfessionDialog({
   targetUsername,
   currentProfession,
   triggerClassName,
+  forced = false,
+  forcedOpen = false,
+  onForcedAssigned,
 }: AssignProfessionDialogProps) {
   const queryClient = useQueryClient();
   const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ChangeProfessionData | null>(null);
+
+  // In forced mode the parent controls visibility; otherwise local state does.
+  const open = forced ? forcedOpen : internalOpen;
+  const setOpen = forced ? () => {} : setInternalOpen;
 
   useEffect(() => setMounted(true), []);
 
@@ -90,6 +105,22 @@ export function AssignProfessionDialog({
     void load();
   };
 
+  // Forced mode: load the options as soon as the parent opens the dialog,
+  // and reset whenever the queue advances to a different NPC (targetId).
+  useEffect(() => {
+    if (forced && forcedOpen) {
+      setSelected(null);
+      void load();
+    }
+  }, [forced, forcedOpen, targetId, load]);
+
+  // First assignment (the NPC has no profession yet — the forced choice when
+  // it was hired): the cheapest profession(s) are free. The assign-profession
+  // API enforces the same rule server-side; this only mirrors it for display.
+  const isFirstAssignment = !currentProfession;
+  const minCost = data ? Math.min(...data.options.map((o) => o.cost)) : 0;
+  const freeOnFirst = (cost: number) => isFirstAssignment && cost === minCost;
+
   const handleConfirm = async () => {
     if (!selected || submitting) return;
     setSubmitting(true);
@@ -114,7 +145,11 @@ export function AssignProfessionDialog({
         queryClient.invalidateQueries({ queryKey: ["player"] }),
         queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
       ]);
-      setOpen(false);
+      if (forced) {
+        onForcedAssigned?.();
+      } else {
+        setOpen(false);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to assign profession");
     } finally {
@@ -124,15 +159,17 @@ export function AssignProfessionDialog({
 
   return (
     <>
-      <Button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
-        variant="outline"
-        size="sm"
-        className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
-      >
-        <Briefcase className="h-3 w-3 mr-1" />
-        {currentProfession ? "Change Profession" : "Assign Profession"}
-      </Button>
+      {!forced && (
+        <Button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
+          variant="outline"
+          size="sm"
+          className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
+        >
+          <Briefcase className="h-3 w-3 mr-1" />
+          {currentProfession ? "Change Profession" : "Assign Profession"}
+        </Button>
+      )}
 
       {open && mounted && createPortal(
         <div
@@ -140,23 +177,30 @@ export function AssignProfessionDialog({
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900/95 p-5 sm:p-7 shadow-2xl">
-            <button
-              onClick={() => !submitting && setOpen(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {!forced && (
+              <button
+                onClick={() => !submitting && setOpen(false)}
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
 
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-                {currentProfession ? "Change Profession" : "Assign Profession"}
+                {forced ? "Profession Required" : currentProfession ? "Change Profession" : "Assign Profession"}
               </h2>
               <p className="text-gray-400 mt-2 text-sm">
-                {currentProfession ? `${targetUsername} is currently a ${currentProfession}.` : `${targetUsername} has no profession yet.`}
+                {forced
+                  ? `You hired ${targetUsername} — pick a profession to continue.`
+                  : currentProfession
+                    ? `${targetUsername} is currently a ${currentProfession}.`
+                    : `${targetUsername} has no profession yet.`}
               </p>
               <p className="text-amber-300/70 mt-1 text-xs">
                 The card&apos;s value will reset to its floor value. Cost = (others with that profession) × {formatCompact(1000)}¢ × your change #. A profession nobody else has is free.
+                {isFirstAssignment && " First assignment: the cheapest profession(s) are free — later changes pay the normal cost."}
               </p>
               {data && (
                 <div className="mt-3 flex items-center justify-center gap-4 text-xs">
@@ -182,7 +226,8 @@ export function AssignProfessionDialog({
                 {data.options.map((opt) => {
                   const isSelected = selected === opt.name;
                   const isCurrent = currentProfession === opt.name;
-                  const affordable = opt.cost === 0 || data.credits >= opt.cost;
+                  const effectiveCost = freeOnFirst(opt.cost) ? 0 : opt.cost;
+                  const affordable = effectiveCost === 0 || data.credits >= effectiveCost;
                   return (
                     <button
                       key={opt.name}
@@ -213,8 +258,12 @@ export function AssignProfessionDialog({
                       <span className={`text-xs font-semibold text-center leading-tight ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
                         {opt.name}
                       </span>
-                      <span className={`text-[10px] font-bold tabular-nums ${opt.cost === 0 ? "text-green-400" : affordable ? "text-amber-400" : "text-red-400"}`}>
-                        {opt.cost === 0 ? "Free" : `${formatCompact(opt.cost)}¢`}
+                      <span className={`text-[10px] font-bold tabular-nums ${effectiveCost === 0 ? "text-green-400" : affordable ? "text-amber-400" : "text-red-400"}`}>
+                        {effectiveCost === 0
+                          ? freeOnFirst(opt.cost) && opt.cost > 0
+                            ? "Free (1st)"
+                            : "Free"
+                          : `${formatCompact(effectiveCost)}¢`}
                       </span>
                     </button>
                   );
@@ -223,14 +272,16 @@ export function AssignProfessionDialog({
             )}
 
             <div className="flex items-center justify-center gap-3">
-              <Button
-                onClick={() => setOpen(false)}
-                disabled={submitting}
-                variant="outline"
-                className="border-gray-600 text-gray-300 hover:bg-gray-800"
-              >
-                Cancel
-              </Button>
+              {!forced && (
+                <Button
+                  onClick={() => setOpen(false)}
+                  disabled={submitting}
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                >
+                  Cancel
+                </Button>
+              )}
               <Button
                 onClick={handleConfirm}
                 disabled={!selected || submitting}

@@ -697,6 +697,8 @@ export interface BreakPartnershipResult {
   newValue?: number;
   targetUsername?: string;
   countdownStarted?: boolean;
+  needsProfession?: boolean;
+  targetId?: number;
 }
 
 export async function breakPartnershipCore(
@@ -846,6 +848,8 @@ export async function breakPartnershipCore(
     newValue: purchaseResult.newValue,
     targetUsername: target.username,
     countdownStarted: purchaseResult.countdownStarted,
+    needsProfession: purchaseResult.needsProfession,
+    targetId: purchaseResult.targetId,
   };
 }
 
