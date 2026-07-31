@@ -22,7 +22,7 @@ import { createRandomPlayer } from "@/lib/random-player";
 /** Fresh NPCs spawned into the market for each NPC destroyed by War power. */
 const WAR_DELETE_NPC_RESPAWN_COUNT = 2;
 /** Cooldown between War deletes — one destruction per minute per player. */
-export const WAR_DELETE_COOLDOWN_MS = 60 * 1000;
+const WAR_DELETE_COOLDOWN_MS = 60 * 1000;
 
 function warDeleteCooldownKey(userId: number) {
   return `war_delete_cooldown_until_${userId}`;
