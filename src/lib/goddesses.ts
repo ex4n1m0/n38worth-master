@@ -14,12 +14,12 @@ export const GODDESS_USERNAMES: string[] = [
 
 /** Power description shown on each goddess card */
 export const GODDESS_POWERS: Record<string, string> = {
-  "Goddess of Wealth": "The player holding this avatar earns double credits from their portfolio rewards, and double on the boss tax they collect from players they own.",
-  "Goddess of Knowledge": "The player holding this avatar automatically sees every avatar, including ones that are otherwise hidden.",
-  "Goddess of Fate": "While the player holds this avatar, all players they own get a permanent sell block. Other players can break the block, but it costs 1000× the player's current value.",
-  "Goddess of Time": "The player holding this avatar collects their portfolio rewards (and pays their boss's tax) twice as often as everyone else, halving their own wait between payouts.",
-  "Goddess of War": "The player holding this avatar breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window, which no one can break. They can also destroy a card they own: an owned NPC is permanently deleted and replaced by 2 fresh NPCs, while an owned human's value resets to 1¢ and is released. Destruction has a 1-minute cooldown.",
-  "Goddess": "The player holding this avatar activates the powers of all other goddess avatars, whether or not they hold those avatars.",
+  "Goddess of Wealth": "Holder earns double portfolio rewards and double boss tax from players they own.",
+  "Goddess of Knowledge": "Holder sees every avatar, including hidden ones.",
+  "Goddess of Fate": "Holder's owned players get a permanent sell block; breaking it costs 1000× the player's value.",
+  "Goddess of Time": "Holder collects portfolio rewards (and pays boss tax) twice as often.",
+  "Goddess of War": "Holder breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window. Can also destroy an owned card (1-min cooldown): NPCs are deleted and replaced by 2 fresh NPCs; humans reset to 1¢ and are released.",
+  "Goddess": "Holder activates the powers of all other goddesses, even ones they don't hold.",
 };
 
 /**

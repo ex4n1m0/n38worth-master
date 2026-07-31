@@ -45,7 +45,13 @@ import {
   Users,
   Lock,
   Check,
+  TrendingUp,
 } from "lucide-react";
+
+/** Visual GET countdown on ownerless leaderboard cards (seconds). */
+const GET_COUNTDOWN_SECONDS = 5;
+/** Circumference of the action-overlay progress ring (r=34 in an 80×80 viewBox). */
+const ACTION_RING_C = 2 * Math.PI * 34;
 
 interface PlayerCardProps {
   id: number;
@@ -291,7 +297,7 @@ function PlayerCardImpl({
     e.preventDefault();
     e.stopPropagation();
     play("hire");
-    if (leaderboardMode && !ownerName) setCountdown(5);
+    if (leaderboardMode && !ownerName) setCountdown(GET_COUNTDOWN_SECONDS);
     mutation.mutate();
   };
 
@@ -302,7 +308,7 @@ function PlayerCardImpl({
     e.preventDefault();
     e.stopPropagation();
     play("changepage");
-    router.push(`/players/${encodeURIComponent(username)}`);
+    window.open(`/players/${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
   };
 
   const pumpMutation = useMutation({
@@ -470,6 +476,15 @@ function PlayerCardImpl({
     (actionMode === "pump" && pumpMutation.isPending) ||
     (actionMode === "break" && breakMutation.isPending);
 
+  // Unified action overlay: GET shows a draining progress ring with a popping
+  // countdown number; PUMP/BREAK (and GET without the countdown) show an
+  // indeterminate spinning arc — one visual language for every action.
+  const showActionOverlay = (countdown !== null && countdown > 0) || isActionPending;
+  const actionOverlayColor =
+    actionMode === "pump" ? "text-fuchsia-400" : actionMode === "break" ? "text-red-400" : "text-green-400";
+  const actionOverlayLabel =
+    countdown !== null ? "Hiring" : actionMode === "pump" ? "Pumping" : actionMode === "break" ? "Breaking" : "Hiring";
+
   const getActionColors = () => {
     if (actionMode === "locked" || !canAffordAction) {
       return { ring: "ring-gray-600", text: "text-gray-400" };
@@ -536,7 +551,7 @@ function PlayerCardImpl({
     return (
       <span className="inline-flex items-center gap-1">
         {actionMode === "break" && <Shield className="h-3 w-3" />}
-        {label} {formatCompact(actionCost)}¢
+        {actionMode === "break" ? `${label} ${formatCompact(actionCost)}¢` : label}
       </span>
     );
   })();
@@ -671,16 +686,63 @@ function PlayerCardImpl({
             </Avatar>
           </button>
 
-          {countdown !== null && countdown > 0 && (
+          {showActionOverlay && (
             <div
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="absolute inset-0 z-30 flex items-center justify-center cursor-wait"
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-black/55 backdrop-blur-[2px] cursor-wait"
             >
-              <span className="text-6xl font-bold text-white tabular-nums drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]">
-                {countdown}
+              <div className={cn("relative", actionOverlayColor)}>
+                {/* Breathing glow behind the ring */}
+                <div className="absolute inset-0 rounded-full bg-current blur-md animate-action-glow" />
+                <svg
+                  viewBox="0 0 80 80"
+                  className={cn("relative h-20 w-20 sm:h-24 sm:w-24", countdown === null && "animate-spin")}
+                  style={countdown !== null ? { transform: "rotate(-90deg)" } : undefined}
+                >
+                  <circle cx="40" cy="40" r="34" fill="none" strokeWidth="6" className="stroke-white/15" />
+                  <circle
+                    cx="40"
+                    cy="40"
+                    r="34"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeDasharray={
+                      countdown !== null
+                        ? ACTION_RING_C
+                        : `${ACTION_RING_C * 0.28} ${ACTION_RING_C * 0.72}`
+                    }
+                    strokeDashoffset={
+                      countdown !== null ? (ACTION_RING_C * countdown) / GET_COUNTDOWN_SECONDS : 0
+                    }
+                    className={
+                      countdown !== null ? "transition-[stroke-dashoffset] duration-1000 ease-linear" : undefined
+                    }
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {countdown !== null ? (
+                    <span
+                      key={countdown}
+                      className="animate-action-pop text-4xl sm:text-5xl font-black text-white tabular-nums drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
+                    >
+                      {countdown}
+                    </span>
+                  ) : actionMode === "pump" ? (
+                    <TrendingUp className="h-8 w-8 text-white animate-pulse" />
+                  ) : actionMode === "break" ? (
+                    <Shield className="h-8 w-8 text-white animate-pulse" />
+                  ) : (
+                    <Loader2 className="h-8 w-8 text-white animate-spin" />
+                  )}
+                </div>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/85 animate-pulse drop-shadow">
+                {actionOverlayLabel}
               </span>
             </div>
           )}

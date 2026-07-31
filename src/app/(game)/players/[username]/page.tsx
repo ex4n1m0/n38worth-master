@@ -436,6 +436,80 @@ export default function PlayerProfilePage() {
                   <span className="text-gray-500">Credits</span>
                   <span className="font-mono font-bold text-yellow-300">{formatNumber(player.credits ?? 0)}¢</span>
                 </p>
+
+                {/* Badges, bio, and meta — directly under the player's own
+                    stats instead of in the separate section below the hero. */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20">
+                    {isNpc ? <CreditCard className="h-3 w-3" /> : <User className="h-3 w-3" />}
+                    {isNpc ? "NPC" : "Human"}
+                  </span>
+                  {(player.photoScore ?? 0) > 0 && (
+                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-amber-300 bg-amber-500/10 border-amber-500/30">
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                      Score {formatNumber(player.photoScore)}
+                    </span>
+                  )}
+                  {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
+                  {!isOwnProfile && viewerOwnsTarget && !isSpecialCard && (
+                    <AssignProfessionDialog
+                      targetId={player.id}
+                      targetUsername={player.username}
+                      currentProfession={heroProfession}
+                    />
+                  )}
+                </div>
+
+                <div>
+                  {bioEditing ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea className="w-full bg-gray-800/80 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-t1-400" rows={3} maxLength={BIO_MAX} value={bioDraft} onChange={(e) => setBioDraft(e.target.value)} placeholder="Write a short bio…" autoFocus />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[11px] ${bioDraft.length > BIO_MAX - 10 ? "text-orange-400" : "text-gray-500"}`}>{bioDraft.length}/{BIO_MAX}</span>
+                        <div className="flex items-center gap-2">
+                          {bioCost > 0 && (<span className="text-[11px] text-amber-400 font-semibold">Costs {bioCost.toLocaleString()}¢</span>)}
+                          <button onClick={() => setBioEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"><X className="h-3 w-3" /> Cancel</button>
+                          <button onClick={() => bioMutation.mutate(bioDraft)} disabled={bioMutation.isPending} className="flex items-center gap-1 text-xs text-white bg-t1-600 hover:bg-t1-500 disabled:opacity-50 px-2 py-1 rounded transition-colors"><Check className="h-3 w-3" /> Save</button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 group/bio">
+                      {player.bio ? (<p className="text-sm text-gray-300 italic leading-snug flex-1">&ldquo;{player.bio}&rdquo;</p>) : (canEditBio && (<p className="text-xs text-gray-600 italic flex-1">No bio yet.</p>))}
+                      {canEditBio && (<button onClick={() => { setBioDraft(player.bio ?? ""); setBioEditing(true); }} className="shrink-0 opacity-0 group-hover/bio:opacity-100 transition-opacity text-gray-500 hover:text-t1-400 p-1 rounded" title={bioCost > 0 ? `Edit bio (${bioCost.toLocaleString()}¢)` : "Edit bio"}><Pencil className="h-3.5 w-3.5" /></button>)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
+                  <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(player.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
+                  <span className="w-1 h-1 rounded-full bg-gray-600" />
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{player.lastOnlineAt ? formatLastOnline(player.lastOnlineAt) : "Never seen"}</span>
+                  {showFullImageLink && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-gray-600" />
+                      <a
+                        href={fullImageLinkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 underline-offset-2 hover:text-t1-300 hover:underline"
+                      >
+                        <Eye className="h-3 w-3" />
+                        View full image
+                      </a>
+                    </>
+                  )}
+                  {player.photoAuthorName && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-gray-600" />
+                      <PhotoAttribution
+                        authorName={player.photoAuthorName}
+                        authorUrl={player.photoAuthorUrl}
+                        sourceUrl={player.photoSourceUrl}
+                      />
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -497,110 +571,31 @@ export default function PlayerProfilePage() {
           </div>
         )}
 
+        {!isOwnProfile && (
         <div className="relative border border-white/10 rounded-b-3xl px-5 sm:px-8 py-5 space-y-3">
-
-          {!inOnboarding && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20">
-              {isNpc ? <CreditCard className="h-3 w-3" /> : <User className="h-3 w-3" />}
-              {isNpc ? "NPC" : "Human"}
-            </span>
-            {(player.photoScore ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-amber-300 bg-amber-500/10 border-amber-500/30">
-                <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                Score {formatNumber(player.photoScore)}
-              </span>
+          <div className="flex flex-col gap-2 sm:max-w-xs">
+            {/* Same GET / PUMP action as the marketplace, incl. block bar. */}
+            <MarketActionButton
+              id={player.id}
+              username={player.username}
+              playerValue={player.playerValue}
+              blockSellUntil={player.blockSellUntil}
+              isSelf={isOwnProfile}
+            />
+            {!alreadyOwns && (credits ?? 0) < player.playerValue && (
+              <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>
             )}
-            {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
-            {!isOwnProfile && viewerOwnsTarget && !isSpecialCard && (
-              <AssignProfessionDialog
-                targetId={player.id}
-                targetUsername={player.username}
-                currentProfession={heroProfession}
-              />
-            )}
+            {/* Admin-only hard-delete (self-renders null for non-admins). */}
+            <AdminDeletePlayerButton
+              targetId={player.id}
+              targetUsername={player.username}
+              targetValue={player.playerValue}
+              ownerCount={player.ownerCount}
+              ownedCount={player.ownedCount}
+            />
           </div>
-          )}
-
-          {!isOwnProfile && !inOnboarding && (
-            <div className="flex flex-col gap-2 sm:max-w-xs">
-              {/* Same GET / PUMP action as the marketplace, incl. block bar. */}
-              <MarketActionButton
-                id={player.id}
-                username={player.username}
-                playerValue={player.playerValue}
-                blockSellUntil={player.blockSellUntil}
-                isSelf={isOwnProfile}
-              />
-              {!alreadyOwns && (credits ?? 0) < player.playerValue && (
-                <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>
-              )}
-              {/* Admin-only hard-delete (self-renders null for non-admins). */}
-              <AdminDeletePlayerButton
-                targetId={player.id}
-                targetUsername={player.username}
-                targetValue={player.playerValue}
-                ownerCount={player.ownerCount}
-                ownedCount={player.ownedCount}
-              />
-            </div>
-          )}
-
-          {!inOnboarding && (
-          <div>
-            {bioEditing ? (
-              <div className="flex flex-col gap-2">
-                <textarea className="w-full bg-gray-800/80 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-t1-400" rows={3} maxLength={BIO_MAX} value={bioDraft} onChange={(e) => setBioDraft(e.target.value)} placeholder="Write a short bio…" autoFocus />
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-[11px] ${bioDraft.length > BIO_MAX - 10 ? "text-orange-400" : "text-gray-500"}`}>{bioDraft.length}/{BIO_MAX}</span>
-                  <div className="flex items-center gap-2">
-                    {bioCost > 0 && (<span className="text-[11px] text-amber-400 font-semibold">Costs {bioCost.toLocaleString()}¢</span>)}
-                    <button onClick={() => setBioEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"><X className="h-3 w-3" /> Cancel</button>
-                    <button onClick={() => bioMutation.mutate(bioDraft)} disabled={bioMutation.isPending} className="flex items-center gap-1 text-xs text-white bg-t1-600 hover:bg-t1-500 disabled:opacity-50 px-2 py-1 rounded transition-colors"><Check className="h-3 w-3" /> Save</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-start gap-2 group/bio">
-                {player.bio ? (<p className="text-sm text-gray-300 italic leading-snug flex-1">&ldquo;{player.bio}&rdquo;</p>) : (canEditBio && (<p className="text-xs text-gray-600 italic flex-1">No bio yet.</p>))}
-                {canEditBio && (<button onClick={() => { setBioDraft(player.bio ?? ""); setBioEditing(true); }} className="shrink-0 opacity-0 group-hover/bio:opacity-100 transition-opacity text-gray-500 hover:text-t1-400 p-1 rounded" title={bioCost > 0 ? `Edit bio (${bioCost.toLocaleString()}¢)` : "Edit bio"}><Pencil className="h-3.5 w-3.5" /></button>)}
-              </div>
-            )}
-          </div>
-          )}
-
-          {!inOnboarding && (
-          <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
-            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(player.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
-            <span className="w-1 h-1 rounded-full bg-gray-600" />
-            <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{player.lastOnlineAt ? formatLastOnline(player.lastOnlineAt) : "Never seen"}</span>
-            {showFullImageLink && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-gray-600" />
-                <a
-                  href={fullImageLinkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 underline-offset-2 hover:text-t1-300 hover:underline"
-                >
-                  <Eye className="h-3 w-3" />
-                  View full image
-                </a>
-              </>
-            )}
-            {player.photoAuthorName && (
-              <>
-                <span className="w-1 h-1 rounded-full bg-gray-600" />
-                <PhotoAttribution
-                  authorName={player.photoAuthorName}
-                  authorUrl={player.photoAuthorUrl}
-                  sourceUrl={player.photoSourceUrl}
-                />
-              </>
-            )}
-          </div>
-          )}
         </div>
+        )}
       </Card>
 
       {/* Avatar grid of this player's owned cards, most valuable first —

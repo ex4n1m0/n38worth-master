@@ -298,6 +298,8 @@ export function GoddessCard({
               card in the game offers a direct path to its profile page. */}
           <Link
             href={`/players/${encodeURIComponent(username)}`}
+            target="_blank"
+            rel="noopener noreferrer"
             onClick={(e) => {
               e.stopPropagation();
               play("changepage");

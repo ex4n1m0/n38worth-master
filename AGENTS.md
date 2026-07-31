@@ -77,6 +77,13 @@
   Never add per-component `setInterval(…, 1000)` timers — with 50+ cards on
   screen that meant 50+ intervals. Also avoids calling `Date.now()` during
   render, which the react-hooks/purity lint rule rejects.
+- **Leaderboard rank positions are snapshotted:** `/api/cron/rank-snapshot`
+  (every 10 min) pre-computes all 5 category ranks into
+  `user_rank_snapshots` (one query with window RANK(), chunked upserts);
+  `/api/leaderboard` reads it via one indexed lookup and falls back to the
+  live correlated-COUNT computation when a user has no row. If you change
+  the portfolio formula or rank eligibility filters, update BOTH the cron's
+  `visible` CTE and the route's fallback SQL — they must stay identical.
 - **Sound effects:** `useSound()` / `playSound()` in `src/hooks/useSound.ts`
   (17 semantic types; files in `public/sounds/*.mp3`, Kenney CC0). Mute +
   volume live in `useSoundSettings` (zustand, localStorage-persisted),
