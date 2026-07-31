@@ -683,8 +683,6 @@ export default function PlayerProfilePage() {
             </div>
           )}
 
-          {/* Global chat room — hidden until the player completes mission 0. */}
-          {gameUnlocked && <GlobalChatPage embedded />}
           <div className="pt-4 border-t border-white/10 space-y-3">
             {isOwnProfile && session?.user?.name === "IgorCarlier" && (
               <button
@@ -749,20 +747,26 @@ export default function PlayerProfilePage() {
         </div>
       )}
 
-      {/* Leader actions + chat. The leader identity itself lives in the
-          mirrored hero header at the top of this page; this section is only
-          the resign action and the DM channel. */}
-      {isOwnProfile && !inOnboarding && profileOwner && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
-          <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
-            <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
-            <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={`/api/avatar/${encodeURIComponent(profileOwner.username)}`} /></div></ChatProvider>
-          </div>
-        </div>
-      )}
-
       {!inOnboarding && <LostPlayersGrid profileUsername={username} />}
+
+      {/* Chat channels at the bottom of your own profile: the global room
+          (hidden until mission 0 is complete) and the DM channel with your
+          leader. The leader identity itself lives in the mirrored hero
+          header at the top of this page. */}
+      {isOwnProfile && !inOnboarding && (
+        <>
+          {gameUnlocked && <GlobalChatPage embedded />}
+          {profileOwner && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
+              <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
+                <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
+                <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={`/api/avatar/${encodeURIComponent(profileOwner.username)}`} /></div></ChatProvider>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* End Game content (How to Win + goddesses + Hall of Champions) —
           lives at the very bottom of your own profile (Home). */}
