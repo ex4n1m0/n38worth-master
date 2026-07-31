@@ -397,7 +397,9 @@ export default function Home() {
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
                 Held goddesses grant powers: Wealth doubles rewards, Knowledge reveals hidden
                 avatars, Fate seals your team&apos;s blocks (1000× break fee), Time halves payout
-                waits, War makes your breaks free — the Goddess grants all at once.
+                waits, War makes your breaks free and lets you destroy cards you own (deleting
+                NPCs — 2 fresh ones spawn — or resetting a human to 1¢ and releasing them, with a
+                1-minute cooldown) — the Goddess grants all at once.
               </p>
             </section>
 
@@ -434,39 +436,6 @@ export default function Home() {
                 Six autonomous divine players also hunt cards around the clock — they buy, pump
                 and poach, but never speak.
               </p>
-            </section>
-
-            {/* Highest-value NPC cards — the avatar grid, moved here from the
-                landing page so it sits right above the sign-up buttons. */}
-            <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-3 text-lg font-semibold text-t1-400">Current Highest-Value Avatars</h3>
-              <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
-                {(data?.topNpcs ?? []).map((npc) => (
-                  <a
-                    key={npc.username}
-                    href={`/api/avatar/${encodeURIComponent(npc.username)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={`${npc.username} — ${formatCompact(npc.playerValue)}¢`}
-                    className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative group block hover:border-white/40 transition-colors"
-                  >
-                    {npc.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={npc.avatarUrl}
-                        alt={npc.username}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="h-full w-full bg-gradient-to-b from-gray-800 to-gray-900 flex items-center justify-center text-xs text-gray-500">
-                        {npc.username.slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </a>
-                ))}
-              </div>
             </section>
 
           </div>

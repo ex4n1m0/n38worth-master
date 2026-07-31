@@ -25,6 +25,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
+import { WarDeleteButton } from "@/components/WarDeleteButton";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import {
   isLockablePurchaseCard,
@@ -125,7 +126,7 @@ function PlayerCardImpl({
   const router = useRouter();
   const { data: myCredits } = useCredits();
   const { ownedIds, renamedIds } = useOwnedPlayerIds();
-  const { hasKnowledge, hasWar } = useKnowledgePower();
+  const { hasKnowledge, hasWar, warDeleteCooldownUntil } = useKnowledgePower();
   const missionLevel = useMissionLevel();
   const finalGoddessThreshold = useFinalGoddessThreshold();
   const isOwnProfile = session?.user?.name === username;
@@ -734,6 +735,18 @@ function PlayerCardImpl({
             permBlockUntil={permBlockUntil}
             size="sm"
             className={cn("w-full mt-2", isMine && "text-yellow-300/90 hover:text-yellow-200")}
+          />
+        )}
+
+        {/* Goddess of War power: destroy an owned card. NPCs are deleted
+            (2 fresh NPCs spawn); humans get their value reset to 1¢. */}
+        {hasWar && ownedIds.has(id) && !isGoddess && !isOwnProfile && (
+          <WarDeleteButton
+            targetId={id}
+            targetUsername={username}
+            isNpc={!!playerType && playerType !== "human"}
+            cooldownUntil={warDeleteCooldownUntil}
+            className="w-full mt-2"
           />
         )}
 

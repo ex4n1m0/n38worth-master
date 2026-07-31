@@ -11,6 +11,8 @@ interface GoddessPowers {
   hasWar: boolean;
   hasAll: boolean;
   temporaryKnowledgeUntil: string | null;
+  /** ISO timestamp while War Delete is on its 1-minute cooldown, else null. */
+  warDeleteCooldownUntil: string | null;
 }
 
 /**
@@ -36,6 +38,7 @@ export function useKnowledgePower() {
     hasKnowledge: powers?.hasKnowledge ?? false,
     hasWar: powers?.hasWar ?? false,
     hasFate: powers?.hasFate ?? false,
+    warDeleteCooldownUntil: powers?.warDeleteCooldownUntil ?? null,
     isLoading,
   };
 }

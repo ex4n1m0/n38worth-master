@@ -174,14 +174,14 @@ function BrowsePlayersSection({
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
-  // Default view (user-specified): free (ownerless) cards, most recently
-  // online first, all types, affordable filter off.
+  // Default view (user-specified): all cards (any owner status), most
+  // recently online first, all types, affordable filter off.
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   // Infinite scroll: cards load in batches as the user approaches the bottom
   // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
   const pageSize = 48;
-  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("none");
+  const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [playerType, setPlayerType] = useState<"" | "human" | "card">("");
   const [profession, setProfession] = useState("");
   const [affordable, setAffordable] = useState(false);
@@ -313,11 +313,11 @@ function BrowsePlayersSection({
             }}
             className={
               sort === "profession"
-                ? "h-auto rounded-xl border border-amber-500/60 bg-amber-500/10 px-6 py-3 text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "h-auto rounded-xl border border-gray-600 bg-transparent px-6 py-3 text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
+                ? "h-auto rounded-lg sm:rounded-xl border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
             }
           >
-            <Sparkles className="h-5 w-5 mr-1" />
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
             Profession
           </Button>
           {PROFESSIONS.map((p) => {
@@ -333,16 +333,16 @@ function BrowsePlayersSection({
               title={perk ? `${perk.name}${perkActive ? " (ACTIVE)" : ""} — ${perk.description}` : undefined}
               className={
                 profession === p.name
-                  ? "h-auto rounded-xl border border-amber-500/60 bg-amber-500/10 px-6 py-3 text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                  ? "h-auto rounded-lg sm:rounded-xl border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                   : inCombo
-                    ? "h-auto rounded-xl border border-amber-400 bg-amber-500/25 px-6 py-3 text-base text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
-                    : "h-auto rounded-xl border border-gray-600 bg-transparent px-6 py-3 text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
+                    ? "h-auto rounded-lg sm:rounded-xl border border-amber-400 bg-amber-500/25 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
+                    : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.imagePath} alt="" className="h-9 w-9 mr-2 object-contain" />
+              <img src={p.imagePath} alt="" className="h-6 w-6 sm:h-9 sm:w-9 mr-1 sm:mr-2 object-contain" />
               {p.name.split(" ")[0]}
-              {perkActive && <Zap className="h-5 w-5 ml-1 text-green-400 fill-green-400" />}
+              {perkActive && <Zap className="h-4 w-4 sm:h-5 sm:w-5 ml-1 text-green-400 fill-green-400" />}
               {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
             </Button>
             );

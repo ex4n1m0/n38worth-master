@@ -308,12 +308,12 @@ async function fetchUnsplashAvatar(query?: string | string[]): Promise<AvatarFet
 /**
  * Creates a single random NPC player.
  *
- * Avatar source: Unsplash random photos. First tries a set of portrait-style
- * queries (including "model" variants) to get portrait-like results. If that
- * fails (no matches, all duplicates, rate limit), retries with no keyword
- * (completely random from Unsplash's entire library). If Unsplash fails
- * entirely, falls back to picsum.photos as a last resort so NPC creation never
- * stalls. Called by the scheduled cron job.
+ * Avatar source: Unsplash random photos. First tries the keyword "model"
+ * (the preferred portrait pool), then rotates through broader portrait-style
+ * queries, then retries with no keyword (completely random from Unsplash's
+ * entire library). If Unsplash fails entirely, falls back to picsum.photos
+ * as a last resort so NPC creation never stalls. Called by the scheduled
+ * cron job.
  *
  * Returns the created player info or a failure reason.
  */
@@ -332,8 +332,9 @@ export async function createRandomPlayer(): Promise<{
     let photoScore = 0;
     let lastFailReason = "no source attempted";
 
-    // First attempt: portrait-style queries (rotated) for avatar photos.
-    const modelResult = await fetchUnsplashAvatar(NPC_PHOTO_QUERIES);
+    // First attempt: the "model" keyword specifically — the preferred
+    // portrait pool. Broadening happens only if this fails.
+    const modelResult = await fetchUnsplashAvatar("model");
     if (modelResult.ok) {
       ({
         avatarUrl,
@@ -344,11 +345,29 @@ export async function createRandomPlayer(): Promise<{
         photoScore,
       } = modelResult.data);
     } else {
-      lastFailReason = `unsplash(portrait queries): ${modelResult.reason}`;
-      console.warn(`Unsplash portrait queries failed: ${modelResult.reason}. Retrying without keyword.`);
+      lastFailReason = `unsplash(model): ${modelResult.reason}`;
+      console.warn(`Unsplash "model" query failed: ${modelResult.reason}. Retrying with portrait query rotation.`);
     }
 
-    // Second attempt: no keyword (completely random photos).
+    // Second attempt: broader portrait-style queries (rotated).
+    if (!avatarUrl) {
+      const portraitResult = await fetchUnsplashAvatar(NPC_PHOTO_QUERIES);
+      if (portraitResult.ok) {
+        ({
+          avatarUrl,
+          photoAuthorName,
+          photoAuthorUrl,
+          photoSourceUrl,
+          photoMeta,
+          photoScore,
+        } = portraitResult.data);
+      } else {
+        lastFailReason = `unsplash(portrait queries): ${portraitResult.reason}`;
+        console.warn(`Unsplash portrait queries failed: ${portraitResult.reason}. Retrying without keyword.`);
+      }
+    }
+
+    // Third attempt: no keyword (completely random photos).
     if (!avatarUrl) {
       const randomResult = await fetchUnsplashAvatar();
       if (randomResult.ok) {

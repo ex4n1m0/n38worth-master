@@ -38,7 +38,8 @@ export const PLAYER_SORTS: PlayerSortOption[] = [
 
 /**
  * Presentational pill button — the single consistent look for every sort/filter
- * toggle across the app. `tone` picks the active accent colour.
+ * toggle across the app. `tone` picks the active accent colour. Compact on
+ * phones (smaller padding, text and child icons/images), full-size from sm up.
  */
 export function FilterPill({
   active,
@@ -63,7 +64,7 @@ export function FilterPill({
       onClick={onClick}
       title={title}
       aria-pressed={active}
-      className={`flex items-center gap-2.5 text-xl font-semibold px-10 py-5 rounded-xl border transition-colors active:scale-95 ${
+      className={`flex items-center gap-1.5 sm:gap-2.5 text-sm sm:text-xl font-semibold px-3 py-1.5 sm:px-10 sm:py-5 rounded-lg sm:rounded-xl border transition-colors active:scale-95 [&_svg]:max-sm:size-4 [&_img]:max-sm:size-4 ${
         active ? activeCls : "border-gray-600 text-gray-400 hover:text-gray-200 hover:border-gray-400"
       }`}
     >
@@ -97,7 +98,7 @@ export function SortBar({
         onClick={onToggleDir}
         title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
         aria-label={dir === "asc" ? "Sort ascending, activate for descending" : "Sort descending, activate for ascending"}
-        className="flex items-center gap-2.5 text-xl font-semibold px-10 py-5 rounded-xl border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95"
+        className="flex items-center gap-1.5 sm:gap-2.5 text-sm sm:text-xl font-semibold px-3 py-1.5 sm:px-10 sm:py-5 rounded-lg sm:rounded-xl border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95 [&_svg]:max-sm:size-4"
       >
         {dir === "asc" ? <ArrowUp className="h-6 w-6" /> : <ArrowDown className="h-6 w-6" />}
         {dir === "asc" ? "Asc" : "Desc"}
