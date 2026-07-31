@@ -42,7 +42,7 @@ export function formatCompact(num: number | undefined | null): string {
   const scaled = num / tier.v;
   const mag = Math.abs(scaled);
   const decimals = mag >= 100 ? 0 : mag >= 10 ? 1 : 2;
-  const str = scaled.toFixed(decimals).replace(/\.?0+$/, "");
+  const str = scaled.toFixed(decimals).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
   return str + tier.s;
 }
 
