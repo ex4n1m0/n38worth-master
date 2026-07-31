@@ -44,6 +44,8 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
       queryClient.invalidateQueries({ queryKey: ["players"] });
       queryClient.invalidateQueries({ queryKey: ["ownership"] });
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      queryClient.invalidateQueries({ queryKey: ["missions"] });
+      queryClient.invalidateQueries({ queryKey: ["ownership-limit"] });
     },
     onError: (err: Error) => {
       play("error");

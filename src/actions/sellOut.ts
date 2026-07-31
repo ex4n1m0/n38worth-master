@@ -113,6 +113,11 @@ export async function sellOut(ownershipId: number) {
         pusher.trigger(`player-${record.ownerId}`, "credits-updated", {
           message: `${player.username} sold out from you! You received ${cost}¢`,
         }),
+        pusher.trigger(`player-${record.ownerId}`, "ownership-changed", {
+          type: "sell_out",
+          initiator: player.username,
+          newValue: player.playerValue,
+        }),
       ]);
     } catch (e) {
       // Pusher errors are non-critical

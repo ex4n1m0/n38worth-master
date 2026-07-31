@@ -17,8 +17,12 @@
       "schedule": "0 * * * *"
     },
     {
+      "path": "/api/cron/rank-snapshot",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/goddess-countdown",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/refill-onboarding-pool",
@@ -42,7 +46,7 @@
     },
     {
       "path": "/api/cron/fate-seal",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

@@ -4,6 +4,8 @@ import { useSession } from "next-auth/react";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Medal } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
+import { useNow } from "@/hooks/useNow";
+import { secondsToNextHour, formatCountdown } from "@/components/HourlyRewardCountdown";
 
 export function RankBonusCountdown() {
   const { data: session } = useSession();
@@ -70,6 +72,10 @@ export function RankBonusCountdown() {
     }
   }
 
+  // Live countdown to the next hourly rank-bonus payout (cron fires at :00 UTC).
+  const now = useNow();
+  const secondsToPayout = secondsToNextHour(now);
+
   return (
     <div className="rounded-xl border border-gray-800 p-3">
       <div className="flex items-center gap-2">
@@ -92,6 +98,9 @@ export function RankBonusCountdown() {
             <span className="text-xs font-bold text-t2-400">
               +{formatCompact(totalPrize)}¢ total
             </span>
+          </div>
+          <div className="mb-2 text-right text-[11px] text-t2-400/80 font-mono">
+            pays in {formatCountdown(secondsToPayout)}
           </div>
           <div className="space-y-1">
             {qualifyingPositions.map(({ category, position, prize }) => (

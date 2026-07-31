@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
+import { users, ownership, userRankSnapshots } from "@/db/schema";
 import { eq, sql, desc, and, notInArray } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
@@ -36,6 +36,32 @@ export async function GET(req: Request) {
     // Get user's current rank positions in all categories
     let userPositions: Record<string, number> = {};
     if (currentUsername) {
+      // Fast path: pre-computed ranks from the rank-snapshot cron (one indexed
+      // lookup). Falls back to the live computation below when the user has no
+      // snapshot row yet (brand-new or not rank-visible).
+      const [snapshot] = await db
+        .select({
+          empireRank: userRankSnapshots.empireRank,
+          legacyRank: userRankSnapshots.legacyRank,
+          creditsRank: userRankSnapshots.creditsRank,
+          valueRank: userRankSnapshots.valueRank,
+          portfolioRank: userRankSnapshots.portfolioRank,
+        })
+        .from(userRankSnapshots)
+        .innerJoin(users, eq(users.id, userRankSnapshots.userId))
+        .where(eq(users.username, currentUsername));
+
+      if (snapshot) {
+        userPositions = {
+          empire: snapshot.empireRank,
+          legacy: snapshot.legacyRank,
+          credits: snapshot.creditsRank,
+          value: snapshot.valueRank,
+          portfolio: snapshot.portfolioRank,
+        };
+      }
+    }
+    if (currentUsername && Object.keys(userPositions).length === 0) {
       // Get user's data
       const [currentUser] = await db
         .select({

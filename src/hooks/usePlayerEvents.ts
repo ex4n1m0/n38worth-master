@@ -69,6 +69,7 @@ export function usePlayerEvents(userId: string | undefined) {
       }) => {
         console.log("[poach] revenue-received", data);
         queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
         play("poach");
         // Eye-catching "POACHED!" flash + navbar poach feed + credits bump.
         // (No toast — the sticky poach feed row in the Navbar is the
@@ -87,6 +88,7 @@ export function usePlayerEvents(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["ownership"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["missions"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["ownership-limit"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
       if (data.type === "discard") {
         play("sell");
         toast.info(`${data.initiator} discarded their relationship with you`);
@@ -101,6 +103,7 @@ export function usePlayerEvents(userId: string | undefined) {
 
     channel.bind("rank-bonus", (data: { amount: number; category: string; rank: string; position: number }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["rankPositions"], refetchType: "active" });
       play("reward");
       const positionLabels = ["1st", "2nd", "3rd"];
       const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;
@@ -121,23 +124,23 @@ export function usePlayerEvents(userId: string | undefined) {
       }
     );
 
-    // Multi-account warnings disabled
-    // channel.bind("multi-account-warning", (data: { message: string }) => {
-    //   queryClient.invalidateQueries({ queryKey: ["credits"] });
-    //   toast.warning("⚠️ Multi-Account Warning", {
-    //     description: data.message,
-    //     duration: 30000,
-    //   });
-    // });
+    channel.bind("multi-account-warning", (data: { message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      toast.warning("⚠️ Multi-Account Warning", {
+        description: data.message,
+        duration: 30000,
+      });
+    });
 
-    // channel.bind("multi-account-penalty", (data: { message: string }) => {
-    //   queryClient.invalidateQueries({ queryKey: ["credits"] });
-    //   queryClient.invalidateQueries({ queryKey: ["player"] });
-    //   toast.error("🚫 Multi-Account Penalty", {
-    //     description: data.message,
-    //     duration: 30000,
-    //   });
-    // });
+    channel.bind("multi-account-penalty", (data: { message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
+      play("error");
+      toast.error("🚫 Multi-Account Penalty", {
+        description: data.message,
+        duration: 30000,
+      });
+    });
 
     return () => {
       channel.unbind_all();

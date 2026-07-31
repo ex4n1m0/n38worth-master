@@ -64,6 +64,8 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
     onError: (err: Error, _, context) => {
