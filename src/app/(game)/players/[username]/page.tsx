@@ -651,8 +651,9 @@ export default function PlayerProfilePage() {
             />
           )}
 
-          {/* End Game content (How to Win + goddesses + Hall of Champions) —
-              right under your owned-cards avatar grid on your own profile. */}
+          {/* End Game content (How to Win + goddesses) — right under your
+              owned-cards avatar grid on your own profile. The Hall of
+              Champions lives at the top of the History page. */}
           <div className="pt-6 border-t border-white/10">
             <EndGameContent />
           </div>

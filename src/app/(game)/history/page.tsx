@@ -16,6 +16,7 @@ import {
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
+import { HallOfChampions } from "@/components/HallOfChampions";
 import { useState } from "react";
 import { formatCompact } from "@/lib/utils";
 
@@ -66,7 +67,10 @@ export default function GameHistoryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      {/* Past game winners — at the very top of the History page. */}
+      <HallOfChampions />
+
+      <div className="pt-4 border-t border-white/10">
         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
           <History className="h-8 w-8 text-t2-400" />
           Game History
