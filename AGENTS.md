@@ -6,6 +6,13 @@
 - **Unsplash: Production API tier** (5000 requests/hour, not the 50/hr Demo tier).
   Used for NPC avatars in `src/lib/random-player.ts`. If Unsplash fails (rate
   limit, duplicates, network), falls back to picsum.photos as a last resort.
+- **Unsplash/picsum avatars are HOTLINKED, not compressed** (since 2026-07-31):
+  `unsplashAvatarUrl` in `src/lib/hotlink-avatar.ts` builds a 256px square webp
+  URL on Unsplash's CDN (required by their API guidelines; image requests don't
+  count against the rate limit), and picsum fallbacks store the stable
+  `picsum.photos/seed/...` URL directly. Only legacy NPC rows (pre-2026-07-31)
+  carry `data:` URIs. `compressAvatar` remains for user-uploaded files only —
+  never download/compress Unsplash photos into the DB.
 
 ## Workflow preferences
 - **Always commit AND deploy together.** When deploying, also commit the changes
@@ -23,7 +30,7 @@
   reward card(s) (Mass Hire / goddesses), AND one free NPC auto-owned by the
   player (`awardMissionNpc` in `src/lib/missions.ts`). The NPC is claimed from
   the `isOnboardingPool` pre-generated pool first (no Unsplash call in the
-  request path); if the pool is empty, fall back to a compressed picsum
+  request path); if the pool is empty, fall back to a hotlinked picsum
   avatar (`fetchFallbackNpcAvatar` in `src/lib/npc-fallback-avatar.ts`) —
   the hidden placeholder is the last resort only. Never create Unsplash NPCs
   synchronously in a request path. Stale hidden-avatar NPCs can be repaired

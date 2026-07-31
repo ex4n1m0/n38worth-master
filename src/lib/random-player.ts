@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql, eq, or, and, notInArray } from "drizzle-orm";
-import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
+import { unsplashAvatarUrl } from "@/lib/hotlink-avatar";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
 
@@ -165,7 +165,7 @@ async function fetchUnsplashAvatar(query?: string | string[]): Promise<AvatarFet
   const MAX_ATTEMPTS = 4;
   let rateLimited = false;
   let authError = false;
-  let skipReason: "download" | "duplicate" | "unsplash_error" | null = null;
+  let skipReason: "duplicate" | "unsplash_error" | null = null;
 
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     const selectedQuery = queries.length > 0
@@ -221,16 +221,11 @@ async function fetchUnsplashAvatar(query?: string | string[]): Promise<AvatarFet
       }
 
       for (const photo of batch) {
-        const candidateUrl =
-          photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
-        if (!candidateUrl) continue;
-
-        const compressed = await downloadAndCompressAvatar(candidateUrl);
-        if (!compressed) {
-          skipReason = "download";
-          continue;
-        }
-        const finalUrl = compressed;
+        // Hotlink Unsplash's CDN (required by their API guidelines) instead of
+        // downloading + compressing a copy — the CDN serves a 256px square
+        // webp and image requests don't count against the rate limit.
+        const finalUrl = unsplashAvatarUrl(photo.urls);
+        if (!finalUrl) continue;
 
         const sourceUrl = photo.links?.html
           ? `${photo.links.html}?utm_source=networth&utm_medium=referral`
@@ -297,9 +292,7 @@ async function fetchUnsplashAvatar(query?: string | string[]): Promise<AvatarFet
       ? "rate_limit (Unsplash hourly limit hit)"
       : skipReason === "duplicate"
         ? "all attempts returned duplicate photos"
-        : skipReason === "download"
-          ? "failed to download/compress all candidate images"
-          : skipReason === "unsplash_error"
+        : skipReason === "unsplash_error"
             ? "Unsplash API returned errors on all attempts"
             : "exhausted all attempts without finding a usable photo";
   return { ok: false, reason };
@@ -392,23 +385,16 @@ export async function createRandomPlayer(): Promise<{
       console.warn(
         `Unsplash avatar source failed (${lastFailReason}). Falling back to picsum.photos.`
       );
-      try {
-        const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-        const compressed = await downloadAndCompressAvatar(
-          `https://picsum.photos/seed/${seed}/200/200`
-        );
-        if (compressed) {
-          avatarUrl = compressed;
-          photoAuthorName = "Lorem Picsum";
-          photoAuthorUrl = "https://picsum.photos/";
-          photoSourceUrl = `picsum-${seed}`;
-          photoMeta = null;
-          photoScore = 0;
-          console.log("NPC avatar created using picsum.photos fallback");
-        }
-      } catch (fallbackError) {
-        console.error("picsum.photos fallback also failed:", fallbackError);
-      }
+      // No fetch/compress needed — picsum URLs are stable hotlinks, unique
+      // per seed, served straight from picsum's CDN.
+      const seed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      avatarUrl = `https://picsum.photos/seed/${seed}/200/200`;
+      photoAuthorName = "Lorem Picsum";
+      photoAuthorUrl = "https://picsum.photos/";
+      photoSourceUrl = `picsum-${seed}`;
+      photoMeta = null;
+      photoScore = 0;
+      console.log("NPC avatar created using picsum.photos fallback");
     }
 
     if (!avatarUrl) {

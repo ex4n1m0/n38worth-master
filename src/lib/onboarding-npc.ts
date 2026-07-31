@@ -1,7 +1,7 @@
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
-import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
+import { unsplashAvatarUrl } from "@/lib/hotlink-avatar";
 import { generateNpcNameFromMeta, generateRandomNpcName, type NpcPhotoMeta } from "@/lib/npc-names";
 import { fetchFallbackNpcAvatar } from "@/lib/npc-fallback-avatar";
 
@@ -76,12 +76,10 @@ async function fetchNpcAvatar(): Promise<NpcAvatar | null> {
         .sort((a, b) => (Number(b?.likes ?? 0) || 0) - (Number(a?.likes ?? 0) || 0));
 
       for (const photo of batch) {
-        const candidateUrl =
-          photo.urls?.regular || photo.urls?.small || photo.urls?.thumb;
-        if (!candidateUrl) continue;
-
-        const compressed = await downloadAndCompressAvatar(candidateUrl);
-        const finalUrl = compressed || candidateUrl;
+        // Hotlinked 256px square webp from Unsplash's CDN (see hotlink-avatar)
+        // — required by their API guidelines, no download/compress needed.
+        const finalUrl = unsplashAvatarUrl(photo.urls);
+        if (!finalUrl) continue;
 
         const sourceUrl = photo.links?.html
           ? `${photo.links.html}?utm_source=networth&utm_medium=referral`

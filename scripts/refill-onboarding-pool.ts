@@ -4,7 +4,7 @@ dotenv.config({ path: ".env.local" });
 import { db } from "../src/db";
 import { users } from "../src/db/schema";
 import { eq, sql, or } from "drizzle-orm";
-import { downloadAndCompressAvatar } from "../src/lib/compress-avatar";
+import { unsplashAvatarUrl } from "../src/lib/hotlink-avatar";
 
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
@@ -79,15 +79,10 @@ async function createPoolNpc(): Promise<boolean> {
       }
 
       const unsplashData = await unsplashRes.json();
-      const candidateUrl =
-        unsplashData.urls?.regular ||
-        unsplashData.urls?.small ||
-        unsplashData.urls?.thumb;
+      // Hotlinked 256px square webp from Unsplash's CDN (see hotlink-avatar).
+      const finalUrl = unsplashAvatarUrl(unsplashData.urls);
 
-      if (!candidateUrl) continue;
-
-      const compressed = await downloadAndCompressAvatar(candidateUrl);
-      const finalUrl = compressed || candidateUrl;
+      if (!finalUrl) continue;
 
       // Check for duplicates
       const sourceUrl = unsplashData.links?.html

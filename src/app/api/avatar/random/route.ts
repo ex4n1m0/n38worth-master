@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { downloadAndCompressAvatar } from "@/lib/compress-avatar";
+import { unsplashAvatarUrl } from "@/lib/hotlink-avatar";
 
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
@@ -64,9 +64,10 @@ export async function POST() {
 
           if (unsplashRes.ok) {
             const unsplashData = await unsplashRes.json();
-            const candidateUrl = unsplashData.urls?.regular || unsplashData.urls?.small || unsplashData.urls?.thumb || null;
-            if (candidateUrl) {
-              avatarUrl = candidateUrl;
+            // Hotlinked 256px square webp from Unsplash's CDN (see hotlink-avatar).
+            const hotlinked = unsplashAvatarUrl(unsplashData.urls);
+            if (hotlinked) {
+              avatarUrl = hotlinked;
               break;
             }
           } else {
@@ -90,12 +91,6 @@ export async function POST() {
         { error: "Could not fetch a random avatar from Unsplash" },
         { status: 500 }
       );
-    }
-
-    // Download and compress the Unsplash image to ≤ 100 KB WebP data URL
-    const compressedAvatarUrl = await downloadAndCompressAvatar(avatarUrl);
-    if (compressedAvatarUrl) {
-      avatarUrl = compressedAvatarUrl;
     }
 
     const [preState] = await db

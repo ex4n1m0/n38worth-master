@@ -116,37 +116,7 @@ export async function compressAvatarDataUrl(
   return `data:${newMimeType};base64,${newBase64}`;
 }
 
-/**
- * Download an image from a URL and compress it to a ≤ 300 KB WebP data URL.
- * Used for Unsplash avatars on random player / quickplay creation.
- * Returns null if the download fails.
- */
-export async function downloadAndCompressAvatar(
-  imageUrl: string
-): Promise<string | null> {
-  try {
-    // Add timeout to prevent hanging on slow CDN responses in serverless functions
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    const response = await fetch(imageUrl, { signal: controller.signal });
-
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      console.warn(`downloadAndCompressAvatar: HTTP ${response.status} for ${imageUrl.slice(0, 80)}...`);
-      return null;
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const inputBuffer: Buffer = Buffer.from(arrayBuffer);
-
-    const { buffer: compressed, mimeType } = await compressAvatar(inputBuffer, "image/jpeg");
-    const base64 = compressed.toString("base64");
-    return `data:${mimeType};base64,${base64}`;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`downloadAndCompressAvatar failed: ${message}`);
-    return null;
-  }
-}
+// NOTE: Unsplash-sourced avatars are no longer downloaded/compressed — they
+// are hotlinked via unsplashAvatarUrl (src/lib/hotlink-avatar.ts), as their
+// API guidelines require. compressAvatar remains for user-uploaded files and
+// local script assets (goddess avatars etc.).
