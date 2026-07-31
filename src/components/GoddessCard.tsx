@@ -294,6 +294,21 @@ export function GoddessCard({
             </div>
           </div>
 
+          {/* Slim profile link — same consistent spot as PlayerCard, so every
+              card in the game offers a direct path to its profile page. */}
+          <Link
+            href={`/players/${encodeURIComponent(username)}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              play("changepage");
+            }}
+            title={`Open ${username}'s profile`}
+            className="w-full rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <User className="h-3.5 w-3.5" />
+            Profile
+          </Link>
+
           {/* Power description */}
           {GODDESS_POWERS[username] && (
             <div className={`rounded-lg p-2.5 border ${

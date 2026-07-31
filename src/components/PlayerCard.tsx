@@ -41,6 +41,7 @@ import {
   Shield,
   Eye,
   Crown,
+  User,
   Users,
   Lock,
   Check,
@@ -292,6 +293,16 @@ function PlayerCardImpl({
     play("hire");
     if (leaderboardMode && !ownerName) setCountdown(5);
     mutation.mutate();
+  };
+
+  // Slim profile link rendered on EVERY card — card clicks aren't a reliable
+  // way to reach the profile (ownerless market cards trigger GET instead),
+  // so this is the one consistent navigation path.
+  const handleOpenProfile = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    play("changepage");
+    router.push(`/players/${encodeURIComponent(username)}`);
   };
 
   const pumpMutation = useMutation({
@@ -700,6 +711,19 @@ function PlayerCardImpl({
             </div>
           </div>
         </div>
+
+        {/* Slim profile button — same position on every card (owned, free,
+            blocked, goddess-mission, leaderboard) since clicking the card
+            itself doesn't always navigate. */}
+        <button
+          type="button"
+          onClick={handleOpenProfile}
+          title={`Open ${username}'s profile`}
+          className="w-full mt-2 rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <User className="h-3.5 w-3.5" />
+          Profile
+        </button>
 
         {canAssignProfession && (
           <AssignProfessionDialog
