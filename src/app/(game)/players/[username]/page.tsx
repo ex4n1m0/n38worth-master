@@ -651,6 +651,12 @@ export default function PlayerProfilePage() {
             />
           )}
 
+          {/* End Game content (How to Win + goddesses + Hall of Champions) —
+              right under your owned-cards avatar grid on your own profile. */}
+          <div className="pt-6 border-t border-white/10">
+            <EndGameContent />
+          </div>
+
           {/* Rewards & Income — collapsible, open by default.
               Hidden until the player completes mission 0 (Own 20 cards). */}
           {gameUnlocked && currentUserId && (
@@ -682,23 +688,6 @@ export default function PlayerProfilePage() {
               )}
             </div>
           )}
-
-          <div className="pt-4 border-t border-white/10 space-y-3">
-            {isOwnProfile && session?.user?.name === "IgorCarlier" && (
-              <button
-                onClick={() => {
-                  if (confirm("This will RESET THE ENTIRE GAME (test mode, no Hall of Fame entry). All ownership, credits, and progress will be wiped. Are you sure?")) {
-                    testResetMutation.mutate();
-                  }
-                }}
-                disabled={testResetMutation.isPending}
-                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 px-4 py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
-              >
-                {testResetMutation.isPending ? "Resetting World..." : "Test World Reset (No HoF)"}
-              </button>
-            )}
-            <DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} />
-          </div>
         </>
       )}
 
@@ -765,15 +754,25 @@ export default function PlayerProfilePage() {
               </div>
             </div>
           )}
-        </>
-      )}
 
-      {/* End Game content (How to Win + goddesses + Hall of Champions) —
-          lives at the very bottom of your own profile (Home). */}
-      {isOwnProfile && !inOnboarding && (
-        <div className="pt-6 border-t border-white/10">
-          <EndGameContent />
-        </div>
+          {/* Danger zone — very bottom of your own profile, below the chats. */}
+          <div className="pt-4 border-t border-white/10 space-y-3">
+            {session?.user?.name === "IgorCarlier" && (
+              <button
+                onClick={() => {
+                  if (confirm("This will RESET THE ENTIRE GAME (test mode, no Hall of Fame entry). All ownership, credits, and progress will be wiped. Are you sure?")) {
+                    testResetMutation.mutate();
+                  }
+                }}
+                disabled={testResetMutation.isPending}
+                className="w-full rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 px-4 py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
+              >
+                {testResetMutation.isPending ? "Resetting World..." : "Test World Reset (No HoF)"}
+              </button>
+            )}
+            <DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} />
+          </div>
+        </>
       )}
     </div>
   );
