@@ -29,10 +29,12 @@ export function PhotoAttribution({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 text-[10px] text-gray-500 ${className}`}
+      className={`inline-flex items-center gap-1 min-w-0 max-w-full text-[10px] text-gray-500 ${className}`}
     >
       <Camera className="h-3 w-3 shrink-0 opacity-70" />
-      <span className="truncate">
+      {/* Only the photographer name truncates on narrow (mobile) cards —
+          the "on Unsplash" credit must stay visible per API guidelines. */}
+      <span className="min-w-0 truncate" title={authorName}>
         Photo by{" "}
         {authorUrl ? (
           <a
@@ -46,7 +48,9 @@ export function PhotoAttribution({
           </a>
         ) : (
           <span className="text-gray-400">{authorName}</span>
-        )}{" "}
+        )}
+      </span>
+      <span className="shrink-0 whitespace-nowrap">
         on{" "}
         {sourceUrl ? (
           <a
