@@ -292,21 +292,21 @@ export default function Home() {
                 </li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Whoever owns your card skims 10% of your portfolio reward. Hire slots cap how many
-                cards you can hold — earn more from missions, poaching, and the 10 Slots card.
+                Whoever owns your Avatar skims 10% of your portfolio reward. Hire slots cap how many
+                Avatars you can hold — earn more from missions, poaching, and the 10 Slots Avatar.
               </p>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
-              {/* Core action buttons — available on every card. */}
+              {/* Core action buttons — available on every Avatar. */}
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
                   { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire at current value. The avatar and its previous owner get paid, and its value jumps (2× under 1,000¢, tapering to 1.1× above 1M). Poaching also earns +1 hire slot." },
                   { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of value to double it, gift the cost to the avatar, extend its sell block 10 min (12h max). Your main growth engine." },
-                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Protect from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the card." },
-                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's block by paying hours remaining × value to the owner. Fate-sealed cards cost 1000×; Unbreakable can't be broken." },
-                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable block — movable between regular NPC cards, restarting the 24h." },
+                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Protect from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the Avatar." },
+                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's block by paying hours remaining × value to the owner. Fate-sealed Avatars cost 1000×; Unbreakable can't be broken." },
+                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable block — movable between regular NPC Avatars, restarting the 24h." },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -317,10 +317,10 @@ export default function Home() {
                 ))}
               </ul>
 
-              {/* Bonus cards — special avatars with their own buttons. */}
+              {/* Bonus Avatars — special avatars with their own buttons. */}
               <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-                  Bonus Cards
+                  Bonus Avatars
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm leading-relaxed">
                   {[
@@ -332,7 +332,7 @@ export default function Home() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={a.img}
-                        alt={`${a.chip} card`}
+                        alt={`${a.chip} Avatar`}
                         loading="lazy"
                         decoding="async"
                         className="aspect-square w-full rounded-lg border border-white/15 object-cover shadow-lg"
@@ -351,7 +351,7 @@ export default function Home() {
               <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
                 Pick one for yourself, assign one to any NPC you own (and <span className="font-semibold text-amber-300">rename
-                it once</span>). Being a profession or owning its card activates its perk:
+                it once</span>). Being a profession or owning its Avatar activates its perk:
               </p>
               <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {PROFESSIONS.map((p) => (
@@ -372,9 +372,9 @@ export default function Home() {
                 ))}
               </ul>
               <p className="text-sm leading-relaxed text-gray-300 mt-3">
-                <span className="font-semibold text-amber-300">Combo:</span> sell one card of each
+                <span className="font-semibold text-amber-300">Combo:</span> sell one Avatar of each
                 profession together for <span className="font-bold text-amber-300">10× their combined
-                value</span>. The cards reset to floor and 6 fresh NPCs spawn — but you lose the
+                value</span>. The Avatars reset to floor and 6 fresh NPCs spawn — but you lose the
                 perks until you rebuild.
               </p>
             </section>
@@ -382,7 +382,7 @@ export default function Home() {
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Grow your empire to earn the legendary cards (+50 hire slots per mission):
+                Grow your empire to earn the legendary Avatars (+50 hire slots per mission):
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
                 <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
@@ -397,7 +397,7 @@ export default function Home() {
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
                 Held goddesses grant powers: Wealth doubles rewards, Knowledge reveals hidden
                 avatars, Fate seals your team&apos;s blocks (1000× break fee), Time halves payout
-                waits, War makes your breaks free and lets you destroy cards you own (deleting
+                waits, War makes your breaks free and lets you destroy Avatars you own (deleting
                 NPCs — 2 fresh ones spawn — or resetting a human to 1¢ and releasing them, with a
                 1-minute cooldown) — the Goddess grants all at once.
               </p>
@@ -433,7 +433,7 @@ export default function Home() {
                 the world resets — your name joins the Hall of Champions forever.
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Six autonomous divine players also hunt cards around the clock — they buy, pump
+                Six autonomous divine players also hunt Avatars around the clock — they buy, pump
                 and poach, but never speak.
               </p>
             </section>
