@@ -25,13 +25,13 @@ interface ChangeProfessionData {
 }
 
 interface AssignProfessionDialogProps {
-  /** The NPC card's user ID */
+  /** The NPC Avatar's user ID */
   targetId: number;
-  /** The NPC card's username (for display) */
+  /** The NPC Avatar's username (for display) */
   targetUsername: string;
   /** The NPC's current profession (if any) */
   currentProfession: string | null;
-  /** Optional override for the trigger button styling (e.g. pill look on cards). */
+  /** Optional override for the trigger button styling (e.g. pill look on Avatars). */
   triggerClassName?: string;
   /** Forced mode: no trigger button, parent-controlled open state, and the
       dialog cannot be dismissed — used for the mandatory first profession
@@ -44,7 +44,7 @@ interface AssignProfessionDialogProps {
 }
 
 /**
- * Lets a player assign a profession to an NPC card they own.
+ * Lets a player assign a profession to an NPC Avatar they own.
  * Cost uses the same logic as change-profession.
  * The NPC's value is reset to its floor value on assignment.
  */
@@ -199,7 +199,7 @@ export function AssignProfessionDialog({
                     : `${targetUsername} has no profession yet.`}
               </p>
               <p className="text-amber-300/70 mt-1 text-xs">
-                The card&apos;s value will reset to its floor value. Cost = (others with that profession) × {formatCompact(1000)}¢ × your change #. A profession nobody else has is free.
+                The Avatar&apos;s value will reset to its floor value. Cost = (others with that profession) × {formatCompact(1000)}¢ × your change #. A profession nobody else has is free.
                 {isFirstAssignment && " First assignment: the cheapest profession(s) are free — later changes pay the normal cost."}
               </p>
               {data && (

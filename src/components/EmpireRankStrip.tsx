@@ -74,7 +74,7 @@ const STRIPS: StripConfig[] = [
 // Medal colouring for the top 3 positions.
 const RANK_COLORS = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
-/** Shared shell for every card in the strip. Titles are always plain white. */
+/** Shared shell for every Avatar in the strip. Titles are always plain white. */
 function StripCard({
   label,
   children,
@@ -100,7 +100,7 @@ function EmptyList({ text = "No entries yet" }: { text?: string }) {
   return <p className="text-[11px] text-gray-600 italic">{text}</p>;
 }
 
-/** A compact, always-visible ranking card showing the top 5. */
+/** A compact, always-visible ranking Avatar showing the top 5. */
 function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
   const top = entries.filter((p) => cfg.getValue(p) > 0).slice(0, 5);
   return (

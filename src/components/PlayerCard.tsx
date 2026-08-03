@@ -49,7 +49,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 
-/** Visual GET countdown on ownerless leaderboard cards (seconds). */
+/** Visual GET countdown on ownerless leaderboard Avatars (seconds). */
 const GET_COUNTDOWN_SECONDS = 5;
 /** Circumference of the action-overlay progress ring (r=34 in an 80×80 viewBox). */
 const ACTION_RING_C = 2 * Math.PI * 34;
@@ -87,7 +87,7 @@ interface PlayerCardProps {
   onboardingComplete?: number;
   actionsOnly?: boolean;
   leaderboardMode?: boolean;
-  /** Bypass hidden-card masking and always show the real avatar (served via
+  /** Bypass hidden-Avatar masking and always show the real avatar (served via
       the public, CDN-cached /api/avatar route). Used on profile showcases. */
   alwaysShowAvatar?: boolean;
   comboSelection?: {
@@ -138,7 +138,7 @@ function PlayerCardImpl({
   const missionLevel = useMissionLevel();
   const finalGoddessThreshold = useFinalGoddessThreshold();
   const isOwnProfile = session?.user?.name === username;
-  // Card belongs to the viewer — all card text takes the "MINE" yellow color.
+  // Avatar belongs to the viewer — all Avatar text takes the "MINE" yellow color.
   const isMine = !!ownerName && ownerName === session?.user?.name;
 
   const isPurchaseLocked =
@@ -156,7 +156,7 @@ function PlayerCardImpl({
     setTimeout(() => setFlipping(false), 700);
   };
 
-  // Countdown overlay shown on ownerless cards while the GET (purchase)
+  // Countdown overlay shown on ownerless Avatars while the GET (purchase)
   // action is processing (~5s). Purely visual — the purchase happens in
   // parallel; when it completes the avatar reveals in place.
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -179,7 +179,7 @@ function PlayerCardImpl({
   };
 
   const isPermBlocked = permBlockUntil ? new Date(permBlockUntil) > new Date() : false;
-  // Shared 1s clock (single interval per page instead of one per card).
+  // Shared 1s clock (single interval per page instead of one per Avatar).
   const now = useNow();
   const blockRemainingMs = Math.max(0, getBlockEnd() - now);
   const isHireBlocked = blockRemainingMs > 0;
@@ -309,8 +309,8 @@ function PlayerCardImpl({
     mutation.mutate();
   };
 
-  // Slim profile link rendered on EVERY card — card clicks aren't a reliable
-  // way to reach the profile (ownerless market cards trigger GET instead),
+  // Slim profile link rendered on EVERY Avatar — Avatar clicks aren't a reliable
+  // way to reach the profile (ownerless market Avatars trigger GET instead),
   // so this is the one consistent navigation path.
   const handleOpenProfile = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -611,7 +611,7 @@ function PlayerCardImpl({
   return (
     <Card
       onClick={(e) => {
-        // Ownerless cards in the browse grid never open the profile page —
+        // Ownerless Avatars in the browse grid never open the profile page —
         // clicking anywhere on them triggers the GET action instead.
         if (leaderboardMode && !ownerName) {
           handleAvatarAction(e);
@@ -789,8 +789,8 @@ function PlayerCardImpl({
           </div>
         </div>
 
-        {/* Slim profile button — same position on every card (owned, free,
-            blocked, goddess-mission, leaderboard) since clicking the card
+        {/* Slim profile button — same position on every Avatar (owned, free,
+            blocked, goddess-mission, leaderboard) since clicking the Avatar
             itself doesn't always navigate. */}
         <button
           type="button"
@@ -839,7 +839,7 @@ function PlayerCardImpl({
           />
         )}
 
-        {/* Goddess of War power: destroy an owned card. NPCs are deleted
+        {/* Goddess of War power: destroy an owned Avatar. NPCs are deleted
             (2 fresh NPCs spawn); humans get their value reset to 1¢. */}
         {hasWar && ownedIds.has(id) && !isGoddess && !isOwnProfile && (
           <WarDeleteButton

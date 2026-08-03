@@ -210,14 +210,14 @@ function OwnershipCard({
   const { play } = useSound();
 
   const isOwnCard = session?.user?.name === item.username;
-  const isBonus = false; // Bonus cards removed from the game.
+  const isBonus = false; // Bonus Avatars removed from the game.
   const isGoddess = GODDESS_USERNAMES.includes(item.username);
   const isSpecialCard = isGoddess || isBonus;
   const avatarFitClass = isSpecialCard ? "object-fill" : "object-cover";
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
   const revealTime = useRevealCountdown(item.avatarRevealUntil);
-  // Goddess and bonus cards never have a profession
+  // Goddess and bonus Avatars never have a profession
   const effectiveProfession = isBonus || isGoddess ? null : item.profession;
   const professionImage = getProfessionImage(effectiveProfession);
   const [chatOpen, setChatOpen] = useState(false);
@@ -469,7 +469,7 @@ function OwnershipCard({
             )}
           </Button>
 
-          {/* Perm blocks only apply to regular NPC cards — not Goddesses
+          {/* Perm blocks only apply to regular NPC Avatars — not Goddesses
               or human players. */}
           {item.playerType === "card" && !isGoddess && (
             <PermBlockButton
@@ -481,7 +481,7 @@ function OwnershipCard({
             />
           )}
 
-          {/* Unsplash photo credit — at the very bottom of the card. */}
+          {/* Unsplash photo credit — at the very bottom of the Avatar. */}
           <PhotoAttribution
             authorName={item.photoAuthorName}
             authorUrl={item.photoAuthorUrl}
@@ -547,7 +547,7 @@ function OwnershipCard({
           </div>
 
           <div>
-            {/* Username — capped smaller to prevent overflow on wide cards */}
+            {/* Username — capped smaller to prevent overflow on wide Avatars */}
             <h3
               className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
               style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
@@ -613,7 +613,7 @@ function OwnershipCard({
           <div className="mt-3 pt-3 border-t border-gray-800/60"><InlineDMChat targetId={item.id} targetUsername={item.username} targetAvatarUrl={cardAvatarSrc} /></div>
         )}
 
-        {/* Unsplash photo credit — at the very bottom of the card. */}
+        {/* Unsplash photo credit — at the very bottom of the Avatar. */}
         <PhotoAttribution
           authorName={item.photoAuthorName}
           authorUrl={item.photoAuthorUrl}

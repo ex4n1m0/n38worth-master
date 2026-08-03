@@ -9,9 +9,9 @@ import { capPlayerValue } from "@/lib/safeguards";
 const CHANGE_UNIT_COST = 1000;
 
 /**
- * Assign a profession to an NPC card the caller owns.
+ * Assign a profession to an NPC Avatar the caller owns.
  *
- * - The caller must own the NPC card.
+ * - The caller must own the NPC Avatar.
  * - The NPC must not already have the target profession.
  * - Cost = (other players with that profession) × 1000 × change-number,
  *   same as the player change-profession logic. A profession nobody else
@@ -52,12 +52,12 @@ export async function POST(request: Request) {
     // 1-4. Run all independent reads in ONE parallel batch — neon-http pays
     // ~10-100ms per round trip, so serializing them dominated the latency.
     const [ownedRows, npcRows, countRows, paidRow, callerRows] = await Promise.all([
-      // 1. Verify the caller owns this NPC card.
+      // 1. Verify the caller owns this NPC Avatar.
       db
         .select({ id: ownership.id })
         .from(ownership)
         .where(and(eq(ownership.ownerId, callerId), eq(ownership.ownedId, targetId))),
-      // 2. Fetch the NPC card.
+      // 2. Fetch the NPC Avatar.
       db
         .select({
           id: users.id,

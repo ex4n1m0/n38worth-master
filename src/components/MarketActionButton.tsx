@@ -35,7 +35,7 @@ function formatCountdown(ms: number): string {
  * The market GET / PUMP action, reusable outside the card grid (e.g. a player's
  * profile header). Shows GET when unowned, PUMP once acquired, and a sell-block
  * countdown + progress bar when the player is currently blocked — mirroring the
- * marketplace card.
+ * marketplace Avatar.
  */
 export function MarketActionButton({
   id,
@@ -174,7 +174,7 @@ export function MarketActionButton({
         </Button>
       ) : null}
 
-      {/* Sell/hire block countdown — mirrors the marketplace card. */}
+      {/* Sell/hire block countdown — mirrors the marketplace Avatar. */}
       {isBlocked && blockSellUntil && (
         <div className="flex flex-col items-center gap-1 rounded-md bg-amber-950/50 border border-amber-500/30 py-1.5 px-2">
           <span className="flex items-center gap-1 text-xs font-bold text-amber-400 leading-none tabular-nums">

@@ -108,7 +108,7 @@ export default function LeaderboardPage() {
         {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
             Credits in a single row (the Hall of Champions lives at the top
             of the History page).
-            Locked behind mission 0 (Own 20 cards) — shown as a preview with
+            Locked behind mission 0 (Own 20 Avatars) — shown as a preview with
             the unlock condition until then. */}
         {gameUnlocked ? (
           <EmpireRankStrip variant="transparent" showChampions={false} />
@@ -121,7 +121,7 @@ export default function LeaderboardPage() {
         )}
 
         {/* Browse Players — the profession combo bar sits inside, just below
-            the sort/filter buttons and above the card grid.
+            the sort/filter buttons and above the Avatar grid.
             Profession filters + combo bar show as locked previews until mission 0. */}
         <BrowsePlayersSection
           search={search}
@@ -173,11 +173,11 @@ function BrowsePlayersSection({
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
-  // Default view (user-specified): all cards (any owner status, any type),
+  // Default view (user-specified): all Avatars (any owner status, any type),
   // most recently online first.
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
-  // Infinite scroll: cards load in batches as the user approaches the bottom
+  // Infinite scroll: Avatars load in batches as the user approaches the bottom
   // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
   const pageSize = 48;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
@@ -295,7 +295,7 @@ function BrowsePlayersSection({
         )}
         {gameUnlocked ? (
         <div className="flex gap-2 flex-wrap items-center">
-          {/* Profession sort: combo-friendly view — only carded players, ranked
+          {/* Profession sort: combo-friendly view — only Avatar players, ranked
               by value and interleaved across professions to build the 6-set. */}
           <Button
             variant="ghost"
@@ -474,7 +474,7 @@ function BrowsePlayersSection({
                 blockSellUntil?: string | null;
                 permBlockUntil?: string | null;
               }) => (
-                // content-visibility skips layout/paint for off-screen cards so
+                // content-visibility skips layout/paint for off-screen Avatars so
                 // the page stays fast even with the whole collection loaded.
                 <div
                   key={player.id}
@@ -492,14 +492,14 @@ function BrowsePlayersSection({
             {isFetchingNextPage ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-7 w-7 animate-spin text-t1-400" />
-                Loading more cards…
+                Loading more Avatars…
               </span>
             ) : hasNextPage ? (
               <span>
-                {players.length} of {total} cards — scroll for more
+                {players.length} of {total} Avatars — scroll for more
               </span>
             ) : (
-              <span>All {total} cards loaded</span>
+              <span>All {total} Avatars loaded</span>
             )}
           </div>
         </>
