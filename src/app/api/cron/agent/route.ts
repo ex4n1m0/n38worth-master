@@ -6,7 +6,12 @@ import { deactivateRemovedAgents, ensureAgents } from "@/lib/agent/seed";
 export const maxDuration = 60;
 
 /**
- * Autonomous goddess cron. The six goddesses are the only gameplay AI players;
+ * Autonomous goddess cron. DISABLED (2026-08-21): no cron entry in vercel.json
+ * invokes this route — the goddesses are static cards and never buy or pump.
+ * The route is kept (still gated on AGENT_ENABLED=true) so gameplay can be
+ * re-enabled by re-adding the cron entry.
+ *
+ * The six goddesses are the only gameplay AI players;
  * the historical chat-support Agent is deactivated and never picked.
  * Two goddesses are selected per tick:
  *

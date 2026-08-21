@@ -93,16 +93,22 @@
   on failed toasts, `hire`/`sell`/`reward`/etc. on success).
 
 ## Cost controls (2026-07)
+- **Goddess gameplay is DISABLED (2026-08-21)**: the `/api/cron/agent` cron
+  entry was removed from vercel.json (route still exists, still gated on
+  `AGENT_ENABLED=true`, but nothing invokes it). The six goddesses are now
+  static hireable cards — they never buy cards or pump. `runAgentTurn` has no
+  remaining call sites in the request path. Re-enable by re-adding the cron
+  entry (and setting `AGENT_ENABLED=true`).
 - **Random player creation is DISABLED**: the `/api/cron/random-player` and
   `/api/cron/random-player-status` cron entries were removed from vercel.json
   (routes still exist but nothing invokes them). The only remaining
   `createRandomPlayer` call site is the combo-sale NPC respawn in
   `comboCore.ts` (player-triggered, kept for game economy).
-- **Cron cadences were slowed** to minimize invocations: agent */30,
-  fate-seal */30, goddess-countdown */30, offline-penalty */30,
+- **Cron cadences were slowed** to minimize invocations: fate-seal */30,
+  goddess-countdown */30, offline-penalty */30,
   refill-onboarding-pool every 3h, default-avatar hourly,
-  delete-demo-players hourly, boss-tax every 2h. Ownership-limit cron
-  removed (no-op). Don't tighten these without the user's approval —
+  delete-demo-players hourly, boss-tax every 2h. Ownership-limit and agent
+  crons removed. Don't tighten these without the user's approval —
   billing reduction is a priority.
 - **Middleware matcher narrowed** in `src/proxy.ts` so `auth()` only runs on
   protected/avatar-required pages, not on `/api/*`, `/`, `/privacy`, `/terms`,
@@ -121,12 +127,13 @@
   overwrites avatar/value. `ensureAgents` returns only the six goddesses and
   deactivates any historical removed-Agent row (`isActive=0`) without deleting
   data.
-- **Cadence:** `/api/cron/agent` fires every 30 min (reduced from 1 min for
-  Vercel cost savings), picks 2 goddesses per tick. Per-agent last-play gate
-  in `runner.ts`: ACTIVE (humans online) = 6-min interval; IDLE (no humans) =
-  60-min interval. AI players earn credits via the same portfolio-reward +
-  rank-bonus crons as humans (goddesses included via `isNpc=0 OR username IN
-  (GODDESS_USERNAMES)` filter).
+- **Cadence:** DISABLED (2026-08-21) — `/api/cron/agent` no longer has a cron
+  entry in vercel.json, so goddesses never take turns (no buys, no pumps).
+  Historical behaviour, if re-enabled: fired every 30 min, picked 2 goddesses
+  per tick. Per-agent last-play gate in `runner.ts`: ACTIVE (humans online) =
+  6-min interval; IDLE (no humans) = 60-min interval. AI players earn credits
+  via the same portfolio-reward + rank-bonus crons as humans (goddesses
+  included via `isNpc=0 OR username IN (GODDESS_USERNAMES)` filter).
 - **Chat:** the support Agent was removed — `src/lib/agent/chat.ts` is deleted,
   no `agent-typing` Pusher event is emitted, and no AI player ever speaks.
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
