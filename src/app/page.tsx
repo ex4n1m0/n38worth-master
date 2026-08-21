@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
-import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 /* ─── Types ─── */
@@ -208,8 +207,6 @@ export default function Home() {
             <Stat label="Avatars" value={stats?.totalPlayers ?? 0} />
             <div className="h-8 w-px bg-white/15" />
             <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
-            <div className="h-8 w-px bg-white/15" />
-            <Stat label="Humans" value={stats?.totalHumans ?? 0} />
           </div>
 
           {/* Active countdown */}
@@ -226,14 +223,6 @@ export default function Home() {
             >
               Start Here
             </button>
-          </div>
-
-          {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
-              Credits, Hall of Champions. Right below the live stats so visitors
-              see real game activity immediately, without scrolling.
-              Transparent background to blend with the hero. */}
-          <div className="lp-fade-up w-full max-w-5xl mt-8 text-left" style={{ animationDelay: "0.5s" }}>
-            <EmpireRankStrip variant="transparent" />
           </div>
         </div>
       </section>
