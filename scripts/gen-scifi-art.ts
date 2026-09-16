@@ -1,7 +1,8 @@
 /**
  * One-time art generator for the sci-fi rebrand: terminal/matrix-style
- * placeholder art for the Six daemons, the six professions, the Botnet and
- * Scan bonus cards, the landing hero, and the simulation-reboot backdrop.
+ * placeholder art for the Six daemons, the six professions, the Botnet,
+ * Scan and 10 Slots bonus cards, the landing hero, and the
+ * simulation-reboot backdrop.
  *
  * Everything is drawn as SVG (gradients, code-rain columns, grid lines,
  * reticle brackets, monospace glyph + label) and rasterized to WebP with
@@ -55,8 +56,9 @@ const CARDS: CardSpec[] = [
   { file: "NewServerMarshal.webp", glyph: "▮", label: "SERVER MARSHAL",sub: "+2 hire slots",          accent: "#8fb8ff", seed: 205 },
   { file: "NewBotHerder.webp",     glyph: "*", label: "BOT HERDER",    sub: "wider botnet",           accent: "#ffe14a", seed: 206 },
   // ── Bonus cards ──
-  { file: "botnet.webp", glyph: "≡", label: "BOTNET",   sub: "bulk hire",     accent: "#ffd24a", seed: 301 },
-  { file: "scan.webp",   glyph: "◎", label: "SCAN",     sub: "decloak all",   accent: "#b18cff", seed: 302 },
+  { file: "botnet.webp",    glyph: "≡", label: "BOTNET",   sub: "bulk hire",     accent: "#ffd24a", seed: 301 },
+  { file: "scan.webp",      glyph: "◎", label: "SCAN",     sub: "decloak all",   accent: "#b18cff", seed: 302 },
+  { file: "10slots.webp",   glyph: "+", label: "10 SLOTS", sub: "+10 hire slots", accent: "#4ac8ff", seed: 303 },
 ];
 
 /** Faint falling-code columns as SVG text elements. */
