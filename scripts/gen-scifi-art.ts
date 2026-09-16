@@ -59,6 +59,9 @@ const CARDS: CardSpec[] = [
   { file: "botnet.webp",    glyph: "≡", label: "BOTNET",   sub: "bulk hire",     accent: "#ffd24a", seed: 301 },
   { file: "scan.webp",      glyph: "◎", label: "SCAN",     sub: "decloak all",   accent: "#b18cff", seed: 302 },
   { file: "10slots.webp",   glyph: "+", label: "10 SLOTS", sub: "+10 hire slots", accent: "#4ac8ff", seed: 303 },
+  // ── Masked avatar placeholder (shown for every player the viewer
+  //    hasn't hired — filename is stored on DB rows, keep it) ──
+  { file: "NEW_HIDDEN.webp", glyph: "?", label: "CLOAKED", sub: "hire to reveal", accent: "#7dd3fc", seed: 401 },
 ];
 
 /** Faint falling-code columns as SVG text elements. */
@@ -211,6 +214,11 @@ async function main() {
     await sharp(Buffer.from(cardSvg(spec, 1024))).webp({ quality: 88 }).toFile(path.join(PUBLIC, spec.file));
     console.log("•", spec.file);
   }
+
+  // NEW_HIDDEN.png twin — legacy placeholder checks/rows reference the .png path
+  const hiddenSpec = CARDS.find((s) => s.file === "NEW_HIDDEN.webp")!;
+  await sharp(Buffer.from(cardSvg(hiddenSpec, 1024))).png().toFile(path.join(PUBLIC, "NEW_HIDDEN.png"));
+  console.log("• NEW_HIDDEN.png");
 
   // Landing hero backdrop (portrait-ish crop-safe landscape)
   await sharp(Buffer.from(backdropSvg(1920, 1280, 42, { rain: 90, horizon: true })))
