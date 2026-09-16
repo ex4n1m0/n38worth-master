@@ -1,8 +1,8 @@
 /**
  * One-time art generator for the sci-fi rebrand: terminal/matrix-style
  * placeholder art for the Six daemons, the six professions, the Botnet,
- * Scan and 10 Slots bonus cards, the landing hero, and the
- * simulation-reboot backdrop.
+ * Scan and 10 Slots bonus cards, the masked avatar, the landing hero,
+ * the social/OG card, and the simulation-reboot backdrop.
  *
  * Everything is drawn as SVG (gradients, code-rain columns, grid lines,
  * reticle brackets, monospace glyph + label) and rasterized to WebP with
@@ -189,6 +189,85 @@ function backdropSvg(w: number, h: number, seed: number, opts: { rain: number; h
 </svg>`;
 }
 
+/** Social/OG card (1200×630) — wordmark over the terminal backdrop. */
+function ogSvg(w: number, h: number): string {
+  const rand = mulberry32(501);
+  const horizonY = Math.floor(h * 0.8);
+
+  let perspective = "";
+  for (let i = -16; i <= 16; i++) {
+    const xBottom = w / 2 + i * (w / 7);
+    perspective += `<line x1="${w / 2 + i * (w / 70)}" y1="${horizonY}" x2="${xBottom}" y2="${h}" stroke="#00ff41" stroke-width="1" opacity="0.10"/>`;
+  }
+  let y = horizonY;
+  let gap = 5;
+  while (y < h) {
+    perspective += `<line x1="0" y1="${Math.floor(y)}" x2="${w}" y2="${Math.floor(y)}" stroke="#00ff41" stroke-width="1" opacity="0.10"/>`;
+    y += gap;
+    gap *= 1.4;
+  }
+
+  const pad = 44;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#000000"/>
+      <stop offset="55%" stop-color="#02150a"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <radialGradient id="vig" cx="50%" cy="45%" r="75%">
+      <stop offset="55%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.9"/>
+    </radialGradient>
+    <linearGradient id="word" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#7dfba0"/>
+      <stop offset="50%" stop-color="#c9a2f5"/>
+      <stop offset="100%" stop-color="#2fe07f"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="16"/></filter>
+  </defs>
+
+  <rect width="${w}" height="${h}" fill="url(#bg)"/>
+  ${codeRain(rand, w, h, 70, "#00ff41")}
+  ${perspective}
+  <line x1="0" y1="${horizonY}" x2="${w}" y2="${horizonY}" stroke="#00ff41" stroke-width="2" opacity="0.3"/>
+  <rect width="${w}" height="${h}" fill="url(#vig)"/>
+
+  <!-- Reticle corner brackets -->
+  <g stroke="#00ff41" stroke-width="3" fill="none" opacity="0.75">
+    <path d="M ${pad} ${pad + 30} L ${pad} ${pad} L ${pad + 30} ${pad}"/>
+    <path d="M ${w - pad - 30} ${pad} L ${w - pad} ${pad} L ${w - pad} ${pad + 30}"/>
+    <path d="M ${w - pad} ${h - pad - 30} L ${w - pad} ${h - pad} L ${w - pad - 30} ${h - pad}"/>
+    <path d="M ${pad + 30} ${h - pad} L ${pad} ${h - pad} L ${pad} ${h - pad - 30}"/>
+  </g>
+
+  <!-- Shell prompt -->
+  <text x="${w / 2}" y="140" text-anchor="middle"
+        font-family="Consolas, 'Courier New', monospace" font-size="26" fill="#5f8f6f">&gt; initializing simulation…</text>
+
+  <!-- Wordmark (glow copy + gradient fill), mirroring the landing title -->
+  <text x="${w / 2}" y="300" text-anchor="middle" dominant-baseline="middle"
+        font-family="Consolas, 'Courier New', monospace" font-weight="bold"
+        font-size="150" fill="#00ff41" opacity="0.35" filter="url(#glow)">n38worth</text>
+  <text x="${w / 2}" y="300" text-anchor="middle" dominant-baseline="middle"
+        font-family="Consolas, 'Courier New', monospace" font-weight="bold"
+        font-size="150" fill="url(#word)">n38worth</text>
+
+  <!-- Tagline + action line -->
+  <text x="${w / 2}" y="400" text-anchor="middle"
+        font-family="Consolas, 'Courier New', monospace" font-weight="bold"
+        font-size="30" letter-spacing="12" fill="#e8ffe8">THE HUMAN TRADING SIMULATION</text>
+  <text x="${w / 2}" y="455" text-anchor="middle"
+        font-family="Consolas, 'Courier New', monospace"
+        font-size="24" fill="#00ff41" opacity="0.9">hire · overclock · trade</text>
+
+  <!-- Footer -->
+  <text x="${w / 2}" y="${h - 74}" text-anchor="middle"
+        font-family="Consolas, 'Courier New', monospace"
+        font-size="20" fill="#5f8f6f">n38worth.com // root the mainframe</text>
+</svg>`;
+}
+
 /** Terminal ">_" app icon. */
 function iconSvg(size: number): string {
   const pad = Math.floor(size * 0.16);
@@ -231,6 +310,10 @@ async function main() {
     .webp({ quality: 85 })
     .toFile(path.join(PUBLIC, "reboot.webp"));
   console.log("• reboot.webp");
+
+  // Social/OG card — served by src/app/opengraph-image.tsx and twitter-image.tsx
+  await sharp(Buffer.from(ogSvg(1200, 630))).jpeg({ quality: 88 }).toFile(path.join(PUBLIC, "og.jpg"));
+  console.log("• og.jpg");
 
   // App icon (brand favicon — replaces the old VW icon)
   await sharp(Buffer.from(iconSvg(512))).png().toFile(path.join(PUBLIC, "VW_Icon.png"));

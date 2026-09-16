@@ -8,7 +8,7 @@ export const contentType = "image/jpeg";
 
 export default async function OpengraphImage() {
   const imageBuffer = await readFile(
-    join(process.cwd(), "public", "okworld_OG.jpg")
+    join(process.cwd(), "public", "og.jpg")
   );
   return new Response(imageBuffer, {
     headers: { "Content-Type": "image/jpeg" },
