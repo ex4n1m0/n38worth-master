@@ -138,9 +138,9 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     }
 
     // 4b. Check ownership limit (dynamic per-player hire_slots cap).
-    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    // Server Marshal perk (Extra Racks): +2 hire slots.
     const buyerPerksForSlots = await getProfessionPerks(buyerId);
-    const marshalBonus = buyerPerksForSlots.has("Iron Choir Marshal") ? 2 : 0;
+    const marshalBonus = buyerPerksForSlots.has("Server Marshal") ? 2 : 0;
     const ownershipLimit = buyer.hireSlots + marshalBonus;
 
     const [ownershipCount] = await db

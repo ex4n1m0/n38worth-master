@@ -11,7 +11,7 @@ import {
   UserPlus,
   Sparkles,
   Users,
-  Crown,
+  Terminal,
   Gift,
   Trophy,
 } from "lucide-react";
@@ -130,7 +130,7 @@ export function NewPlayerGuide() {
           : `${formatCompact(Math.min(ownedCount, UNLOCK_GAME_THRESHOLD))}/${formatCompact(UNLOCK_GAME_THRESHOLD)}`,
     },
     {
-      icon: Crown,
+      icon: Terminal,
       title: "Get hired by another player",
       hint: "Every hire raises your value — and your revenue share.",
       done: (player?.ownerCount ?? 0) > 0,

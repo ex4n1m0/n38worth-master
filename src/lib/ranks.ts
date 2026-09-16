@@ -1,7 +1,10 @@
 // ──────────────────────────────────────────────
 // Rank Title System
 // Four ladders, 10 titles each:
-//   Empire (Owned), Credits, Value, Portfolio
+//   Grid (Owned), Credits, Value, Portfolio
+//
+// Sci-fi rebrand (2026-09): display titles only — the category API values
+// ("empire", "legacy", …) and snapshot columns keep their original names.
 // ──────────────────────────────────────────────
 
 export interface RankTier {
@@ -9,60 +12,60 @@ export interface RankTier {
   title: string;
 }
 
-// ── 1. Empire — Amount of Owned Players (Power) ──
+// ── 1. Grid — Amount of Owned Players (Power) ──
 export const OWNED_RANKS: RankTier[] = [
-  { threshold: 0, title: "Spectator" },
-  { threshold: 3, title: "Collector" },
-  { threshold: 8, title: "Trader" },
-  { threshold: 15, title: "Merchant" },
-  { threshold: 25, title: "Broker" },
-  { threshold: 40, title: "Mogul" },
-  { threshold: 60, title: "Baron" },
-  { threshold: 80, title: "Tycoon" },
-  { threshold: 100, title: "Magnate" },
-  { threshold: 150, title: "Emperor" },
+  { threshold: 0, title: "Lurker" },
+  { threshold: 3, title: "User" },
+  { threshold: 8, title: "Runner" },
+  { threshold: 15, title: "Operator" },
+  { threshold: 25, title: "Sysop" },
+  { threshold: 40, title: "Admin" },
+  { threshold: 60, title: "Root" },
+  { threshold: 80, title: "Overseer" },
+  { threshold: 100, title: "Overlord" },
+  { threshold: 150, title: "Architect" },
 ];
 
 // ── 2. Credits — Wealth (Credits) ──
 export const CREDITS_RANKS: RankTier[] = [
-  { threshold: 0, title: "Broke" },
-  { threshold: 100, title: "Saver" },
-  { threshold: 500, title: "Wealthy" },
-  { threshold: 2000, title: "Affluent" },
-  { threshold: 5000, title: "Rich" },
-  { threshold: 15000, title: "Opulent" },
-  { threshold: 50000, title: "Millionaire" },
-  { threshold: 100000, title: "Billionaire" },
-  { threshold: 250000, title: "Elite" },
-  { threshold: 1000000, title: "Tycoon" },
+  { threshold: 0, title: "Null" },
+  { threshold: 100, title: "Byte" },
+  { threshold: 500, title: "Kilo" },
+  { threshold: 2000, title: "Mega" },
+  { threshold: 5000, title: "Giga" },
+  { threshold: 15000, title: "Tera" },
+  { threshold: 50000, title: "Peta" },
+  { threshold: 100000, title: "Exa" },
+  { threshold: 250000, title: "Zetta" },
+  { threshold: 1000000, title: "Yotta" },
 ];
 
 // ── 3. Value — Player Value (Worth) ──
 export const VALUE_RANKS: RankTier[] = [
-  { threshold: 1, title: "Nobody" },
-  { threshold: 5, title: "Rookie" },
-  { threshold: 15, title: "Rising" },
-  { threshold: 50, title: "Notable" },
-  { threshold: 100, title: "Prominent" },
-  { threshold: 250, title: "Distinguished" },
-  { threshold: 500, title: "Prestigious" },
-  { threshold: 1000, title: "Celebrity" },
-  { threshold: 2500, title: "Superstar" },
-  { threshold: 5000, title: "Legend" },
+  { threshold: 1, title: "Ghost" },
+  { threshold: 5, title: "Process" },
+  { threshold: 15, title: "Thread" },
+  { threshold: 50, title: "Daemon" },
+  { threshold: 100, title: "Kernel" },
+  { threshold: 250, title: "Instance" },
+  { threshold: 500, title: "Sentinel" },
+  { threshold: 1000, title: "Colossus" },
+  { threshold: 2500, title: "Singularity" },
+  { threshold: 5000, title: "Ascendant" },
 ];
 
 // ── 4. Portfolio — Total Portfolio Value ──
 export const PORTFOLIO_RANKS: RankTier[] = [
-  { threshold: 0, title: "Empty" },
-  { threshold: 100, title: "Starter" },
-  { threshold: 500, title: "Investor" },
-  { threshold: 2000, title: "Capitalist" },
-  { threshold: 5000, title: "Financier" },
-  { threshold: 15000, title: "Magnate" },
-  { threshold: 50000, title: "Mogul" },
+  { threshold: 0, title: "Void" },
+  { threshold: 100, title: "Seed" },
+  { threshold: 500, title: "Node" },
+  { threshold: 2000, title: "Cluster" },
+  { threshold: 5000, title: "Fabric" },
+  { threshold: 15000, title: "Lattice" },
+  { threshold: 50000, title: "Mainframe" },
   { threshold: 150000, title: "Titan" },
-  { threshold: 500000, title: "Oligarch" },
-  { threshold: 1000000, title: "Sovereign" },
+  { threshold: 500000, title: "Cartel" },
+  { threshold: 1000000, title: "Hegemon" },
 ];
 
 /**

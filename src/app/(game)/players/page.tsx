@@ -7,7 +7,7 @@ import { PlayerCardSkeletonGrid } from "@/components/PlayerCardSkeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Users, Search, Loader2, ChevronLeft, ChevronRight, Crown, User, UserX, CreditCard, Shield, Sparkles } from "lucide-react";
+import { Users, Search, Loader2, ChevronLeft, ChevronRight, Terminal, User, UserX, CreditCard, Shield, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { SortBar, ProfessionFilterBar, FilterPill, type SortDir } from "@/components/PlayerFilters";
 import { useOthersOwnPlayers } from "@/hooks/useOthersOwnPlayers";
@@ -122,7 +122,7 @@ export default function PlayersPage() {
             <UserX className="h-7 w-7" /> No Owner
           </FilterPill>
           <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }} tone="amber">
-            <Crown className="h-7 w-7" /> My Owned
+            <Terminal className="h-7 w-7" /> My Owned
           </FilterPill>
           <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }} tone="amber">
             <Users className="h-7 w-7" /> Others Owned

@@ -165,7 +165,7 @@ type TranslationKeys = {
 const en: TranslationKeys = {
   // Landing page
   joinTitle: "Join n38worth",
-  joinSubtitle: "Create your account and start trading players",
+  joinSubtitle: "Create your account and start trading avatars",
   username: "Username",
   password: "Password",
   confirmPassword: "Confirm Password",
@@ -181,7 +181,7 @@ const en: TranslationKeys = {
   orTryInstantly: "Or try instantly",
   quickPlay: "Quick Play",
   creatingPlayer: "Creating player...",
-  quickPlayHint: "Jump in instantly with a random player — no sign-up needed",
+  quickPlayHint: "Jack in instantly with a random avatar — no sign-up needed",
   alreadyHaveAccount: "Already have an account?",
   signIn: "Sign in",
   tributeNote: "This game is a tribute to",
@@ -208,8 +208,8 @@ const en: TranslationKeys = {
   playerValue: "Player Value",
   credits: "Credits",
   portfolioValue: "Portfolio Value",
-  selfInflate: "Self Inflate",
-  inflating: "Inflating...",
+  selfInflate: "Self-Overclock",
+  inflating: "Overclocking...",
   browsePlayers: "Browse Players",
   playersYouOwn: "Players You Own",
   yourOwners: "Your Boss",
@@ -292,7 +292,7 @@ const en: TranslationKeys = {
   guideTitle: "Welcome to n38worth! Here's how to get started:",
   guideStep1Title: "Start with Credits",
   guideStep1Desc: "You begin with 100.00¢ to hire players.",
-  guideStep2Title: "Hire Players",
+  guideStep2Title: "Hire Avatars",
   guideStep2Desc: "Hire others to add them to your portfolio.",
   guideStep3Title: "Earn Revenue",
   guideStep3Desc: "When someone hires a player you own, you get a share of the hire price!",
@@ -309,7 +309,7 @@ const en: TranslationKeys = {
   dontHaveAccount: "Don't have an account?",
   register: "Register",
   registerTitle: "Create Account",
-  registerSubtitle: "Join the game and start trading",
+  registerSubtitle: "Jack into the simulation and start trading",
 
   // Misc
   perMin: "/min",

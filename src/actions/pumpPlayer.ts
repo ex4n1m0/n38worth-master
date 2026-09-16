@@ -77,9 +77,9 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
     }
 
     // Calculate cost: 100% of owned player's value.
-    // Scrap Alchemist perk (Transmutation): pump costs 10% less, same effect.
+    // Overclocker perk (Turbo Boost): pump costs 10% less, same effect.
     const perks = await getProfessionPerks(ownerId);
-    const costPercent = perks.has("Scrap Alchemist")
+    const costPercent = perks.has("Overclocker")
       ? BLOCK_SELL_COST_PERCENT * 0.9
       : BLOCK_SELL_COST_PERCENT;
     const cost = Math.max(1, Math.round(costPercent * ownedPlayer.playerValue));
@@ -193,7 +193,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
         pusher.trigger(`chat-private-${ownerId}`, "new-message", messagePayload),
         pusher.trigger(`chat-private-${record.ownedId}`, "new-message", messagePayload),
         pusher.trigger(`player-${record.ownedId}`, "credits-updated", {
-          message: `${owner.username} PUMPED you! You received ${creditsToPlayer}¢`,
+          message: `${owner.username} OVERCLOCKED you! You received ${creditsToPlayer}¢`,
         }),
         pusher.trigger(`player-${ownerId}`, "credits-updated", {
           newCredits: owner.credits - cost,

@@ -60,7 +60,7 @@ interface StripConfig {
 const STRIPS: StripConfig[] = [
   {
     key: "topEmpire",
-    label: "Biggest Empire",
+    label: "Widest Grid",
     getValue: (p) => p.ownedCount,
   },
   {
@@ -133,7 +133,7 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
 
 /**
  * "Live Activity and Ranks" — a single row combining recent activity and the
- * headline rankings: Recently Online, Biggest Empire, Most Credits, and
+ * headline rankings: Recently Online, Widest Grid, Most Credits, and
  * (optionally) the Hall of Champions. Used on the landing page (transparent)
  * and the in-game Cards page (default). The in-game page passes
  * showChampions={false} because the Hall of Champions lives at the top of
@@ -225,7 +225,7 @@ export function EmpireRankStrip({ variant = "default", showChampions = true }: {
           )}
         </StripCard>
 
-        {/* 2. Biggest Empire · 3. Most Credits */}
+        {/* 2. Widest Grid · 3. Most Credits */}
         {STRIPS.map((cfg) => (
           <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
         ))}

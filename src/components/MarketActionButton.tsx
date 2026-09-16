@@ -6,6 +6,7 @@ import { toast } from "@/lib/event-feed";
 import { Loader2, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlockCountdownBar } from "@/components/BlockCountdownBar";
+import { cardDisplayName } from "@/lib/display-names";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
@@ -111,7 +112,7 @@ export function MarketActionButton({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Pump failed");
+      if (!res.ok) throw new Error(data.error || "Overclock failed");
       return data;
     },
     onError: (err: Error) => {
@@ -119,7 +120,7 @@ export function MarketActionButton({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`🚀 Pumped ${username}! Value → ${formatCompact(data.newValue)}¢`);
+      toast.success(`🚀 Overclocked ${cardDisplayName(username)}! Value → ${formatCompact(data.newValue)}¢`);
       await refresh();
     },
   });
@@ -145,7 +146,7 @@ export function MarketActionButton({
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <>
-              <span className="text-base leading-none">PUMP</span>
+              <span className="text-base leading-none">OVERCLOCK</span>
               <span className="text-xs">{formatCompact(playerValue)}¢</span>
             </>
           )}

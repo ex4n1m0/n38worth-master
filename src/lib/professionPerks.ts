@@ -4,18 +4,18 @@ import { eq, and, isNotNull, inArray } from "drizzle-orm";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 /**
- * Profession perks ("Guild Perks") — each profession grants a passive benefit
+ * Profession perks ("Firmware Perks") — each profession grants a passive benefit
  * to a player while they either ARE that profession or OWN at least one card
  * with it. Binary (doesn't stack per card). Selling a profession combo gives
  * up the perks of the sold professions until the player rebuilds.
  *
  * Perk table (rarer profession = stronger perk):
- *   Rift Binder        (5%)  — Warding Rift:     block-sells last +50% longer (1.5h/press)
- *   Hexblade Courier   (6%)  — Severing Blade:   break fees 20% cheaper (Fate 1000× unaffected)
- *   Scrap Alchemist    (7%)  — Transmutation:    pump costs 10% less, still doubles value
- *   Spirit Archivist   (8%)  — Recorded Fortunes: daily login reward +25% (bonus minted)
- *   Iron Choir Marshal (9%)  — Rally the Choir:  +2 hire slots
- *   Plague Cartographer(10%) — Charted Spread:   Mass Hire grabs +1 extra card
+ *   Cryptographer  (5%)  — Deep Encryption:  block-sells last +50% longer (1.5h/press)
+ *   Zero-Day       (6%)  — Exploit Chain:    break fees 20% cheaper (hard-lock 1000× unaffected)
+ *   Overclocker    (7%)  — Turbo Boost:      pump costs 10% less, still doubles value
+ *   Cache Keeper   (8%)  — Cached Dividends: daily login reward +25% (bonus minted)
+ *   Server Marshal (9%)  — Extra Racks:      +2 hire slots
+ *   Bot Herder    (10%)  — Wider Botnet:     Mass Hire grabs +1 extra card
  */
 
 export { PROFESSION_PERKS };

@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
  * 
  * Handles two types of resets:
  * - wasReset = 1: Account ran out of credits (system gave fresh start)
- * - wasReset = 2: Game win reset (someone collected all 6 goddesses)
+ * - wasReset = 2: Game win reset (someone assembled all Six)
  * 
  * Fetches /api/me on mount. If `wasReset` is truthy, shows a rich toast
  * and then calls POST /api/me to acknowledge and clear the flag.
@@ -29,15 +29,15 @@ export function AccountResetNotification() {
         const data = await res.json();
 
         if (data.wasReset === 2) {
-          // Game win reset — someone collected all 6 goddesses
-          toast.success("🏆 Game Won — World Reset!", {
+          // Game win reset — someone assembled all Six
+          toast.success("🏆 Game Won — Simulation Rebooted!", {
             description:
-              "A player has collected all 6 Goddesses and won the game! " +
-              "The world has been reset. Everyone starts fresh with 100¢. " +
-              "Check the Hall of Fame on your profile to see the champion!",
+              "A player has assembled all Six and rooted the mainframe! " +
+              "The simulation has been reset. Everyone starts fresh with 100¢. " +
+              "Check the Root Wall on your profile to see the root holder!",
             duration: 20000,
             action: {
-              label: "Hall of Fame",
+              label: "Root Wall",
               onClick: () => router.push("/my-profile"),
             },
           });

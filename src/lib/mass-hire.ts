@@ -6,7 +6,7 @@
  *   up to (1 + 10% of the buyer's current owned count) hires per use.
  * - Dynamic cooldown between uses (1–5+ min based on owned card count).
  * - Pinned at the top-left of the market page regardless of sort/filter.
- * - Avatar: /masshire.webp
+ * - Avatar: /botnet.webp (rebrand art)
  */
 
 import { db } from "@/db";
@@ -27,7 +27,7 @@ const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
 
 export const MASS_HIRE_USERNAME = "Mass Hire";
-export const MASS_HIRE_AVATAR_URL = "/masshire.webp";
+export const MASS_HIRE_AVATAR_URL = "/botnet.webp";
 
 /** Mission threshold (owned cards) to unlock the Mass Hire card. */
 export const MASS_HIRE_UNLOCK_THRESHOLD = 50;
@@ -189,14 +189,14 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const currentOwned = Number(ownedCountRow?.count ?? 0);
 
     // 3. Compute hire limit: 1 + floor(10% of owned count).
-    // Plague Cartographer perk (Charted Spread): Mass Hire grabs +1 extra card.
+    // Bot Herder perk (Wider Botnet): Mass Hire grabs +1 extra card.
     const buyerPerks = await getProfessionPerks(buyerId);
-    const cartographerBonus = buyerPerks.has("Plague Cartographer") ? 1 : 0;
+    const cartographerBonus = buyerPerks.has("Bot Herder") ? 1 : 0;
     const hireLimit = 1 + Math.floor(currentOwned * 0.1) + cartographerBonus;
 
     // 4. Check ownership slots.
-    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
-    const marshalBonus = buyerPerks.has("Iron Choir Marshal") ? 2 : 0;
+    // Server Marshal perk (Extra Racks): +2 hire slots.
+    const marshalBonus = buyerPerks.has("Server Marshal") ? 2 : 0;
     const slotLimit = buyer.hireSlots + marshalBonus;
     const availableSlots = slotLimit - currentOwned;
     if (availableSlots <= 0) {

@@ -13,7 +13,7 @@ import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCool
 import { formatCompact } from "@/lib/utils";
 
 /**
- * Pinned "Reveal" card for the market page.
+ * Pinned "Scan" (Reveal) card for the market page.
  *
  * Grants temporary Knowledge — see ALL avatars — for 10 minutes, costing
  * 10% of the buyer's current credits. 10-minute cooldown after each use
@@ -67,11 +67,11 @@ export function RevealCard() {
     mutationFn: async () => {
       const res = await fetch("/api/game/reveal-all", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Reveal failed");
+      if (!res.ok) throw new Error(data.error || "Scan failed");
       return data;
     },
     onSuccess: async (data) => {
-      toast.success(`👁️ All avatars revealed for 10 minutes! (-${formatCompact(data.cost)}¢)`);
+      toast.success(`👁️ Scan complete — all avatars decloaked for 10 minutes! (-${formatCompact(data.cost)}¢)`);
       setRevealUntil(data.revealUntil);
       refreshCooldowns();
       await Promise.all([
@@ -90,12 +90,12 @@ export function RevealCard() {
   const handleClick = () => {
     if (onCooldown) {
       play("error");
-      toast.error(`Reveal is on cooldown — ready in ${cooldownLabel}.`);
+      toast.error(`Scan is on cooldown — ready in ${cooldownLabel}.`);
       return;
     }
     if (!canAfford) {
       play("error");
-      toast.error("Not enough credits to reveal avatars.");
+      toast.error("Not enough credits to scan.");
       return;
     }
     if (mutation.isPending) return;
@@ -139,7 +139,7 @@ export function RevealCard() {
             }`}
           >
             <Avatar className="w-full h-full rounded-lg">
-              <AvatarImage src="/reveal.webp" alt="Reveal" className="object-fill" />
+              <AvatarImage src="/scan.webp" alt="Scan" className="object-fill" />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-violet-600 to-purple-600 text-white font-bold text-2xl sm:text-3xl">
                 <Eye className="h-8 w-8 sm:h-10 sm:w-10" />
               </AvatarFallback>

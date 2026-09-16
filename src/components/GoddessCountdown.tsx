@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Crown, Timer, Swords, Sparkles } from "lucide-react";
+import { Cpu, Timer, Zap, Sparkles } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "@/lib/event-feed";
 import { playSound } from "@/hooks/useSound";
@@ -64,8 +64,8 @@ export function GoddessCountdown() {
 
     channel.bind("countdown-started", (data: { username: string; userId: number; durationMinutes: number }) => {
       playSound("reveal");
-      toast.info(`⏱️ ${data.username} owns all 6 Goddesses!`, {
-        description: `They must hold them for ${data.durationMinutes} minutes to win. Hire a Goddess to stop them!`,
+      toast.info(`⏱️ ${data.username} owns all Six!`, {
+        description: `They must hold them for ${data.durationMinutes} minutes to root the mainframe. Take one of the Six to stop them!`,
         duration: 15000,
       });
       queryClient.invalidateQueries({ queryKey: ["goddess-countdown"] });
@@ -74,7 +74,7 @@ export function GoddessCountdown() {
     channel.bind("countdown-cancelled", () => {
       playSound("sell");
       toast.success("🛡️ Countdown Cancelled!", {
-        description: "A Goddess was taken! The countdown has been stopped.",
+        description: "One of the Six was taken! The countdown has been stopped.",
         duration: 10000,
       });
       setLocalRemaining(null);
@@ -116,15 +116,15 @@ export function GoddessCountdown() {
         <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500/20 border border-yellow-500/40">
-              <Crown className="h-5 w-5 text-yellow-400" />
+              <Cpu className="h-5 w-5 text-yellow-400" />
             </div>
             <div>
               <h3 className="text-base font-bold text-yellow-400 flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4" />
-                Goddess Challenge Active!
+                Root Challenge Active!
               </h3>
               <p className="text-xs text-yellow-300/70">
-                <span className="font-semibold text-yellow-300">{countdown.username}</span> owns all 6 Goddesses
+                <span className="font-semibold text-yellow-300">{countdown.username}</span> owns all Six
               </p>
             </div>
           </div>
@@ -148,10 +148,10 @@ export function GoddessCountdown() {
 
         {/* Call to action */}
         <div className="flex items-center gap-2 text-sm">
-          <Swords className="h-4 w-4 text-red-400 shrink-0" />
+          <Zap className="h-4 w-4 text-red-400 shrink-0" />
           <p className="text-gray-300">
-            <span className="text-red-400 font-semibold">Hire a Goddess</span> to stop them from winning! 
-            If the timer reaches zero, <span className="text-yellow-400 font-semibold">{countdown.username}</span> wins and the game resets!
+            <span className="text-red-400 font-semibold">Take one of the Six</span> to stop them from winning! 
+            If the timer reaches zero, <span className="text-yellow-400 font-semibold">{countdown.username}</span> roots the mainframe and the simulation reboots!
           </p>
         </div>
       </div>

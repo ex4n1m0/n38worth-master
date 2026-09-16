@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
+import { cardDisplayName } from "@/lib/display-names";
 import { WarDeleteButton } from "@/components/WarDeleteButton";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
 import {
@@ -41,7 +42,7 @@ import {
   BadgeCheck,
   Shield,
   Eye,
-  Crown,
+  Terminal,
   User,
   Users,
   Lock,
@@ -285,7 +286,7 @@ function PlayerCardImpl({
         });
         await queryClient.invalidateQueries();
       } else {
-        toast.success(`You bought ${username}! Their value is now ${data.newValue} 💰`);
+        toast.success(`You bought ${cardDisplayName(username)}! Their value is now ${data.newValue} 💰`);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
@@ -327,7 +328,7 @@ function PlayerCardImpl({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Pump failed");
+      if (!res.ok) throw new Error(data.error || "Overclock failed");
       return data;
     },
     onMutate: async () => {
@@ -347,7 +348,7 @@ function PlayerCardImpl({
     },
     onSuccess: async (data) => {
       triggerFlip();
-      toast.success(`🚀 Pumped ${username}! Value → ${formatNumber(data.newValue)}¢`);
+      toast.success(`🚀 Overclocked ${cardDisplayName(username)}! Value → ${formatNumber(data.newValue)}¢`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
@@ -384,7 +385,7 @@ function PlayerCardImpl({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to break partnership");
+      if (!res.ok) throw new Error(data.error || "Failed to breach the firewall");
       return data;
     },
     onMutate: async () => {
@@ -420,7 +421,7 @@ function PlayerCardImpl({
         });
         await queryClient.invalidateQueries();
       } else {
-        toast.success(`Partnership broken! You hired ${username}! Their value is now ${data.newValue} 💰`);
+        toast.success(`Firewall breached! You hired ${cardDisplayName(username)}! Their value is now ${data.newValue} 💰`);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
@@ -446,7 +447,7 @@ function PlayerCardImpl({
     if ((myCredits ?? 0) < totalBreakCost) {
       play("error");
       toast.error(
-        `Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ break fee + ${formatNumber(playerValue)}¢ hire)`
+        `Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ breach fee + ${formatNumber(playerValue)}¢ hire)`
       );
       return;
     }
@@ -498,7 +499,7 @@ function PlayerCardImpl({
   const actionOverlayColor =
     actionMode === "pump" ? "text-fuchsia-400" : actionMode === "break" ? "text-red-400" : "text-green-400";
   const actionOverlayLabel =
-    countdown !== null ? "Hiring" : actionMode === "pump" ? "Pumping" : actionMode === "break" ? "Breaking" : "Hiring";
+    countdown !== null ? "Hiring" : actionMode === "pump" ? "Overclocking" : actionMode === "break" ? "Breaching" : "Hiring";
 
   const getActionColors = () => {
     if (actionMode === "locked" || !canAffordAction) {
@@ -562,7 +563,7 @@ function PlayerCardImpl({
         </span>
       );
     }
-    const label = actionMode === "get" ? "GET" : actionMode === "pump" ? "PUMP" : "BREAK";
+    const label = actionMode === "get" ? "GET" : actionMode === "pump" ? "OVERCLOCK" : "BREACH";
     return (
       <span className="inline-flex items-center gap-1">
         {actionMode === "break" && <Shield className="h-3 w-3" />}
@@ -638,7 +639,7 @@ function PlayerCardImpl({
               )}
               style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
             >
-              {username}
+              {cardDisplayName(username)}
               {isVerified === 1 && (
                 <BadgeCheck className="h-3.5 w-3.5 text-blue-400 shrink-0" />
               )}
@@ -692,7 +693,7 @@ function PlayerCardImpl({
             >
               <AvatarImage
                 src={displayedAvatarSrc || undefined}
-                alt={username}
+                alt={cardDisplayName(username)}
                 className={cn("w-full h-full", avatarFitClass)}
               />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
@@ -795,7 +796,7 @@ function PlayerCardImpl({
         <button
           type="button"
           onClick={handleOpenProfile}
-          title={`Open ${username}'s profile`}
+          title={`Open ${cardDisplayName(username)}'s profile`}
           className="w-full mt-2 rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
         >
           <User className="h-3.5 w-3.5" />
@@ -869,7 +870,7 @@ function PlayerCardImpl({
                     ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
                   )}
                 >
-                  <Crown className="h-5 w-5 shrink-0" />
+                  <Terminal className="h-5 w-5 shrink-0" />
                   <span className="truncate">
                     {ownerName === session?.user?.name ? "MINE" : ownerName}
                   </span>
@@ -879,7 +880,7 @@ function PlayerCardImpl({
             {leaderboardMode && !ownerName && (
               <div className="flex flex-col items-center gap-1 text-[20px] leading-tight">
                 <span className="flex items-center gap-2 justify-center text-white max-w-full min-w-0">
-                  <Crown className="h-5 w-5 shrink-0" />
+                  <Terminal className="h-5 w-5 shrink-0" />
                   <span className="truncate">LOST</span>
                 </span>
               </div>

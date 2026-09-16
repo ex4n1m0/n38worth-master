@@ -60,12 +60,12 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
         body: JSON.stringify({ ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Block sell failed");
+      if (!res.ok) throw new Error(data.error || "Firewall failed");
       return data;
     },
     onSuccess: (data) => {
       toast.success(
-        `Blocked ${ownedUsername} from being sold! Paid ${data.cost}¢ (+1h, ${data.totalHours}h total). 🔒`
+        `Firewall on ${ownedUsername}! Paid ${data.cost}¢ (+1h, ${data.totalHours}h total). 🔒`
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -89,15 +89,15 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
                 : "border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
             }`}
-            title={isBlocked ? `Block Sell ${ownedUsername}${timeLeft ? ` · ${timeLeft}` : ""}` : `Block Sell ${ownedUsername} (${cost}¢)`}
+            title={isBlocked ? `Firewall ${ownedUsername}${timeLeft ? ` · ${timeLeft}` : ""}` : `Firewall ${ownedUsername} (${cost}¢)`}
           >
             <Shield className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Block</span>
+            <span className="text-[7px] leading-none mt-0.5">Firewall</span>
           </Button>
         ) : isBlocked ? (
           <button onClick={() => play("buttons")} className="flex items-center gap-3 px-6 py-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-lg font-bold min-h-[56px] cursor-pointer hover:bg-amber-500/20 transition-colors">
             <Shield className="h-7 w-7" />
-            <span>Block Sell</span>
+            <span>Firewall</span>
             {timeLeft && (
               <span className="flex items-center gap-1 text-amber-500/70">
                 <Clock className="h-5 w-5" />
@@ -112,21 +112,21 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
           >
             <Shield className="h-7 w-7 mr-2" />
-            Block Sell
+            Firewall
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white">Block Sell — {ownedUsername}</DialogTitle>
+          <DialogTitle className="text-white">Firewall — {ownedUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
             {isBlocked ? (
               <>
                 Add <span className="text-white font-semibold">+1 hour</span> to
-                the sell block on{" "}
+                the firewall on{" "}
                 <span className="text-white font-semibold">{ownedUsername}</span>.
                 <br /><br />
-                Currently blocked for{" "}
+                Currently shielded for{" "}
                 <span className="text-white font-semibold">{timeLeft}</span>.
                 <br /><br />
                 This will cost{" "}
@@ -135,7 +135,7 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
               </>
             ) : (
               <>
-                Block{" "}
+                Shield{" "}
                 <span className="text-white font-semibold">{ownedUsername}</span>{" "}
                 from being sold for{" "}
                 <span className="text-white font-semibold">1 hour</span>.
@@ -144,7 +144,7 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
                 (100% of {ownedUsername}&apos;s value), paid directly to them.
                 <br /><br />
-                You can press Block multiple times to add more hours.
+                You can press Firewall multiple times to add more hours.
               </>
             )}
           </DialogDescription>

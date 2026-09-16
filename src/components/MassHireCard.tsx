@@ -17,7 +17,7 @@ import {
 } from "@/lib/missions-data";
 
 /**
- * Pinned "Mass Hire" bonus card for the market page.
+ * Pinned "Botnet" (Mass Hire) bonus card for the market page.
  *
  * - Locked until the viewer owns 500 cards.
  * - When unlocked, shows a MASS HIRE button that hires the cheapest ownerless
@@ -41,13 +41,13 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
     mutationFn: async () => {
       const res = await fetch("/api/game/mass-hire", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Mass Hire failed");
+      if (!res.ok) throw new Error(data.error || "Botnet failed");
       return data;
     },
     onSuccess: async (data) => {
       const count = data.hired?.length ?? 0;
       const spent = data.totalSpent ?? 0;
-      toast.success(`Mass Hire! Hired ${count} player${count !== 1 ? "s" : ""} for ${formatCompact(spent)}¢`);
+      toast.success(`Botnet deployed! Hired ${count} player${count !== 1 ? "s" : ""} for ${formatCompact(spent)}¢`);
       refreshCooldowns();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -71,14 +71,14 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
       play("error");
       toast.error(
         unlockThreshold !== null
-          ? `🔒 Mass Hire unlocks at ${formatCompact(unlockThreshold)} owned avatars (you have ${formatCompact(ownedCount)}).`
+          ? `🔒 Botnet unlocks at ${formatCompact(unlockThreshold)} owned avatars (you have ${formatCompact(ownedCount)}).`
           : "🔒 Mass Hire is still locked."
       );
       return;
     }
     if (onCooldown) {
       play("error");
-      toast.error(`Mass Hire is on cooldown — ready in ${cooldownLabel}.`);
+      toast.error(`Botnet is on cooldown — ready in ${cooldownLabel}.`);
       return;
     }
     if (mutation.isPending) return;
@@ -106,7 +106,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
             style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-            Mass Hire
+            Botnet
           </h3>
         </div>
 
@@ -122,7 +122,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
             }`}
           >
             <Avatar className="w-full h-full rounded-lg">
-              <AvatarImage src="/masshire.webp" alt="Mass Hire" className="object-fill" />
+              <AvatarImage src="/botnet.webp" alt="Botnet" className="object-fill" />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-amber-600 to-yellow-600 text-white font-bold text-2xl sm:text-3xl">
                 MH
               </AvatarFallback>

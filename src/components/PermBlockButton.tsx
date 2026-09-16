@@ -124,7 +124,7 @@ export function PermBlockButton({
         ) : (
           <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-purple-300/60 text-purple-200" : "text-purple-300"}`} />
         )}
-        {isActive ? "Remove Perm Block" : "Assign Perm Block"}
+        {isActive ? "Remove Hard Lock" : "Assign Hard Lock"}
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

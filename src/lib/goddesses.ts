@@ -1,6 +1,12 @@
 /**
  * Shared goddess constants used across the game.
  * Single source of truth for goddess names and their original values.
+ *
+ * Sci-fi rebrand note (2026-09): the usernames below are load-bearing DB
+ * keys (mission rewards, purchase locks, power bitmask settings) and stay
+ * unchanged. The user-facing names live in src/lib/display-names.ts:
+ * The Architect, The Banker, The Oracle, The Locksmith, The Clockkeeper,
+ * NullPointer. Collectively: "the Six".
  */
 
 export const GODDESS_USERNAMES: string[] = [
@@ -15,11 +21,11 @@ export const GODDESS_USERNAMES: string[] = [
 /** Power description shown on each goddess card */
 export const GODDESS_POWERS: Record<string, string> = {
   "Goddess of Wealth": "Holder earns double portfolio rewards and double boss tax from players they own.",
-  "Goddess of Knowledge": "Holder sees every avatar, including hidden ones.",
-  "Goddess of Fate": "Holder's owned players get a permanent sell block; breaking it costs 1000× the player's value.",
+  "Goddess of Knowledge": "Holder sees every avatar, including cloaked ones.",
+  "Goddess of Fate": "Holder's owned players get a permanent hard-lock; breaching it costs 1000× the player's value.",
   "Goddess of Time": "Holder collects portfolio rewards (and pays boss tax) twice as often.",
-  "Goddess of War": "Holder breaks sell blocks for free, paying only the normal hire cost — except during a partnership's initial unbreakable window. Can also destroy an owned card (1-min cooldown): NPCs are deleted and replaced by 2 fresh NPCs; humans reset to 1¢ and are released.",
-  "Goddess": "Holder activates the powers of all other goddesses, even ones they don't hold.",
+  "Goddess of War": "Holder breaches firewalls for free, paying only the normal hire cost — except during a partnership's initial unbreakable window. Can also destroy an owned card (1-min cooldown): NPCs are deleted and replaced by 2 fresh NPCs; humans reset to 1¢ and are released.",
+  "Goddess": "Holder activates the powers of all other daemons, even ones they don't hold.",
 };
 
 /**

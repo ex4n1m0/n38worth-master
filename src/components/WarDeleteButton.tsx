@@ -137,8 +137,8 @@ export function WarDeleteButton({
         disabled={mutation.isPending || onCooldown}
         title={
           onCooldown
-            ? `War Delete recharges in ${cooldownRemainingSec}s`
-            : "Goddess of War power: destroy this card"
+            ? `Null Delete recharges in ${cooldownRemainingSec}s`
+            : "NullPointer power: destroy this avatar"
         }
         className={`rounded-md flex items-center justify-center gap-1.5 font-bold text-xs py-1 px-2 h-auto border border-orange-800 text-orange-300 bg-transparent hover:bg-orange-900/30 hover:text-orange-200 disabled:opacity-50 ${className}`}
       >

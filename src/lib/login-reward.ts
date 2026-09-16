@@ -4,7 +4,7 @@
  *
  * The reward equals the Goddess of Wealth card's CURRENT value, transferred
  * from the richest HUMAN player. The richest human gets nothing (can't
- * transfer to themselves). Spirit Archivist perk adds +25% (minted on top).
+ * transfer to themselves). Cache Keeper perk adds +25% (minted on top).
  */
 import { db } from "@/db";
 import { users, rewardHistory } from "@/db/schema";
@@ -85,7 +85,7 @@ export async function claimLoginReward(userId: number): Promise<ClaimResult> {
   }
 
   const perks = await getProfessionPerks(userId);
-  const archivistBonus = perks.has("Spirit Archivist")
+  const archivistBonus = perks.has("Cache Keeper")
     ? Math.round(rewardAmount * 0.25 * 100) / 100
     : 0;
   const totalReward = rewardAmount + archivistBonus;

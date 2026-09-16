@@ -11,7 +11,7 @@ import { PlayerCardSkeletonGrid } from "@/components/PlayerCardSkeleton";
 import { Input } from "@/components/ui/input";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
-  Crown,
+  Terminal,
   Users,
   UserX,
   Loader2,
@@ -105,7 +105,7 @@ export default function LeaderboardPage() {
         {/* Goddess Countdown Banner */}
         <GoddessCountdown />
 
-        {/* Live Activity and Ranks — Recently Online, Biggest Empire, Most
+        {/* Live Activity and Ranks — Recently Online, Widest Grid, Most
             Credits in a single row (the Hall of Champions lives at the top
             of the History page).
             Locked behind mission 0 (Own 20 Avatars) — shown as a preview with
@@ -397,7 +397,7 @@ function BrowsePlayersSection({
               onClick={() => { play("toggle"); setOwnerFilter(ownerFilter === f.key ? "" : f.key); }}
               tone="amber"
             >
-              {f.key === "mine" ? <Crown className="h-7 w-7" /> : f.key === "none" ? <UserX className="h-7 w-7" /> : <Users className="h-7 w-7" />}
+              {f.key === "mine" ? <Terminal className="h-7 w-7" /> : f.key === "none" ? <UserX className="h-7 w-7" /> : <Users className="h-7 w-7" />}
               {f.label}
             </FilterPill>
           ))}

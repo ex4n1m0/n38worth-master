@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Crown, User, ShoppingCart, Loader2, Shield, Lock, Clock, Power } from "lucide-react";
+import { Users, User, ShoppingCart, Loader2, Shield, Lock, Clock, Power } from "lucide-react";
 import Link from "next/link";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,6 +16,7 @@ import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLev
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact, formatNumber } from "@/lib/utils";
 import { GODDESS_POWERS } from "@/lib/goddesses";
+import { cardDisplayName } from "@/lib/display-names";
 import {
   isLockablePurchaseCard,
   isPurchaseUnlockedAtLevel,
@@ -62,11 +63,11 @@ function PartnershipCountdown({ blockSellUntil }: { blockSellUntil: string | Dat
 function getGoddessEmoji(username: string): string {
   const emojis: Record<string, string> = {
     "Goddess of Wealth": "💰",
-    "Goddess of Knowledge": "📚",
-    "Goddess of Fate": "🎯",
+    "Goddess of Knowledge": "👁️",
+    "Goddess of Fate": "🔐",
     "Goddess of Time": "⏳",
-    "Goddess of War": "⚔️",
-    "Goddess": "👑",
+    "Goddess of War": "⚡",
+    "Goddess": "🧠",
   };
   return emojis[username] || "✨";
 }
@@ -92,6 +93,9 @@ export function GoddessCard({
   const { play } = useSound();
   const missionLevel = useMissionLevel();
   const finalGoddessThreshold = useFinalGoddessThreshold();
+
+  // Display name (sci-fi rebrand) — DB username stays the canonical key.
+  const displayName = cardDisplayName(username);
 
   // Locked until the player has obtained this goddess from its mission once.
   const locked =
@@ -149,13 +153,13 @@ export function GoddessCard({
         play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
-            "You own all 6 Goddesses! Hold them for 60 minutes to win the game!",
+            "You own all Six! Hold them for 60 minutes to root the mainframe!",
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
         toast.success(
-          `You bought ${username}! Their value is now ${data.newValue} 💰`
+          `You bought ${displayName}! Their value is now ${data.newValue} 💰`
         );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -195,7 +199,7 @@ export function GoddessCard({
       return data;
     },
     onSuccess: async (data) => {
-      toast.success(`+10 min partnership on ${username}! (-${formatCompact(data.cost)}¢)`);
+      toast.success(`+10 min partnership on ${displayName}! (-${formatCompact(data.cost)}¢)`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["goddesses"] }),
@@ -236,8 +240,8 @@ export function GoddessCard({
       setPowerOn(!data.disabled);
       toast.success(
         data.disabled
-          ? `${username} power turned OFF`
-          : `${username} power turned ON`
+          ? `${displayName} power turned OFF`
+          : `${displayName} power turned ON`
       );
       await queryClient.invalidateQueries({ queryKey: ["goddesses"] });
     },
@@ -262,18 +266,18 @@ export function GoddessCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={goddessAvatarSrc}
-            alt={username}
+            alt={displayName}
             className="w-full h-full object-fill"
           />
         </div>
-        
+
         {/* Info Section Below Avatar */}
         <div className="p-2 sm:p-4 space-y-2 sm:space-y-3">
-          {/* Goddess Name with Emoji */}
+          {/* Name with Emoji */}
           <div className="flex items-center gap-1.5">
             <span className="text-base sm:text-lg lg:text-xl shrink-0">{getGoddessEmoji(username)}</span>
             <h3 className="font-bold text-white text-xs sm:text-base lg:text-lg leading-tight break-words min-w-0">
-              {username}
+              {displayName}
             </h3>
           </div>
           
@@ -304,7 +308,7 @@ export function GoddessCard({
               e.stopPropagation();
               play("changepage");
             }}
-            title={`Open ${username}'s profile`}
+            title={`Open ${displayName}'s profile`}
             className="w-full rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
           >
             <User className="h-3.5 w-3.5" />
@@ -419,7 +423,7 @@ export function GoddessCard({
           {/* Info footer */}
           <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-800">
             <span className="flex items-center gap-1">
-              <Crown className="h-3 w-3" />
+              <Users className="h-3 w-3" />
               {ownerCount} owner{ownerCount !== 1 ? 's' : ''}
             </span>
             <span className="flex items-center gap-1">

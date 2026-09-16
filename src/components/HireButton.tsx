@@ -67,11 +67,11 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
         });
       }
       if (data.countdownStarted) {
-        // ⏱️ COUNTDOWN STARTED! Player owns all 6 Goddesses
+        // ⏱️ COUNTDOWN STARTED! Player owns all Six
         play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
           description:
-            "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+            "You own all Six! Hold them for 60 minutes to root the mainframe and reboot the simulation! Other players will try to breach them away!",
           duration: 15000,
         });
         await queryClient.invalidateQueries();

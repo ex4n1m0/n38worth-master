@@ -32,6 +32,7 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { getProfessionImage } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { cardDisplayName } from "@/lib/display-names";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PermBlockButton } from "@/components/PermBlockButton";
@@ -217,7 +218,7 @@ function OwnershipCard({
   const canAfford = (myCredits ?? 0) >= item.playerValue;
   const sellBlockTime = useSellBlockCountdown(item.blockSellUntil);
   const revealTime = useRevealCountdown(item.avatarRevealUntil);
-  // Goddess and bonus Avatars never have a profession
+  // The Six and bonus Avatars never have a profession
   const effectiveProfession = isBonus || isGoddess ? null : item.profession;
   const professionImage = getProfessionImage(effectiveProfession);
   const [chatOpen, setChatOpen] = useState(false);
@@ -270,13 +271,13 @@ function OwnershipCard({
       if (data.countdownStarted) {
         play("win");
         toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description: "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+          description: "You own all Six! Hold them for 60 minutes to root the mainframe! Other players will try to stop you!",
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
         toast.success(
-          `You bought ${item.username}! Their value is now ${data.newValue} 💰`
+          `You bought ${cardDisplayName(item.username)}! Their value is now ${data.newValue} 💰`
         );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -329,7 +330,7 @@ function OwnershipCard({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`🚀 PUMPED ${item.username}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to player)`);
+      toast.success(`🚀 OVERCLOCKED ${cardDisplayName(item.username)}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to player)`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
@@ -411,7 +412,7 @@ function OwnershipCard({
           <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={cardAvatarSrc} alt={item.username} className={avatarFitClass} />
+                <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username)} className={avatarFitClass} />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                   {item.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -422,13 +423,13 @@ function OwnershipCard({
                 className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words flex items-center justify-center gap-1.5 flex-wrap"
                 style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
               >
-                {item.username}
+                {cardDisplayName(item.username)}
                 {item.isVerified === 1 && (<BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />)}
                 {(item.valueFloor ?? 0) >= 100 && (<Gem className="h-5 w-5 text-purple-400 shrink-0" />)}
                 {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (<Star className="h-5 w-5 text-yellow-400 shrink-0" />)}
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                {item.profession || "Hidden"}
+                {item.profession || "Cloaked"}
               </p>
               <div className={`flex items-center justify-center gap-1 mt-0.5 ${getDynamicFontSize(item.playerValue)}`}>
                 <Coins className="h-3 w-3 text-t1-400 shrink-0" />
@@ -461,7 +462,7 @@ function OwnershipCard({
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <span className="text-sm sm:text-lg leading-none">PUMP</span>
+                <span className="text-sm sm:text-lg leading-none">OVERCLOCK</span>
                 <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
                   {formatCompact(pumpCost)}¢
                 </span>
@@ -469,7 +470,7 @@ function OwnershipCard({
             )}
           </Button>
 
-          {/* Perm blocks only apply to regular NPC Avatars — not Goddesses
+          {/* Perm blocks only apply to regular NPC Avatars — not the Six
               or human players. */}
           {item.playerType === "card" && !isGoddess && (
             <PermBlockButton
@@ -515,7 +516,7 @@ function OwnershipCard({
           {/* TOP: Full-width avatar with overlayed square Hire button */}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-              <AvatarImage src={cardAvatarSrc} alt={item.username} className={avatarFitClass} />
+              <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username)} className={avatarFitClass} />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                 {item.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
@@ -552,7 +553,7 @@ function OwnershipCard({
               className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
               style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
             >
-              {item.username}
+              {cardDisplayName(item.username)}
               {item.isVerified === 1 && (
                 <BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />
               )}
@@ -571,7 +572,7 @@ function OwnershipCard({
                 </span>
               )}
               <span className={`text-sm font-semibold truncate ${effectiveProfession ? 'text-amber-400/80' : 'text-gray-400'}`}>
-                {effectiveProfession || "Hidden"}
+                {effectiveProfession || "Cloaked"}
               </span>
             </div>
 

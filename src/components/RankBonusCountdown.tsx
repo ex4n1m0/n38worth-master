@@ -53,7 +53,7 @@ export function RankBonusCountdown() {
   const userPositions = rankPositions?.userPositions || {};
   const categories = ["empire", "credits", "value", "portfolio"];
   const categoryLabels: Record<string, string> = {
-    empire: "Empire",
+    empire: "Grid",
     credits: "Credits",
     value: "Value",
     portfolio: "Portfolio"

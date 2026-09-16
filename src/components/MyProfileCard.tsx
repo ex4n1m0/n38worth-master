@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   TrendingUp,
   Coins,
-  Crown,
+  Terminal,
   Users,
   Sparkles,
   ChevronRight,
@@ -164,7 +164,7 @@ export function MyProfileCard() {
                 color="text-yellow-300"
               />
               <MiniStat
-                icon={<Crown className="h-3 w-3" />}
+                icon={<Terminal className="h-3 w-3" />}
                 label="Bosses"
                 value={String(player.ownerCount)}
                 color="text-rose-300"

@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
+import { Loader2, Volume2, VolumeX, Terminal } from "lucide-react";
+import { MatrixRain } from "@/components/MatrixRain";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 /* ─── Types ─── */
@@ -68,9 +69,9 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
   const secs = (countdown.remainingSeconds ?? 0) % 60;
   return (
     <div className="lp-fade-up flex items-center gap-3 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-6 py-2.5" style={{ animationDelay: "0.5s" }}>
-      <Crown className="h-5 w-5 text-yellow-400 animate-pulse" />
+      <Terminal className="h-5 w-5 text-yellow-400 animate-pulse" />
       <span className="text-sm sm:text-base font-bold text-yellow-200">
-        {countdown.username} is <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span> away from winning the world
+        {countdown.username} is <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span> away from rooting the mainframe
       </span>
     </div>
   );
@@ -154,11 +155,17 @@ export default function Home() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           ref={heroImgRef}
-          src="/okworld.webp"
+          src="/simulation.webp"
           alt=""
           className="absolute inset-0 h-full w-full object-cover object-top will-change-transform"
           style={{ transform: "scale(1.1)" }}
         />
+
+        {/* Code rain over the backdrop */}
+        <MatrixRain opacity={0.22} />
+
+        {/* CRT scanlines */}
+        <div className="scanlines pointer-events-none absolute inset-0" />
 
         {/* Aurora blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -199,7 +206,7 @@ export default function Home() {
             className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 font-bold uppercase tracking-[0.32em] md:tracking-[0.4em] text-[1.35rem] sm:text-2xl md:text-[1.8rem] select-none drop-shadow-[0_0_20px_var(--t1-500)]"
             style={{ animationDelay: "0.2s" }}
           >
-            social media game
+            the human trading simulation
           </p>
 
           {/* Live stats */}
@@ -240,9 +247,9 @@ export default function Home() {
               <ol className="space-y-3">
                 {[
                   { title: "Create your avatar", body: "Register, upload your avatar, pick a profession. Everyone starts equal: 100¢ and 20 hire slots." },
-                  { title: "Hire your first avatars", body: "Hiring costs the avatar's value and pumps it up. Your first 10 hires get a 24-hour unbreakable block." },
+                  { title: "Hire your first avatars", body: "Hiring costs the avatar's value and overclocks it up. Your first 10 hires get a 24-hour unbreakable hard lock." },
                   { title: "Get 20 avatars", body: "Unlocks the full game: rankings, filters, feeds and missions. Each mission also adds +50 hire slots." },
-                  { title: "Claim your daily reward", body: "Every 24h, claim the Goddess of Wealth's value — taken from the richest player. If that's you, no reward that day." },
+                  { title: "Claim your daily reward", body: "Every 24h, claim The Banker's value — skimmed from the richest player. If that's you, no reward that day." },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
@@ -269,15 +276,15 @@ export default function Home() {
                 </li>
                 <li>
                   <span className="font-semibold text-amber-300">Getting hired</span> — you get
-                  paid and your value rises when someone hires or pumps you.
+                  paid and your value rises when someone hires or overclocks you.
                 </li>
                 <li>
                   <span className="font-semibold text-amber-300">Rank bonuses</span> — top 3 in a
                   ranking category pays hourly.
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Daily login reward</span> — the
-                  Goddess of Wealth&apos;s value, every 24h.
+                  <span className="font-semibold text-amber-300">Daily login reward</span> —
+                  The Banker&apos;s value, every 24h.
                 </li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
@@ -292,10 +299,10 @@ export default function Home() {
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
                   { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire at current value. The avatar and its previous owner get paid, and its value jumps (2× under 1,000¢, tapering to 1.1× above 1M). Poaching also earns +1 hire slot." },
-                  { chip: "PUMP", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of value to double it, gift the cost to the avatar, extend its sell block 10 min (12h max). Your main growth engine." },
-                  { chip: "BLOCK", cls: "from-amber-600 to-yellow-600", body: "Protect from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the Avatar." },
-                  { chip: "BREAK", cls: "from-amber-600 to-red-600", body: "Break a rival's block by paying hours remaining × value to the owner. Fate-sealed Avatars cost 1000×; Unbreakable can't be broken." },
-                  { chip: "PERM", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable block — movable between regular NPC Avatars, restarting the 24h." },
+                  { chip: "OVERCLOCK", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of value to double it, gift the cost to the avatar, extend its firewall 10 min (12h max). Your main growth engine." },
+                  { chip: "FIREWALL", cls: "from-amber-600 to-yellow-600", body: "Shield from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the Avatar." },
+                  { chip: "BREACH", cls: "from-amber-600 to-red-600", body: "Breach a rival's firewall by paying hours remaining × value to the owner. Hard-locked Avatars cost 1000×; unbreakable locks can't be breached." },
+                  { chip: "HARD LOCK", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable lock — movable between regular NPC Avatars, restarting the 24h." },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -313,9 +320,9 @@ export default function Home() {
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm leading-relaxed">
                   {[
-                    { chip: "MASS", cls: "from-amber-600 to-yellow-500", img: "/masshire.webp", body: "Bulk-hires the cheapest avatars — 1 + 10% of your owned count per press. Unlocks at 50 avatars. 10-min cooldown." },
+                    { chip: "BOTNET", cls: "from-amber-600 to-yellow-500", img: "/botnet.webp", body: "Bulk-hires the cheapest avatars — 1 + 10% of your owned count per press. Unlocks at 50 avatars. 10-min cooldown." },
                     { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", img: "/10slots.webp", body: "+10 hire slots for 10% of your credits. 10-min cooldown." },
-                    { chip: "REVEAL", cls: "from-violet-600 to-purple-500", img: "/reveal.webp", body: "Unmasks every hidden avatar for 10 minutes, for 10% of your credits. 10-min cooldown." },
+                    { chip: "SCAN", cls: "from-violet-600 to-purple-500", img: "/scan.webp", body: "Decloaks every cloaked avatar for 10 minutes, for 10% of your credits. 10-min cooldown." },
                   ].map((a) => (
                     <li key={a.chip} className="text-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -371,37 +378,38 @@ export default function Home() {
             <section className="rounded-xl border border-gray-800 p-5">
               <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Grow your empire to earn the legendary Avatars (+50 hire slots per mission):
+                Grow your grid to earn the Six (+50 hire slots per mission):
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
                 <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
-                <li><span className="font-mono text-t1-400">50</span> — Mass Hire avatar</li>
-                <li><span className="font-mono text-t1-400">100</span> — Goddess of Wealth</li>
-                <li><span className="font-mono text-t1-400">250</span> — Goddess of Knowledge</li>
-                <li><span className="font-mono text-t1-400">500</span> — Goddess of Fate</li>
-                <li><span className="font-mono text-t1-400">1,000</span> — Goddess of Time</li>
-                <li><span className="font-mono text-t1-400">2,000</span> — Goddess of War</li>
-                <li><span className="font-mono text-t1-400">5,000+</span> — the Goddess (+1,000 per game won)</li>
+                <li><span className="font-mono text-t1-400">50</span> — Botnet avatar</li>
+                <li><span className="font-mono text-t1-400">100</span> — The Banker</li>
+                <li><span className="font-mono text-t1-400">250</span> — The Oracle</li>
+                <li><span className="font-mono text-t1-400">500</span> — The Locksmith</li>
+                <li><span className="font-mono text-t1-400">1,000</span> — The Clockkeeper</li>
+                <li><span className="font-mono text-t1-400">2,000</span> — NullPointer</li>
+                <li><span className="font-mono text-t1-400">5,000+</span> — The Architect (+1,000 per reboot)</li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Held goddesses grant powers: Wealth doubles rewards, Knowledge reveals hidden
-                avatars, Fate seals your team&apos;s blocks (1000× break fee), Time halves payout
-                waits, War makes your breaks free and lets you destroy Avatars you own (deleting
-                NPCs — 2 fresh ones spawn — or resetting a human to 1¢ and releasing them, with a
-                1-minute cooldown) — the Goddess grants all at once.
+                Held daemons grant powers: The Banker doubles rewards, The Oracle decloaks
+                cloaked avatars, The Locksmith hard-locks your team&apos;s firewalls (1000× breach
+                fee), The Clockkeeper halves payout waits, NullPointer makes your breaches free
+                and lets you destroy Avatars you own (deleting NPCs — 2 fresh ones spawn — or
+                resetting a human to 1¢ and releasing them, with a 1-minute cooldown) — The
+                Architect grants all at once.
               </p>
             </section>
 
             <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">Winning the World</h3>
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">Rooting the Mainframe</h3>
               <div className="mb-3 grid grid-cols-3 gap-3">
                 {[
-                  { src: "/NewGoddessWealth.webp", alt: "Goddess of Wealth" },
-                  { src: "/NewGoddessKnowledge.webp", alt: "Goddess of Knowledge" },
-                  { src: "/NewGoddessFate.webp", alt: "Goddess of Fate" },
-                  { src: "/NewGoddessTime.webp", alt: "Goddess of Time" },
-                  { src: "/NewGoddessWar.webp", alt: "Goddess of War" },
-                  { src: "/NewGoddess.webp", alt: "Goddess" },
+                  { src: "/TheBanker.webp", alt: "The Banker" },
+                  { src: "/TheOracle.webp", alt: "The Oracle" },
+                  { src: "/TheLocksmith.webp", alt: "The Locksmith" },
+                  { src: "/TheClockkeeper.webp", alt: "The Clockkeeper" },
+                  { src: "/NullPointer.webp", alt: "NullPointer" },
+                  { src: "/TheArchitect.webp", alt: "The Architect" },
                 ].map((g) => (
                   <div key={g.src} className="text-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -417,13 +425,13 @@ export default function Home() {
                 ))}
               </div>
               <p className="text-sm leading-relaxed text-gray-300">
-                Hold all six Goddesses to start a 1-hour countdown, visible to everyone. If a
-                rival breaks one away, you have 2 minutes to take her back. Survive the hour and
-                the world resets — your name joins the Hall of Champions forever.
+                Hold all Six to start a 1-hour countdown, visible to everyone. If a rival
+                breaches one away, you have 2 minutes to take it back. Survive the hour and the
+                simulation reboots — your name joins the Root Wall forever.
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Six autonomous divine players also hunt Avatars around the clock — they buy, pump
-                and poach, but never speak.
+                Six autonomous daemon processes also hunt Avatars around the clock — they buy,
+                overclock and poach, but never speak.
               </p>
             </section>
 

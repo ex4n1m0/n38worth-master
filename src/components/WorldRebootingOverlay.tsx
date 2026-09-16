@@ -4,16 +4,17 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getPusherClient } from "@/lib/pusher-client";
 import { playSound } from "@/hooks/useSound";
+import { MatrixRain } from "@/components/MatrixRain";
 
 /**
- * Full-screen "World is Rebooting" overlay.
+ * Full-screen "Simulation is Rebooting" overlay.
  *
  * Can be triggered by:
  * 1. Pusher "world-rebooting" event (received by all connected clients)
  * 2. Direct call via `triggerWorldReboot()` (used by the test reset button
  *    to guarantee the overlay shows even if the Pusher event is missed)
  *
- * Covers the entire screen with solid black, shows "The World is Rebooting"
+ * Covers the entire screen with solid black, shows "The Simulation is Rebooting"
  * message and a progress bar that animates from 0% to 100% over 60 seconds.
  * Rendered via a portal to document.body so it escapes all stacking contexts.
  */
@@ -122,8 +123,8 @@ export function WorldRebootingOverlay() {
     >
       {/* Full-screen background image */}
       <img
-        src="/WORLD_RESET.webp"
-        alt="World Reset"
+        src="/reboot.webp"
+        alt="Simulation Reboot"
         style={{
           position: "absolute",
           inset: 0,
@@ -143,6 +144,9 @@ export function WorldRebootingOverlay() {
         }}
       />
 
+      {/* Code rain over the backdrop */}
+      <MatrixRain opacity={0.28} />
+
       {/* Title */}
       <div style={{ position: "relative", textAlign: "center", padding: "0 1rem", marginBottom: "2.5rem" }}>
         <h1 style={{
@@ -154,7 +158,7 @@ export function WorldRebootingOverlay() {
           margin: 0,
           textShadow: "0 2px 10px rgba(0,0,0,0.8)",
         }}>
-          The World is Rebooting
+          The Simulation is Rebooting
         </h1>
         {winnerName && (
           <p style={{
@@ -163,7 +167,7 @@ export function WorldRebootingOverlay() {
             marginTop: "1rem",
             textShadow: "0 2px 8px rgba(0,0,0,0.8)",
           }}>
-            {winnerName} collected all 6 Goddesses
+            {winnerName} assembled all Six — root access granted
           </p>
         )}
       </div>
@@ -181,8 +185,8 @@ export function WorldRebootingOverlay() {
             style={{
               height: "100%",
               borderRadius: "9999px",
-              background: "linear-gradient(to right, #06b6d4, #67e8f9)",
-              boxShadow: "0 0 15px rgba(34,211,238,0.7)",
+              background: "linear-gradient(to right, #00aa33, #00ff41)",
+              boxShadow: "0 0 15px rgba(0,255,65,0.7)",
               width: `${progress}%`,
               transition: "width 50ms linear",
             }}

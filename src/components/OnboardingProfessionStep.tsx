@@ -84,7 +84,7 @@ export function OnboardingProfessionStep() {
             Choose Your Profession
           </h2>
           <p className="text-gray-400 mt-2 text-sm sm:text-base">
-            Select the path that will define your legacy in the realm. Your
+            Select the path that will define your footprint in the simulation. Your
             profession icon will appear on your player card.
           </p>
         </div>
@@ -139,7 +139,7 @@ export function OnboardingProfessionStep() {
                 </span>
                 {/* Current count in game */}
                 <span className="text-[10px] sm:text-xs text-gray-500 leading-tight">
-                  {(counts[prof.name] ?? 0).toLocaleString()} in realm
+                  {(counts[prof.name] ?? 0).toLocaleString()} in the grid
                 </span>
               </button>
             );

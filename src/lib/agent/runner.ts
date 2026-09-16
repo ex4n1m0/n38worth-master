@@ -80,7 +80,7 @@ async function pumpValuableOwnedCards(agentId: number): Promise<AgentMove[]> {
     let remainingCredits = Number(agent.credits);
     let pumps = 0;
     const perks = await getProfessionPerks(agentId);
-    const pumpCostMultiplier = perks.has("Scrap Alchemist") ? 0.9 : 1;
+    const pumpCostMultiplier = perks.has("Overclocker") ? 0.9 : 1;
 
     for (const card of owned) {
       if (pumps >= MAX_PUMPS_PER_TURN) break;

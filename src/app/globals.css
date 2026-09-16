@@ -490,48 +490,48 @@
   color: revert !important;
 }
 
-/* ===== Green Theme (neon cyan + purple on black) ===== */
+/* ===== Green Theme (matrix green + purple on black) ===== */
 [data-theme="green"] {
   /* Override base colors for neon dark background */
   --background: oklch(0 0 0);
-  --foreground: oklch(0.95 0.02 200);
+  --foreground: oklch(0.95 0.02 145);
   --card: oklch(0 0 0);
-  --card-foreground: oklch(0.95 0.02 200);
+  --card-foreground: oklch(0.95 0.02 145);
   --popover: oklch(0 0 0);
-  --popover-foreground: oklch(0.95 0.02 200);
-  --primary: oklch(0.72 0.14 200);
+  --popover-foreground: oklch(0.95 0.02 145);
+  --primary: oklch(0.72 0.14 145);
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0 0 0);
-  --secondary-foreground: oklch(0.90 0.03 200);
+  --secondary-foreground: oklch(0.90 0.03 145);
   --muted: oklch(0 0 0);
-  --muted-foreground: oklch(0.70 0.05 200);
+  --muted-foreground: oklch(0.70 0.05 145);
   --accent: oklch(0 0 0);
-  --accent-foreground: oklch(0.95 0.02 200);
+  --accent-foreground: oklch(0.95 0.02 145);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(0.30 0.08 200);
-  --input: oklch(0.30 0.08 200);
-  --ring: oklch(0.55 0.14 200);
-  --chart-1: oklch(0.65 0.14 200);
+  --border: oklch(0.30 0.08 145);
+  --input: oklch(0.30 0.08 145);
+  --ring: oklch(0.55 0.14 145);
+  --chart-1: oklch(0.65 0.14 145);
   --chart-2: oklch(0.60 0.14 290);
   --chart-3: oklch(0.55 0.16 210);
   --chart-4: oklch(0.70 0.12 195);
   --chart-5: oklch(0.58 0.12 285);
   --sidebar: oklch(0 0 0);
-  --sidebar-foreground: oklch(0.95 0.02 200);
-  --sidebar-primary: oklch(0.72 0.14 200);
+  --sidebar-foreground: oklch(0.95 0.02 145);
+  --sidebar-primary: oklch(0.72 0.14 145);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0 0 0);
-  --sidebar-accent-foreground: oklch(0.95 0.02 200);
-  --sidebar-border: oklch(0.30 0.08 200);
-  --sidebar-ring: oklch(0.55 0.14 200);
+  --sidebar-accent-foreground: oklch(0.95 0.02 145);
+  --sidebar-border: oklch(0.30 0.08 145);
+  --sidebar-ring: oklch(0.55 0.14 145);
 
-  /* Cyan accent shades (t1 = primary cyan, t2 = purple variant) */
-  --t1-100: oklch(0.95 0.04 200);
-  --t1-300: oklch(0.82 0.10 200);
-  --t1-400: oklch(0.72 0.14 200);
-  --t1-500: oklch(0.62 0.14 200);
-  --t1-600: oklch(0.52 0.13 200);
-  --t1-900: oklch(0.28 0.08 200);
+  /* Matrix accent shades (t1 = primary green, t2 = purple variant) */
+  --t1-100: oklch(0.95 0.06 145);
+  --t1-300: oklch(0.82 0.14 145);
+  --t1-400: oklch(0.72 0.19 145);
+  --t1-500: oklch(0.62 0.19 145);
+  --t1-600: oklch(0.52 0.18 145);
+  --t1-900: oklch(0.28 0.10 145);
   --t2-300: oklch(0.78 0.12 290);
   --t2-400: oklch(0.65 0.16 290);
   --t2-500: oklch(0.55 0.16 290);
@@ -560,70 +560,70 @@
 }
 [data-theme="green"] [class*="from-gray-900"],
 [data-theme="green"] [class*="from-gray-950"] {
-  --tw-gradient-from: oklch(0.14 0.04 200) !important;
+  --tw-gradient-from: oklch(0.14 0.04 145) !important;
 }
 [data-theme="green"] [class*="to-gray-900"],
 [data-theme="green"] [class*="to-gray-950"] {
-  --tw-gradient-to: oklch(0.10 0.04 200) !important;
+  --tw-gradient-to: oklch(0.10 0.04 145) !important;
 }
 [data-theme="green"] [class*="via-gray-900"],
 [data-theme="green"] [class*="via-gray-950"] {
-  --tw-gradient-via: oklch(0.12 0.04 200) !important;
+  --tw-gradient-via: oklch(0.12 0.04 145) !important;
 }
 [data-theme="green"] .text-white,
 [data-theme="green"] [class*="text-white"] {
-  color: oklch(0.95 0.02 200) !important;
+  color: oklch(0.95 0.02 145) !important;
 }
 [data-theme="green"] [class*="text-gray-300"] {
-  color: oklch(0.90 0.03 200) !important;
+  color: oklch(0.90 0.03 145) !important;
 }
 [data-theme="green"] [class*="text-gray-400"] {
-  color: oklch(0.80 0.05 200) !important;
+  color: oklch(0.80 0.05 145) !important;
 }
 [data-theme="green"] [class*="text-gray-500"] {
-  color: oklch(0.70 0.05 200) !important;
+  color: oklch(0.70 0.05 145) !important;
 }
 [data-theme="green"] [class*="text-gray-600"] {
-  color: oklch(0.60 0.05 200) !important;
+  color: oklch(0.60 0.05 145) !important;
 }
 [data-theme="green"] [class*="border-gray-800"] {
-  border-color: oklch(0.30 0.08 200) !important;
+  border-color: oklch(0.30 0.08 145) !important;
 }
 [data-theme="green"] [class*="border-gray-700"] {
-  border-color: oklch(0.35 0.08 200) !important;
+  border-color: oklch(0.35 0.08 145) !important;
 }
 [data-theme="green"] [class*="border-gray-600"] {
-  border-color: oklch(0.40 0.08 200) !important;
+  border-color: oklch(0.40 0.08 145) !important;
 }
 [data-theme="green"] [class*="placeholder:text-gray"]::placeholder {
-  color: oklch(0.60 0.05 200) !important;
+  color: oklch(0.60 0.05 145) !important;
 }
 [data-theme="green"] [class*="hover:bg-gray-800"]:hover {
-  background-color: oklch(0.22 0.05 200) !important;
+  background-color: oklch(0.22 0.05 145) !important;
 }
 [data-theme="green"] [class*="hover:bg-gray-700"]:hover {
-  background-color: oklch(0.26 0.05 200) !important;
+  background-color: oklch(0.26 0.05 145) !important;
 }
 [data-theme="green"] [class*="hover:text-white"]:hover {
-  color: oklch(0.96 0.02 200) !important;
+  color: oklch(0.96 0.02 145) !important;
 }
 [data-theme="green"] [class*="hover:bg-gray-900"]:hover {
-  background-color: oklch(0.16 0.04 200) !important;
+  background-color: oklch(0.16 0.04 145) !important;
 }
 [data-theme="green"] [class*="bg-gray-700"][class*="h-"],
 [data-theme="green"] [class*="bg-gray-800"][class*="h-"] {
-  background-color: oklch(0.35 0.08 200) !important;
+  background-color: oklch(0.35 0.08 145) !important;
 }
 [data-theme="green"] [data-radix-popper-content-wrapper] [class*="bg-gray-900"] {
-  background-color: oklch(0.16 0.05 200) !important;
+  background-color: oklch(0.16 0.05 145) !important;
   box-shadow: 0 4px 24px oklch(0 0 0 / 30%);
 }
 [data-theme="green"] [data-state] [class*="bg-gray-950"],
 [data-theme="green"] [data-state] [class*="bg-gray-900"] {
-  background-color: oklch(0.16 0.05 200) !important;
+  background-color: oklch(0.16 0.05 145) !important;
 }
 [data-theme="green"] [class*="ring-gray"] {
-  --tw-ring-color: oklch(0.40 0.08 200) !important;
+  --tw-ring-color: oklch(0.40 0.08 145) !important;
 }
 [data-theme="green"] [class*="bg-clip-text"][class*="text-transparent"] {
   color: transparent !important;
@@ -1162,5 +1162,76 @@ button {
 @media (min-width: 768px) {
   .pb-bottom-nav {
     padding-bottom: 2rem;
+  }
+}
+
+/* ═══════════════════ Sci-fi simulation FX ═══════════════════ */
+
+/* CRT scanlines — apply to a full-bleed overlay element (pointer-events-none) */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.22) 3px,
+    rgba(0, 0, 0, 0.22) 4px
+  );
+  mix-blend-mode: multiply;
+}
+
+/* Soft terminal phosphor glow for headings / key numbers */
+.terminal-glow {
+  text-shadow:
+    0 0 8px color-mix(in oklab, var(--t1-400) 65%, transparent),
+    0 0 24px color-mix(in oklab, var(--t1-500) 35%, transparent);
+}
+
+/* Brief glitch flicker on mount — RGB-split via layered text-shadows */
+@keyframes glitch-in {
+  0% {
+    text-shadow:
+      -3px 0 rgba(255, 0, 80, 0.8),
+      3px 0 rgba(0, 255, 120, 0.8);
+    transform: translateX(2px) skewX(-2deg);
+  }
+  20% {
+    text-shadow:
+      2px 0 rgba(255, 0, 80, 0.5),
+      -2px 0 rgba(0, 255, 120, 0.5);
+    transform: translateX(-1px);
+  }
+  40% {
+    text-shadow: none;
+    transform: none;
+  }
+  100% {
+    text-shadow: 0 0 18px color-mix(in oklab, var(--t1-400) 40%, transparent);
+  }
+}
+.glitch-in {
+  animation: glitch-in 0.6s steps(8, end) both;
+}
+
+/* Occasional single-line CRT flicker for status bars */
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.72; }
+  94% { opacity: 1; }
+  97% { opacity: 0.85; }
+  98% { opacity: 1; }
+}
+.crt-flicker {
+  animation: crt-flicker 7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glitch-in,
+  .crt-flicker {
+    animation: none !important;
   }
 }

@@ -117,7 +117,7 @@ export function MissionProgress() {
     : null;
 
   return (
-    <div title="Win the game: unlock all 6 Goddesses and hold them for 60 minutes">
+    <div title="Win the game: unlock all Six and hold them for 60 minutes">
       <div className="flex items-center gap-2 sm:gap-3">
         <div className="flex items-center gap-1.5 shrink-0">
           <Trophy
@@ -164,7 +164,7 @@ export function MissionProgress() {
       )}
       <CoachMark id="mission-bar" className="mt-1 max-w-lg">
         This bar tracks your current mission. Complete it to unlock new
-        features — ranks, profession combos, Mass Hire, and the 6 Goddesses.
+        features — ranks, profession combos, Botnet, and the Six.
       </CoachMark>
     </div>
   );

@@ -16,7 +16,10 @@
     "backfill:hidden-avatars": "npx tsx scripts/backfill-hidden-npc-avatars.ts",
     "audit:schema": "npx tsx scripts/audit-schema.ts",
     "audit:avatars": "npx tsx scripts/avatar-storage-audit.ts",
-    "cap:player-values": "npx tsx scripts/cap-player-values.ts"
+    "cap:player-values": "npx tsx scripts/cap-player-values.ts",
+    "rebrand:professions": "npx tsx scripts/rebrand-professions.ts",
+    "rebrand:goddess-art": "npx tsx scripts/rebrand-goddess-art.ts",
+    "gen:scifi-art": "npx tsx scripts/gen-scifi-art.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

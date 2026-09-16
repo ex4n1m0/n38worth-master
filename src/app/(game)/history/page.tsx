@@ -30,7 +30,7 @@ const eventTypeConfig = {
   },
   pump: {
     icon: Rocket,
-    label: "Pump",
+    label: "Overclock",
     color: "text-fuchsia-400",
     bgColor: "bg-fuchsia-500/10",
     borderColor: "border-fuchsia-500/20",
@@ -62,7 +62,7 @@ export default function GameHistoryPage() {
   const filters = [
     { value: null, label: "ALL" },
     { value: "purchase", label: "GETS" },
-    { value: "pump", label: "PUMPS" },
+    { value: "pump", label: "OVERCLOCKS" },
   ];
 
   return (
@@ -76,7 +76,7 @@ export default function GameHistoryPage() {
           Game History
         </h1>
         <p className="text-gray-400 mt-1">
-          Complete log of all game events including purchases, sells, and deletions
+          Complete log of all game events including hires, overclocks, sells, and deletions
         </p>
       </div>
 
@@ -175,7 +175,7 @@ export default function GameHistoryPage() {
                             
                             <span className="text-sm text-gray-400 flex-shrink-0">
                               {event.eventType === "purchase" && "got"}
-                              {event.eventType === "pump" && "pumped"}
+                              {event.eventType === "pump" && "overclocked"}
                               {event.eventType === "sell" && "fired"}
                               {event.eventType === "npc_deletion" && "deleted NPC"}
                               {event.eventType === "player_deletion" && "deleted player"}

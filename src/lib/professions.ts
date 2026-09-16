@@ -1,6 +1,12 @@
 /**
  * Professions system - players can choose a profession during onboarding,
  * and NPCs randomly acquire one with weighted probabilities.
+ *
+ * Sci-fi rebrand mapping (2026-09): Rift Binder → Cryptographer,
+ * Hexblade Courier → Zero-Day, Scrap Alchemist → Overclocker,
+ * Spirit Archivist → Cache Keeper, Iron Choir Marshal → Server Marshal,
+ * Plague Cartographer → Bot Herder. Existing DB rows were migrated with
+ * `npm run rebrand:professions`.
  */
 
 export interface Profession {
@@ -11,33 +17,33 @@ export interface Profession {
 
 export const PROFESSIONS: Profession[] = [
   {
-    name: "Rift Binder",
-    imagePath: "/NewRiftBinder.webp",
+    name: "Cryptographer",
+    imagePath: "/NewCryptographer.webp",
     probability: 5,
   },
   {
-    name: "Hexblade Courier",
-    imagePath: "/NewHexbladeCourier.webp",
+    name: "Zero-Day",
+    imagePath: "/NewZeroDay.webp",
     probability: 6,
   },
   {
-    name: "Scrap Alchemist",
-    imagePath: "/NewScrapAlchemist.webp",
+    name: "Overclocker",
+    imagePath: "/NewOverclocker.webp",
     probability: 7,
   },
   {
-    name: "Spirit Archivist",
-    imagePath: "/NewSpiritArchivist.webp",
+    name: "Cache Keeper",
+    imagePath: "/NewCacheKeeper.webp",
     probability: 8,
   },
   {
-    name: "Iron Choir Marshal",
-    imagePath: "/NewChoirMarshal.webp",
+    name: "Server Marshal",
+    imagePath: "/NewServerMarshal.webp",
     probability: 9,
   },
   {
-    name: "Plague Cartographer",
-    imagePath: "/NewPlagueCartographer.webp",
+    name: "Bot Herder",
+    imagePath: "/NewBotHerder.webp",
     probability: 10,
   },
 ];
@@ -50,12 +56,12 @@ const TOTAL_PROFESSION_PROBABILITY = 45;
  * Returns the profession name, or null if the NPC gets no profession (hidden card).
  *
  * Probabilities:
- *   Rift Binder: 5%
- *   Hexblade Courier: 6%
- *   Scrap Alchemist: 7%
- *   Spirit Archivist: 8%
- *   Iron Choir Marshal: 9%
- *   Plague Cartographer: 10%
+ *   Cryptographer: 5%
+ *   Zero-Day: 6%
+ *   Overclocker: 7%
+ *   Cache Keeper: 8%
+ *   Server Marshal: 9%
+ *   Bot Herder: 10%
  *   Hidden Card (null): 55%
  */
 export function rollProfession(): string | null {
@@ -82,33 +88,33 @@ export function getProfessionImage(professionName: string | null | undefined): s
 }
 
 /**
- * Profession perks ("Guild Perks") — display metadata. A perk is active for a
+ * Profession perks ("Firmware Perks") — display metadata. A perk is active for a
  * player while they either ARE that profession or OWN at least one card with
  * it. Server-side checks live in src/lib/professionPerks.ts.
  */
 export const PROFESSION_PERKS: Record<string, { name: string; description: string }> = {
-  "Rift Binder": {
-    name: "Warding Rift",
-    description: "Your sell blocks last 50% longer (1.5h per press).",
+  "Cryptographer": {
+    name: "Deep Encryption",
+    description: "Your firewalls last 50% longer (1.5h per press).",
   },
-  "Hexblade Courier": {
-    name: "Severing Blade",
-    description: "Break fees you pay are 20% cheaper.",
+  "Zero-Day": {
+    name: "Exploit Chain",
+    description: "Breaches you pay for are 20% cheaper.",
   },
-  "Scrap Alchemist": {
-    name: "Transmutation",
-    description: "Pumping costs 10% less but still doubles the avatar's value.",
+  "Overclocker": {
+    name: "Turbo Boost",
+    description: "Overclocking costs 10% less but still doubles the avatar's value.",
   },
-  "Spirit Archivist": {
-    name: "Recorded Fortunes",
+  "Cache Keeper": {
+    name: "Cached Dividends",
     description: "Your daily login reward is 25% bigger.",
   },
-  "Iron Choir Marshal": {
-    name: "Rally the Choir",
+  "Server Marshal": {
+    name: "Extra Racks",
     description: "+2 hire slots.",
   },
-  "Plague Cartographer": {
-    name: "Charted Spread",
-    description: "Mass Hire grabs +1 extra avatar.",
+  "Bot Herder": {
+    name: "Wider Botnet",
+    description: "Botnet grabs +1 extra avatar.",
   },
 };

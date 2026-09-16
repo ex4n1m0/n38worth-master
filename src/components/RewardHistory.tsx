@@ -14,7 +14,7 @@ import {
   ShoppingCart,
   ChevronRight,
   Loader2,
-  Crown,
+  Terminal,
   Clock,
   Trash2,
 } from "lucide-react";
@@ -75,7 +75,7 @@ const TYPE_CONFIG: Record<
   },
   boss_portfolio_tax: {
     label: "Boss Tax (Portfolio)",
-    icon: <Crown className="h-3.5 w-3.5" />,
+    icon: <Terminal className="h-3.5 w-3.5" />,
     color: "text-amber-400",
     bgColor: "bg-amber-500/10 border-amber-500/20",
   },

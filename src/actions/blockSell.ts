@@ -149,7 +149,7 @@ export async function blockSell(ownershipId: number) {
         pusher.trigger(`chat-private-${ownerId}`, "new-message", messagePayload),
         pusher.trigger(`chat-private-${record.ownedId}`, "new-message", messagePayload),
         pusher.trigger(`player-${record.ownedId}`, "credits-updated", {
-          message: `${owner.username} blocked you from being sold! You received ${cost}¢`,
+          message: `${owner.username} firewalled you from being sold! You received ${cost}¢`,
         }),
         pusher.trigger(`player-${ownerId}`, "credits-updated", {
           newCredits: owner.credits - cost,

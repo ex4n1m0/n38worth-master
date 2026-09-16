@@ -48,7 +48,7 @@ import {
   CreditCard,
   User,
   Search,
-  Crown,
+  Terminal,
   Coins,
   MessageCircle,
   Wallet,
@@ -541,7 +541,7 @@ export default function PlayerProfilePage() {
                           {profileOwner.username}
                         </a>
                       </h2>
-                      <Crown className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                      <Terminal className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
                     </div>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
                       <span className="text-gray-500">Value</span>
@@ -550,14 +550,14 @@ export default function PlayerProfilePage() {
                     </p>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
                       <span className="font-semibold text-yellow-400/90">{isOwnProfile ? "Your Leader" : `${player.username}'s Leader`}</span>
-                      <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
+                      <Terminal className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
                     </p>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="relative rounded-lg w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0 border-2 border-dashed border-gray-700 bg-gray-900/40 flex items-center justify-center">
-                    <Crown className="h-8 w-8 text-gray-600" />
+                    <Terminal className="h-8 w-8 text-gray-600" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <h2 className="text-lg sm:text-2xl font-black text-gray-500 leading-tight">No leader yet</h2>
@@ -743,7 +743,7 @@ export default function PlayerProfilePage() {
           {gameUnlocked && <GlobalChatPage embedded />}
           {profileOwner && (
             <div className="space-y-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Crown className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Terminal className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
               <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
                 <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
                 <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={`/api/avatar/${encodeURIComponent(profileOwner.username)}`} /></div></ChatProvider>

@@ -27,9 +27,9 @@ const ADJECTIVES = [
 
 const NOUNS = [
   "Trader", "Wolf", "Shark", "Hawk", "Eagle", "Tiger", "Lion", "Bear",
-  "Fox", "Ace", "King", "Boss", "Pro", "Star", "Ninja", "Pilot",
-  "Knight", "Chief", "Alpha", "Rider", "Hunter", "Ranger", "Phantom", "Viper",
-  "Falcon", "Raven", "Phoenix", "Dragon", "Titan", "Rebel", "Maverick", "Nomad",
+  "Fox", "Ace", "Root", "Boss", "Pro", "Star", "Cipher", "Pilot",
+  "Kernel", "Chief", "Alpha", "Rider", "Hunter", "Ranger", "Phantom", "Viper",
+  "Falcon", "Raven", "Phoenix", "Glitch", "Titan", "Rebel", "Maverick", "Nomad",
 ];
 
 const MAX_USERNAME_LEN = 30;

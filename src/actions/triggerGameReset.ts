@@ -38,7 +38,7 @@ import { incrementGameWinCount } from "@/lib/game-wins";
  *     ranks drop back to the lowest tier automatically)
  *   - Goddesses are reset to their original floor values (and marked isProtected)
  *   - Winner is recorded in hall_of_fame with wasReset=0 (so they do not see
- *     the "world has been reset" toast meant for the rest of the world)
+ *     the "simulation has been rebooted" toast meant for the rest of the world)
  *
  * Idempotency:
  *   - `hall_of_fame` check (60s window on the same winner)
@@ -113,7 +113,7 @@ export async function triggerGameReset(
       targetId: winnerId,
       targetUsername: winnerUsername,
       details: JSON.stringify({
-        message: `${winnerUsername} collected all 6 goddesses and won the game!`,
+        message: `${winnerUsername} assembled all Six and rooted the mainframe!`,
       }),
     });
 
@@ -279,7 +279,7 @@ export async function triggerGameReset(
       await pusher.trigger("game-global", "game-won", {
         winnerUsername,
         winnerId,
-        message: `🏆 ${winnerUsername} has collected all 6 Goddesses and WON THE GAME! The world has been reset!`,
+        message: `🏆 ${winnerUsername} has assembled all Six and ROOTED THE MAINFRAME! The simulation has been rebooted!`,
       });
     } catch (pusherError) {
       console.error("Pusher error during game reset broadcast:", pusherError);

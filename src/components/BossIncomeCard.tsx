@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Crown, TrendingUp, Clock, Users } from "lucide-react";
+import { Terminal, TrendingUp, Clock, Users } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
 
 interface BossIncomeEstimate {
@@ -34,7 +34,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
     <div className="rounded-xl border border-gray-800 p-3">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Crown className="h-5 w-5 text-amber-400" />
+        <Terminal className="h-5 w-5 text-amber-400" />
         <h3 className="text-sm font-semibold text-amber-400">
           Boss Income
         </h3>

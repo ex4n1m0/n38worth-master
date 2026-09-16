@@ -13,7 +13,7 @@ import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection
 import { AvatarUpload } from "@/components/AvatarUpload";
 import {
   Coins,
-  Crown,
+  Terminal,
   Users,
   Loader2,
   Search,
@@ -193,7 +193,7 @@ export default function DashboardPage() {
       <Card className="border-gray-800 bg-gray-900/60">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
-            <Crown className="h-5 w-5 text-yellow-400" />
+            <Terminal className="h-5 w-5 text-yellow-400" />
             Your Boss
             <span className="text-sm font-normal text-gray-400">
               ({player?.owners?.length ?? 0})
@@ -326,7 +326,7 @@ function BrowsePlayersSection({
             }
             style={navbarBtnStyle}
           >
-            <Crown className="h-3.5 w-3.5 mr-1" />
+            <Terminal className="h-3.5 w-3.5 mr-1" />
             Has Boss
           </Button>
         </div>

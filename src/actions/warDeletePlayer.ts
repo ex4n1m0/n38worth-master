@@ -97,7 +97,7 @@ export async function warDeletePlayer(targetUserId: number) {
     // Goddess) with the power toggled on.
     const powers = await getGoddessPowers(userId);
     if (!powers.hasWar) {
-      return { error: "Requires the Goddess of War power" } as const;
+      return { error: "Requires the NullPointer power" } as const;
     }
 
     // 1-minute cooldown between deletes.

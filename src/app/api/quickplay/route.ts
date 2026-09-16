@@ -44,7 +44,7 @@ const QUICKPLAY_QUERIES = [
 
 function generateRandomUsername(): string {
   const adjectives = [
-    "Swift", "Bold", "Lucky", "Chill", "Epic", "Witty", "Brave", "Noble",
+    "Swift", "Bold", "Lucky", "Chill", "Epic", "Witty", "Brave", "Prime",
     "Keen", "Sly", "Deft", "Wise", "Zany", "Vivid", "Rad", "Cool",
     "Sleek", "Prime", "Elite", "Mega", "Ultra", "Hyper", "Turbo", "Apex",
     "Neon", "Pixel", "Cyber", "Astro", "Nova", "Blaze", "Storm", "Frost",
@@ -53,8 +53,8 @@ function generateRandomUsername(): string {
   const nouns = [
     "Trader", "Wolf", "Shark", "Hawk", "Eagle", "Tiger", "Lion", "Bear",
     "Fox", "Ace", "King", "Boss", "Pro", "Star", "Ninja", "Pilot",
-    "Knight", "Chief", "Alpha", "Rider", "Hunter", "Ranger", "Phantom", "Viper",
-    "Falcon", "Raven", "Phoenix", "Dragon", "Titan", "Rebel", "Maverick", "Nomad",
+    "Kernel", "Chief", "Alpha", "Rider", "Hunter", "Ranger", "Phantom", "Viper",
+    "Falcon", "Raven", "Phoenix", "Glitch", "Titan", "Rebel", "Maverick", "Nomad",
   ];
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
   const noun = nouns[Math.floor(Math.random() * nouns.length)];

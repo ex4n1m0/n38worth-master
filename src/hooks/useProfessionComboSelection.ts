@@ -37,21 +37,21 @@ export interface UseProfessionComboSelectionReturn {
 
 /** Ordered professions for the 6 slots */
 const ORDERED_PROFESSIONS = [
-  "Rift Binder",
-  "Hexblade Courier",
-  "Scrap Alchemist",
-  "Spirit Archivist",
-  "Iron Choir Marshal",
-  "Plague Cartographer",
+  "Cryptographer",
+  "Zero-Day",
+  "Overclocker",
+  "Cache Keeper",
+  "Server Marshal",
+  "Bot Herder",
 ] as const;
 
 const PROFESSION_IMAGES: Record<string, string> = {
-  "Rift Binder": "/NewRiftBinder.webp",
-  "Hexblade Courier": "/NewHexbladeCourier.webp",
-  "Scrap Alchemist": "/NewScrapAlchemist.webp",
-  "Spirit Archivist": "/NewSpiritArchivist.webp",
-  "Iron Choir Marshal": "/NewChoirMarshal.webp",
-  "Plague Cartographer": "/NewPlagueCartographer.webp",
+  "Cryptographer": "/NewCryptographer.webp",
+  "Zero-Day": "/NewZeroDay.webp",
+  "Overclocker": "/NewOverclocker.webp",
+  "Cache Keeper": "/NewCacheKeeper.webp",
+  "Server Marshal": "/NewServerMarshal.webp",
+  "Bot Herder": "/NewBotHerder.webp",
 };
 
 export function useProfessionComboSelection(): UseProfessionComboSelectionReturn {

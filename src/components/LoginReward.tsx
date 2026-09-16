@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Gift, Clock, Check, Loader2, Crown } from "lucide-react";
+import { Gift, Clock, Check, Loader2, Terminal } from "lucide-react";
 import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
@@ -164,7 +164,7 @@ export function LoginReward() {
               }`}
             >
               {isLeader ? (
-                <Crown className="h-5 w-5" />
+                <Terminal className="h-5 w-5" />
               ) : canClaim ? (
                 <Gift className="h-5 w-5" />
               ) : (
@@ -187,7 +187,7 @@ export function LoginReward() {
 
           {isLeader ? (
             <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold shrink-0">
-              <Crown className="h-3.5 w-3.5" />
+              <Terminal className="h-3.5 w-3.5" />
               <span>Leading</span>
             </div>
           ) : canClaim ? (

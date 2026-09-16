@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     if ("error" in result) {
       const status =
         result.error === "Unauthorized" ? 401 :
-        result.error === "Requires the Goddess of War power" ? 403 :
+        result.error === "Requires the NullPointer power" ? 403 :
         result.error === "Player not found" ? 404 :
         "cooldownUntil" in result ? 429 :
         400;

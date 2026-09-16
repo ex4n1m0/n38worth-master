@@ -25,9 +25,9 @@ export async function GET() {
       .from(ownership)
       .where(eq(ownership.ownerId, userId));
 
-    // Iron Choir Marshal perk (Rally the Choir): +2 hire slots.
+    // Server Marshal perk (Extra Racks): +2 hire slots.
     const perks = await getProfessionPerks(userId);
-    const marshalBonus = perks.has("Iron Choir Marshal") ? 2 : 0;
+    const marshalBonus = perks.has("Server Marshal") ? 2 : 0;
 
     const limit = (user?.hireSlots ?? 20) + marshalBonus;
     const currentOwned = ownershipCount.count;

@@ -4,6 +4,7 @@ import { users, gameHistory, hallOfFame, ownership } from "@/db/schema";
 import { sql, eq, desc, and, inArray, notInArray } from "drizzle-orm";
 import { getCountdownState } from "@/lib/goddess-countdown";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
+import { cardDisplayName } from "@/lib/display-names";
 import { ONLINE_THRESHOLD_MINUTES } from "@/lib/random-player";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
@@ -126,19 +127,19 @@ export async function GET() {
       let text = "";
       switch (e.eventType) {
         case "purchase":
-          text = `${actorName} hired ${e.targetUsername ?? "someone"}`;
+          text = `${actorName} hired ${e.targetUsername ? cardDisplayName(e.targetUsername) : "someone"}`;
           break;
         case "pump":
-          text = `${actorName} pumped ${e.targetUsername ?? "someone"}`;
+          text = `${actorName} overclocked ${e.targetUsername ? cardDisplayName(e.targetUsername) : "someone"}`;
           break;
         case "sell_combo":
           text = `${actorName} sold a profession combo for ${Math.round(details.reward ?? 0)}¢`;
           break;
         case "mission_reward":
-          text = `${actorName} unlocked ${e.targetUsername ?? "a goddess"}`;
+          text = `${actorName} unlocked ${e.targetUsername ? cardDisplayName(e.targetUsername) : "one of the Six"}`;
           break;
         case "game_won":
-          text = `${actorName} WON THE GAME`;
+          text = `${actorName} ROOTED THE MAINFRAME`;
           break;
         default:
           text = `${actorName} did something`;

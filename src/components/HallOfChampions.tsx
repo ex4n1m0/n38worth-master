@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Crown, Calendar, Star } from "lucide-react";
+import { Terminal, Calendar, Star } from "lucide-react";
 
 interface HallOfFameEntry {
   id: number;
@@ -11,8 +11,9 @@ interface HallOfFameEntry {
 }
 
 /**
- * The Hall of Champions winners list (one entry per completed game).
- * Rendered at the top of the History page.
+ * The Root Wall winners list (one entry per completed game — each winner
+ * assembled all Six and rooted the mainframe). Rendered at the top of the
+ * History page.
  */
 export function HallOfChampions() {
   const { data: winners = [], isLoading } = useQuery<HallOfFameEntry[]>({
@@ -26,16 +27,16 @@ export function HallOfChampions() {
 
   return (
     <div className="space-y-6">
-      {/* Champions header */}
+      {/* Root Wall header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Crown className="h-6 w-6 text-yellow-400" />
-          Hall of Champions
+          <Terminal className="h-6 w-6 text-yellow-400" />
+          The Root Wall
         </h2>
         {winners.length > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-            {winners.length} game{winners.length !== 1 ? "s" : ""} won · Latest: {winners[0]?.username}
+            {winners.length} reboot{winners.length !== 1 ? "s" : ""} · Latest root: {winners[0]?.username}
           </span>
         )}
       </div>
@@ -52,10 +53,10 @@ export function HallOfChampions() {
         </div>
       ) : winners.length === 0 ? (
         <div className="text-center py-16 rounded-2xl border border-gray-800 bg-gray-900/40">
-          <Crown className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-400 mb-2">No Champions Yet</h3>
+          <Terminal className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-400 mb-2">No Root Holders Yet</h3>
           <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            The throne awaits. Be the first to collect all 6 Goddesses and etch your name in history!
+            The root shell awaits. Be the first to assemble all Six and etch your name into the simulation!
           </p>
         </div>
       ) : (
@@ -98,7 +99,7 @@ export function HallOfChampions() {
                     }`}
                   >
                     {isFirst ? (
-                      <Crown className="h-6 w-6" />
+                      <Terminal className="h-6 w-6" />
                     ) : (
                       <span className="text-lg font-bold">#{gameNumber}</span>
                     )}

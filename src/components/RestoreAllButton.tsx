@@ -94,7 +94,7 @@ export function RestoreAllButton({ eligibleCount }: RestoreAllButtonProps) {
               </span>
             </span>
             <br /><br />
-            Players you already own or that are hidden will be skipped.
+            Players you already own or that are cloaked will be skipped.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

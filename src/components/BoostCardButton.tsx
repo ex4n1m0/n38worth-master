@@ -56,7 +56,7 @@ export function BoostCardButton({
     },
     onSuccess: (data) => {
       toast.success(
-        `Sell Block on ${targetUsername}! +1h block (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
+        `Firewall on ${targetUsername}! +1h (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
           data.creditsToPlayer
         )}¢ gifted) 🛡️`
       );
@@ -101,14 +101,14 @@ export function BoostCardButton({
             : "border-gray-700 text-gray-500 cursor-not-allowed"
         } ${className ?? ""}`}
         style={canAfford ? navbarBtnStyle : undefined}
-        title={`Apply 1-hour Sell Block to ${targetUsername} for ${formatCompact(cost)}¢`}
+        title={`Apply a 1-hour firewall to ${targetUsername} for ${formatCompact(cost)}¢`}
       >
         {mutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
             <Shield className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Block</span>
+            <span className="text-[7px] leading-none mt-0.5">Firewall</span>
           </>
         )}
       </Button>
@@ -126,7 +126,7 @@ export function BoostCardButton({
           : "border-gray-700 text-gray-500 cursor-not-allowed"
       } ${className ?? ""}`}
       style={canAfford ? navbarBtnStyle : undefined}
-      title={`Apply 1-hour Sell Block to ${targetUsername} for ${formatCompact(cost)}¢`}
+      title={`Apply a 1-hour firewall to ${targetUsername} for ${formatCompact(cost)}¢`}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

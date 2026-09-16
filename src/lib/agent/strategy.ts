@@ -108,7 +108,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
   const credits = Number(agent?.credits ?? 0);
   const missionLevel = Number(agent?.missionLevel ?? 0);
   const perks = await getProfessionPerks(agentId);
-  const hireSlots = Number(agent?.hireSlots ?? 20) + (perks.has("Iron Choir Marshal") ? 2 : 0);
+  const hireSlots = Number(agent?.hireSlots ?? 20) + (perks.has("Server Marshal") ? 2 : 0);
   const nextMissionThreshold =
     missionLevel < MISSIONS.length ? MISSIONS[missionLevel].threshold : null;
 
@@ -334,7 +334,7 @@ export async function buildStrategy(agentId: number): Promise<AgentStrategy> {
     } else {
       const hoursRemaining = Math.ceil(remainingMs / (60 * 60 * 1000));
       breakFee = hoursRemaining * Number(r.value);
-      if (perks.has("Hexblade Courier")) breakFee = Math.round(breakFee * 0.8);
+      if (perks.has("Zero-Day")) breakFee = Math.round(breakFee * 0.8);
     }
 
     const totalCost = breakFee + Number(r.value);
