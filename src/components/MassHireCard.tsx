@@ -47,7 +47,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
     onSuccess: async (data) => {
       const count = data.hired?.length ?? 0;
       const spent = data.totalSpent ?? 0;
-      toast.success(`Botnet deployed! Hired ${count} player${count !== 1 ? "s" : ""} for ${formatCompact(spent)}¢`);
+      toast.success(`Botnet deployed! Hired ${count} avatar${count !== 1 ? "s" : ""} for ${formatCompact(spent)}¢`);
       refreshCooldowns();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -72,7 +72,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
       toast.error(
         unlockThreshold !== null
           ? `🔒 Botnet unlocks at ${formatCompact(unlockThreshold)} owned avatars (you have ${formatCompact(ownedCount)}).`
-          : "🔒 Mass Hire is still locked."
+          : "🔒 Botnet is still locked."
       );
       return;
     }

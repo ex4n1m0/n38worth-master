@@ -18,6 +18,7 @@ import {
   Gem,
   ShoppingCart,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -104,6 +105,9 @@ interface OwnershipListProps {
       isNpc: number;
       valueFloor: number;
     }, profession: string) => boolean;
+    /** Professions with no card selected yet — cards matching one get the
+     *  "fills a combo slot" highlight. */
+    emptySlotProfessions?: Set<string>;
   };
 }
 
@@ -311,7 +315,7 @@ function OwnershipCard({
         body: JSON.stringify({ ownershipId: item.ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Pump failed");
+      if (!res.ok) throw new Error(data.error || "Overclock failed");
       return data;
     },
     onMutate: async () => {
@@ -330,7 +334,7 @@ function OwnershipCard({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`🚀 OVERCLOCKED ${cardDisplayName(item.username)}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to player)`);
+      toast.success(`🚀 OVERCLOCKED ${cardDisplayName(item.username)}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to avatar)`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
@@ -372,6 +376,11 @@ function OwnershipCard({
   if (ownedMode) {
     const isComboSelected = comboSelection?.isSelected(item.id) ?? false;
     const hasProfession = !!item.profession;
+    const fillsEmptySlot =
+      !isComboSelected &&
+      !!item.profession &&
+      !!comboSelection?.emptySlotProfessions?.has(item.profession);
+    const comboFirewalled = !!pumpBlockCountdown;
 
     const handleComboToggle = (e: React.MouseEvent) => {
       if (!comboSelection || !hasProfession || !item.profession) return;
@@ -396,16 +405,30 @@ function OwnershipCard({
         className={`border-gray-800 bg-gray-900/60 transition-all duration-200 group relative ${
           isComboSelected
             ? "ring-2 ring-amber-400 border-amber-400/60 bg-amber-950/20"
-            : "hover:bg-gray-900/90 hover:border-gray-700"
+            : fillsEmptySlot
+              ? "ring-1 ring-t1-500/50 border-t1-500/40 hover:bg-gray-900/90"
+              : "hover:bg-gray-900/90 hover:border-gray-700"
         }`}
         onClick={comboSelection && hasProfession ? handleComboToggle : undefined}
         style={comboSelection && hasProfession ? { cursor: "pointer" } : undefined}
+        title={
+          comboSelection && hasProfession && comboFirewalled
+            ? "Firewalled — this avatar can't be combo-sold until the shield expires"
+            : fillsEmptySlot
+              ? "Completes an empty combo slot — click to add"
+              : undefined
+        }
       >
         {isComboSelected && (
           <div className="absolute top-2 right-2 z-20 w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center shadow-lg">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
+          </div>
+        )}
+        {fillsEmptySlot && (
+          <div className="absolute top-2 left-2 z-20 w-6 h-6 rounded-full bg-t1-600 flex items-center justify-center shadow-lg shadow-t1-500/40">
+            <Sparkles className="h-3.5 w-3.5 text-white" />
           </div>
         )}
         <CardContent className="p-2 flex flex-col items-center gap-1.5">

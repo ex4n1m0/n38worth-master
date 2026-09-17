@@ -188,7 +188,7 @@ const en: TranslationKeys = {
   friendsForSale: "Friends for Sale",
   portfolioRankings: "Portfolio Rankings",
   contactDeveloper: "Contact Developer",
-  noPlayersYet: "No players with avatars yet.",
+  noPlayersYet: "No avatars yet.",
   passwordsNoMatch: "Passwords do not match",
   registrationFailed: "Registration failed",
   somethingWrong: "Something went wrong. Please try again.",
@@ -200,28 +200,28 @@ const en: TranslationKeys = {
   settings: "Settings",
 
   // Global info bar
-  totalPlayers: "Players",
+  totalPlayers: "Avatars",
   totalEconomy: "Economy",
 
   // Leaderboard / Dashboard
   myProfileSection: "My Profile",
-  playerValue: "Player Value",
+  playerValue: "Avatar Value",
   credits: "Credits",
   portfolioValue: "Portfolio Value",
   selfInflate: "Self-Overclock",
   inflating: "Overclocking...",
-  browsePlayers: "Browse Players",
-  playersYouOwn: "Players You Own",
+  browsePlayers: "Browse Avatars",
+  playersYouOwn: "Avatars You Own",
   yourOwners: "Your Boss",
   search: "Search",
-  searchPlayers: "Search players...",
+  searchPlayers: "Search avatars...",
   sortBy: "Sort by",
   lastOnline: "Last Online",
   value: "Value",
   newest: "Newest",
   name: "Name",
   hasOwner: "Has Boss",
-  noPlayersFound: "No players found.",
+  noPlayersFound: "No avatars found.",
   previous: "Previous",
   next: "Next",
   page: "Page",
@@ -247,7 +247,7 @@ const en: TranslationKeys = {
   chat: "Chat",
   directMessage: "Direct Message",
   loading: "Loading...",
-  playerNotFound: "Player not found",
+  playerNotFound: "Avatar not found",
   inactiveWarning: "This account is inactive and may be deleted soon.",
   estimatedDeletion: "Estimated deletion",
 
@@ -258,15 +258,15 @@ const en: TranslationKeys = {
   cancel: "Cancel",
 
   // Discard dialog
-  discardConfirmTitle: "Discard Player?",
-  discardConfirmDesc: "Are you sure you want to discard this player? You will lose ownership.",
+  discardConfirmTitle: "Discard Avatar?",
+  discardConfirmDesc: "Are you sure you want to discard this avatar? You will lose ownership.",
   discardConfirmButton: "Yes, Discard",
 
   // Discard all dialog
   discardAll: "Discard All",
   discardingAll: "Discarding All...",
-  discardAllConfirmTitle: "Discard All Players?",
-  discardAllConfirmDesc: "Are you sure you want to discard all {count} owned players? You will receive approximately {value}¢ and all their values will reset. Players with active sell blocks will be skipped.",
+  discardAllConfirmTitle: "Discard All Avatars?",
+  discardAllConfirmDesc: "Are you sure you want to discard all {count} owned avatars? You will receive approximately {value}¢ and all their values will reset. Avatars with an active firewall will be skipped.",
   discardAllConfirmButton: "Yes, Discard All",
 
   // Settings
@@ -291,11 +291,11 @@ const en: TranslationKeys = {
   // New player guide
   guideTitle: "Welcome to n38worth! Here's how to get started:",
   guideStep1Title: "Start with Credits",
-  guideStep1Desc: "You begin with 100.00¢ to hire players.",
+  guideStep1Desc: "You begin with 100.00¢ to hire avatars.",
   guideStep2Title: "Hire Avatars",
   guideStep2Desc: "Hire others to add them to your portfolio.",
   guideStep3Title: "Earn Revenue",
-  guideStep3Desc: "When someone hires a player you own, you get a share of the hire price!",
+  guideStep3Desc: "When someone hires an avatar you own, you get a share of the hire price!",
   guideStep4Title: "Get Hired",
   guideStep4Desc: "When someone hires you, your value increases!",
   guideStep5Title: "Grow Your Value",

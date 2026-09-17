@@ -12,6 +12,7 @@ import {
 import { Loader2, Volume2, VolumeX, Terminal } from "lucide-react";
 import { MatrixRain } from "@/components/MatrixRain";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
+import { captureUtmCookies, sendVisitBeacon } from "@/lib/utm";
 
 /* ─── Types ─── */
 type Stats = { totalPlayers: number; totalEconomy: number; totalNpcs: number; totalHumans: number; onlineHumans: number };
@@ -85,6 +86,13 @@ export default function Home() {
   const [soundOn, setSoundOn] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const heroImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Capture UTM params + fire the anonymous visit beacon (self-hosted
+  // analytics — see src/lib/utm.ts). Session-deduped, never blocks render.
+  useEffect(() => {
+    captureUtmCookies();
+    sendVisitBeacon("/");
+  }, []);
 
   // Fetch landing data
   useEffect(() => {
@@ -370,7 +378,10 @@ export default function Home() {
               <p className="text-sm leading-relaxed text-gray-300 mt-3">
                 <span className="font-semibold text-amber-300">Combo:</span> sell one Avatar of each
                 profession together for <span className="font-bold text-amber-300">10× their combined
-                value</span>. The Avatars reset to floor and 6 fresh NPCs spawn — but you lose the
+                value</span> — overclock first, since the boosted value is what gets multiplied
+                (your first sale also pays +50 hire slots). Firewalled Avatars can&apos;t be sold,
+                and overclocking adds a firewall — so time the sale for when it expires. The
+                Avatars reset to floor and 6 fresh NPCs spawn — but you lose the
                 perks until you rebuild.
               </p>
             </section>
@@ -430,8 +441,9 @@ export default function Home() {
                 simulation reboots — your name joins the Root Wall forever.
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Six autonomous daemon processes also hunt Avatars around the clock — they buy,
-                overclock and poach, but never speak.
+                Only one of each exists. The Six are never minted again — they are
+                won through the mission ladder alone, and the powers above are why
+                rivals will try to breach them away from you.
               </p>
             </section>
 

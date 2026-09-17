@@ -184,6 +184,9 @@ export default function DashboardPage() {
             comboSelection={{
               isSelected: combo.isSelected,
               onToggle: combo.toggleSelection,
+              emptySlotProfessions: new Set(
+                combo.slots.filter((s) => !s.player).map((s) => s.profession)
+              ),
             }}
           />
         </CardContent>

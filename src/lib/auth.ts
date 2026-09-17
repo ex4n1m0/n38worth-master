@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
+import { recordSignup } from "@/lib/analytics";
 
 // Build providers list dynamically so that missing OAuth env vars
 // (e.g. FACEBOOK_CLIENT_ID) do NOT crash the entire auth system with a
@@ -177,6 +178,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           })
           .returning({ id: users.id, username: users.username });
 
+        // Attribute the OAuth signup to its acquisition channel (best-effort).
+        await recordSignup(newUser.username);
+
         user.id = newUser.id.toString();
         user.name = newUser.username;
         return true;
@@ -281,6 +285,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             isVerified: 1,
           })
           .returning({ id: users.id, username: users.username });
+
+        // Attribute the OAuth signup to its acquisition channel (best-effort).
+        await recordSignup(newUser.username);
 
         user.id = newUser.id.toString();
         user.name = newUser.username;

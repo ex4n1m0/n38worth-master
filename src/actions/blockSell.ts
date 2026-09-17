@@ -117,7 +117,7 @@ export async function blockSell(ownershipId: number) {
       hour12: true,
     });
 
-    const blockContent = `🔒 ${owner.username} blocked you from being sold! +1h, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
+    const blockContent = `🔒 ${owner.username} FIREWALLED you! +1h protection, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
 
     const [blockMessage] = await db
       .insert(messages)

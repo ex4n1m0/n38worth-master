@@ -9,6 +9,16 @@ import { createRandomPlayer } from "@/lib/random-player";
 /** Number of fresh NPCs spawned into the market as part of a combo sale. */
 const COMBO_NPC_SPAWN_COUNT = 6;
 
+/** One-time hire-slot bonus on a player's FIRST combo sale. */
+const FIRST_COMBO_SLOTS_BONUS = 50;
+
+/**
+ * Payouts above this are logged as errors so they surface in Vercel logs —
+ * the historical combo+overclock exploit minted 1e17 credits, so any sale in
+ * this range deserves a human look.
+ */
+const COMBO_PAYOUT_ALERT_THRESHOLD = 1_000_000_000;
+
 export interface SellComboResult {
   success?: boolean;
   error?: string;
@@ -17,6 +27,8 @@ export interface SellComboResult {
   resetPlayerCount?: number;
   resetPlayerNames?: string;
   createdNpcCount?: number;
+  /** 50 on the seller's first-ever combo sale, 0 otherwise. */
+  firstComboBonus?: number;
 }
 
 /**
@@ -95,7 +107,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
           (expiresAt.getTime() - Date.now()) / 60000
         );
         return {
-          error: `${target?.username ?? "A player"} is blocked and cannot be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
+          error: `${target?.username ?? "An avatar"} is firewalled and can't be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
         };
       }
     }
@@ -103,6 +115,23 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
     // 5. Calculate reward
     const sumValue = targetPlayers.reduce((sum, p) => sum + p.playerValue, 0);
     const reward = sumValue * 10;
+
+    if (reward > COMBO_PAYOUT_ALERT_THRESHOLD) {
+      console.error("[COMBO PAYOUT ALERT]", {
+        ownerId,
+        reward,
+        sumValue,
+      });
+    }
+
+    // 5b. First-sale check (before this sale's history row exists). A
+    // player's first-ever combo sale pays a hire-slot bonus, surfaced as a
+    // mission-style reward and announced in the client toast.
+    const [priorSaleRow] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(gameHistory)
+      .where(and(eq(gameHistory.eventType, "sell_combo"), eq(gameHistory.actorId, ownerId)));
+    const isFirstComboSale = Number(priorSaleRow?.count ?? 0) === 0;
 
     // 6. All 6 players (NPCs and humans) are treated the same way:
     //    - Ownership is removed (they become ownerless)
@@ -154,6 +183,9 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
       .update(users)
       .set({
         credits: sql`LEAST(credits + ${reward}, ${sql.raw(MAX_CREDITS_SQL)})`,
+        ...(isFirstComboSale
+          ? { hireSlots: sql`${users.hireSlots} + ${FIRST_COMBO_SLOTS_BONUS}` }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(users.id, ownerId));
@@ -225,6 +257,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
       resetPlayerCount: targetPlayers.length,
       resetPlayerNames: allNames,
       createdNpcCount,
+      firstComboBonus: isFirstComboSale ? FIRST_COMBO_SLOTS_BONUS : 0,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

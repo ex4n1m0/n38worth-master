@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
+import { captureUtmCookies } from "@/lib/utm";
 import {
   isCapacitor,
   signInWithGoogleInBrowser,
@@ -32,6 +33,12 @@ export default function RegisterPage() {
   const [demoLoading, setDemoLoading] = useState(false);
   const { t } = useLanguage();
   const { play } = useSound();
+
+  // Capture UTM params when players land directly on /register with a
+  // tagged link (the landing page also captures on its own mount).
+  useEffect(() => {
+    captureUtmCookies();
+  }, []);
 
   // Set up browser auth listener for Capacitor
   useEffect(() => {

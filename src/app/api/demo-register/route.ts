@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, gameSettings } from "@/db/schema";
 import { sql, eq } from "drizzle-orm";
+import { recordSignup } from "@/lib/analytics";
 
 // Persistent, ever-incrementing counter for demo player names. Stored in
 // game_settings so the number keeps climbing forever — even after old demo
@@ -92,6 +93,9 @@ export async function POST() {
         lastDividendAt: now,
       })
       .returning({ id: users.id, username: users.username });
+
+    // Attribute the guest signup to its acquisition channel (best-effort).
+    await recordSignup(newUser.username);
 
     return NextResponse.json(
       { id: newUser.id, username: newUser.username, password: "demo" },

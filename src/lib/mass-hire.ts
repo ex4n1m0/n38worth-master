@@ -22,6 +22,7 @@ import {
   getBonusCooldownEnd,
   setBonusCooldown,
 } from "@/lib/card-cooldowns";
+import { cardDisplayName } from "@/lib/display-names";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
@@ -151,7 +152,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
       const remaining = cooldownEnd - nowSec;
       const mins = Math.floor(remaining / 60);
       const secs = remaining % 60;
-      return { error: `Mass Hire is on cooldown (${mins}m ${secs}s remaining)` };
+      return { error: `${cardDisplayName(MASS_HIRE_USERNAME)} is on cooldown (${mins}m ${secs}s remaining)` };
     }
 
     // 1. Get buyer.
@@ -178,7 +179,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .where(eq(ownership.ownerId, buyerId));
       const currentOwned = Number(ownedCountRow?.count ?? 0);
       return {
-        error: `🔒 Mass Hire unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} avatars (Mission 1). You own ${currentOwned}.`,
+        error: `🔒 ${cardDisplayName(MASS_HIRE_USERNAME)} unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} avatars (Mission 1). You own ${currentOwned}.`,
       };
     }
 
@@ -448,6 +449,6 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     };
   } catch (error) {
     console.error("Mass Hire error:", error);
-    return { error: "Mass Hire failed. Please try again." };
+    return { error: `${cardDisplayName(MASS_HIRE_USERNAME)} failed. Please try again.` };
   }
 }

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { registerSchema } from "@/lib/validators";
+import { recordSignup } from "@/lib/analytics";
 
 export async function POST(req: Request) {
   try {
@@ -41,6 +42,9 @@ export async function POST(req: Request) {
       .insert(users)
       .values({ username, passwordHash, credits: startingCredits })
       .returning({ id: users.id, username: users.username });
+
+    // Attribute the signup to its acquisition channel (best-effort).
+    await recordSignup(newUser.username);
 
     return NextResponse.json(
       { id: newUser.id, username: newUser.username },

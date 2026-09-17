@@ -123,7 +123,7 @@ export function RevealCard() {
             style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Eye className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-            Reveal
+            Scan
           </h3>
         </div>
 
@@ -159,7 +159,7 @@ export function RevealCard() {
               ) : (
                 <>
                   <Eye className="h-3 w-3" />
-                  REVEAL {formatCompact(cost)}¢
+                  SCAN {formatCompact(cost)}¢
                 </>
               )}
             </div>

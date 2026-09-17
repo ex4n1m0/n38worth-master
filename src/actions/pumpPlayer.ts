@@ -161,7 +161,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
       hour12: true,
     });
 
-    const blockContent = `🚀 ${owner.username} PUMPED you! +10m block, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
+    const blockContent = `🚀 ${owner.username} OVERCLOCKED you! +10m firewall, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
 
     const [blockMessage] = await db
       .insert(messages)
@@ -213,6 +213,6 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
     };
   } catch (error) {
     console.error("Pump player error:", error);
-    return { error: "Pump failed. Please try again." };
+    return { error: "Overclock failed. Please try again." };
   }
 }

@@ -38,14 +38,14 @@ export async function letGoPlayer(otherId: number) {
       .where(eq(users.id, otherId));
 
     if (!targetPlayer) {
-      return { error: "Player not found" };
+      return { error: "Avatar not found" };
     }
 
     // Check if the ownership has an active sell block
     if (ownershipRecord.blockSellUntil && new Date(ownershipRecord.blockSellUntil) > new Date()) {
       const expiresAt = new Date(ownershipRecord.blockSellUntil);
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
-      return { error: `${targetPlayer.username} is blocked and cannot be let go for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
+      return { error: `${targetPlayer.username} is firewalled and can't be let go for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }
 
     const letGoCost = targetPlayer.playerValue;

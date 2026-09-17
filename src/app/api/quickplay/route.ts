@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { unsplashAvatarUrl } from "@/lib/hotlink-avatar";
+import { recordSignup } from "@/lib/analytics";
 
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY?.trim() || "";
 
@@ -156,6 +157,9 @@ export async function POST() {
         isVerified: 0,
       })
       .returning({ id: users.id, username: users.username });
+
+    // Attribute the quick-play signup to its acquisition channel (best-effort).
+    await recordSignup(newPlayer.username);
 
     console.log(`Quick play player "${username}" (id: ${newPlayer.id}) created successfully.`);
 
