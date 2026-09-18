@@ -18,6 +18,7 @@ import { pusher } from "@/lib/pusher-server";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { createRandomPlayer } from "@/lib/random-player";
+import { broadcastMarketRefresh } from "@/lib/market-broadcast";
 
 /** Fresh NPCs spawned into the market for each NPC destroyed by War power. */
 const WAR_DELETE_NPC_RESPAWN_COUNT = 2;
@@ -176,6 +177,9 @@ export async function warDeletePlayer(targetUserId: number) {
         console.error("Pusher error:", pusherError);
       }
 
+      // Bulk change — throttled client refetch.
+      await broadcastMarketRefresh("war-delete");
+
       return {
         success: true,
         kind: "human" as const,
@@ -274,6 +278,9 @@ export async function warDeletePlayer(targetUserId: number) {
     }
 
     const newCooldownUntil = await setWarDeleteCooldown(userId);
+
+    // Bulk change — throttled client refetch.
+    await broadcastMarketRefresh("war-delete");
 
     return {
       success: true,

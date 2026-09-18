@@ -5,6 +5,7 @@ import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { sql } from "drizzle-orm";
 import { createRandomPlayer } from "@/lib/random-player";
+import { broadcastMarketRefresh } from "@/lib/market-broadcast";
 
 /** Number of fresh NPCs spawned into the market as part of a combo sale. */
 const COMBO_NPC_SPAWN_COUNT = 6;
@@ -249,6 +250,9 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
     } catch (e) {
       console.error("Pusher trigger error (non-fatal):", e);
     }
+
+    // Bulk change — ask connected clients to refetch their market views.
+    await broadcastMarketRefresh("combo-sale");
 
     return {
       success: true,

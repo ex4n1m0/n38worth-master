@@ -6,6 +6,7 @@ import { users, ownership, messages } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
+import { broadcastMarketPatch } from "@/lib/market-broadcast";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of self value per hour
 const BLOCK_SELL_DURATION_MS = 1 * 60 * 60 * 1000; // 1 hour per press
@@ -105,6 +106,13 @@ export async function blockSell(ownershipId: number) {
         blockSellBy: owner.username,
       })
       .where(eq(ownership.id, ownershipId));
+
+    // Broadcast the value bump to everyone viewing the market.
+    await broadcastMarketPatch({
+      targetId: record.ownedId,
+      value: newValue,
+      reason: "firewall",
+    });
 
     // Send a DM chat message to the owned player about the block
     const now = new Date();

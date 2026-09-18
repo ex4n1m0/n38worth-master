@@ -6,6 +6,7 @@ import { users, ownership, transactions } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { broadcastMarketPatch } from "@/lib/market-broadcast";
 
 /**
  * Sell Out: A player pays their current value to release themselves from an owner.
@@ -95,6 +96,13 @@ export async function sellOut(ownershipId: number) {
           and(eq(ownership.ownerId, playerId), eq(ownership.ownedId, record.ownerId))
         );
     }
+
+    // Broadcast: the seller is ownerless again (value is preserved on sell-out).
+    await broadcastMarketPatch({
+      targetId: playerId,
+      ownerCount: 0,
+      reason: "sell-out",
+    });
 
     // 4. Log transaction
     await db.insert(transactions).values({

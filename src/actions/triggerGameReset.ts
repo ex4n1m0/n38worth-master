@@ -22,6 +22,7 @@ import {
   markCountdownProcessed,
 } from "@/lib/goddess-countdown";
 import { incrementGameWinCount } from "@/lib/game-wins";
+import { broadcastMarketRefresh } from "@/lib/market-broadcast";
 
 /**
  * Triggered when a player owns all 6 goddesses AND the countdown has expired.
@@ -284,6 +285,9 @@ export async function triggerGameReset(
     } catch (pusherError) {
       console.error("Pusher error during game reset broadcast:", pusherError);
     }
+
+    // The whole market changed — everyone refetches (throttled client-side).
+    await broadcastMarketRefresh("game-reset");
 
     return {
       success: true,

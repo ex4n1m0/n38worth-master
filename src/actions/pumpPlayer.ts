@@ -8,6 +8,7 @@ import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getProfessionPerks } from "@/lib/professionPerks";
+import { broadcastMarketPatch } from "@/lib/market-broadcast";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of player value per press
 const PUMP_BLOCK_DURATION_MS = 10 * 60 * 1000; // 10 minutes per press
@@ -136,6 +137,14 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
         blockSellBy: owner.username,
       })
       .where(eq(ownership.id, record.id));
+
+    // Broadcast the value/score change to everyone viewing the market.
+    await broadcastMarketPatch({
+      targetId: record.ownedId,
+      value: newValue,
+      ...(pumpedIsGoddess ? {} : { photoScoreDelta: 1 }),
+      reason: "overclock",
+    });
 
     // Log to game history so pumps show up in the History feed ("PUMPS" filter).
     try {

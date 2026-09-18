@@ -14,7 +14,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 30 * 1000, // 30 seconds
-            refetchOnWindowFocus: false,
+            // Refetch active queries when the user returns to the tab — one
+            // invocation per real focus event, and it's what makes the game
+            // feel live after coming back (rapid tab-flipping stays free
+            // thanks to staleTime).
+            refetchOnWindowFocus: true,
           },
         },
       })

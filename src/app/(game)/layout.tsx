@@ -5,6 +5,7 @@ import { redirect, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { usePlayerEvents } from "@/hooks/usePlayerEvents";
+import { useMarketEvents } from "@/hooks/useMarketEvents";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
@@ -33,6 +34,8 @@ export default function GameLayout({
   // POACHED effect still fires when Pusher is unconfigured or disconnected.
   usePlayerEvents(session?.user?.id);
   usePoachFallback(session?.user?.id);
+  // Public market channel: instant cross-player updates (see market-events.ts).
+  useMarketEvents();
 
   if (status === "loading") {
     return (

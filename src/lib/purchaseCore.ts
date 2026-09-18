@@ -9,6 +9,7 @@ import { checkAndAwardMissions, canPurchaseCard } from "@/lib/missions";
 import { getGoddessPowers } from "@/lib/goddess-powers";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { isAIPlayerUsername, isRemovedAgentUsername } from "@/lib/agent/roster";
+import { broadcastMarketPatch } from "@/lib/market-broadcast";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -490,6 +491,21 @@ export async function buyPlayerCore(
       targetId,
       targetUsername: target.username,
       details: JSON.stringify({ amount: cost, newValue, ...(currentOwner ? { previousOwnerId: currentOwner.ownerId } : {}) }),
+    });
+
+    // Broadcast the market patch so other players' views update instantly
+    // (public channel — no extra API invocations; see src/lib/market-events.ts).
+    await broadcastMarketPatch({
+      targetId,
+      username: target.username,
+      value: newValue,
+      ownerCount: 1,
+      ...(isGoddess ? {} : { photoScoreDelta: 1 }),
+      ownedDeltas: [
+        { id: buyerId, delta: 1 },
+        ...(currentOwner ? [{ id: currentOwner.ownerId, delta: -1 }] : []),
+      ],
+      reason: "purchase",
     });
 
     // 11. Track onboarding NPC purchase (optional - columns may not exist yet)

@@ -6,6 +6,7 @@ import { users, ownership, transactions, gameHistory } from "@/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL } from "@/lib/safeguards";
+import { broadcastMarketPatch } from "@/lib/market-broadcast";
 
 export async function sellPlayer(otherId: number) {
   const session = await auth();
@@ -83,6 +84,15 @@ export async function sellPlayer(otherId: number) {
     await db
       .delete(ownership)
       .where(eq(ownership.id, ownershipRecord.id));
+
+    // Broadcast: card is ownerless again, value reset to floor, seller owns one less.
+    await broadcastMarketPatch({
+      targetId: otherId,
+      value: targetPlayer.valueFloor ?? 1,
+      ownerCount: 0,
+      ownedDeltas: [{ id: sellerId, delta: -1 }],
+      reason: "discard",
+    });
 
     // 3b. If sold player is an NPC, set ownerlessAt timestamp
     if (targetPlayer.isNpc === 1) {

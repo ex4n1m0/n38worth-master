@@ -23,6 +23,7 @@ import {
   setBonusCooldown,
 } from "@/lib/card-cooldowns";
 import { cardDisplayName } from "@/lib/display-names";
+import { broadcastMarketRefresh } from "@/lib/market-broadcast";
 
 const PERM_BLOCK_MS = 24 * 60 * 60 * 1000;
 const MAX_PERM_BLOCKS = 10;
@@ -440,6 +441,9 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
 
     // 8. Check mission progress (mass hires count toward card count).
     await checkAndAwardMissions(buyerId);
+
+    // Bulk change (many cards hired at once) — throttled client refetch.
+    await broadcastMarketRefresh("botnet");
 
     return {
       success: true,

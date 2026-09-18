@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { ownership, users } from "@/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { sellPlayer } from "@/actions/discardPlayer";
+import { broadcastMarketRefresh } from "@/lib/market-broadcast";
 
 export async function discardAllPlayers() {
   const session = await auth();
@@ -69,6 +70,9 @@ export async function discardAllPlayers() {
         totalCreditsEarned += result.sellPrice ?? 0;
       }
     }
+
+    // Bulk change — throttled client refetch (per-card patches already went out).
+    await broadcastMarketRefresh("discard-all");
 
     return {
       success: true,
