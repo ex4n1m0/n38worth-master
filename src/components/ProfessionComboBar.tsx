@@ -74,9 +74,10 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     }),
   });
 
-  // Cheapest-first candidates per profession (any card works in a combo, so
-  // the cheapest is the sensible auto-fill default; players can swap manually
-  // via the card toggles).
+  // Most-expensive-first candidates per profession (any card works in a
+  // combo, and the 10× payout multiplies combined value, so the priciest
+  // card is the auto-fill default; players can swap manually via the card
+  // toggles).
   const candidatesByProfession = useMemo(() => {
     const map = new Map<string, OwnedCard[]>();
     for (const card of comboInventory?.cards ?? []) {
@@ -84,7 +85,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
       list.push(card);
       map.set(card.profession, list);
     }
-    for (const list of map.values()) list.sort((a, b) => a.playerValue - b.playerValue);
+    for (const list of map.values()) list.sort((a, b) => b.playerValue - a.playerValue);
     return map;
   }, [comboInventory?.cards]);
 
@@ -219,7 +220,10 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     sellMutation.mutate();
   };
 
-  // Fill every empty slot that has an owned candidate (cheapest first).
+  // Fill every empty slot that has an owned candidate (most expensive
+  // first — the biggest 10× payout). The button shows whenever ANY empty
+  // slot has a candidate, i.e. immediately — no need to tap a tile first.
+  // (When the combo is complete there are no empty slots, so it hides.)
   const canAutoFill = slots.some(
     (s) => !s.player && (candidatesByProfession.get(s.profession)?.length ?? 0) > 0
   );
@@ -227,15 +231,15 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     play("toggle");
     for (const slot of slots) {
       if (slot.player) continue;
-      const cheapest = candidatesByProfession.get(slot.profession)?.[0];
-      if (!cheapest) continue;
+      const priciest = candidatesByProfession.get(slot.profession)?.[0];
+      if (!priciest) continue;
       combo.toggleSelection(
         {
-          playerId: cheapest.id,
-          username: cheapest.username,
-          playerValue: cheapest.playerValue,
-          avatarUrl: cheapest.avatarUrl,
-          isNpc: cheapest.playerType === "card" ? 1 : 0,
+          playerId: priciest.id,
+          username: priciest.username,
+          playerValue: priciest.playerValue,
+          avatarUrl: priciest.avatarUrl,
+          isNpc: priciest.playerType === "card" ? 1 : 0,
           valueFloor: 1,
         },
         slot.profession
@@ -278,10 +282,10 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               small screens (3-up on phones). */}
           <div className="flex items-center gap-2 flex-wrap">
             {slots.map((slot) => {
-              const cheapest = candidatesByProfession.get(slot.profession)?.[0];
+              const priciest = candidatesByProfession.get(slot.profession)?.[0];
               const state: "selected" | "ready" | "missing" = slot.player
                 ? "selected"
-                : cheapest
+                : priciest
                   ? "ready"
                   : "missing";
               const slotFirewallUntil = slot.player
@@ -296,7 +300,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                         : ""
                     } — click to remove`
                   : state === "ready"
-                    ? `Fill with ${cheapest!.username} (${formatCompact(cheapest!.playerValue)}¢) — cheapest ${slot.profession} you own`
+                    ? `Fill with ${priciest!.username} (${formatCompact(priciest!.playerValue)}¢) — most expensive ${slot.profession} you own`
                     : `Own a ${slot.profession} card to fill this slot`;
               return (
                 <button
@@ -312,11 +316,11 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                       play("toggle");
                       combo.toggleSelection(
                         {
-                          playerId: cheapest!.id,
-                          username: cheapest!.username,
-                          playerValue: cheapest!.playerValue,
-                          avatarUrl: cheapest!.avatarUrl,
-                          isNpc: cheapest!.playerType === "card" ? 1 : 0,
+                          playerId: priciest!.id,
+                          username: priciest!.username,
+                          playerValue: priciest!.playerValue,
+                          avatarUrl: priciest!.avatarUrl,
+                          isNpc: priciest!.playerType === "card" ? 1 : 0,
                           valueFloor: 1,
                         },
                         slot.profession
@@ -371,48 +375,49 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
           </p>
 
           <div className="flex items-center gap-2">
-          {combo.selectedCount > 0 && !combo.isComplete && canAutoFill && (
-            <Button
-              onClick={handleAutoFill}
-              size="sm"
-              variant="outline"
-              className="h-auto rounded-lg border-t1-500/50 bg-t1-500/10 px-4 py-2 text-sm font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
-            >
-              <Wand2 className="mr-1.5 h-4 w-4" />
-              Auto-fill
-            </Button>
-          )}
+            {canAutoFill && (
+              <Button
+                onClick={handleAutoFill}
+                size="sm"
+                variant="outline"
+                title="Fill every empty slot with the most expensive card you own of that profession"
+                className="h-auto rounded-xl border-t1-500/50 bg-t1-500/10 px-8 py-4 text-2xl font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
+              >
+                <Wand2 className="mr-2 h-8 w-8" />
+                Auto-fill
+              </Button>
+            )}
 
-          {comboLocked && (
-            <Button
-              disabled
-              title={firewallTitle}
-              className="h-auto shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-950/40 px-5 py-2.5 font-bold text-sm sm:text-base tracking-wide text-cyan-300"
-            >
-              <Shield className="h-4 w-4 mr-1.5" />
-              Sell unlocks in {formatFirewallWait(firewallMsLeft)}
-            </Button>
-          )}
+            {comboLocked && (
+              <Button
+                disabled
+                title={firewallTitle}
+                className="h-auto shrink-0 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-10 py-5 font-bold text-2xl sm:text-3xl tracking-wide text-cyan-300"
+              >
+                <Shield className="h-8 w-8 mr-2" />
+                Sell unlocks in {formatFirewallWait(firewallMsLeft)}
+              </Button>
+            )}
 
-          {combo.isComplete && !comboLocked && (
-            <Button
-              onClick={handleSellClick}
-              disabled={sellMutation.isPending}
-              className="relative overflow-hidden shrink-0 px-5 py-2.5 h-auto rounded-lg font-bold text-base sm:text-lg tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                ...navbarBtnStyle,
-                background:
-                  "linear-gradient(135deg, rgba(245,158,11,0.4) 0%, rgba(180,83,9,0.4) 50%, rgba(245,158,11,0.4) 100%)",
-              }}
-            >
-              {sellMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
-              ) : (
-                <ShoppingCart className="h-4 w-4 mr-1.5" />
-              )}
-              Sell 10× = {formatCompact(combo.reward)}¢
-            </Button>
-          )}
+            {combo.isComplete && !comboLocked && (
+              <Button
+                onClick={handleSellClick}
+                disabled={sellMutation.isPending}
+                className="relative overflow-hidden shrink-0 px-10 py-5 h-auto rounded-xl font-bold text-3xl sm:text-4xl tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  ...navbarBtnStyle,
+                  background:
+                    "linear-gradient(135deg, rgba(245,158,11,0.4) 0%, rgba(180,83,9,0.4) 50%, rgba(245,158,11,0.4) 100%)",
+                }}
+              >
+                {sellMutation.isPending ? (
+                  <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                ) : (
+                  <ShoppingCart className="h-8 w-8 mr-2" />
+                )}
+                Sell 10× = {formatCompact(combo.reward)}¢
+              </Button>
+            )}
           </div>
         </div>
       </div>
