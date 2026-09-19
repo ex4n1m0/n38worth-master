@@ -12,6 +12,7 @@ import {
 import { Loader2, Volume2, VolumeX, Terminal } from "lucide-react";
 import { MatrixRain } from "@/components/MatrixRain";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
+import { buildStampLabel } from "@/lib/build-info";
 import { captureUtmCookies, sendVisitBeacon } from "@/lib/utm";
 
 /* ─── Types ─── */
@@ -240,6 +241,12 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {/* Build stamp — commit + deployment time of this build; bumps
+            automatically on every commit and deploy (next.config.ts). */}
+        <p className="absolute bottom-3 left-0 right-0 z-10 text-center text-[10px] uppercase tracking-[0.25em] text-gray-500 select-none">
+          {buildStampLabel()}
+        </p>
       </section>
 
       {/* About dialog */}

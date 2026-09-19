@@ -69,6 +69,11 @@ and Pusher events were NOT renamed. Keep these rules:
   (src/app/opengraph-image.tsx, twitter-image.tsx) serve `og.jpg`.
 
 ## Conventions
+- **Build stamp is automatic:** the landing page shows "build <sha> · deployed
+  <date>" via `src/lib/build-info.ts`; values are inlined at compile time by
+  `next.config.ts` (`env`, from VERCEL_GIT_COMMIT_SHA / local git + build
+  time). Never maintain a manual version number — it bumps on every commit
+  and deploy by itself.
 - **Mission completion awards (all 8 tracks):** +50 hire slots, the mission's
   reward card(s) (Mass Hire / goddesses), AND one free NPC auto-owned by the
   player (`awardMissionNpc` in `src/lib/missions.ts`). The NPC is claimed from
