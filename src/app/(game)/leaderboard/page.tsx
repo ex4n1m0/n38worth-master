@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,11 +34,13 @@ import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { LockedFeature } from "@/components/LockedFeature";
 import { CoachMark } from "@/components/CoachMark";
 import { FilterPill } from "@/components/PlayerFilters";
+import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { RevealCard } from "@/components/RevealCard";
 import { useMissionLevel } from "@/hooks/useMissionLevel";
+import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
@@ -66,6 +68,10 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Profession-combo selection lives at the page level so the selection
+  // survives browse pagination/filtering. Owned players in the browse grid can
+  // be tapped to add them to the combo.
+  const combo = useProfessionComboSelection();
   const missionLevel = useMissionLevel();
   const gameUnlocked = missionLevel >= 1;
 
@@ -132,16 +138,21 @@ export default function LeaderboardPage() {
           />
         )}
 
-        {/* Browse Players — sort/filter pills and the Avatar grid.
-            Profession filters show as a locked preview until mission 0.
-            (The profession-combo bar lives on the Home tab, above Global
-            Chat.) */}
+        {/* Browse Players — the profession combo bar sits inside, just below
+            the sort/filter buttons and above the Avatar grid.
+            Profession filters + combo bar show as locked previews until mission 0. */}
         <BrowsePlayersSection
           search={search}
           onSearch={handleSearch}
           debouncedSearch={debouncedSearch}
           gameUnlocked={gameUnlocked}
           ownedCount={ownedCount}
+          comboFilledProfessions={gameUnlocked ? combo.slots.filter((s) => s.player !== null).map((s) => s.profession) : []}
+          comboSelection={gameUnlocked ? {
+            isSelected: combo.isSelected,
+            onToggle: combo.toggleSelection,
+          } : undefined}
+          comboBar={gameUnlocked ? <ProfessionComboBar combo={combo} /> : undefined}
         />
       </div>
     </ErrorBoundary>
@@ -152,12 +163,31 @@ function BrowsePlayersSection({
   search,
   onSearch,
   debouncedSearch,
+  comboSelection,
+  comboBar,
+  comboFilledProfessions = [],
   gameUnlocked = true,
   ownedCount = 0,
 }: {
   search: string;
   onSearch: (value: string) => void;
   debouncedSearch: string;
+  comboSelection?: {
+    isSelected: (playerId: number) => boolean;
+    onToggle: (
+      player: {
+        playerId: number;
+        username: string;
+        playerValue: number;
+        avatarUrl: string | null;
+        isNpc: number;
+        valueFloor: number;
+      },
+      profession: string
+    ) => boolean;
+  };
+  comboBar?: ReactNode;
+  comboFilledProfessions?: string[];
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
@@ -285,6 +315,13 @@ function BrowsePlayersSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
+        {gameUnlocked ? comboBar : (
+          <LockedFeature
+            title="Profession combos — collect all 6, sell for 10x"
+            ownedCount={ownedCount}
+            threshold={UNLOCK_GAME_THRESHOLD}
+          />
+        )}
         {gameUnlocked ? (
         <div className="flex gap-2 flex-wrap items-center">
           {/* Profession sort: combo-friendly view — only Avatar players, ranked
@@ -306,6 +343,7 @@ function BrowsePlayersSection({
             Profession
           </Button>
           {PROFESSIONS.map((p) => {
+            const inCombo = comboFilledProfessions.includes(p.name);
             const perk = PROFESSION_PERKS[p.name];
             const perkActive = activePerks.has(p.name);
             return (
@@ -318,13 +356,16 @@ function BrowsePlayersSection({
               className={
                 profession === p.name
                   ? "h-auto rounded-lg sm:rounded-xl border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                  : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
+                  : inCombo
+                    ? "h-auto rounded-lg sm:rounded-xl border border-amber-400 bg-amber-500/25 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
+                    : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.imagePath} alt="" className="h-6 w-6 sm:h-9 sm:w-9 mr-1 sm:mr-2 object-contain" />
               {p.name.split(" ")[0]}
               {perkActive && <Zap className="h-4 w-4 sm:h-5 sm:w-5 ml-1 text-green-400 fill-green-400" />}
+              {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
             </Button>
             );
           })}
@@ -496,7 +537,7 @@ function BrowsePlayersSection({
                   key={player.id}
                   style={{ contentVisibility: "auto", containIntrinsicSize: "auto 420px" }}
                 >
-                  <PlayerCard {...player} leaderboardMode />
+                  <PlayerCard {...player} leaderboardMode comboSelection={comboSelection} />
                 </div>
               )
             )}
