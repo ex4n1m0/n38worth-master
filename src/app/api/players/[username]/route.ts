@@ -199,6 +199,10 @@ export async function GET(
         totalOnlineMinutes: users.totalOnlineMinutes,
         blockSellUntil: blockSellUntilExpr.as("block_sell_until"),
         blockSellBy: ownership.blockSellBy,
+        // THIS owner's row only — unlike blockSellUntil above (the max across
+        // ALL owners of the card), this is the expiry that actually gates the
+        // owner's own combo sale / discard.
+        ownBlockSellUntil: ownership.blockSellUntil,
         permBlockUntil: ownership.permBlockUntil,
         lastBoostAt: ownership.lastBoostAt,
         avatarRevealUntil: avatarRevealUntilExpr.as("avatar_reveal_until"),

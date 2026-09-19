@@ -6,6 +6,13 @@ import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PlayerCard } from "@/components/PlayerCard";
 import { PlayerCardSkeletonGrid } from "@/components/PlayerCardSkeleton";
 import { Input } from "@/components/ui/input";
@@ -20,6 +27,8 @@ import {
   Zap,
   ArrowUp,
   ArrowDown,
+  LayoutGrid,
+  ChevronDown,
 } from "lucide-react";
 import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { LockedFeature } from "@/components/LockedFeature";
@@ -43,6 +52,15 @@ const OWNER_FILTERS = [
   { key: "none", label: "Free" },
   { key: "owns", label: "Has Team" },
 ] as const;
+
+/** localStorage key for the browse-grid density choice (4 or 8 per row). */
+const GRID_COLS_KEY = "leaderboard-grid-cols";
+
+/** Desktop grid classes per density — phones stay 2-up either way. */
+const GRID_COLS_CLASS: Record<4 | 8, string> = {
+  4: "grid-cols-2 lg:grid-cols-4",
+  8: "grid-cols-2 md:grid-cols-4 lg:grid-cols-8",
+};
 
 export default function LeaderboardPage() {
   const { state: onboarding, loading: onboardingLoading } = useOnboarding();
@@ -177,12 +195,23 @@ function BrowsePlayersSection({
   // most recently online first.
   const [sort, setSort] = useState("last-online");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
+  const { play } = useSound();
+  // Browse-grid density: default 8 per row, user-selectable 4/8 (persisted).
+  const [cols, setCols] = useState<4 | 8>(8);
+  useEffect(() => {
+    const stored = localStorage.getItem(GRID_COLS_KEY);
+    if (stored === "4" || stored === "8") setCols(Number(stored) as 4 | 8);
+  }, []);
+  const handleColsChange = (value: 4 | 8) => {
+    play("toggle");
+    setCols(value);
+    localStorage.setItem(GRID_COLS_KEY, String(value));
+  };
   // Infinite scroll: Avatars load in batches as the user approaches the bottom
-  // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4 cols).
+  // (no pagination). Batch of 48 ≈ a few screens ahead on desktop (4–8 cols).
   const pageSize = 48;
   const [ownerFilter, setOwnerFilter] = useState<"" | "mine" | "other" | "none" | "owns">("");
   const [profession, setProfession] = useState("");
-  const { play } = useSound();
 
   const limit = pageSize;
 
@@ -380,6 +409,34 @@ function BrowsePlayersSection({
             Last Online
             {sort === "last-online" && (dir === "asc" ? <ArrowUp className="h-7 w-7" /> : <ArrowDown className="h-7 w-7" />)}
           </FilterPill>
+          {/* Grid density — how many Avatars per row on desktop. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                title="Avatars per row"
+                aria-label={`Avatars per row: ${cols}`}
+                className="ml-auto flex h-auto items-center gap-1.5 rounded-lg border border-gray-600 bg-transparent px-3 py-1.5 text-sm font-semibold text-gray-400 hover:text-white hover:border-gray-400 hover:bg-white/5"
+              >
+                <LayoutGrid className="h-4 w-4" />
+                {cols} / row
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
+              <DropdownMenuRadioGroup
+                value={String(cols)}
+                onValueChange={(v) => handleColsChange(Number(v) as 4 | 8)}
+              >
+                <DropdownMenuRadioItem value="4" className="text-gray-200 focus:bg-gray-800 focus:text-white">
+                  4 per row
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="8" className="text-gray-200 focus:bg-gray-800 focus:text-white">
+                  8 per row
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base text-gray-400 mr-1">Owner:</span>
@@ -436,7 +493,7 @@ function BrowsePlayersSection({
       ) : (
         <>
           {/* ── Details View ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className={`grid ${GRID_COLS_CLASS[cols]} gap-3`}>
             {/* Pinned Mass Hire card — always top-left on every page. */}
             {massHireData?.cardId && (
               <MassHireCard

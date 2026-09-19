@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { toast } from "@/lib/event-feed";
-import { Loader2, Sparkles, ShoppingCart, Wand2, Zap, RotateCcw, Users } from "lucide-react";
+import { Loader2, Shield, Sparkles, ShoppingCart, Wand2, Zap, RotateCcw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
+import { useNow } from "@/hooks/useNow";
 import { useSound } from "@/hooks/useSound";
 import { PROFESSION_PERKS } from "@/lib/professions";
 import { cardDisplayName } from "@/lib/display-names";
@@ -33,6 +34,9 @@ interface OwnedCard {
   avatarUrl: string | null;
   profession: string;
   playerType?: string | null;
+  /** Firewall (sell-block) expiry on the VIEWER's own ownership row — the
+   *  exact timestamp the server checks when gating the combo sale. */
+  ownBlockSellUntil?: string | null;
 }
 
 /**
@@ -45,6 +49,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   const { data: session } = useSession();
   const { ownedIds, isSuccess: ownershipLoaded } = useOwnedPlayerIds();
   const { play } = useSound();
+  const now = useNow();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Owned cards that carry a profession — combo candidates. Mirrors the
@@ -88,6 +93,42 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   // ownership data refreshes; idempotent, and only after a successful fetch so
   // the initial empty load doesn't wipe a valid selection.
   const { slots, removeUnowned } = combo;
+
+  // FIREWALL countdown: the server rejects the combo sale while ANY selected
+  // card's ownership row is firewalled, until the LONGEST of those expiries
+  // passes (comboCore step 4). Track the viewer's own expiries and show the
+  // wait on the sell button instead of letting players discover it by failing
+  // the sell. Ticks on the shared 1s clock; refreshes via the ["player"]
+  // invalidation the FIREWALL action already performs.
+  const firewallByPlayerId = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const card of comboInventory?.cards ?? []) {
+      const until = card.ownBlockSellUntil
+        ? new Date(card.ownBlockSellUntil).getTime()
+        : NaN;
+      if (Number.isFinite(until) && until > 0) map.set(card.id, until);
+    }
+    return map;
+  }, [comboInventory?.cards]);
+
+  const firewalledMembers = slots.flatMap((slot) => {
+    if (!slot.player) return [];
+    const until = firewallByPlayerId.get(slot.player.playerId) ?? 0;
+    return until > now
+      ? [{ profession: slot.profession, player: slot.player, until }]
+      : [];
+  });
+  const firewallExpiresAt = firewalledMembers.reduce((max, m) => Math.max(max, m.until), 0);
+  const firewallMsLeft = firewallExpiresAt - now;
+  const comboLocked = combo.isComplete && firewallMsLeft > 0;
+  const firewallTitle = firewalledMembers.length
+    ? `Firewalled (can't sell yet): ${firewalledMembers
+        .map(
+          (m) =>
+            `${cardDisplayName(m.player.username)} — ${formatFirewallWait(m.until - now)}`
+        )
+        .join(", ")}`
+    : undefined;
   useEffect(() => {
     if (!ownershipLoaded) return;
     const stolen = slots
@@ -111,12 +152,15 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     if (combo.isComplete && !wasComplete.current) {
       play("reward");
       toast.success("✦ Combo complete!", {
-        description: `All six professions assembled — sell for ${formatCompact(combo.reward)}¢.`,
+        description:
+          firewallMsLeft > 0
+            ? `All six professions assembled — firewalled, sell unlocks in ${formatFirewallWait(firewallMsLeft)}.`
+            : `All six professions assembled — sell for ${formatCompact(combo.reward)}¢.`,
         duration: 6000,
       });
     }
     wasComplete.current = combo.isComplete;
-  }, [combo.isComplete, combo.reward, play]);
+  }, [combo.isComplete, combo.reward, play, firewallMsLeft]);
 
   const sellMutation = useMutation({
     mutationFn: async () => {
@@ -239,9 +283,17 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 : cheapest
                   ? "ready"
                   : "missing";
+              const slotFirewallUntil = slot.player
+                ? firewallByPlayerId.get(slot.player.playerId) ?? 0
+                : 0;
+              const slotFirewalled = slotFirewallUntil > now;
               const title =
                 state === "selected"
-                  ? `${cardDisplayName(slot.player!.username)} · ${formatCompact(slot.player!.playerValue)}¢ — click to remove`
+                  ? `${cardDisplayName(slot.player!.username)} · ${formatCompact(slot.player!.playerValue)}¢${
+                      slotFirewalled
+                        ? ` — firewalled ${formatFirewallWait(slotFirewallUntil - now)}`
+                        : ""
+                    } — click to remove`
                   : state === "ready"
                     ? `Fill with ${cheapest!.username} (${formatCompact(cheapest!.playerValue)}¢) — cheapest ${slot.profession} you own`
                     : `Own a ${slot.profession} card to fill this slot`;
@@ -270,7 +322,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                       );
                     }
                   }}
-                  className={`relative h-9 w-9 sm:h-10 sm:w-10 flex-none overflow-hidden rounded-md border transition-all ${
+                  className={`relative h-12 w-12 sm:h-14 sm:w-14 flex-none overflow-hidden rounded-lg border transition-all ${
                     state === "selected"
                       ? "border-amber-400 ring-2 ring-amber-400/60"
                       : state === "ready"
@@ -287,13 +339,21 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                     }`}
                   />
                   {state === "ready" && (
-                    <span className="absolute bottom-0.5 right-0.5 h-2 w-2 rounded-full bg-t1-400 shadow-[0_0_6px_var(--t1-400)]" />
+                    <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-t1-400 shadow-[0_0_6px_var(--t1-400)]" />
                   )}
                   {state === "selected" && (
                     <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
                         ✓
                       </span>
+                    </span>
+                  )}
+                  {state === "selected" && slotFirewalled && (
+                    <span
+                      className="absolute bottom-0.5 left-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-600 text-white shadow"
+                      title="Firewalled — can't be combo-sold yet"
+                    >
+                      <Shield className="h-3 w-3" />
                     </span>
                   )}
                 </button>
@@ -314,18 +374,29 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               onClick={handleAutoFill}
               size="sm"
               variant="outline"
-              className="h-auto rounded-lg border-t1-500/50 bg-t1-500/10 px-3 py-1.5 text-xs font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
+              className="h-auto rounded-lg border-t1-500/50 bg-t1-500/10 px-4 py-2 text-sm font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
             >
-              <Wand2 className="mr-1 h-3.5 w-3.5" />
+              <Wand2 className="mr-1.5 h-4 w-4" />
               Auto-fill
             </Button>
           )}
 
-          {combo.isComplete && (
+          {comboLocked && (
+            <Button
+              disabled
+              title={firewallTitle}
+              className="h-auto shrink-0 rounded-lg border border-cyan-500/50 bg-cyan-950/40 px-5 py-2.5 font-bold text-sm sm:text-base tracking-wide text-cyan-300"
+            >
+              <Shield className="h-4 w-4 mr-1.5" />
+              Sell unlocks in {formatFirewallWait(firewallMsLeft)}
+            </Button>
+          )}
+
+          {combo.isComplete && !comboLocked && (
             <Button
               onClick={handleSellClick}
               disabled={sellMutation.isPending}
-              className="relative overflow-hidden shrink-0 px-4 py-1.5 h-auto rounded-lg font-bold text-sm sm:text-base tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative overflow-hidden shrink-0 px-5 py-2.5 h-auto rounded-lg font-bold text-base sm:text-lg tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 ...navbarBtnStyle,
                 background:
@@ -333,9 +404,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               }}
             >
               {sellMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
               ) : (
-                <ShoppingCart className="h-3.5 w-3.5 mr-1.5" />
+                <ShoppingCart className="h-4 w-4 mr-1.5" />
               )}
               Sell 10× = {formatCompact(combo.reward)}¢
             </Button>
@@ -427,4 +498,15 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
       </Dialog>
     </div>
   );
+}
+
+/** Live remaining-firewall wait. FIREWALL adds 1h per press (12h cap), so
+ *  format as "Hh MMm" over an hour, ticking "MM:SS" below it. */
+function formatFirewallWait(msLeft: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(msLeft / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, "0")}m`;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
