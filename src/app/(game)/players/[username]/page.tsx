@@ -61,6 +61,10 @@ import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
 import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
 import { EndGameContent } from "@/components/EndGameContent";
+import { ProfessionComboBar } from "@/components/ProfessionComboBar";
+import { LockedFeature } from "@/components/LockedFeature";
+import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
+import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
 // Code-split heavy components that are only needed on the profile page.
@@ -107,6 +111,9 @@ export default function PlayerProfilePage() {
   const currentUserId = session?.user?.id ? Number(session.user.id) : null;
   const missionLevel = useMissionLevel();
   const gameUnlocked = missionLevel >= 1;
+  // Profession-combo selection — the combo bar renders near the bottom of
+  // your own profile, just above Global Chat.
+  const combo = useProfessionComboSelection();
   const { ownedIds } = useOwnedPlayerIds();
   const TEAM_PER_PAGE = 18;
 
@@ -740,6 +747,17 @@ export default function PlayerProfilePage() {
           header at the top of this page. */}
       {isOwnProfile && !inOnboarding && (
         <>
+          {/* Profession combo bar — moved here from the Avatars tab, just
+              above Global Chat. Locked preview until mission 0 is complete. */}
+          {gameUnlocked ? (
+            <ProfessionComboBar combo={combo} />
+          ) : (
+            <LockedFeature
+              title="Profession combos — collect all 6, sell for 10×"
+              ownedCount={player.pagination?.total ?? player.ownedPlayers.length}
+              threshold={UNLOCK_GAME_THRESHOLD}
+            />
+          )}
           {gameUnlocked && <GlobalChatPage embedded />}
           {profileOwner && (
             <div className="space-y-3">
