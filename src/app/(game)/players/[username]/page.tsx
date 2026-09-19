@@ -61,6 +61,9 @@ import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
 import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
 import { EndGameContent } from "@/components/EndGameContent";
+import { EmpireRankStrip } from "@/components/EmpireRankStrip";
+import { LockedFeature } from "@/components/LockedFeature";
+import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
 // Code-split heavy components that are only needed on the profile page.
@@ -740,6 +743,19 @@ export default function PlayerProfilePage() {
           header at the top of this page. */}
       {isOwnProfile && !inOnboarding && (
         <>
+          {/* Ranks & live activity strip — Recently Online / Widest Grid /
+              Most Credits (moved from the Avatars tab; the Hall of Champions
+              lives at the top of the History page). Locked preview until
+              mission 0 is complete. */}
+          {gameUnlocked ? (
+            <EmpireRankStrip variant="transparent" showChampions={false} />
+          ) : (
+            <LockedFeature
+              title="Ranks & live activity"
+              ownedCount={player.pagination?.total ?? player.ownedPlayers.length}
+              threshold={UNLOCK_GAME_THRESHOLD}
+            />
+          )}
           {gameUnlocked && <GlobalChatPage embedded />}
           {profileOwner && (
             <div className="space-y-3">

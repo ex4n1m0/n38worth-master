@@ -35,7 +35,6 @@ import { LockedFeature } from "@/components/LockedFeature";
 import { CoachMark } from "@/components/CoachMark";
 import { FilterPill } from "@/components/PlayerFilters";
 import { ProfessionComboBar } from "@/components/ProfessionComboBar";
-import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { RevealCard } from "@/components/RevealCard";
@@ -123,20 +122,8 @@ export default function LeaderboardPage() {
         {/* Goddess Countdown Banner */}
         <GoddessCountdown />
 
-        {/* Live Activity and Ranks — Recently Online, Widest Grid, Most
-            Credits in a single row (the Hall of Champions lives at the top
-            of the History page).
-            Locked behind mission 0 (Own 20 Avatars) — shown as a preview with
-            the unlock condition until then. */}
-        {gameUnlocked ? (
-          <EmpireRankStrip variant="transparent" showChampions={false} />
-        ) : (
-          <LockedFeature
-            title="Ranks & live activity"
-            ownedCount={ownedCount}
-            threshold={UNLOCK_GAME_THRESHOLD}
-          />
-        )}
+        {/* (The ranks strip — Recently Online / Widest Grid / Most Credits —
+            lives on the Home tab, just above Global Chat.) */}
 
         {/* Browse Players — the profession combo bar sits inside, just below
             the sort/filter buttons and above the Avatar grid.
