@@ -254,7 +254,9 @@ export function Navbar() {
               </Link>
             </div>
 
-            {/* Wallet — compact chips (labels on xl+, tooltips always) */}
+            {/* Wallet — compact chips (labels on xl+, tooltips always). The
+                number spans truncate (…) as a hard safety net so a rich
+                player's balance can never slide under the slots chip. */}
             <div data-tutorial="wallet" className="flex items-center gap-2 sm:gap-3 min-w-0">
               <span className="flex items-center gap-1.5 min-w-0" title="My credits">
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
@@ -262,7 +264,7 @@ export function Navbar() {
                 {creditsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 ) : (
-                  <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
+                  <span className={`font-mono font-bold text-t1-400 tabular-nums truncate min-w-0 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
                     {formatCompact(credits ?? 0)}¢
                   </span>
                 )}
@@ -273,7 +275,7 @@ export function Navbar() {
                 {playerValueLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 ) : (
-                  <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
+                  <span className="font-mono font-bold text-t1-400 tabular-nums truncate min-w-0" style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
                     {formatCompact(playerValue ?? 0)}¢
                   </span>
                 )}

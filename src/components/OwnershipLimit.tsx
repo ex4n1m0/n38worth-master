@@ -42,12 +42,17 @@ export function OwnershipLimit() {
   if (!data) return null;
 
   return (
-    <div className="flex items-center gap-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 px-2.5 py-1">
-      <Users className="h-4 w-4 text-gray-400" />
-      <span className="text-sm font-bold">
+    <div
+      className="flex items-center gap-1 sm:gap-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 px-2 py-1 sm:px-2.5"
+      title={`${data.currentOwned} of ${data.limit} hire slots used`}
+    >
+      <Users className="h-4 w-4 text-gray-400 shrink-0" />
+      <span className="text-xs sm:text-sm font-bold tabular-nums whitespace-nowrap">
         <span className={data.canBuyMore ? "text-green-400" : "text-red-400"}>{data.currentOwned}</span>
-        <span className="text-gray-500">/</span>
-        <span className="text-gray-300">{data.limit}</span>
+        {/* The "/limit" half is hidden on phones — a wide credits balance and
+            the full ratio used to fight for the same 390px and overlap. */}
+        <span className="text-gray-500 hidden sm:inline">/</span>
+        <span className="text-gray-300 hidden sm:inline">{data.limit}</span>
       </span>
     </div>
   );
