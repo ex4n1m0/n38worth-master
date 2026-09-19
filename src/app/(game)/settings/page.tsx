@@ -7,22 +7,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, Loader2, UserCog, CheckCircle2, Camera, Volume2, VolumeX } from "lucide-react";
+import { Settings, Loader2, UserCog, CheckCircle2, Camera, Volume2, VolumeX, GraduationCap, RotateCcw } from "lucide-react";
 import { SquareAvatarUpload } from "@/components/SquareAvatarUpload";
 import { redirect } from "next/navigation";
 import { useState } from "react";
 import { toast } from "@/lib/event-feed";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound, useSoundSettings } from "@/hooks/useSound";
+import { useOnboarding } from "@/components/OnboardingContext";
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
   const [changingPassword, setChangingPassword] = useState(false);
   const [changingUsername, setChangingUsername] = useState(false);
+  const [resettingTutorial, setResettingTutorial] = useState(false);
   const { t } = useLanguage();
   const { play } = useSound();
   const { muted, volume, setMuted, setVolume } = useSoundSettings();
   const queryClient = useQueryClient();
+  const { state: onboarding, refresh: refreshOnboarding } = useOnboarding();
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me-settings"],
@@ -126,6 +129,32 @@ export default function SettingsPage() {
       toast.error("Something went wrong");
     } finally {
       setChangingUsername(false);
+    }
+  }
+
+  async function handleReplayTutorial() {
+    play("buttons");
+    setResettingTutorial(true);
+    try {
+      const res = await fetch("/api/tutorial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset" }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        play("error");
+        toast.error(data.error || "Failed to reset tutorial");
+      } else {
+        play("confirm");
+        toast.success("Tutorial will restart next time you log in");
+        await refreshOnboarding();
+      }
+    } catch {
+      play("error");
+      toast.error("Something went wrong");
+    } finally {
+      setResettingTutorial(false);
     }
   }
 
@@ -308,6 +337,43 @@ export default function SettingsPage() {
               className="w-full accent-emerald-500 disabled:opacity-40"
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Tutorial replay */}
+      <Card className="border-gray-800 bg-transparent">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <GraduationCap className="h-5 w-5 text-cyan-400" />
+            Tutorial
+          </CardTitle>
+          <CardDescription className="text-gray-400">
+            A step-by-step walkthrough of the simulation.{" "}
+            {onboarding.tutorialCompleted === 1
+              ? "You finished it."
+              : onboarding.tutorialCompleted === 2
+                ? "You dismissed it early."
+                : "It will appear next time you log in."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleReplayTutorial}
+            disabled={resettingTutorial || onboarding.tutorialCompleted === 0}
+            className="border-cyan-500/40 bg-cyan-950/30 text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40"
+          >
+            {resettingTutorial ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            Replay tutorial
+          </Button>
+          <p className="mt-2 text-xs text-gray-500">
+            Restarts the tutorial next time you log in.
+          </p>
         </CardContent>
       </Card>
 

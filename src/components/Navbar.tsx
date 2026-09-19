@@ -230,7 +230,7 @@ export function Navbar() {
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
 
             {/* Left: nav buttons (desktop) */}
-            <div className="hidden md:flex items-center gap-2 shrink-0">
+            <div data-tutorial="nav-tabs" className="hidden md:flex items-center gap-2 shrink-0">
               {allVisibleLinks.map((link) =>
                 renderNavButton(
                   link,
@@ -255,7 +255,7 @@ export function Navbar() {
             </div>
 
             {/* Wallet — compact chips (labels on xl+, tooltips always) */}
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div data-tutorial="wallet" className="flex items-center gap-2 sm:gap-3 min-w-0">
               <span className="flex items-center gap-1.5 min-w-0" title="My credits">
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
                 <span className="hidden xl:inline text-gray-500 text-xs">Credits</span>
@@ -302,8 +302,8 @@ export function Navbar() {
               </div>
               <div className="flex items-center justify-center">
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                <DropdownMenuTrigger asChild>
+                  <Button data-tutorial="account-menu" variant="ghost" className="relative h-8 w-8 rounded-full p-0">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || ""} />
                         <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-xs font-bold">
@@ -363,10 +363,10 @@ export function Navbar() {
       {/* ── Row 2: mission progress + event ticker ── */}
       <div className="border-b border-gray-800/60 bg-gray-950/85 backdrop-blur-xl">
         <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 py-1 flex flex-col md:flex-row md:items-center md:gap-4">
-          <div className="md:flex-1 min-w-0">
+          <div data-tutorial="mission-bar" className="md:flex-1 min-w-0">
             <MissionProgress />
           </div>
-          <div className="md:flex-1 min-w-0 md:border-l md:border-gray-800/60 md:pl-4">
+          <div data-tutorial="event-feed" className="md:flex-1 min-w-0 md:border-l md:border-gray-800/60 md:pl-4">
             <EventFeedBar inline />
           </div>
         </div>
@@ -379,7 +379,7 @@ export function Navbar() {
           Icons carry the affordance; labels stay tiny (10px) so the bar reads
           as a tab bar, not a second header. */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-gray-950/95 backdrop-blur-xl safe-area-bottom">
-        <div className="flex items-center justify-around gap-1 h-[60px] px-1">
+        <div data-tutorial="nav-tabs" className="flex items-center justify-around gap-1 h-[60px] px-1">
           {allVisibleLinks.map((link) => {
             const active = isActive(link.href);
             // Guide new accounts: highlight Cards amber before 20 cards, then

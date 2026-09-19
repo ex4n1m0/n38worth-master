@@ -65,6 +65,7 @@ export function ComboDockPill({ className = "" }: { className?: string }) {
   return (
     <button
       type="button"
+      data-tutorial="combo-pill"
       onClick={() => {
         play("open");
         setOpen(true);

@@ -13,6 +13,7 @@ import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep"
 import { ForcedProfessionAssignment } from "@/components/ForcedProfessionAssignment";
 import { NewPlayerGuide } from "@/components/NewPlayerGuide";
 import { PoachEffect } from "@/components/PoachEffect";
+import { TutorialOverlay } from "@/components/TutorialOverlay";
 // import { MultiAccountNotification } from "@/components/MultiAccountNotification";
 
 /** Scrolls every game page back to the top on client-side navigation. */
@@ -76,6 +77,8 @@ export default function GameLayout({
       <ForcedProfessionAssignment />
       {/* Persistent profession-combo dock (mobile tab-bar pill / desktop corner, C to toggle) */}
       <ComboDock />
+      {/* Step-by-step tutorial overlay (auto-opens once per login until finished/cancelled) */}
+      <TutorialOverlay />
       </div>
     </div>
   );

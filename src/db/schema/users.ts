@@ -42,6 +42,9 @@ export const users = pgTable(
     onboardingOwnedCount: integer("onboarding_owned_count").default(0).notNull(),
     onboardingComplete: integer("onboarding_complete").default(0).notNull(),
     onboardingStarted: integer("onboarding_started").default(0).notNull(),
+    // Step-by-step tutorial overlay: 0 = will show on next login, 1 = finished,
+    // 2 = cancelled early. Reset ("Replay tutorial") from the Settings page.
+    tutorialCompleted: integer("tutorial_completed").default(0).notNull(),
     // Onboarding pool - NPCs pre-generated with avatars, waiting to be assigned
     isOnboardingPool: integer("is_onboarding_pool").default(0).notNull(),
     // Tracks which player created this onboarding NPC (for visibility restriction)

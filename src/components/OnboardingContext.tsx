@@ -18,6 +18,8 @@ const defaultState: OnboardingState = {
   starterNpcOwnedCount: 0,
   onboardingComplete: false,
   professionSelected: false,
+  // "Done" until proven otherwise — never auto-open the tutorial on defaults.
+  tutorialCompleted: 1,
 };
 
 interface OnboardingContextValue {

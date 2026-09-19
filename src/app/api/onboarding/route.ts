@@ -17,6 +17,9 @@ export async function GET() {
     let avatarCompleted = false;
     let onboardingComplete = false;
     let profession: string | null = null;
+    // Default to "done" so a missing tutorial_completed column (migration not
+    // run yet) never surfaces the tutorial to anyone.
+    let tutorialCompleted = 1;
 
     try {
       const [user] = await db
@@ -28,6 +31,7 @@ export async function GET() {
           playerValue: users.playerValue,
           totalOnlineMinutes: users.totalOnlineMinutes,
           profession: users.profession,
+          tutorialCompleted: users.tutorialCompleted,
         })
         .from(users)
         .where(eq(users.id, userId));
@@ -36,6 +40,7 @@ export async function GET() {
         avatarCompleted = user.avatarCompleted === 1;
         onboardingComplete = user.onboardingComplete === 1;
         profession = user.profession ?? null;
+        tutorialCompleted = user.tutorialCompleted;
 
         console.log(`[onboarding] userId=${userId} avatarCompleted=${avatarCompleted} onboardingComplete=${onboardingComplete} onboardingStarted=${user.onboardingStarted} profession=${profession}`);
 
@@ -73,6 +78,7 @@ export async function GET() {
       onboardingComplete,
       profession,
       professionSelected: !!profession,
+      tutorialCompleted,
     };
 
     console.log(`[onboarding] RETURNING userId=${userId} state=${JSON.stringify(state)}`);
