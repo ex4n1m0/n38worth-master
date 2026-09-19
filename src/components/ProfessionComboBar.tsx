@@ -264,18 +264,19 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
 
   return (
     <div className="rounded-lg border border-gray-700 bg-transparent px-3 py-2">
-      <div className="flex flex-col lg:flex-row lg:items-center gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="flex items-center gap-1.5 shrink-0 text-xs font-bold text-white uppercase tracking-wide">
-            <Sparkles className="h-3.5 w-3.5" />
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="flex items-center gap-1.5 shrink-0 text-sm font-bold text-white uppercase tracking-wide">
+            <Sparkles className="h-4 w-4" />
             Combo
             <span className={`font-bold ${combo.isComplete ? "text-amber-300" : "text-white"}`}>
               {combo.selectedCount}/6
             </span>
           </span>
 
-          {/* The six profession slots — the live puzzle tracker */}
-          <div className="flex items-center gap-1.5">
+          {/* The six profession slots — the live puzzle tracker. Tiles wrap on
+              small screens (3-up on phones). */}
+          <div className="flex items-center gap-2 flex-wrap">
             {slots.map((slot) => {
               const cheapest = candidatesByProfession.get(slot.profession)?.[0];
               const state: "selected" | "ready" | "missing" = slot.player
@@ -322,7 +323,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                       );
                     }
                   }}
-                  className={`relative h-12 w-12 sm:h-14 sm:w-14 flex-none overflow-hidden rounded-lg border transition-all ${
+                  className={`relative h-24 w-24 sm:h-28 sm:w-28 flex-none overflow-hidden rounded-xl border transition-all ${
                     state === "selected"
                       ? "border-amber-400 ring-2 ring-amber-400/60"
                       : state === "ready"
@@ -339,21 +340,21 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                     }`}
                   />
                   {state === "ready" && (
-                    <span className="absolute bottom-0.5 right-0.5 h-2.5 w-2.5 rounded-full bg-t1-400 shadow-[0_0_6px_var(--t1-400)]" />
+                    <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full bg-t1-400 shadow-[0_0_8px_var(--t1-400)]" />
                   )}
                   {state === "selected" && (
                     <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm font-bold text-white">
                         ✓
                       </span>
                     </span>
                   )}
                   {state === "selected" && slotFirewalled && (
                     <span
-                      className="absolute bottom-0.5 left-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-cyan-600 text-white shadow"
+                      className="absolute bottom-1 left-1 flex h-6 w-6 items-center justify-center rounded-full bg-cyan-600 text-white shadow"
                       title="Firewalled — can't be combo-sold yet"
                     >
-                      <Shield className="h-3 w-3" />
+                      <Shield className="h-4 w-4" />
                     </span>
                   )}
                 </button>
@@ -362,13 +363,14 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
           </div>
         </div>
 
-        <p className="text-xs font-medium leading-tight text-white flex-1 min-w-0 lg:min-w-[220px]">
-          One player per profession — sell all 6 for{" "}
-          <span className="font-bold text-white">10× combined value</span> (every ¢ you
-          overclock into them counts 10×).
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <p className="text-xs font-medium leading-tight text-white flex-1 min-w-0 sm:min-w-[220px]">
+            One player per profession — sell all 6 for{" "}
+            <span className="font-bold text-white">10× combined value</span> (every ¢ you
+            overclock into them counts 10×).
+          </p>
 
-        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
           {combo.selectedCount > 0 && !combo.isComplete && canAutoFill && (
             <Button
               onClick={handleAutoFill}
@@ -411,6 +413,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               Sell 10× = {formatCompact(combo.reward)}¢
             </Button>
           )}
+          </div>
         </div>
       </div>
 
