@@ -43,6 +43,32 @@ const SOUND_GAIN: Partial<Record<SoundType, number>> = {
   win: 1.0,
 };
 
+/**
+ * Haptic patterns (ms) matching the semantic sounds — the same events that
+ * make sound also buzz on supporting devices (Android; iOS Safari ignores
+ * navigator.vibrate, which is fine). Tied to the mute switch: muted = no
+ * sound AND no buzz.
+ */
+const HAPTIC_PATTERNS: Partial<Record<SoundType, number | number[]>> = {
+  click: 10,
+  toggle: 10,
+  changepage: 10,
+  open: 10,
+  close: 10,
+  confirm: 15,
+  chat: 10,
+  message: 15,
+  coin: 10,
+  hire: 30,
+  sell: 30,
+  reward: [15, 40, 15],
+  reveal: [10, 20],
+  poach: 50,
+  bought: [20, 20],
+  error: 40,
+  win: [10, 30, 10, 30, 10],
+};
+
 interface SoundSettings {
   muted: boolean;
   volume: number; // 0..1 master volume
@@ -73,6 +99,16 @@ export function playSound(sound: SoundType) {
   if (muted || volume <= 0) return;
 
   const name = ALIASES[sound] ?? sound;
+
+  // Haptic twin of the sound (no-op where unsupported).
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(HAPTIC_PATTERNS[sound] ?? HAPTIC_PATTERNS[name] ?? 0);
+    } catch {
+      // vibrate() can throw on some embeds — never let it break the sound.
+    }
+  }
+
   const src = `/sounds/${name}.mp3`;
 
   let base = audioCache.get(src);

@@ -510,7 +510,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
 
 /** Live remaining-firewall wait. FIREWALL adds 1h per press (12h cap), so
  *  format as "Hh MMm" over an hour, ticking "MM:SS" below it. */
-function formatFirewallWait(msLeft: number): string {
+export function formatFirewallWait(msLeft: number): string {
   const totalSeconds = Math.max(0, Math.ceil(msLeft / 1000));
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { redirect, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
+import { ComboDock } from "@/components/ComboDock";
 import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { useMarketEvents } from "@/hooks/useMarketEvents";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
@@ -73,6 +74,8 @@ export default function GameLayout({
       <OnboardingProfessionStep />
       {/* Forced profession picker — pops up instantly when a GET hires an NPC with no profession */}
       <ForcedProfessionAssignment />
+      {/* Persistent profession-combo dock (mobile tab-bar pill / desktop corner, C to toggle) */}
+      <ComboDock />
       </div>
     </div>
   );

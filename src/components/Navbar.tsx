@@ -11,6 +11,7 @@ import { Coins, Loader2, TrendingUp } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
 import { OwnershipLimit } from "./OwnershipLimit";
 import { ChatNotificationBell } from "./ChatNotificationBell";
+import { ComboDockPill } from "./ComboDock";
 
 import { GlobalInfoBar } from "./GlobalInfoBar";
 import { MissionProgress } from "./MissionProgress";
@@ -218,64 +219,21 @@ export function Navbar() {
   return (
     <>
 
-      {/* Sticky header block — credits bar + nav + mission bar stick together
-          as one unit so nothing slides under the navbar while scrolling. */}
+      {/* Sticky header — TWO rows: (1) nav/logo + wallet + global stats +
+          controls, (2) mission progress + event ticker. (The old layout
+          stacked 4 rows and ate ~180px of viewport.) */}
       <div className="sticky top-0 z-50">
 
-      {/* Credits + Player Value Bar — topmost row, above the navbar */}
+      {/* ── Row 1: nav (desktop) / logo (mobile) + wallet + controls ── */}
       <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
-        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 py-1.5">
-            <div className="flex items-center gap-2">
-              <Coins className="h-4 w-4 text-t1-400 shrink-0" />
-              <span className="text-gray-500 text-xs sm:text-sm">My Credits</span>
-              {creditsLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
-              ) : (
-                <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatCompact(credits ?? 0)}¢
-                </span>
-              )}
-            </div>
-            <div className="hidden sm:block w-px h-4 bg-gray-700" />
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-t1-400 shrink-0" />
-              <span className="text-gray-500 text-xs sm:text-sm">My Value</span>
-              {playerValueLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
-              ) : (
-                <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.5vw, 1.15rem)" }}>
-                  {formatCompact(playerValue ?? 0)}¢
-                </span>
-              )}
-            </div>
+        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
 
-            {/* Global game stats — occupies the empty right side of this bar. */}
-            <GlobalInfoBar />
-
-          </div>
-          <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
-            Earn credits when other players hire your cards, plus portfolio
-            rewards every 30 minutes. Your value grows every time you get hired.
-          </CoachMark>
-        </div>
-      </div>
-
-      {/* Top Navbar — two rows of nav buttons + right-side controls spanning full height */}
-      <nav className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-xl">
-        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center">
-
-            {/* Left: single row of nav buttons */}
-            <div className="hidden md:flex items-center flex-1 py-1 gap-2">
+            {/* Left: nav buttons (desktop) */}
+            <div className="hidden md:flex items-center gap-2 shrink-0">
               {allVisibleLinks.map((link) =>
                 renderNavButton(
                   link,
-                  // Guide new accounts to the Cards (market) button: highlight
-                  // it amber once onboarding is done but before they've bought
-                  // enough cards to unlock the rest of the game (mission 0).
-                  // Once they reach 20 cards, switch the highlight to Home so
-                  // they go collect their daily login reward.
                   link.href === "/leaderboard"
                     ? onboarding.onboardingComplete && !gameUnlocked
                     : link.href === "/my-profile"
@@ -286,7 +244,7 @@ export function Navbar() {
             </div>
 
             {/* Mobile: just the logo */}
-            <div className="flex md:hidden items-center flex-1 py-1.5">
+            <div className="flex md:hidden items-center shrink-0">
               <Link
                 href="/leaderboard"
                 onClick={() => sessionStorage.removeItem("auto-navigate-cards")}
@@ -296,99 +254,130 @@ export function Navbar() {
               </Link>
             </div>
 
-            {/* Right side — left sub-col (slots + bell/theme) | right sub-col (avatar centered) */}
-            <div className="flex items-center pl-4 py-1 border-l border-gray-800/60 ml-4 gap-3">
-              {/* Left sub-column: slots+bell top, buy-slots full bottom */}
-              <div className="flex flex-col gap-1 h-full">
-                {/* Top: slots counter + bell side by side */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <OwnershipLimit />
-                  <ChatNotificationBell className="shrink-0" />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => { toggleMuted(); if (muted) play("click"); }}
-                    className="shrink-0 h-8 w-8 text-gray-400 hover:text-white"
-                    title={muted ? "Unmute sounds" : "Mute sounds"}
-                  >
-                    {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
+            {/* Wallet — compact chips (labels on xl+, tooltips always) */}
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <span className="flex items-center gap-1.5 min-w-0" title="My credits">
+                <Coins className="h-4 w-4 text-t1-400 shrink-0" />
+                <span className="hidden xl:inline text-gray-500 text-xs">Credits</span>
+                {creditsLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
+                ) : (
+                  <span className={`font-mono font-bold text-t1-400 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
+                    {formatCompact(credits ?? 0)}¢
+                  </span>
+                )}
+              </span>
+              <span className="hidden sm:flex items-center gap-1.5 min-w-0" title="My value">
+                <TrendingUp className="h-4 w-4 text-t1-400 shrink-0" />
+                <span className="hidden xl:inline text-gray-500 text-xs">Value</span>
+                {playerValueLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
+                ) : (
+                  <span className="font-mono font-bold text-t1-400" style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
+                    {formatCompact(playerValue ?? 0)}¢
+                  </span>
+                )}
+              </span>
+            </div>
 
-              {/* Right sub-column: avatar centered */}
+            {/* Global game stats — desktop space permitting */}
+            <div className="hidden lg:flex items-center ml-auto min-w-0">
+              <GlobalInfoBar />
+            </div>
+
+            {/* Right controls — slots + bell + mute + avatar menu */}
+            <div className="flex items-center pl-2 sm:pl-3 py-1 border-l border-gray-800/60 ml-auto lg:ml-0 gap-2 sm:gap-3 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
+                <OwnershipLimit />
+                <ChatNotificationBell className="shrink-0" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => { toggleMuted(); if (muted) play("click"); }}
+                  className="shrink-0 h-8 w-8 text-gray-400 hover:text-white"
+                  title={muted ? "Unmute sounds" : "Mute sounds"}
+                >
+                  {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                </Button>
+              </div>
               <div className="flex items-center justify-center">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || ""} />
-                      <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-xs font-bold">
-                        {session.user?.name?.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 bg-gray-900 border-gray-800">
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium text-white">{session.user?.name}</p>
-                  </div>
-                  <DropdownMenuSeparator className="bg-gray-800" />
-                  <DropdownMenuItem asChild>
-                    <Link href={`/players/${session.user?.name}`} onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
-                      <Users className="h-4 w-4 mr-2" />
-                      {t.myProfile}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
-                      <Settings className="h-4 w-4 mr-2" />
-                      {t.settings}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/history" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
-                      <History className="h-4 w-4 mr-2" />
-                      History
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-gray-800" />
-                  <DropdownMenuItem
-                    onClick={() => {
-                      sessionStorage.removeItem("auto-navigate-cards");
-                      play("buttons");
-                      signOut({ callbackUrl: "/" });
-                    }}
-                    className="text-red-400 cursor-pointer"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {t.signOut}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={session.user?.image || undefined} alt={session.user?.name || ""} />
+                        <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-xs font-bold">
+                          {session.user?.name?.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 bg-gray-900 border-gray-800">
+                    <div className="px-2 py-1.5">
+                      <p className="text-sm font-medium text-white">{session.user?.name}</p>
+                    </div>
+                    <DropdownMenuSeparator className="bg-gray-800" />
+                    <DropdownMenuItem asChild>
+                      <Link href={`/players/${session.user?.name}`} onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
+                        <Users className="h-4 w-4 mr-2" />
+                        {t.myProfile}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
+                        <Settings className="h-4 w-4 mr-2" />
+                        {t.settings}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/history" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
+                        <History className="h-4 w-4 mr-2" />
+                        History
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-gray-800" />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        sessionStorage.removeItem("auto-navigate-cards");
+                        play("buttons");
+                        signOut({ callbackUrl: "/" });
+                      }}
+                      className="text-red-400 cursor-pointer"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      {t.signOut}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
           </div>
-        </div>
-      </nav>
-
-      {/* Mission Progress Bar — below nav, above credits (inside sticky block) */}
-      <div className="border-b border-gray-800/60 bg-gray-950/90 backdrop-blur-xl">
-        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 py-1.5">
-          <MissionProgress />
+          <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
+            Earn credits when other players hire your cards, plus portfolio
+            rewards every 30 minutes. Your value grows every time you get hired.
+          </CoachMark>
         </div>
       </div>
 
-      {/* Game event feed — own row below the mission bar (inside sticky
-          block). Latest event always visible inline; expands to history. */}
-      <EventFeedBar />
+      {/* ── Row 2: mission progress + event ticker ── */}
+      <div className="border-b border-gray-800/60 bg-gray-950/85 backdrop-blur-xl">
+        <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8 py-1 flex flex-col md:flex-row md:items-center md:gap-4">
+          <div className="md:flex-1 min-w-0">
+            <MissionProgress />
+          </div>
+          <div className="md:flex-1 min-w-0 md:border-l md:border-gray-800/60 md:pl-4">
+            <EventFeedBar inline />
+          </div>
+        </div>
+      </div>
 
       </div>{/* end sticky header block */}
 
-      {/* Mobile Bottom Tab Bar */}
+      {/* Mobile Bottom Tab Bar — Home | COMBO pill | Avatars once the game is
+          unlocked (the pill is the collapsed ComboDock, in thumb reach). */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-gray-950/95 backdrop-blur-xl safe-area-bottom">
-        <div className="flex items-center justify-around h-16 px-1">
+        <div className="flex items-center justify-around gap-1 h-16 px-1">
           {allVisibleLinks.map((link) => {
             const active = isActive(link.href);
             // Guide new accounts: highlight Cards amber before 20 cards, then
@@ -401,29 +390,34 @@ export function Navbar() {
                   ? highlightHome
                   : false;
             return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => play("changepage")}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 rounded-lg transition-all ${
-                  active
-                    ? "text-cyan-400 brightness-125"
-                    : highlight
-                      ? "text-amber-300 brightness-125 animate-pulse"
-                      : "text-gray-500 brightness-50 active:text-gray-300"
-                }`}
-              >
-                <link.icon className={`h-4 w-4 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`} />
-                <span className={`text-[27px] font-bold leading-tight ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`}>
-                  {link.label}
-                </span>
-                {active && (
-                  <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+              <React.Fragment key={link.href}>
+                <Link
+                  href={link.href}
+                  onClick={() => play("changepage")}
+                  className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 rounded-lg transition-all ${
+                    active
+                      ? "text-cyan-400 brightness-125"
+                      : highlight
+                        ? "text-amber-300 brightness-125 animate-pulse"
+                        : "text-gray-500 brightness-50 active:text-gray-300"
+                  }`}
+                >
+                  <link.icon className={`h-4 w-4 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`} />
+                  <span className={`text-[27px] font-bold leading-tight ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`}>
+                    {link.label}
+                  </span>
+                  {active && (
+                    <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+                  )}
+                  {!active && highlight && (
+                    <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+                  )}
+                </Link>
+                {/* Combo pill between Home and Avatars (center thumb slot). */}
+                {link.href === "/my-profile" && onboarding.onboardingComplete && gameUnlocked && (
+                  <ComboDockPill className="flex-none min-w-[104px]" />
                 )}
-                {!active && highlight && (
-                  <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
-                )}
-              </Link>
+              </React.Fragment>
             );
           })}
 

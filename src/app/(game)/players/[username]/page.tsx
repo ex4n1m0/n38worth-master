@@ -64,6 +64,9 @@ import { EndGameContent } from "@/components/EndGameContent";
 import { EmpireRankStrip } from "@/components/EmpireRankStrip";
 import { LockedFeature } from "@/components/LockedFeature";
 import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
+import { useProfessionComboSelection, useComboFirewallMsLeft } from "@/hooks/useProfessionComboSelection";
+import { useComboDock } from "@/components/ComboDock";
+import { formatFirewallWait } from "@/components/ProfessionComboBar";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
 
 // Code-split heavy components that are only needed on the profile page.
@@ -110,6 +113,10 @@ export default function PlayerProfilePage() {
   const currentUserId = session?.user?.id ? Number(session.user.id) : null;
   const missionLevel = useMissionLevel();
   const gameUnlocked = missionLevel >= 1;
+  // Global combo (persistent ComboDock) + its firewall countdown — powers
+  // the command band's readiness widget.
+  const combo = useProfessionComboSelection();
+  const comboFirewallMsLeft = useComboFirewallMsLeft();
   const { ownedIds } = useOwnedPlayerIds();
   const TEAM_PER_PAGE = 18;
 
@@ -601,6 +608,51 @@ export default function PlayerProfilePage() {
         )}
       </Card>
 
+      {/* ── Command band ── answers "what should I do right now?": combo
+          readiness (opens the global combo dock) + all payout countdowns in
+          one clock cluster. */}
+      {isOwnProfile && !inOnboarding && gameUnlocked && (
+        <div className="rounded-2xl border border-gray-800 bg-gray-950/40 p-3 sm:p-4 flex flex-col lg:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => useComboDock.getState().setOpen(true)}
+            className="flex items-center gap-3 rounded-xl border border-gray-800 bg-black/30 px-4 py-3 text-left hover:border-amber-500/40 hover:bg-amber-950/10 transition-colors min-w-0 lg:w-[340px] shrink-0"
+            aria-label="Open profession combo workbench"
+          >
+            <Sparkles className="h-5 w-5 text-amber-300 shrink-0" />
+            <span className="flex-1 min-w-0">
+              <span className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm font-bold text-white uppercase tracking-wide">Combo</span>
+                <span className="font-mono font-bold tabular-nums text-amber-300">
+                  {combo.isComplete && comboFirewallMsLeft > 0
+                    ? `firewalled · ${formatFirewallWait(comboFirewallMsLeft)}`
+                    : combo.isComplete
+                      ? `${formatNumber(combo.reward)}¢ ready`
+                      : `${combo.selectedCount}/6`}
+                </span>
+              </span>
+              <span className="mt-1.5 flex items-center gap-1.5" aria-hidden>
+                {combo.slots.map((s) => (
+                  <span
+                    key={s.profession}
+                    className={`h-1.5 w-5 rounded-full transition-colors ${
+                      s.player ? "bg-amber-400" : "bg-gray-700"
+                    }`}
+                  />
+                ))}
+              </span>
+            </span>
+          </button>
+          {/* Next payouts — one clock cluster (was buried in the Rewards
+              & Income collapsible). */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 min-w-0">
+            <PortfolioRewardCountdown />
+            <RankBonusCountdown />
+            <HourlyRewardCountdown />
+          </div>
+        </div>
+      )}
+
       {/* Avatar grid of this player's owned cards, most valuable first —
           same look as the landing page grid, each avatar links to the card's
           profile. */}
@@ -677,11 +729,9 @@ export default function PlayerProfilePage() {
               </button>
               {showRewards && (
                 <div className="p-4 pt-0 space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <PortfolioRewardCountdown />
-                    <RankBonusCountdown />
-                    <BossIncomeCard userId={currentUserId} />
-                  </div>
+                  {/* Payout countdowns moved up to the command band; this
+                      section keeps the boss income + daily login claim. */}
+                  <BossIncomeCard userId={currentUserId} />
                   <LoginReward />
                 </div>
               )}

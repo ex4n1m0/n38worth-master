@@ -16,11 +16,11 @@ function KindIcon({ kind }: { kind: FeedKind }) {
 }
 
 /**
- * Slim game-event row inside the sticky header block. Shows the latest event
- * inline (always visible, never floating over content) and expands in-flow
- * to reveal the recent event history on tap.
+ * Slim game-event row. Standalone (default) it renders as its own bordered
+ * bar; `inline` drops the chrome so it can sit inside the header's row 2
+ * next to the mission progress.
  */
-export function EventFeedBar() {
+export function EventFeedBar({ inline = false }: { inline?: boolean }) {
   const { events, expanded, toggleExpanded } = useEventFeed();
   const { play } = useSound();
 
@@ -30,8 +30,8 @@ export function EventFeedBar() {
   const recent = events.slice(0, 10);
 
   return (
-    <div className="border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl">
-      <div className="max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className={inline ? "min-w-0" : "border-b border-gray-800/40 bg-gray-950/85 backdrop-blur-xl"}>
+      <div className={inline ? "" : "max-w-full 2xl:max-w-[2200px] mx-auto px-4 sm:px-6 lg:px-8"}>
         <button
           onClick={() => {
             play("toggle");

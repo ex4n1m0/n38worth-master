@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, memo } from "react";
+import { useEffect, useRef, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/event-feed";
@@ -12,6 +12,7 @@ import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { useNow } from "@/hooks/useNow";
 import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
+import { useHoveredCardStore } from "@/components/ComboDock";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import {
   cn,
@@ -22,7 +23,15 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getProfessionImage } from "@/lib/professions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
@@ -104,6 +113,9 @@ interface PlayerCardProps {
       },
       profession: string
     ) => boolean;
+    /** Professions already filled in the combo — drives the amber
+     *  "your combo needs this profession" pulse on the card. */
+    selectedProfessions?: string[];
   };
 }
 
@@ -201,6 +213,14 @@ function PlayerCardImpl({
 
   const isComboSelected = comboSelection?.isSelected(id) ?? false;
   const canCombo = !!comboSelection && !!effectiveProfession && ownedIds.has(id);
+  // "Combo scent": owned card of a profession the current combo is still
+  // missing → pulsing amber ring, pointing players at combo-building cards.
+  const comboNeedsMe =
+    canCombo &&
+    !isComboSelected &&
+    !!comboSelection?.selectedProfessions &&
+    !!effectiveProfession &&
+    !comboSelection.selectedProfessions.includes(effectiveProfession);
   const handleComboToggle = (e: React.MouseEvent) => {
     if (!canCombo || !comboSelection || !effectiveProfession) return;
     e.preventDefault();
@@ -318,6 +338,56 @@ function PlayerCardImpl({
     e.stopPropagation();
     play("changepage");
     window.open(`/players/${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
+  };
+
+  // ── Long-press quick-action sheet ──────────────────────────────────────
+  // Press-and-hold (finger, pen, or mouse) opens the card's action sheet
+  // (GET / OVERCLOCK / BREACH, combo toggle, profile) without navigating.
+  // 450ms hold, 10px movement slop so scrolling never triggers it.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const longPressFired = useRef(false);
+
+  const clearPressTimer = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+    pressStart.current = null;
+  };
+  useEffect(() => clearPressTimer, []);
+  const handlePressStart = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    longPressFired.current = false;
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    clearPressTimer();
+    pressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      play("open");
+      setSheetOpen(true);
+    }, 450);
+  };
+  const handlePressMove = (e: React.PointerEvent) => {
+    if (!pressStart.current) return;
+    const dx = e.clientX - pressStart.current.x;
+    const dy = e.clientY - pressStart.current.y;
+    if (dx * dx + dy * dy > 100) clearPressTimer();
+  };
+
+  // Hovered-card tracking powers the 1-6 "assign to combo slot" keys.
+  const setHoveredCard = useHoveredCardStore((s) => s.set);
+  const handleMouseEnter = () => {
+    if (!canCombo || !effectiveProfession) return;
+    setHoveredCard({
+      playerId: id,
+      username,
+      playerValue,
+      avatarUrl,
+      isNpc: playerType && playerType !== "human" ? 1 : 0,
+      valueFloor,
+      profession: effectiveProfession,
+    });
   };
 
   const pumpMutation = useMutation({
@@ -609,9 +679,22 @@ function PlayerCardImpl({
 
   const showMeta = effectiveProfession || leaderboardMode;
 
+  // Status ring (identity) replaces the action ring when the card is locked
+  // down: cyan = firewalled, amber = hard-locked. The action affordance
+  // stays visible via the colored GET/OVERCLOCK/BREACH label.
+  const statusRing = isPermBlocked ? "ring-amber-500" : isHireBlocked ? "ring-cyan-400" : null;
+
   return (
     <Card
       onClick={(e) => {
+        // A completed long-press just opened the action sheet — swallow the
+        // follow-up click so it doesn't also GET/navigate.
+        if (longPressFired.current) {
+          longPressFired.current = false;
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         // Ownerless Avatars in the browse grid never open the profile page —
         // clicking anywhere on them triggers the GET action instead.
         if (leaderboardMode && !ownerName) {
@@ -620,6 +703,16 @@ function PlayerCardImpl({
         }
         router.push(`/players/${username}`);
       }}
+      onPointerDown={handlePressStart}
+      onPointerUp={clearPressTimer}
+      onPointerLeave={clearPressTimer}
+      onPointerCancel={clearPressTimer}
+      onPointerMove={handlePressMove}
+      onContextMenu={(e) => {
+        if (longPressFired.current) e.preventDefault();
+      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setHoveredCard(null)}
       className={cn(
         cardClassName,
         "relative overflow-hidden pt-0",
@@ -669,7 +762,7 @@ function PlayerCardImpl({
         <div
           className={cn(
             "relative w-full aspect-square rounded-lg overflow-hidden ring-2 transition-all",
-            ringColor
+            statusRing ?? ringColor
           )}
         >
           <button
@@ -770,6 +863,14 @@ function PlayerCardImpl({
             >
               Inactive
             </Badge>
+          )}
+
+          {/* Combo scent — owned card of a profession the combo is missing. */}
+          {comboNeedsMe && (
+            <span
+              className="absolute inset-0 z-20 rounded-lg ring-2 ring-amber-400/80 animate-pulse pointer-events-none"
+              aria-hidden
+            />
           )}
 
           {/* Bottom overlay: value and action label */}
@@ -898,6 +999,88 @@ function PlayerCardImpl({
         )}
 
       </CardContent>
+
+      {/* Long-press quick-action sheet — zero-navigation loop actions. */}
+      <Dialog open={sheetOpen} onOpenChange={setSheetOpen}>
+        <DialogContent className="bg-gray-900 border-gray-800 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-white break-all leading-tight">
+              {cardDisplayName(username)}
+            </DialogTitle>
+            <DialogDescription>
+              {formatNumber(playerValue)}¢
+              {effectiveProfession ? ` · ${effectiveProfession}` : ""}
+              {leaderboardMode && ownerName
+                ? ownerName === session?.user?.name
+                  ? " · yours"
+                  : ` · belongs to ${ownerName}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {(actionMode === "get" || actionMode === "pump" || actionMode === "break") && (
+              <Button
+                onClick={(e) => {
+                  setSheetOpen(false);
+                  if (actionMode === "get") handleBuyClick(e);
+                  else if (actionMode === "pump") handlePumpClick(e);
+                  else handleBreakClick(e);
+                }}
+                disabled={!canAffordAction || isActionPending}
+                className={cn(
+                  "w-full h-auto py-4 text-lg font-bold rounded-lg border-2 bg-transparent",
+                  actionMode === "get"
+                    ? "border-green-500 text-white hover:bg-green-500/15"
+                    : actionMode === "pump"
+                      ? "border-fuchsia-500 text-white hover:bg-fuchsia-500/15"
+                      : "border-red-500 text-white hover:bg-red-500/15"
+                )}
+              >
+                {isActionPending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : actionMode === "get" ? (
+                  `GET · ${formatCompact(playerValue)}¢`
+                ) : actionMode === "pump" ? (
+                  `OVERCLOCK · ${formatCompact(playerValue)}¢`
+                ) : (
+                  `BREACH · ${formatCompact(totalBreakCost)}¢`
+                )}
+              </Button>
+            )}
+            {canCombo && (
+              <Button
+                variant="outline"
+                onClick={(e) => {
+                  setSheetOpen(false);
+                  handleComboToggle(e);
+                }}
+                className={cn(
+                  "w-full h-auto py-3 font-bold rounded-lg",
+                  isComboSelected
+                    ? "border-amber-400/70 bg-amber-500/15 text-amber-200 hover:bg-amber-500/25"
+                    : "border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                )}
+              >
+                {isComboSelected ? "Remove from combo" : `Add to combo · ${effectiveProfession}`}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={(e) => {
+                setSheetOpen(false);
+                handleOpenProfile(e);
+              }}
+              className="w-full h-auto py-3 font-bold rounded-lg border-gray-700 text-gray-300 hover:bg-gray-800"
+            >
+              <User className="h-4 w-4 mr-2" />
+              Open profile
+            </Button>
+            <p className="text-[11px] text-gray-500 text-center pt-1">
+              Hold any card to open this quick-action sheet
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

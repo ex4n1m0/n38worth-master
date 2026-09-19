@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,7 +34,6 @@ import { GoddessCountdown } from "@/components/GoddessCountdown";
 import { LockedFeature } from "@/components/LockedFeature";
 import { CoachMark } from "@/components/CoachMark";
 import { FilterPill } from "@/components/PlayerFilters";
-import { ProfessionComboBar } from "@/components/ProfessionComboBar";
 import { MassHireCard } from "@/components/MassHireCard";
 import { TenSlotsCard } from "@/components/TenSlotsCard";
 import { RevealCard } from "@/components/RevealCard";
@@ -125,9 +124,10 @@ export default function LeaderboardPage() {
         {/* (The ranks strip — Recently Online / Widest Grid / Most Credits —
             lives on the Home tab, just above Global Chat.) */}
 
-        {/* Browse Players — the profession combo bar sits inside, just below
-            the sort/filter buttons and above the Avatar grid.
-            Profession filters + combo bar show as locked previews until mission 0. */}
+        {/* Browse Players — sort/filter pills and the Avatar grid. Cards in
+            the grid feed the GLOBAL combo (persistent ComboDock: pill in the
+            mobile tab bar / desktop corner, expand with C). Profession
+            filters show as a locked preview until mission 0. */}
         <BrowsePlayersSection
           search={search}
           onSearch={handleSearch}
@@ -138,8 +138,8 @@ export default function LeaderboardPage() {
           comboSelection={gameUnlocked ? {
             isSelected: combo.isSelected,
             onToggle: combo.toggleSelection,
+            selectedProfessions: combo.slots.filter((s) => s.player !== null).map((s) => s.profession),
           } : undefined}
-          comboBar={gameUnlocked ? <ProfessionComboBar combo={combo} /> : undefined}
         />
       </div>
     </ErrorBoundary>
@@ -151,7 +151,6 @@ function BrowsePlayersSection({
   onSearch,
   debouncedSearch,
   comboSelection,
-  comboBar,
   comboFilledProfessions = [],
   gameUnlocked = true,
   ownedCount = 0,
@@ -172,8 +171,10 @@ function BrowsePlayersSection({
       },
       profession: string
     ) => boolean;
+    /** Professions already filled in the combo — drives the "combo needs
+     *  this profession" pulse on grid cards. */
+    selectedProfessions?: string[];
   };
-  comboBar?: ReactNode;
   comboFilledProfessions?: string[];
   gameUnlocked?: boolean;
   ownedCount?: number;
@@ -302,13 +303,6 @@ function BrowsePlayersSection({
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
-        {gameUnlocked ? comboBar : (
-          <LockedFeature
-            title="Profession combos — collect all 6, sell for 10x"
-            ownedCount={ownedCount}
-            threshold={UNLOCK_GAME_THRESHOLD}
-          />
-        )}
         {gameUnlocked ? (
         <div className="flex gap-2 flex-wrap items-center">
           {/* Profession sort: combo-friendly view — only Avatar players, ranked

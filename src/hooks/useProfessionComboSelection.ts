@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { create } from "zustand";
+import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
+import { useNow } from "@/hooks/useNow";
 
 export interface ComboPlayer {
   playerId: number;
@@ -35,8 +39,8 @@ export interface UseProfessionComboSelectionReturn {
   clear: () => void;
 }
 
-/** Ordered professions for the 6 slots */
-const ORDERED_PROFESSIONS = [
+/** Ordered professions for the 6 slots (slot N = index N-1 for the 1-6 keys). */
+export const ORDERED_PROFESSIONS = [
   "Cryptographer",
   "Zero-Day",
   "Overclocker",
@@ -54,60 +58,57 @@ const PROFESSION_IMAGES: Record<string, string> = {
   "Bot Herder": "/NewBotHerder.webp",
 };
 
-export function useProfessionComboSelection(): UseProfessionComboSelectionReturn {
-  // Map of profession -> selected player
-  const [selections, setSelections] = useState<Map<string, ComboPlayer>>(new Map());
+/**
+ * GLOBAL combo selection store (zustand, module-level): the selection is a
+ * session object, not page state — it survives tab switches and stays in sync
+ * between the ComboDock, the market grid, and any page hosting the combo bar.
+ */
+interface ComboStore {
+  selections: Map<string, ComboPlayer>;
+  toggle: (player: ComboPlayer, profession: string) => boolean;
+  clear: () => void;
+  removeUnowned: (ownedIds: Set<number>) => ComboPlayer[];
+}
 
-  const toggleSelection = useCallback(
-    (player: ComboPlayer, profession: string): boolean => {
-      if (!ORDERED_PROFESSIONS.includes(profession as (typeof ORDERED_PROFESSIONS)[number])) {
-        return false;
+export const useComboStore = create<ComboStore>((set) => ({
+  selections: new Map(),
+  toggle: (player, profession) => {
+    if (!ORDERED_PROFESSIONS.includes(profession as (typeof ORDERED_PROFESSIONS)[number])) {
+      return false;
+    }
+    set((s) => {
+      const next = new Map(s.selections);
+      const existing = next.get(profession);
+      if (existing && existing.playerId === player.playerId) {
+        next.delete(profession);
+      } else {
+        next.set(profession, player);
       }
-
-      setSelections((prev) => {
-        const next = new Map(prev);
-        const existing = next.get(profession);
-
-        if (existing && existing.playerId === player.playerId) {
-          // Deselect this player from this profession
-          next.delete(profession);
-        } else {
-          // Select this player for this profession
-          next.set(profession, player);
-        }
-
-        return next;
-      });
-
-      return true;
-    },
-    []
-  );
-
-  const clear = useCallback(() => {
-    setSelections(new Map());
-  }, []);
-
-  const removeUnowned = useCallback((ownedIds: Set<number>): ComboPlayer[] => {
+      return { selections: next };
+    });
+    return true;
+  },
+  clear: () => set({ selections: new Map() }),
+  removeUnowned: (ownedIds) => {
     const removed: ComboPlayer[] = [];
-    setSelections((prev) => {
+    set((s) => {
       let changed = false;
-      const next = new Map(prev);
-      for (const [profession, player] of prev) {
+      const next = new Map(s.selections);
+      for (const [profession, player] of s.selections) {
         if (!ownedIds.has(player.playerId)) {
           next.delete(profession);
           changed = true;
+          removed.push(player);
         }
       }
-      return changed ? next : prev;
-    });
-    // Compute the removed list from the latest snapshot for the caller. This is
-    // read outside the updater so it is not affected by StrictMode double-invoke.
-    selections.forEach((player) => {
-      if (!ownedIds.has(player.playerId)) removed.push(player);
+      return changed ? { selections: next } : s;
     });
     return removed;
-  }, [selections]);
+  },
+}));
+
+export function useProfessionComboSelection(): UseProfessionComboSelectionReturn {
+  const selections = useComboStore((s) => s.selections);
 
   const slots = useMemo<ComboSlot[]>(() => {
     return ORDERED_PROFESSIONS.map((profession) => ({
@@ -152,8 +153,51 @@ export function useProfessionComboSelection(): UseProfessionComboSelectionReturn
     reward,
     selectedPlayerIds,
     isSelected,
-    toggleSelection,
-    removeUnowned,
-    clear,
+    toggleSelection: useComboStore.getState().toggle,
+    removeUnowned: useComboStore.getState().removeUnowned,
+    clear: useComboStore.getState().clear,
   };
+}
+
+/**
+ * Longest remaining FIREWALL (sell-block) wait across the currently-selected
+ * combo members, off the viewer's own ownership rows — powers the countdown
+ * on the ComboDock pill. Shares the ["player", "me"] cache with the combo
+ * bar, so it adds no extra request. 0 when nothing is firewalled.
+ */
+export function useComboFirewallMsLeft(): number {
+  const { data: session } = useSession();
+  const now = useNow();
+  // Select the stable store reference and derive the ids OUTSIDE the selector
+  // — returning a fresh array from the selector itself would change identity
+  // on every getSnapshot call and trip useSyncExternalStore's infinite loop.
+  const selections = useComboStore((s) => s.selections);
+  const selectedIds = useMemo(
+    () => Array.from(selections.values()).map((p) => p.playerId),
+    [selections]
+  );
+
+  const { data } = useQuery({
+    queryKey: ["player", "me"],
+    queryFn: async () => {
+      const res = await fetch(`/api/players/${session?.user?.name}`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!session?.user?.name && selectedIds.length > 0,
+    staleTime: 60_000,
+    select: (player: { ownedPlayers?: { id: number; ownBlockSellUntil?: string | null }[] } | null) => {
+      let max = 0;
+      for (const card of player?.ownedPlayers ?? []) {
+        if (!selectedIds.includes(card.id)) continue;
+        const until = card.ownBlockSellUntil
+          ? new Date(card.ownBlockSellUntil).getTime()
+          : 0;
+        if (Number.isFinite(until) && until > max) max = until;
+      }
+      return max;
+    },
+  });
+
+  return Math.max(0, (data ?? 0) - now);
 }
