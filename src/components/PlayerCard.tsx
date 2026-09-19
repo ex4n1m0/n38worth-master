@@ -722,17 +722,29 @@ function PlayerCardImpl({
     >
       {flipping && <div className="card-flip-back" />}
       <CardContent className="p-2 relative flex flex-col items-center">
-        {/* Header above avatar: username left (vertically centered), badges right */}
-        <div className="w-full flex items-center justify-between gap-1.5 mb-1 min-h-[3rem]">
+        {/* Header above avatar: username left (taps through to the profile),
+            badges right. The username IS the profile link — one consistent
+            navigation path without a dedicated button row. */}
+        <div className="w-full flex items-start justify-between gap-1.5 mb-1">
           <div className="min-w-0">
             <h3
               className={cn(
-                "font-bold leading-tight break-words flex items-center gap-1 flex-wrap",
+                "font-semibold leading-tight break-words flex items-center gap-1 flex-wrap text-left",
                 isMine ? "text-yellow-300/90" : "text-white"
               )}
-              style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
             >
-              {cardDisplayName(username)}
+              <button
+                type="button"
+                onClick={handleOpenProfile}
+                title={`Open ${cardDisplayName(username)}'s profile — or hold the card for quick actions`}
+                className={cn(
+                  "text-left hover:underline underline-offset-2 decoration-current/60 transition-colors",
+                  isMine ? "hover:text-yellow-200" : "hover:text-t1-300"
+                )}
+                style={{ fontSize: "0.8125rem" }}
+              >
+                {cardDisplayName(username)}
+              </button>
               {isVerified === 1 && (
                 <BadgeCheck className="h-3.5 w-3.5 text-blue-400 shrink-0" />
               )}
@@ -808,7 +820,7 @@ function PlayerCardImpl({
                 <div className="absolute inset-0 rounded-full bg-current blur-md animate-action-glow" />
                 <svg
                   viewBox="0 0 80 80"
-                  className={cn("relative h-20 w-20 sm:h-24 sm:w-24", countdown === null && "animate-spin")}
+                  className={cn("relative h-14 w-14 sm:h-16 sm:w-16", countdown === null && "animate-spin")}
                   style={countdown !== null ? { transform: "rotate(-90deg)" } : undefined}
                 >
                   <circle cx="40" cy="40" r="34" fill="none" strokeWidth="6" className="stroke-white/15" />
@@ -837,16 +849,16 @@ function PlayerCardImpl({
                   {countdown !== null ? (
                     <span
                       key={countdown}
-                      className="animate-action-pop text-4xl sm:text-5xl font-black text-white tabular-nums drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
+                      className="animate-action-pop text-2xl font-black text-white tabular-nums drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
                     >
                       {countdown}
                     </span>
                   ) : actionMode === "pump" ? (
-                    <TrendingUp className="h-8 w-8 text-white animate-pulse" />
+                    <TrendingUp className="h-6 w-6 text-white animate-pulse" />
                   ) : actionMode === "break" ? (
-                    <Shield className="h-8 w-8 text-white animate-pulse" />
+                    <Shield className="h-6 w-6 text-white animate-pulse" />
                   ) : (
-                    <Loader2 className="h-8 w-8 text-white animate-spin" />
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
                   )}
                 </div>
               </div>
@@ -874,14 +886,14 @@ function PlayerCardImpl({
           )}
 
           {/* Bottom overlay: value and action label */}
-          <div className="absolute inset-x-0 bottom-0 z-10 p-2 pointer-events-none">
-            <div className="flex flex-wrap items-end justify-between gap-1.5">
-              <div className="flex items-center gap-1.5 text-5xl font-bold drop-shadow-sm">
-                <span className={isMine ? "text-yellow-300/90" : "text-white"}>{formatCompact(playerValue)}<span className="text-[0.5em]">¢</span></span>
+          <div className="absolute inset-x-0 bottom-0 z-10 p-1.5 pointer-events-none">
+            <div className="flex flex-wrap items-end justify-between gap-1">
+              <div className="flex items-center gap-1 text-[15px] font-bold drop-shadow-sm">
+                <span className={isMine ? "text-yellow-300/90" : "text-white"}>{formatCompact(playerValue)}<span className="text-[0.6em]">¢</span></span>
               </div>
               <div
                 className={cn(
-                  "text-sm font-bold drop-shadow-sm inline-flex items-center gap-1",
+                  "text-[11px] font-bold drop-shadow-sm uppercase tracking-wide inline-flex items-center gap-1",
                   isMine ? "text-yellow-300/90" : actionTextColor
                 )}
               >
@@ -891,66 +903,57 @@ function PlayerCardImpl({
           </div>
         </div>
 
-        {/* Slim profile button — same position on every Avatar (owned, free,
-            blocked, goddess-mission, leaderboard) since clicking the Avatar
-            itself doesn't always navigate. */}
-        <button
-          type="button"
-          onClick={handleOpenProfile}
-          title={`Open ${cardDisplayName(username)}'s profile`}
-          className="w-full mt-2 rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <User className="h-3.5 w-3.5" />
-          Profile
-        </button>
-
-        {canAssignProfession && (
-          <AssignProfessionDialog
-            targetId={id}
-            targetUsername={username}
-            currentProfession={effectiveProfession ?? null}
-            triggerClassName={cn(
-              "w-full mt-2 rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-auto px-2 py-1 text-xs",
-              isMine
-                ? "text-yellow-300/90 hover:text-yellow-200"
-                : "text-purple-200 hover:text-white"
+        {/* Per-card admin actions — ONE compact icon-chip row (each opens its
+            own dialog). Profile lives on the username tap + the long-press
+            sheet, so no dedicated Profile button row. */}
+        {(canAssignProfession || (ownedIds.has(id) && !isGoddess && playerType !== "human") || (hasWar && ownedIds.has(id) && !isGoddess && !isOwnProfile)) && (
+          <div className="w-full mt-2 flex items-center gap-1.5">
+            {canAssignProfession && (
+              <AssignProfessionDialog
+                targetId={id}
+                targetUsername={username}
+                currentProfession={effectiveProfession ?? null}
+                triggerClassName={cn(
+                  "flex-1 justify-center rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-7 px-1 text-[11px]",
+                  isMine
+                    ? "text-yellow-300/90 hover:text-yellow-200"
+                    : "text-purple-200 hover:text-white"
+                )}
+              />
             )}
-          />
-        )}
-
-        {canAssignProfession && !renamedIds.has(id) && (
-          <RenameNpcDialog
-            targetId={id}
-            targetUsername={username}
-            triggerClassName={cn(
-              "w-full mt-2 rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-auto px-2 py-1 text-xs",
-              isMine
-                ? "text-yellow-300/90 hover:text-yellow-200"
-                : "text-purple-200 hover:text-white"
+            {canAssignProfession && !renamedIds.has(id) && (
+              <RenameNpcDialog
+                targetId={id}
+                targetUsername={username}
+                triggerClassName={cn(
+                  "flex-1 justify-center rounded-md border border-purple-800 bg-transparent hover:bg-purple-900/30 font-bold h-7 px-1 text-[11px]",
+                  isMine
+                    ? "text-yellow-300/90 hover:text-yellow-200"
+                    : "text-purple-200 hover:text-white"
+                )}
+              />
             )}
-          />
-        )}
-
-        {ownedIds.has(id) && !isGoddess && playerType !== "human" && (
-          <PermBlockButton
-            targetId={id}
-            targetUsername={username}
-            permBlockUntil={permBlockUntil}
-            size="sm"
-            className={cn("w-full mt-2", isMine && "text-yellow-300/90 hover:text-yellow-200")}
-          />
-        )}
-
-        {/* Goddess of War power: destroy an owned Avatar. NPCs are deleted
-            (2 fresh NPCs spawn); humans get their value reset to 1¢. */}
-        {hasWar && ownedIds.has(id) && !isGoddess && !isOwnProfile && (
-          <WarDeleteButton
-            targetId={id}
-            targetUsername={username}
-            isNpc={!!playerType && playerType !== "human"}
-            cooldownUntil={warDeleteCooldownUntil}
-            className="w-full mt-2"
-          />
+            {ownedIds.has(id) && !isGoddess && playerType !== "human" && (
+              <PermBlockButton
+                targetId={id}
+                targetUsername={username}
+                permBlockUntil={permBlockUntil}
+                size="sm"
+                className={cn("flex-1 h-7", isMine && "text-yellow-300/90 hover:text-yellow-200")}
+              />
+            )}
+            {/* Goddess of War power: destroy an owned Avatar. NPCs are deleted
+                (2 fresh NPCs spawn); humans get their value reset to 1¢. */}
+            {hasWar && ownedIds.has(id) && !isGoddess && !isOwnProfile && (
+              <WarDeleteButton
+                targetId={id}
+                targetUsername={username}
+                isNpc={!!playerType && playerType !== "human"}
+                cooldownUntil={warDeleteCooldownUntil}
+                className="flex-1 h-7"
+              />
+            )}
+          </div>
         )}
 
         {showMeta && (
@@ -959,19 +962,19 @@ function PlayerCardImpl({
               <div className="flex justify-center">{professionBadge}</div>
             )}
             {leaderboardMode && ownerName && (
-              <div className="flex flex-col items-center gap-0.5 text-[20px] leading-tight">
+              <div className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-semibold leading-tight">
                 {ownerName !== session?.user?.name && (
-                  <span className="text-[10px] font-semibold tracking-widest text-white/70 uppercase leading-none">
-                    Belongs to
+                  <span className="text-[9px] font-medium tracking-widest text-white/50 uppercase leading-none shrink-0">
+                    Boss
                   </span>
                 )}
                 <span
                   className={cn(
-                    "flex items-center gap-2 justify-center max-w-full min-w-0",
+                    "flex items-center gap-1 justify-center max-w-full min-w-0",
                     ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
                   )}
                 >
-                  <Terminal className="h-5 w-5 shrink-0" />
+                  <Terminal className="h-3 w-3 shrink-0" />
                   <span className="truncate">
                     {ownerName === session?.user?.name ? "MINE" : ownerName}
                   </span>
@@ -979,11 +982,9 @@ function PlayerCardImpl({
               </div>
             )}
             {leaderboardMode && !ownerName && (
-              <div className="flex flex-col items-center gap-1 text-[20px] leading-tight">
-                <span className="flex items-center gap-2 justify-center text-white max-w-full min-w-0">
-                  <Terminal className="h-5 w-5 shrink-0" />
-                  <span className="truncate">LOST</span>
-                </span>
+              <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-white leading-tight">
+                <Terminal className="h-3 w-3 shrink-0" />
+                <span className="truncate">LOST</span>
               </div>
             )}
           </div>

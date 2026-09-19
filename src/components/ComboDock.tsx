@@ -70,16 +70,16 @@ export function ComboDockPill({ className = "" }: { className?: string }) {
         setOpen(true);
       }}
       aria-label={`Profession combo — ${combo.selectedCount} of 6 selected`}
-      className={`relative flex flex-col items-center justify-center gap-1 min-h-[48px] px-3 rounded-lg border transition-all select-none ${
+      className={`relative flex flex-col items-center justify-center gap-1 min-h-[44px] px-3.5 rounded-full border shadow-xl backdrop-blur-sm transition-all select-none ${
         locked
-          ? "border-cyan-400/70 bg-cyan-950/40 text-cyan-300"
+          ? "border-cyan-400/70 bg-gray-950/95 text-cyan-300"
           : complete
-            ? "border-amber-400/80 bg-amber-500/15 text-amber-300 shadow-[0_0_16px_rgba(245,158,11,0.4)] animate-pulse"
-            : "border-white/10 bg-white/[0.05] text-gray-300 hover:bg-white/10 hover:border-white/25"
+            ? "border-amber-400/80 bg-amber-950/90 text-amber-300 shadow-[0_0_16px_rgba(245,158,11,0.4)] animate-pulse"
+            : "border-white/15 bg-gray-950/95 text-gray-200 hover:border-white/30 hover:text-white"
       } ${className}`}
     >
-      <span className="flex items-center gap-1.5 font-bold text-sm leading-none">
-        <Sparkles className="h-4 w-4 shrink-0" />
+      <span className="flex items-center gap-1.5 font-bold text-[13px] leading-none">
+        <Sparkles className="h-3.5 w-3.5 shrink-0" />
         <span className="tabular-nums">
           {locked
             ? formatFirewallWait(firewallMsLeft)
@@ -93,7 +93,7 @@ export function ComboDockPill({ className = "" }: { className?: string }) {
         {combo.slots.map((s) => (
           <span
             key={s.profession}
-            className={`h-1.5 w-3.5 rounded-full transition-colors ${
+            className={`h-1 w-3 rounded-full transition-colors ${
               s.player ? "bg-amber-400" : "bg-gray-700"
             }`}
           />

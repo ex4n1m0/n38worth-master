@@ -90,11 +90,11 @@ export function MissionProgress() {
 
   if (isPending) {
     return (
-      <div className="flex items-center gap-2 sm:gap-3 animate-pulse">
-        <div className="h-6 w-10 rounded bg-gray-800/80 shrink-0" />
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className="h-4 w-1/3 rounded bg-gray-800/80" />
-          <div className="h-2.5 w-full rounded-full bg-gray-800/80" />
+      <div className="flex items-center gap-2 animate-pulse">
+        <div className="h-4 w-8 rounded bg-gray-800/80 shrink-0" />
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="h-3 w-1/3 rounded bg-gray-800/80" />
+          <div className="h-1.5 w-full rounded-full bg-gray-800/80" />
         </div>
       </div>
     );
@@ -118,38 +118,23 @@ export function MissionProgress() {
 
   return (
     <div title="Win the game: unlock all Six and hold them for 60 minutes">
-      <div className="flex items-center gap-2 sm:gap-3">
+      <div className="flex items-center gap-2 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
-          <Trophy
-            className="text-t1-400 shrink-0"
-            style={{ width: "clamp(1rem, 2.2vw, 2rem)", height: "clamp(1rem, 2.2vw, 2rem)" }}
-          />
-          <span
-            className="font-bold text-t1-300 whitespace-nowrap tabular-nums"
-            style={{ fontSize: "clamp(0.7rem, 1.6vw, 1.25rem)" }}
-          >
+          <Trophy className="h-3.5 w-3.5 text-t1-400 shrink-0" />
+          <span className="text-[11px] font-bold text-t1-300 whitespace-nowrap tabular-nums">
             {current.index + 1}/{totalMissions}
           </span>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <p
-              className="font-bold text-white leading-tight"
-              style={{ fontSize: "clamp(0.85rem, 3.2vw, 2.5rem)" }}
-            >
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            <p className="text-xs font-semibold text-white leading-tight truncate">
               {current.label}
             </p>
-            <span
-              className="font-bold text-t1-200 shrink-0 tabular-nums"
-              style={{ fontSize: "clamp(0.62rem, 1.3vw, 1.1rem)" }}
-            >
+            <span className="text-[11px] font-bold text-t1-200 shrink-0 tabular-nums">
               {formatCompact(current.progress)} / {formatCompact(current.threshold)}
             </span>
           </div>
-          <div
-            className="relative w-full overflow-hidden rounded-full border border-amber-500/20 bg-gray-800/80"
-            style={{ height: "clamp(0.375rem, 1.2vw, 0.9rem)" }}
-          >
+          <div className="relative w-full overflow-hidden rounded-full border border-amber-500/20 bg-gray-800/80 h-1.5">
             <div
               className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.6)] transition-all duration-500"
               style={{ width: `${pct}%` }}
@@ -158,7 +143,7 @@ export function MissionProgress() {
         </div>
       </div>
       {nextLabel && (
-        <p className="text-gray-500 truncate mt-0.5" style={{ fontSize: "clamp(0.55rem, 1.1vw, 0.8rem)" }}>
+        <p className="text-[10px] text-gray-500 truncate mt-0.5">
           Next: {nextLabel}
         </p>
       )}

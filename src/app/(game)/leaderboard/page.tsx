@@ -304,7 +304,7 @@ function BrowsePlayersSection({
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
         {gameUnlocked ? (
-        <div className="flex gap-2 flex-wrap items-center">
+        <div className="flex gap-1.5 flex-wrap items-center">
           {/* Profession sort: combo-friendly view — only Avatar players, ranked
               by value and interleaved across professions to build the 6-set. */}
           <Button
@@ -316,11 +316,11 @@ function BrowsePlayersSection({
             }}
             className={
               sort === "profession"
-                ? "h-auto rounded-lg sm:rounded-xl border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
-                : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
+                ? "h-auto rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-[13px] text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                : "h-auto rounded-lg border border-gray-600 bg-transparent px-2.5 py-1.5 text-[13px] text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
             }
           >
-            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 mr-1" />
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
             Profession
           </Button>
           {PROFESSIONS.map((p) => {
@@ -336,17 +336,17 @@ function BrowsePlayersSection({
               title={perk ? `${perk.name}${perkActive ? " (ACTIVE)" : ""} — ${perk.description}` : undefined}
               className={
                 profession === p.name
-                  ? "h-auto rounded-lg sm:rounded-xl border border-amber-500/60 bg-amber-500/10 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
+                  ? "h-auto rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-[13px] text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
                   : inCombo
-                    ? "h-auto rounded-lg sm:rounded-xl border border-amber-400 bg-amber-500/25 px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
-                    : "h-auto rounded-lg sm:rounded-xl border border-gray-600 bg-transparent px-3 py-1.5 text-sm sm:px-6 sm:py-3 sm:text-base text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
+                    ? "h-auto rounded-lg border border-amber-400 bg-amber-500/25 px-2.5 py-1.5 text-[13px] text-amber-200 font-semibold shadow-[0_0_10px_rgba(245,158,11,0.45)] hover:bg-amber-500/30 hover:text-amber-100"
+                    : "h-auto rounded-lg border border-gray-600 bg-transparent px-2.5 py-1.5 text-[13px] text-gray-400 font-semibold hover:text-white hover:border-gray-400 hover:bg-white/5"
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.imagePath} alt="" className="h-6 w-6 sm:h-9 sm:w-9 mr-1 sm:mr-2 object-contain" />
+              <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
               {p.name.split(" ")[0]}
-              {perkActive && <Zap className="h-4 w-4 sm:h-5 sm:w-5 ml-1 text-green-400 fill-green-400" />}
-              {inCombo && <span className="ml-1.5 text-amber-300">✓</span>}
+              {perkActive && <Zap className="h-3.5 w-3.5 ml-1 text-green-400 fill-green-400" />}
+              {inCombo && <span className="ml-1 text-amber-300">✓</span>}
             </Button>
             );
           })}
@@ -358,12 +358,12 @@ function BrowsePlayersSection({
             threshold={UNLOCK_GAME_THRESHOLD}
           />
         )}
-        {/* Filters — three labeled rows, one pill style everywhere
-            (FilterPill, amber = active). Sort is single-select: tapping the
-            active sort pill flips its direction. "All" makes the empty
+        {/* Filters — one compact row of sort pills + density, one row of owner
+            pills (FilterPill, amber = active). Sort is single-select: tapping
+            the active sort pill flips its direction. "All" makes the empty
             (no-filter) state explicit and tappable. */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base text-gray-400 mr-1">Sort:</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Sort</span>
           <FilterPill
             active={sort === "value"}
             onClick={() => {
@@ -375,7 +375,7 @@ function BrowsePlayersSection({
             title="Sort by avatar value — tap again to flip direction"
           >
             Value
-            {sort === "value" && (dir === "asc" ? <ArrowUp className="h-7 w-7" /> : <ArrowDown className="h-7 w-7" />)}
+            {sort === "value" && (dir === "asc" ? <ArrowUp /> : <ArrowDown />)}
           </FilterPill>
           <FilterPill
             active={sort === "last-online"}
@@ -388,7 +388,7 @@ function BrowsePlayersSection({
             title="Sort by last online — tap again to flip direction"
           >
             Last Online
-            {sort === "last-online" && (dir === "asc" ? <ArrowUp className="h-7 w-7" /> : <ArrowDown className="h-7 w-7" />)}
+            {sort === "last-online" && (dir === "asc" ? <ArrowUp /> : <ArrowDown />)}
           </FilterPill>
           {/* Grid density — how many Avatars per row on desktop. */}
           <DropdownMenu>
@@ -397,11 +397,11 @@ function BrowsePlayersSection({
                 type="button"
                 title="Avatars per row"
                 aria-label={`Avatars per row: ${cols}`}
-                className="ml-auto flex h-auto items-center gap-1.5 rounded-lg border border-gray-600 bg-transparent px-3 py-1.5 text-sm font-semibold text-gray-400 hover:text-white hover:border-gray-400 hover:bg-white/5"
+                className="ml-auto flex h-auto items-center gap-1.5 rounded-lg border border-gray-600 bg-transparent px-2.5 py-1.5 text-[13px] font-semibold text-gray-400 hover:text-white hover:border-gray-400 hover:bg-white/5"
               >
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-3.5 w-3.5" />
                 {cols} / row
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="bg-gray-900 border-gray-700">
@@ -419,8 +419,8 @@ function BrowsePlayersSection({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base text-gray-400 mr-1">Owner:</span>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Owner</span>
           <FilterPill
             active={ownerFilter === ""}
             onClick={() => { play("toggle"); setOwnerFilter(""); }}
@@ -435,18 +435,18 @@ function BrowsePlayersSection({
               onClick={() => { play("toggle"); setOwnerFilter(ownerFilter === f.key ? "" : f.key); }}
               tone="amber"
             >
-              {f.key === "mine" ? <Terminal className="h-7 w-7" /> : f.key === "none" ? <UserX className="h-7 w-7" /> : <Users className="h-7 w-7" />}
+              {f.key === "mine" ? <Terminal /> : f.key === "none" ? <UserX /> : <Users />}
               {f.label}
             </FilterPill>
           ))}
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 text-gray-500" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
             placeholder="Search players..."
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            className="pl-10 bg-transparent border-gray-800 text-white placeholder:text-gray-500"
+            className="pl-10 h-8 bg-transparent border-gray-800 text-white placeholder:text-gray-500 text-[13px]"
           />
         </div>
       </div>
@@ -516,7 +516,7 @@ function BrowsePlayersSection({
                 // the page stays fast even with the whole collection loaded.
                 <div
                   key={player.id}
-                  style={{ contentVisibility: "auto", containIntrinsicSize: "auto 420px" }}
+                  style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
                 >
                   <PlayerCard {...player} leaderboardMode comboSelection={comboSelection} />
                 </div>
@@ -529,7 +529,7 @@ function BrowsePlayersSection({
           <div className="flex items-center justify-center py-3 text-xs text-gray-500">
             {isFetchingNextPage ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-7 w-7 animate-spin text-t1-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 Loading more Avatars…
               </span>
             ) : hasNextPage ? (
@@ -540,6 +540,9 @@ function BrowsePlayersSection({
               <span>All {total} Avatars loaded</span>
             )}
           </div>
+          {/* Clearance so the fixed desktop ComboDock pill never covers the
+              last grid row / list footer. */}
+          <div className="hidden md:block h-14" aria-hidden />
         </>
       )}
     </div>

@@ -408,10 +408,10 @@ export default function PlayerProfilePage() {
         ) : (
           /* Mirrored hero: the player on the left, their owner ("leader") on
              the right — same avatar sizes, same stat rows, icons mirrored. */
-          <div className="relative w-full grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-t-3xl overflow-hidden py-4 px-4">
+          <div className="relative w-full grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-t-3xl overflow-hidden py-3 px-4">
             {/* ── The player (left half) ── */}
             <div className="flex items-start gap-3 sm:gap-4 min-w-0">
-              <div className="relative rounded-lg overflow-hidden w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0">
+              <div className="relative rounded-lg overflow-hidden w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 shrink-0">
                 {isOwnProfile ? (
                   <SquareAvatarUpload currentUrl={player.avatarUrl ?? null} username={player.username} avatarCompleted={onboarding.avatarCompleted} variant="banner" />
                 ) : (
@@ -423,13 +423,13 @@ export default function PlayerProfilePage() {
               </div>
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-start gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-2xl font-black text-white break-all leading-tight">{player.username}</h1>
+                  <h1 className="text-base sm:text-xl font-black text-white break-all leading-tight">{player.username}</h1>
                   <div className="flex items-center gap-1 mt-0.5">
                     {player.valueFloor >= 100 && (
-                      <Gem className="h-5 w-5 text-purple-400 shrink-0 drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
+                      <Gem className="h-4 w-4 text-purple-400 shrink-0 drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
                     )}
                     {player.valueFloor >= 10 && player.valueFloor < 100 && (
-                      <Star className="h-5 w-5 text-yellow-400 shrink-0 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                      <Star className="h-4 w-4 text-yellow-400 shrink-0 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
                     )}
                     {isOwnProfile && (
                       <Badge className="bg-gradient-to-r from-t1-500 to-t2-500 text-white border-0 shrink-0"><Sparkles className="h-3 w-3 mr-1" />You</Badge>
@@ -530,7 +530,7 @@ export default function PlayerProfilePage() {
                 <>
                   <a
                     href={`/players/${profileOwner.username}`}
-                    className="relative rounded-lg overflow-hidden w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0 ring-2 ring-yellow-500/30 hover:ring-yellow-500/60 transition-all block"
+                    className="relative rounded-lg overflow-hidden w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 shrink-0 ring-2 ring-yellow-500/30 hover:ring-yellow-500/60 transition-all block"
                     aria-label={`View ${profileOwner.username}'s profile`}
                   >
                     <Avatar className="w-full h-full rounded-lg">
@@ -546,12 +546,12 @@ export default function PlayerProfilePage() {
                   </a>
                   <div className="min-w-0 flex-1 space-y-1.5">
                     <div className="flex items-start gap-2 flex-wrap justify-end">
-                      <h2 className="text-lg sm:text-2xl font-black text-white break-all leading-tight">
+                      <h2 className="text-base sm:text-xl font-black text-white break-all leading-tight">
                         <a href={`/players/${profileOwner.username}`} className="hover:text-yellow-300 transition-colors">
                           {profileOwner.username}
                         </a>
                       </h2>
-                      <Terminal className="h-5 w-5 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                      <Terminal className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
                     </div>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
                       <span className="text-gray-500">Value</span>
@@ -566,12 +566,12 @@ export default function PlayerProfilePage() {
                 </>
               ) : (
                 <>
-                  <div className="relative rounded-lg w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 shrink-0 border-2 border-dashed border-gray-700 bg-gray-900/40 flex items-center justify-center">
-                    <Terminal className="h-8 w-8 text-gray-600" />
+                  <div className="relative rounded-lg w-14 h-14 shrink-0 border-2 border-dashed border-gray-700 bg-gray-900/40 flex items-center justify-center">
+                    <Terminal className="h-6 w-6 text-gray-600" />
                   </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <h2 className="text-lg sm:text-2xl font-black text-gray-500 leading-tight">No leader yet</h2>
-                    <p className="text-sm text-gray-500 leading-snug">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <h2 className="text-sm font-black text-gray-500 leading-tight">No leader yet</h2>
+                    <p className="text-xs text-gray-600 leading-snug">
                       When someone hires {isOwnProfile ? "you" : player.username}, they&apos;ll appear here.
                     </p>
                   </div>

@@ -162,7 +162,7 @@ export function Navbar() {
 
     const btnContent = (
       <span
-        className={`relative z-10 flex items-center justify-center gap-2 text-5xl leading-none font-bold tracking-wide transition-colors ${
+        className={`relative z-10 flex items-center justify-center gap-1.5 text-sm leading-none font-semibold tracking-wide transition-colors ${
           active
             ? "text-cyan-300"
             : highlight
@@ -170,7 +170,7 @@ export function Navbar() {
               : "text-gray-300 group-hover:text-white"
         }`}
       >
-        <link.icon className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
+        <link.icon className="h-4 w-4 shrink-0" />
         <span>{link.label}</span>
       </span>
     );
@@ -189,9 +189,9 @@ export function Navbar() {
         }}
         className="flex-1"
       >
-        {/* Fixed-height button matching slots indicator height */}
+        {/* Fixed-height compact button matching the header row height */}
         <div
-          className={`group relative w-full h-[72px] flex items-center justify-center px-4 overflow-hidden rounded-lg border transition-all duration-200 ${
+          className={`group relative w-full h-10 flex items-center justify-center px-3 overflow-hidden rounded-lg border transition-all duration-200 ${
             active
               ? "border-cyan-400/70 bg-gradient-to-b from-cyan-500/25 via-blue-600/15 to-transparent shadow-[0_0_18px_rgba(34,211,238,0.35)]"
               : highlight
@@ -375,9 +375,11 @@ export function Navbar() {
       </div>{/* end sticky header block */}
 
       {/* Mobile Bottom Tab Bar — Home | COMBO pill | Avatars once the game is
-          unlocked (the pill is the collapsed ComboDock, in thumb reach). */}
+          unlocked (the pill is the collapsed ComboDock, in thumb reach).
+          Icons carry the affordance; labels stay tiny (10px) so the bar reads
+          as a tab bar, not a second header. */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-gray-800 bg-gray-950/95 backdrop-blur-xl safe-area-bottom">
-        <div className="flex items-center justify-around gap-1 h-16 px-1">
+        <div className="flex items-center justify-around gap-1 h-[60px] px-1">
           {allVisibleLinks.map((link) => {
             const active = isActive(link.href);
             // Guide new accounts: highlight Cards amber before 20 cards, then
@@ -399,11 +401,11 @@ export function Navbar() {
                       ? "text-cyan-400 brightness-125"
                       : highlight
                         ? "text-amber-300 brightness-125 animate-pulse"
-                        : "text-gray-500 brightness-50 active:text-gray-300"
+                        : "text-gray-500 brightness-75 active:text-gray-300"
                   }`}
                 >
-                  <link.icon className={`h-4 w-4 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`} />
-                  <span className={`text-[27px] font-bold leading-tight ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-50"}`}>
+                  <link.icon className={`h-5 w-5 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-75"}`} />
+                  <span className={`text-[10px] font-semibold leading-none ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-75"}`}>
                     {link.label}
                   </span>
                   {active && (

@@ -381,9 +381,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 size="sm"
                 variant="outline"
                 title="Fill every empty slot with the most expensive card you own of that profession"
-                className="h-auto rounded-xl border-t1-500/50 bg-t1-500/10 px-8 py-4 text-2xl font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
+                className="h-auto rounded-xl border-t1-500/50 bg-t1-500/10 px-6 py-4 text-lg font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
               >
-                <Wand2 className="mr-2 h-8 w-8" />
+                <Wand2 className="mr-2 h-5 w-5" />
                 Auto-fill
               </Button>
             )}
@@ -392,9 +392,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               <Button
                 disabled
                 title={firewallTitle}
-                className="h-auto shrink-0 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-10 py-5 font-bold text-2xl sm:text-3xl tracking-wide text-cyan-300"
+                className="h-auto shrink-0 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-6 py-4 font-bold text-lg sm:text-xl tracking-wide text-cyan-300"
               >
-                <Shield className="h-8 w-8 mr-2" />
+                <Shield className="h-5 w-5 mr-2" />
                 Sell unlocks in {formatFirewallWait(firewallMsLeft)}
               </Button>
             )}
@@ -403,7 +403,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               <Button
                 onClick={handleSellClick}
                 disabled={sellMutation.isPending}
-                className="relative overflow-hidden shrink-0 px-10 py-5 h-auto rounded-xl font-bold text-3xl sm:text-4xl tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative overflow-hidden shrink-0 px-6 py-4 h-auto rounded-xl font-bold text-lg sm:text-xl tracking-wide text-white bg-transparent hover:brightness-125 hover:bg-transparent drop-shadow disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   ...navbarBtnStyle,
                   background:
@@ -411,9 +411,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 }}
               >
                 {sellMutation.isPending ? (
-                  <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                  <Loader2 className="h-5 w-5 animate-spin mr-2" />
                 ) : (
-                  <ShoppingCart className="h-8 w-8 mr-2" />
+                  <ShoppingCart className="h-5 w-5 mr-2" />
                 )}
                 Sell 10× = {formatCompact(combo.reward)}¢
               </Button>
