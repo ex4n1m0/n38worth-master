@@ -59,15 +59,15 @@ interface StripConfig {
 
 const STRIPS: StripConfig[] = [
   {
-    key: "topEmpire",
-    label: "Widest Grid",
-    getValue: (p) => p.ownedCount,
-  },
-  {
     key: "topCredits",
     label: "Most Credits",
     getValue: (p) => p.credits,
     suffix: "¢",
+  },
+  {
+    key: "topEmpire",
+    label: "Widest Grid",
+    getValue: (p) => p.ownedCount,
   },
 ];
 
@@ -133,7 +133,7 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
 
 /**
  * "Live Activity and Ranks" — a single row combining recent activity and the
- * headline rankings: Recently Online, Widest Grid, Most Credits, and
+ * headline rankings: Most Credits, Widest Grid, Recently Online, and
  * (optionally) the Hall of Champions. Used on the landing page (transparent)
  * and the in-game Cards page (default). The in-game page passes
  * showChampions={false} because the Hall of Champions lives at the top of
@@ -194,7 +194,12 @@ export function EmpireRankStrip({ variant = "default", showChampions = true }: {
   return (
     <div className={transparent ? "p-3 sm:p-4" : "rounded-2xl border border-gray-800 p-3 sm:p-4"}>
       <div className={`grid grid-cols-2 gap-2 ${showChampions ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
-        {/* 1. Recently Online */}
+        {/* 1. Most Credits · 2. Widest Grid */}
+        {STRIPS.map((cfg) => (
+          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
+        ))}
+
+        {/* 3. Recently Online */}
         <StripCard
           label="Recently Online"
         >
@@ -224,11 +229,6 @@ export function EmpireRankStrip({ variant = "default", showChampions = true }: {
             </ol>
           )}
         </StripCard>
-
-        {/* 2. Widest Grid · 3. Most Credits */}
-        {STRIPS.map((cfg) => (
-          <RankCard key={cfg.key} cfg={cfg} entries={data?.[cfg.key] ?? []} />
-        ))}
 
         {/* 4. Hall of Champions — latest winners. Skipped in-game (the list
             lives at the top of the History page); shown on the landing page. */}

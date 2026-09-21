@@ -377,6 +377,22 @@ export default function PlayerProfilePage() {
 
   return (
     <div className="w-full space-y-6">
+      {/* Ranks & live activity strip — Recently Online / Widest Grid /
+          Most Credits (moved from the Avatars tab; the Hall of Champions
+          lives at the top of the History page). Locked preview until
+          mission 0 is complete. */}
+      {isOwnProfile && !inOnboarding && (
+        gameUnlocked ? (
+          <EmpireRankStrip variant="transparent" showChampions={false} />
+        ) : (
+          <LockedFeature
+            title="Ranks & live activity"
+            ownedCount={player.pagination?.total ?? player.ownedPlayers.length}
+            threshold={UNLOCK_GAME_THRESHOLD}
+          />
+        )
+      )}
+
       {showOnboardingMessage && (
         <div className="bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border border-yellow-500/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
           <div className="flex items-center justify-center gap-1.5 mb-0.5">
@@ -793,19 +809,6 @@ export default function PlayerProfilePage() {
           header at the top of this page. */}
       {isOwnProfile && !inOnboarding && (
         <>
-          {/* Ranks & live activity strip — Recently Online / Widest Grid /
-              Most Credits (moved from the Avatars tab; the Hall of Champions
-              lives at the top of the History page). Locked preview until
-              mission 0 is complete. */}
-          {gameUnlocked ? (
-            <EmpireRankStrip variant="transparent" showChampions={false} />
-          ) : (
-            <LockedFeature
-              title="Ranks & live activity"
-              ownedCount={player.pagination?.total ?? player.ownedPlayers.length}
-              threshold={UNLOCK_GAME_THRESHOLD}
-            />
-          )}
           {gameUnlocked && <GlobalChatPage embedded />}
           {profileOwner && (
             <div className="space-y-3">
