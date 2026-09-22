@@ -377,13 +377,14 @@ export default function PlayerProfilePage() {
 
   return (
     <div className="w-full space-y-6">
-      {/* Ranks & live activity strip — Recently Online / Widest Grid /
-          Most Credits (moved from the Avatars tab; the Hall of Champions
+      {/* Ranks & live activity strip — Most Credits / Widest Grid / The Root
+          Wall / Top Score / Top Portfolio / Top Value / Recent Hires /
+          Recently Online (moved from the Avatars tab; the full Root Wall
           lives at the top of the History page). Locked preview until
           mission 0 is complete. */}
       {isOwnProfile && !inOnboarding && (
         gameUnlocked ? (
-          <EmpireRankStrip variant="transparent" showChampions={false} />
+          <EmpireRankStrip variant="transparent" />
         ) : (
           <LockedFeature
             title="Ranks & live activity"

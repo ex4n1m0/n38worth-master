@@ -121,8 +121,9 @@ export default function LeaderboardPage() {
         {/* Goddess Countdown Banner */}
         <GoddessCountdown />
 
-        {/* (The ranks strip — Recently Online / Widest Grid / Most Credits —
-            lives on the Home tab, just above Global Chat.) */}
+        {/* (The ranks strip — Most Credits / Widest Grid / The Root Wall /
+            Top Score / Top Portfolio / Top Value / Recent Hires / Recently
+            Online — lives on the Home tab, just above Global Chat.) */}
 
         {/* Browse Players — sort/filter pills and the Avatar grid. Cards in
             the grid feed the GLOBAL combo (persistent ComboDock: pill in the

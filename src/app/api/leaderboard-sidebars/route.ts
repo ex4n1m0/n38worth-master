@@ -112,7 +112,7 @@ export async function GET() {
           id: e.id,
           actorUsername: e.actorId ? actorMap.get(e.actorId) ?? null : null,
           targetUsername: e.targetUsername,
-          cost: parsedDetails?.cost ?? parsedDetails?.price ?? null,
+          cost: parsedDetails?.cost ?? parsedDetails?.price ?? parsedDetails?.amount ?? null,
           createdAt: e.createdAt,
         };
       });

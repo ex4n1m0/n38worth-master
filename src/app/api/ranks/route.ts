@@ -66,12 +66,13 @@ export async function GET() {
     const ownedValueMap = new Map(ownedValueSums.map((r) => [r.ownerId, Number(r.totalValue)]));
 
     // ── 4. Enrich all players with computed fields ──
+    // Portfolio = owned cards' value × max(ownerCount, 1) — the player's own
+    // player_value is NOT included (see safePortfolioValue / AGENTS.md).
     const enriched = allPlayers.map((p) => {
       const ownerCount = ownerMap.get(p.id) ?? 0;
       const ownedCount = ownedMap.get(p.id) ?? 0;
       const ownedTotal = ownedValueMap.get(p.id) ?? 0;
-      const basePortfolio = p.playerValue + ownedTotal;
-      const portfolioValue = Math.round(basePortfolio * Math.max(ownerCount, 1) * 100) / 100;
+      const portfolioValue = Math.round(ownedTotal * Math.max(ownerCount, 1) * 100) / 100;
       return { ...p, ownerCount, ownedCount, portfolioValue };
     });
 
