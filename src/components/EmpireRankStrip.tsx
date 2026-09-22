@@ -132,9 +132,9 @@ function EmptyList({ text = "No entries yet" }: { text?: string }) {
   return <p className="text-[11px] text-gray-600 italic">{text}</p>;
 }
 
-/** Shared top-5 row list used by every ranking board in the strip. */
+/** Shared top-10 row list used by every ranking board in the strip. */
 function RankList({ rows, suffix }: { rows: RankRow[]; suffix?: string }) {
-  const top = rows.filter((r) => r.value > 0).slice(0, 5);
+  const top = rows.filter((r) => r.value > 0).slice(0, 10);
   if (top.length === 0) return <EmptyList />;
   return (
     <ol className="space-y-1">
@@ -162,7 +162,7 @@ interface RankRow {
   value: number;
 }
 
-/** A compact, always-visible ranking Avatar showing the top 5. */
+/** A compact, always-visible ranking Avatar showing the top 10. */
 function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
   return (
     <StripCard label={cfg.label}>
@@ -179,7 +179,7 @@ function HireFeed({ events }: { events: HireEvent[] }) {
   if (events.length === 0) return <EmptyList text="No hires yet" />;
   return (
     <ol className="space-y-1">
-      {events.slice(0, 5).map((e, i) => (
+      {events.slice(0, 10).map((e, i) => (
         <li key={e.id} className="flex items-center gap-1.5 text-[11px] leading-tight">
           <span className="w-3.5 shrink-0 text-center font-mono font-bold text-gray-500">
             {i + 1}
@@ -215,11 +215,11 @@ function HireFeed({ events }: { events: HireEvent[] }) {
 }
 
 /**
- * "Live Activity and Ranks" — eight always-on live boards: Most Credits,
- * Widest Grid, The Root Wall, Top Score, Top Portfolio, Top Value, Recent
- * Hires and Recently Online. Used on the in-game Home tab (transparent
- * variant). The Root Wall here is a compact latest-5 winners view; the
- * full wall still lives at the top of the History page.
+ * "Live Activity and Ranks" — eight always-on live boards (top 10 each):
+ * Most Credits, Widest Grid, The Root Wall, Top Score, Top Portfolio, Top
+ * Value, Recent Hires and Recently Online. Used on the in-game Home tab
+ * (transparent variant). The Root Wall here is a compact latest-10 winners
+ * view; the full wall still lives at the top of the History page.
  */
 export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
   const transparent = variant === "transparent";
@@ -259,7 +259,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
   const humans = sidebarData?.lastOnlineHumans ?? [];
   const topScore = sidebarData?.topScorePlayers ?? [];
   const recentHires = sidebarData?.recentGets ?? [];
-  const topChampions = champions.slice(0, 5);
+  const topChampions = champions.slice(0, 10);
 
   // Ticking clock so "online" badges stay accurate without calling Date.now()
   // during render (which would be impure).
@@ -341,7 +341,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
             <EmptyList />
           ) : (
             <ol className="space-y-1">
-              {humans.slice(0, 5).map((h, i) => {
+              {humans.slice(0, 10).map((h, i) => {
                 const online = isOnline(h.lastOnlineAt);
                 return (
                   <li key={h.id} className="flex items-center gap-1.5 text-[11px] leading-tight">

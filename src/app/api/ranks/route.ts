@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
-import { sql, eq, inArray, and, isNotNull, notInArray } from "drizzle-orm";
+import { sql, eq, and, isNotNull, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 
@@ -76,56 +76,38 @@ export async function GET() {
       return { ...p, ownerCount, ownedCount, portfolioValue };
     });
 
-    // ── 5. Sort & slice for each category (all in JS — fast) ──
+    // ── 5. Sort & slice for each category (all in JS — fast). Top 10 each:
+    // the Home live strip shows 10 rows per board. ──
+    const LIMIT = 10;
+
     const topOwners = [...enriched]
       .sort((a, b) => b.ownerCount - a.ownerCount || b.playerValue - a.playerValue)
-      .slice(0, 5);
+      .slice(0, LIMIT);
 
     const topEmpire = [...enriched]
       .sort((a, b) => b.ownedCount - a.ownedCount || b.playerValue - a.playerValue)
-      .slice(0, 5);
+      .slice(0, LIMIT);
 
     const topPortfolio = [...enriched]
       .sort((a, b) => b.portfolioValue - a.portfolioValue)
-      .slice(0, 5);
+      .slice(0, LIMIT);
 
     const topCredits = [...enriched]
       .sort((a, b) => b.credits - a.credits)
-      .slice(0, 5);
+      .slice(0, LIMIT);
 
     const topValue = [...enriched]
       .sort((a, b) => b.playerValue - a.playerValue)
-      .slice(0, 5);
+      .slice(0, LIMIT);
 
-    // ── 6. Fetch avatars ONLY for the players that appear in the top lists ──
-    // (We avoid selecting avatarUrl in the bulk query above because base64
-    // avatars on all 100+ players can OOM Neon — this is safe for ≤40 rows.)
-    const topIds = Array.from(
-      new Set(
-        [...topOwners, ...topEmpire, ...topPortfolio, ...topCredits, ...topValue].map(
-          (p) => p.id
-        )
-      )
-    );
-
-    let avatarMap = new Map<number, string | null>();
-    if (topIds.length > 0) {
-      const avatarRows = await db
-        .select({ id: users.id, avatarUrl: users.avatarUrl })
-        .from(users)
-        .where(inArray(users.id, topIds));
-      avatarMap = new Map(avatarRows.map((r) => [r.id, r.avatarUrl]));
-    }
-
-    const attachAvatar = <T extends { id: number }>(list: T[]) =>
-      list.map((p) => ({ ...p, avatarUrl: avatarMap.get(p.id) ?? null }));
-
+    // Avatars are NOT included — the live strip (sole consumer) renders
+    // text rows only, and base64 avatar rows are an OOM risk on Neon.
     return NextResponse.json({
-      topOwners: attachAvatar(topOwners),
-      topEmpire: attachAvatar(topEmpire),
-      topPortfolio: attachAvatar(topPortfolio),
-      topCredits: attachAvatar(topCredits),
-      topValue: attachAvatar(topValue),
+      topOwners,
+      topEmpire,
+      topPortfolio,
+      topCredits,
+      topValue,
       totalPlayers,
     }, {
       // Public leaderboards polled every 60s by all clients — cache at the CDN.

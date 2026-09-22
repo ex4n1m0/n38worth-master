@@ -8,16 +8,15 @@ import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 export const dynamic = "force-dynamic";
 
 /**
- * Returns 4 sidebar lists for the leaderboard page (and the landing page):
- *   1. lastOnlineHumans  — 5 most-recently-online players (humans + AGIs +
+ * Returns 4 sidebar lists for the Home live strip (10 rows each):
+ *   1. lastOnlineHumans  — 10 most-recently-online players (humans + AGIs +
  *      goddesses — all autonomous players, online first)
- *   2. recentGets        — last 5 purchase (GET) events
- *   3. recentPumps       — last 5 pump events
- *   4. topScorePlayers    — top 5 players by photo_score
+ *   2. recentGets        — last 10 purchase (GET) events
+ *   3. recentPumps       — last 10 pump events
+ *   4. topScorePlayers    — top 10 players by photo_score
  *
  * Public — no auth required. The data (usernames, online times, game events,
- * photo scores) is all non-sensitive and is shown on both the landing page
- * (for logged-out visitors) and the leaderboard (for logged-in players).
+ * photo scores) is all non-sensitive and is shown on the game's live strip.
  */
 export async function GET() {
   try {
@@ -41,7 +40,7 @@ export async function GET() {
           notInArray(users.username, [...REMOVED_AGENT_USERNAMES])
         ))
         .orderBy(desc(users.lastOnlineAt))
-        .limit(5),
+        .limit(10),
 
       // 2. Last 10 GET (purchase) events.
       db
@@ -55,7 +54,7 @@ export async function GET() {
         .from(gameHistory)
         .where(eq(gameHistory.eventType, "purchase"))
         .orderBy(desc(gameHistory.createdAt))
-        .limit(5),
+        .limit(10),
 
       // 3. Last 10 PUMP events.
       db
@@ -69,7 +68,7 @@ export async function GET() {
         .from(gameHistory)
         .where(eq(gameHistory.eventType, "pump"))
         .orderBy(desc(gameHistory.createdAt))
-        .limit(5),
+        .limit(10),
 
       // 4. Top 10 players by photo_score (NPCs with Unsplash scores).
       db
@@ -81,7 +80,7 @@ export async function GET() {
         .from(users)
         .where(and(eq(users.isActive, 1), sql`${users.photoScore} > 0`))
         .orderBy(desc(users.photoScore))
-        .limit(5),
+        .limit(10),
     ]);
 
     // Enrich event lists with actor usernames.
