@@ -1,7 +1,7 @@
 # Study: Simplified Chinese (简体中文) localization for n38worth
 
-**Date:** 2026-09-24 · **Status:** implemented locally (see "What shipped" for the
-exact scope); nothing committed or deployed.
+**Date:** 2026-09-24 · **Status:** implemented and DEPLOYED to production
+(commit 5d44085, build stamp verified on n38worth.com).
 **Goal:** a fully bilingual English/简体中文 site — every player-facing surface
 renders Chinese, users flip languages via a dropdown in the top-right corner,
 and the choice persists.
