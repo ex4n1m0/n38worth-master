@@ -85,6 +85,44 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
   );
 }
 
+/* ─── Sibling-projects strip ─── */
+/* Same "From the same maker" bar as on deepflux.space and
+    onlyhumans.deepflux.space — cross-links the three projects.
+    Sits above the hero in normal flow so it scrolls away, and
+    drops the taglines on mobile to stay one slim line. */
+function KinStrip() {
+  const { t } = useLanguage();
+  return (
+    <div className="relative z-30 border-b border-white/10 bg-black">
+      <div className="mx-auto flex max-w-[1080px] flex-wrap items-center justify-center gap-x-3.5 gap-y-1 px-6 py-2 text-xs">
+        <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-gray-500">
+          {t.kinLabel}
+        </span>
+        <a
+          href="https://deepflux.space/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
+        >
+          <b className="font-semibold text-gray-300 group-hover:text-white">DeepFlux</b>{" "}
+          <span className="hidden sm:inline">{t.kinDeepfluxDesc}</span>
+        </a>
+        <span aria-hidden="true" className="h-[3px] w-[3px] flex-none rounded-full bg-white/25" />
+        <a
+          href="https://onlyhumans.deepflux.space/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
+        >
+          <b className="font-semibold text-gray-300 group-hover:text-white">OnlyHumans</b>{" "}
+          <span className="hidden sm:inline">{t.kinOnlyhumansDesc}</span>
+        </a>
+      </div>
+    </div>
+  );
+}
+
+
 /* ─── Main Component ─── */
 export default function Home() {
   const { t, locale } = useLanguage();
@@ -162,6 +200,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black text-gray-100 overflow-x-hidden">
+      {/* Sibling-projects reference strip — above the hero, scrolls away */}
+      <KinStrip />
+
       {/* ═══ Hero ═══ */}
       {/* overflow-clip (not just overflow-x-clip) so the parallax image can't
           slide out past the section's bottom edge, where the darkening
