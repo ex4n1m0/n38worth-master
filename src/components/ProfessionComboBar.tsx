@@ -18,8 +18,9 @@ import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useNow } from "@/hooks/useNow";
 import { useSound } from "@/hooks/useSound";
-import { PROFESSION_PERKS } from "@/lib/professions";
+import { professionPerk, professionName } from "@/lib/professions";
 import { cardDisplayName } from "@/lib/display-names";
+import { useLanguage } from "./LanguageContext";
 import type { ComboPlayer, UseProfessionComboSelectionReturn } from "@/hooks/useProfessionComboSelection";
 
 interface ProfessionComboBarProps {
@@ -49,6 +50,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   const { data: session } = useSession();
   const { ownedIds, isSuccess: ownershipLoaded } = useOwnedPlayerIds();
   const { play } = useSound();
+  const { t, locale } = useLanguage();
   const now = useNow();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -123,14 +125,17 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   const firewallMsLeft = firewallExpiresAt - now;
   const comboLocked = combo.isComplete && firewallMsLeft > 0;
   const firewallTitle = firewalledMembers.length
-    ? `Firewalled (can't sell yet): ${firewalledMembers
-        .map(
-          (m) =>
-            `${cardDisplayName(m.player.username)} — ${formatFirewallWait(m.until - now)}`
-        )
-        .join(", ")}`
+    ? t.comboFirewallTitle.replace(
+        "{list}",
+        firewalledMembers
+          .map(
+            (m) =>
+              `${cardDisplayName(m.player.username, locale)} — ${formatFirewallWait(m.until - now)}`
+          )
+          .join(", ")
+      )
     : undefined;
-  useEffect(() => {
+useEffect(() => {
     if (!ownershipLoaded) return;
     const stolen = slots
       .map((s) => s.player)
@@ -140,11 +145,13 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
     const names = stolen.map((p) => p.username).join(", ");
     toast.warning(
       stolen.length === 1
-        ? `${names} was hired away — removed from your combo.`
-        : `${stolen.length} players were hired away (${names}) — removed from your combo.`,
+        ? t.comboStolenOne.replace("{names}", names)
+        : t.comboStolenMany
+            .replace("{count}", String(stolen.length))
+            .replace("{names}", names),
       { duration: 6000 }
     );
-  }, [ownedIds, ownershipLoaded, slots, removeUnowned]);
+  }, [ownedIds, ownershipLoaded, slots, removeUnowned, t]);
 
   // Celebrate the moment the 6th slot fills — this is the "aha, it's ready"
   // signal that was previously missing entirely.
@@ -152,16 +159,16 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
   useEffect(() => {
     if (combo.isComplete && !wasComplete.current) {
       play("reward");
-      toast.success("✦ Combo complete!", {
+      toast.success(t.comboComplete, {
         description:
           firewallMsLeft > 0
-            ? `All six professions assembled — firewalled, sell unlocks in ${formatFirewallWait(firewallMsLeft)}.`
-            : `All six professions assembled — sell for ${formatCompact(combo.reward)}¢.`,
+            ? t.comboCompleteFirewalled.replace("{time}", formatFirewallWait(firewallMsLeft))
+            : t.comboCompleteSell.replace("{amount}", formatCompact(combo.reward)),
         duration: 6000,
       });
     }
     wasComplete.current = combo.isComplete;
-  }, [combo.isComplete, combo.reward, play, firewallMsLeft]);
+  }, [combo.isComplete, combo.reward, play, firewallMsLeft, t]);
 
   const sellMutation = useMutation({
     mutationFn: async () => {
@@ -171,23 +178,25 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
         body: JSON.stringify({ playerIds: combo.selectedPlayerIds }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sell combo failed");
+      if (!res.ok) throw new Error(data.error || t.comboSellFailed);
       return data;
     },
     onSuccess: async (data) => {
       const humanMsg =
         data.resetPlayerCount > 0
-          ? `Reset ${data.resetPlayerCount} player${data.resetPlayerCount > 1 ? "s" : ""} to floor`
+          ? (data.resetPlayerCount > 1 ? t.comboResetMany : t.comboResetOne)
+              .replace("{count}", String(data.resetPlayerCount))
           : "";
       const spawnMsg =
         data.createdNpcCount > 0
-          ? `Spawned ${data.createdNpcCount} new NPC${data.createdNpcCount > 1 ? "s" : ""} into the market`
+          ? (data.createdNpcCount > 1 ? t.comboSpawnMany : t.comboSpawnOne)
+              .replace("{count}", String(data.createdNpcCount))
           : "";
       const bonusMsg =
-        data.firstComboBonus > 0 ? `First combo sale: +${data.firstComboBonus} hire slots!` : "";
+        data.firstComboBonus > 0 ? t.comboFirstBonus.replace("{count}", String(data.firstComboBonus)) : "";
 
       play("win");
-      toast.success(`🎉 Combo Sold! +${formatCompact(data.reward)}¢`, {
+      toast.success(t.comboSoldToast.replace("{amount}", formatCompact(data.reward)), {
         description: [humanMsg, spawnMsg, bonusMsg].filter(Boolean).join(". "),
         duration: 8000,
       });
@@ -272,7 +281,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
         <div className="flex items-center gap-3 flex-wrap">
           <span className="flex items-center gap-1.5 shrink-0 text-sm font-bold text-white uppercase tracking-wide">
             <Sparkles className="h-4 w-4" />
-            Combo
+            {t.comboTitle}
             <span className={`font-bold ${combo.isComplete ? "text-amber-300" : "text-white"}`}>
               {combo.selectedCount}/6
             </span>
@@ -294,14 +303,17 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               const slotFirewalled = slotFirewallUntil > now;
               const title =
                 state === "selected"
-                  ? `${cardDisplayName(slot.player!.username)} · ${formatCompact(slot.player!.playerValue)}¢${
+                  ? `${cardDisplayName(slot.player!.username, locale)} · ${formatCompact(slot.player!.playerValue)}¢${
                       slotFirewalled
-                        ? ` — firewalled ${formatFirewallWait(slotFirewallUntil - now)}`
+                        ? ` — ${t.comboSlotFirewalled.replace("{time}", formatFirewallWait(slotFirewallUntil - now))}`
                         : ""
-                    } — click to remove`
+                    } — ${t.comboClickToRemove}`
                   : state === "ready"
-                    ? `Fill with ${priciest!.username} (${formatCompact(priciest!.playerValue)}¢) — most expensive ${slot.profession} you own`
-                    : `Own a ${slot.profession} card to fill this slot`;
+                    ? t.comboSlotReadyTitle
+                        .replace("{name}", priciest!.username)
+                        .replace("{value}", formatCompact(priciest!.playerValue))
+                        .replace("{profession}", professionName(slot.profession, locale))
+                    : t.comboSlotMissingTitle.replace("{profession}", professionName(slot.profession, locale));
               return (
                 <button
                   key={slot.profession}
@@ -338,7 +350,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={slot.player?.avatarUrl || slot.imagePath}
-                    alt={slot.profession}
+                    alt={professionName(slot.profession, locale)}
                     className={`h-full w-full object-cover ${
                       state === "missing" ? "opacity-30 grayscale" : "opacity-90"
                     }`}
@@ -356,7 +368,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                   {state === "selected" && slotFirewalled && (
                     <span
                       className="absolute bottom-1 left-1 flex h-6 w-6 items-center justify-center rounded-full bg-cyan-600 text-white shadow"
-                      title="Firewalled — can't be combo-sold yet"
+                      title={t.comboSlotFirewallBadge}
                     >
                       <Shield className="h-4 w-4" />
                     </span>
@@ -369,9 +381,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <p className="text-xs font-medium leading-tight text-white flex-1 min-w-0 sm:min-w-[220px]">
-            One player per profession — sell all 6 for{" "}
-            <span className="font-bold text-white">10× combined value</span> (every ¢ you
-            overclock into them counts 10×).
+            {t.comboBarHintPrefix}{" "}
+            <span className="font-bold text-white">{t.comboBarHintHighlight}</span>{" "}
+            {t.comboBarHintSuffix}
           </p>
 
           <div className="flex items-center gap-2">
@@ -380,11 +392,11 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 onClick={handleAutoFill}
                 size="sm"
                 variant="outline"
-                title="Fill every empty slot with the most expensive card you own of that profession"
+                title={t.comboAutoFillTitle}
                 className="h-auto rounded-xl border-t1-500/50 bg-t1-500/10 px-6 py-4 text-lg font-bold text-t1-300 hover:bg-t1-500/20 hover:text-t1-200"
               >
                 <Wand2 className="mr-2 h-5 w-5" />
-                Auto-fill
+                {t.comboAutoFill}
               </Button>
             )}
 
@@ -395,7 +407,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 className="h-auto shrink-0 rounded-xl border border-cyan-500/50 bg-cyan-950/40 px-6 py-4 font-bold text-lg sm:text-xl tracking-wide text-cyan-300"
               >
                 <Shield className="h-5 w-5 mr-2" />
-                Sell unlocks in {formatFirewallWait(firewallMsLeft)}
+                {t.comboSellUnlocksIn.replace("{time}", formatFirewallWait(firewallMsLeft))}
               </Button>
             )}
 
@@ -415,7 +427,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 ) : (
                   <ShoppingCart className="h-5 w-5 mr-2" />
                 )}
-                Sell 10× = {formatCompact(combo.reward)}¢
+                {t.comboSellButton} = {formatCompact(combo.reward)}¢
               </Button>
             )}
           </div>
@@ -428,7 +440,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
         <DialogContent className="bg-gray-900 border-gray-800">
           <DialogHeader>
             <DialogTitle className="text-white">
-              Sell combo for {formatCompact(combo.reward)}¢?
+              {t.comboConfirmTitle.replace("{amount}", formatCompact(combo.reward))}
             </DialogTitle>
             <DialogDescription asChild>
               <div className="text-gray-400 text-sm space-y-3">
@@ -437,9 +449,9 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                     <li key={s.profession} className="flex items-center justify-between gap-3">
                       <span className="truncate">
                         <span className="text-white font-medium">
-                          {cardDisplayName(s.player!.username)}
+                          {cardDisplayName(s.player!.username, locale)}
                         </span>{" "}
-                        <span className="text-gray-500">· {s.profession}</span>
+                        <span className="text-gray-500">· {professionName(s.profession, locale)}</span>
                       </span>
                       <span className="font-mono text-t1-400 shrink-0">
                         {formatCompact(s.player!.playerValue)}¢
@@ -447,7 +459,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                     </li>
                   ))}
                   <li className="flex items-center justify-between gap-3 border-t border-gray-800 pt-1">
-                    <span>Combined value × 10</span>
+                    <span>{t.comboCombinedValue}</span>
                     <span className="font-mono text-amber-300 font-bold">
                       {formatCompact(combo.reward)}¢
                     </span>
@@ -457,28 +469,28 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
                 <div className="space-y-1.5 text-gray-300">
                   <p className="flex items-center gap-2">
                     <Zap className="h-4 w-4 text-amber-300 shrink-0" />
-                    All 6 avatars reset to floor value and leave everyone&apos;s ownership.
+                    {t.comboConfirmReset}
                   </p>
                   <p className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-t1-400 shrink-0" />
-                    6 fresh NPCs spawn into the market.
+                    {t.comboConfirmSpawn}
                   </p>
                   <p className="flex items-center gap-2">
                     <RotateCcw className="h-4 w-4 text-red-400 shrink-0" />
                     {lostPerks.length > 0 ? (
                       <span>
-                        Firmware Perks lost until you rebuild:{" "}
+                        {t.comboPerksLostPrefix}{" "}
                         {lostPerks
-                          .map(
-                            (p) =>
-                              `${PROFESSION_PERKS[p]?.name ?? p} (${
-                                PROFESSION_PERKS[p]?.description ?? ""
-                              })`
-                          )
+                          .map((p) => {
+                            const perk = professionPerk(p, locale);
+                            return `${perk?.name ?? p} (${
+                              perk?.description ?? ""
+                            })`;
+                          })
                           .join(" · ")}
                       </span>
                     ) : (
-                      "You keep every Firmware Perk — you still own (or are) another card of each profession."
+                      t.comboKeepPerks
                     )}
                   </p>
                 </div>
@@ -491,7 +503,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               onClick={() => setConfirmOpen(false)}
               className="border-gray-700 text-gray-300"
             >
-              Cancel
+              {t.cancel}
             </Button>
             <Button
               onClick={handleSell}
@@ -499,7 +511,7 @@ export function ProfessionComboBar({ combo }: ProfessionComboBarProps) {
               className="bg-amber-600 hover:bg-amber-500 text-white font-bold"
             >
               {sellMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Sell 10× = {formatCompact(combo.reward)}¢
+              {t.comboSellButton} = {formatCompact(combo.reward)}¢
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -61,7 +61,7 @@ export default function SettingsPage() {
 
     if (newPassword !== confirmPassword) {
       play("error");
-      toast.error("New passwords do not match");
+      toast.error(t.settingsNewPasswordsNoMatch);
       setChangingPassword(false);
       return;
     }
@@ -76,15 +76,15 @@ export default function SettingsPage() {
       if (!res.ok) {
         const data = await res.json();
         play("error");
-        toast.error(data.error || "Failed to change password");
+        toast.error(data.error || t.settingsChangePasswordFailed);
       } else {
         play("confirm");
-        toast.success("Password changed successfully");
+        toast.success(t.settingsPasswordChanged);
         (e.target as HTMLFormElement).reset();
       }
     } catch {
       play("error");
-      toast.error("Something went wrong");
+      toast.error(t.settingsSomethingWrong);
     } finally {
       setChangingPassword(false);
     }
@@ -109,13 +109,13 @@ export default function SettingsPage() {
 
       if (!res.ok) {
         play("error");
-        toast.error(data.error || "Failed to change username");
+        toast.error(data.error || t.settingsChangeUsernameFailed);
       } else {
         play("confirm");
         toast.success(
           data.converted
-            ? "Username changed! Your account is now permanent — it will no longer be deleted."
-            : "Username changed! Upload a custom avatar to make your account permanent."
+            ? t.settingsUsernameChangedPermanent
+            : t.settingsUsernameChangedAvatar
         );
         // Force the JWT to refresh so session.user.name picks up the new username.
         await update({});
@@ -126,7 +126,7 @@ export default function SettingsPage() {
       }
     } catch {
       play("error");
-      toast.error("Something went wrong");
+      toast.error(t.settingsSomethingWrong);
     } finally {
       setChangingUsername(false);
     }
@@ -144,15 +144,15 @@ export default function SettingsPage() {
       if (!res.ok) {
         const data = await res.json();
         play("error");
-        toast.error(data.error || "Failed to reset tutorial");
+        toast.error(data.error || t.settingsTutorialResetFailed);
       } else {
         play("confirm");
-        toast.success("Tutorial will restart next time you log in");
+        toast.success(t.settingsTutorialRestarted);
         await refreshOnboarding();
       }
     } catch {
       play("error");
-      toast.error("Something went wrong");
+      toast.error(t.settingsSomethingWrong);
     } finally {
       setResettingTutorial(false);
     }
@@ -182,12 +182,10 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
               <UserCog className="h-5 w-5 text-amber-400" />
-              Convert Demo Account
+              {t.settingsConvertDemoTitle}
             </CardTitle>
             <CardDescription className="text-amber-200/70">
-              Your demo account will be deleted after 1 hour. Change your
-              username AND upload a custom avatar to convert it into a permanent
-              account.
+              {t.settingsConvertDemoDesc}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -199,8 +197,8 @@ export default function SettingsPage() {
                 />
                 <span className={avatarChanged ? "text-green-400" : "text-gray-500"}>
                   {avatarChanged
-                    ? "Custom avatar uploaded"
-                    : "Upload a custom avatar (below)"}
+                    ? t.settingsAvatarUploaded
+                    : t.settingsUploadAvatarBelow}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm">
@@ -208,7 +206,7 @@ export default function SettingsPage() {
                   className={`h-4 w-4 ${!isDemoPlayer ? "text-green-400" : "text-gray-600"}`}
                 />
                 <span className={!isDemoPlayer ? "text-green-400" : "text-gray-500"}>
-                  {!isDemoPlayer ? "Username changed" : "Change your username (below)"}
+                  {!isDemoPlayer ? t.settingsUsernameChanged : t.settingsChangeUsernameBelow}
                 </span>
               </div>
             </div>
@@ -219,7 +217,7 @@ export default function SettingsPage() {
             <form onSubmit={handleUsernameChange} className="space-y-3">
               <div className="space-y-2">
                 <Label htmlFor="newUsername" className="text-gray-300">
-                  New Username
+                  {t.settingsNewUsername}
                 </Label>
                 <Input
                   id="newUsername"
@@ -229,11 +227,11 @@ export default function SettingsPage() {
                   minLength={3}
                   maxLength={30}
                   pattern="^[a-zA-Z0-9_]+$"
-                  placeholder="Choose a new username"
+                  placeholder={t.settingsChooseNewUsername}
                   className="bg-transparent border-gray-700 text-white"
                 />
                 <p className="text-xs text-gray-500">
-                  3–30 characters. Letters, numbers, and underscores only.
+                  {t.settingsUsernameRules}
                 </p>
               </div>
               <Button
@@ -244,10 +242,10 @@ export default function SettingsPage() {
                 {changingUsername ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    Changing…
+                    {t.settingsChanging}
                   </>
                 ) : (
-                  "Change Username"
+                  t.settingsChangeUsername
                 )}
               </Button>
             </form>
@@ -255,7 +253,7 @@ export default function SettingsPage() {
             {!avatarChanged && (
               <p className="inline-flex items-center gap-1.5 text-sm text-amber-300">
                 <Camera className="h-4 w-4" />
-                Upload your avatar in the section below
+                {t.settingsUploadAvatarSection}
               </p>
             )}
           </CardContent>
@@ -267,10 +265,10 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Camera className="h-5 w-5 text-pink-400" />
-            Change Avatar
+            {t.changeAvatar}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            Your avatar is your card&apos;s photo across the whole game.
+            {t.settingsAvatarCardDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -292,15 +290,15 @@ export default function SettingsPage() {
             ) : (
               <Volume2 className="h-5 w-5 text-t1-400" />
             )}
-            Sound
+            {t.settingsSoundTitle}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            Sound effects for buttons and game events.
+            {t.settingsSoundDesc}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label className="text-gray-300">Sound effects</Label>
+            <Label className="text-gray-300">{t.settingsSoundEffects}</Label>
             <Button
               type="button"
               variant="outline"
@@ -315,12 +313,12 @@ export default function SettingsPage() {
                   : "border-t1-500/50 bg-t1-900/40 text-t1-400 hover:text-t1-300"
               }
             >
-              {muted ? "Off" : "On"}
+              {muted ? t.settingsOff : t.settingsOn}
             </Button>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-gray-300">Volume</Label>
+              <Label className="text-gray-300">{t.settingsVolume}</Label>
               <span className="text-xs font-mono text-gray-500">
                 {Math.round(volume * 100)}%
               </span>
@@ -345,15 +343,15 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <GraduationCap className="h-5 w-5 text-cyan-400" />
-            Tutorial
+            {t.settingsTutorialTitle}
           </CardTitle>
           <CardDescription className="text-gray-400">
-            A step-by-step walkthrough of the simulation.{" "}
+            {t.settingsTutorialDesc}{" "}
             {onboarding.tutorialCompleted === 1
-              ? "You finished it."
+              ? t.settingsTutorialFinished
               : onboarding.tutorialCompleted === 2
-                ? "You dismissed it early."
-                : "It will appear next time you log in."}
+                ? t.settingsTutorialDismissedEarly
+                : t.settingsTutorialWillAppear}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -369,10 +367,10 @@ export default function SettingsPage() {
             ) : (
               <RotateCcw className="h-4 w-4" />
             )}
-            Replay tutorial
+            {t.settingsReplayTutorial}
           </Button>
           <p className="mt-2 text-xs text-gray-500">
-            Restarts the tutorial next time you log in.
+            {t.settingsReplayTutorialHint}
           </p>
         </CardContent>
       </Card>

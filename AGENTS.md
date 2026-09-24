@@ -1,5 +1,30 @@
 # Project notes for AI agents
 
+## Localization (English + 简体中文, since 2026-09)
+- **All user-visible strings go through the dictionary**: add a key to BOTH
+  `en` and `zh` in `src/lib/i18n.ts` (the `TranslationKeys` type fails the
+  build if zh drifts from en) and read it via `const { t, locale } =
+  useLanguage()` from `src/components/LanguageContext`. Interpolation uses
+  `{param}` placeholders + `.replace()` chains; plurals use two keys.
+- **Locale-aware game vocabulary lives next to its data**: render goddess /
+  Botnet names via `cardDisplayName(username, locale)`, professions via
+  `professionName(name, locale)` / `professionPerk(name, locale)`, rank titles
+  via `rankTitle(title, locale)`, mission labels via
+  `missionLabel(index, locale)` / `finalGoddessLabel(threshold, locale)`. DB
+  values, usernames, API params and comparisons stay raw English — only the
+  DISPLAY text is translated.
+- **Never hardcode English UI text** in components (JSX, toasts, titles,
+  aria-labels, placeholders, alt). Server-side strings (API `data.error`
+  values, DM receipt writes) are English in v1 — see CHINESE_I18N_STUDY.md §6
+  before changing that.
+- Language switcher: `<LanguageSwitcher />` (icon variant in the navbar,
+  pill variant on landing/auth/public). Locale persists in localStorage
+  `n38-lang` + cookie; `?lang=zh` deep-links and browser detection set it.
+- zh glossary is canonical in CHINESE_I18N_STUDY.md §4 (化身 hire=雇佣
+  credits=信用点 boss=老板 overclock=超频 firewall=防火墙 breach=击穿
+  hard lock=硬锁 botnet=僵尸网络 the Six=六使, etc.) — keep new copy
+  consistent with it.
+
 ## Infrastructure / accounts
 - **Vercel: Pro plan.** Minute-level (and sub-hourly) cron schedules are allowed
   (e.g. `*/1`, `0,30 * * * *`), and functions may set `maxDuration` up to 60s.

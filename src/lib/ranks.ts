@@ -5,7 +5,12 @@
 //
 // Sci-fi rebrand (2026-09): display titles only — the category API values
 // ("empire", "legacy", …) and snapshot columns keep their original names.
+// Simplified Chinese (2026-09): titles translate at DISPLAY time via
+// `rankTitle(title, locale)`; the ladder data above stays English so
+// server-side consumers are unaffected.
 // ──────────────────────────────────────────────
+
+import type { Locale } from "./i18n";
 
 export interface RankTier {
   threshold: number;
@@ -67,6 +72,59 @@ export const PORTFOLIO_RANKS: RankTier[] = [
   { threshold: 500000, title: "Cartel" },
   { threshold: 1000000, title: "Hegemon" },
 ];
+
+/** Simplified-Chinese display titles, keyed by the English ladder title. */
+export const RANK_TITLES_ZH: Record<string, string> = {
+  // Grid
+  Lurker: "潜伏者",
+  User: "用户",
+  Runner: "信使",
+  Operator: "操作员",
+  Sysop: "站务",
+  Admin: "管理员",
+  Root: "根权限",
+  Overseer: "监察者",
+  Overlord: "霸主",
+  Architect: "架构师",
+  // Credits
+  Null: "空",
+  Byte: "字节",
+  Kilo: "千",
+  Mega: "兆",
+  Giga: "吉",
+  Tera: "太",
+  Peta: "拍",
+  Exa: "艾",
+  Zetta: "泽",
+  Yotta: "尧",
+  // Value
+  Ghost: "幽灵",
+  Process: "进程",
+  Thread: "线程",
+  Daemon: "守护进程",
+  Kernel: "内核",
+  Instance: "实例",
+  Sentinel: "哨兵",
+  Colossus: "巨像",
+  Singularity: "奇点",
+  Ascendant: "飞升者",
+  // Portfolio
+  Void: "虚空",
+  Seed: "种子",
+  Node: "节点",
+  Cluster: "集群",
+  Fabric: "织网",
+  Lattice: "晶格",
+  Mainframe: "主机",
+  Titan: "泰坦",
+  Cartel: "巨头",
+  Hegemon: "霸权者",
+};
+
+/** Locale-aware display title for a rank tier. */
+export function rankTitle(title: string, locale: Locale = "en"): string {
+  return locale === "zh" ? (RANK_TITLES_ZH[title] ?? title) : title;
+}
 
 /**
  * Given a value and a rank ladder, return the highest rank whose threshold ≤ value.

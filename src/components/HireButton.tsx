@@ -38,7 +38,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
         body: JSON.stringify({ targetId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
     },
     onMutate: async () => {
@@ -69,15 +69,16 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
       if (data.countdownStarted) {
         // ⏱️ COUNTDOWN STARTED! Player owns all Six
         play("win");
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description:
-            "You own all Six! Hold them for 60 minutes to root the mainframe and reboot the simulation! Other players will try to breach them away!",
+        toast.success(t.countdownStartedTitle, {
+          description: t.countdownStartedSixDesc,
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
         toast.success(
-          `You hired ${targetUsername}! Their value is now ${data.newValue} 💰`
+          t.youHiredValueNow
+            .replace("{name}", targetUsername)
+            .replace("{value}", String(data.newValue))
         );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -107,7 +108,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
           }
         >
           <Shield className={compact ? "h-3 w-3 mr-1" : "h-5 w-5 mr-2"} />
-          Partnered
+          {t.partnered}
         </Button>
         <BlockCountdownBar blockSellUntil={blockSellUntil} />
       </div>
@@ -121,7 +122,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
         mutation.mutate();
       }}
       disabled={disabled || mutation.isPending}
-      aria-label={`Hire ${targetUsername} for ${formatCompact(cost)} credits`}
+      aria-label={t.hireAria.replace("{name}", targetUsername).replace("{amount}", formatCompact(cost))}
       size={compact ? "sm" : "lg"}
       className={compact
         ? "w-full bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white font-bold shadow-md shadow-t1-500/20 text-[10px] sm:text-xs px-1.5 py-1.5 h-auto rounded-md whitespace-nowrap"

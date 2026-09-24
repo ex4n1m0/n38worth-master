@@ -110,35 +110,35 @@ export default function PlayersPage() {
         />
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-base text-gray-400 mr-1">Filter:</span>
+          <span className="text-base text-gray-400 mr-1">{t.filterLabel}</span>
           <FilterPill active={playerType === "human"} onClick={() => { setPlayerType(playerType === "human" ? "" : "human"); setPage(1); }} tone="amber">
-            <User className="h-7 w-7" /> Human
+            <User className="h-7 w-7" /> {t.human}
           </FilterPill>
           <FilterPill active={playerType === "card"} onClick={() => { setPlayerType(playerType === "card" ? "" : "card"); setPage(1); }} tone="amber">
-            <CreditCard className="h-7 w-7" /> NPC
+            <CreditCard className="h-7 w-7" /> {t.npc}
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
           <FilterPill active={ownerFilter === "none"} onClick={() => { setOwnerFilter(ownerFilter === "none" ? "" : "none"); setPage(1); }} tone="amber">
-            <UserX className="h-7 w-7" /> No Owner
+            <UserX className="h-7 w-7" /> {t.noOwner}
           </FilterPill>
           <FilterPill active={ownerFilter === "mine"} onClick={() => { setOwnerFilter(ownerFilter === "mine" ? "" : "mine"); setPage(1); }} tone="amber">
-            <Terminal className="h-7 w-7" /> My Owned
+            <Terminal className="h-7 w-7" /> {t.myOwned}
           </FilterPill>
           <FilterPill active={ownerFilter === "other"} onClick={() => { setOwnerFilter(ownerFilter === "other" ? "" : "other"); setPage(1); }} tone="amber">
-            <Users className="h-7 w-7" /> Others Owned
+            <Users className="h-7 w-7" /> {t.othersOwned}
           </FilterPill>
           <FilterPill active={ownerFilter === "owns"} onClick={() => { setOwnerFilter(ownerFilter === "owns" ? "" : "owns"); setPage(1); }} tone="amber">
-            <Users className="h-7 w-7" /> Owns
+            <Users className="h-7 w-7" /> {t.owns}
           </FilterPill>
           <span className="w-px h-4 bg-gray-700 mx-1" />
           <FilterPill active={hasTeam} onClick={() => { setHasTeam(!hasTeam); setPage(1); }} tone="amber">
-            <Users className="h-7 w-7" /> Has Team
+            <Users className="h-7 w-7" /> {t.hasTeam}
           </FilterPill>
           <FilterPill active={available} onClick={() => { setAvailable(!available); setPage(1); }} tone="amber">
-            <Shield className="h-7 w-7" /> Available
+            <Shield className="h-7 w-7" /> {t.available}
           </FilterPill>
           <FilterPill active={affordable} onClick={() => { setAffordable(!affordable); setPage(1); }} tone="amber">
-            <Sparkles className="h-7 w-7" /> Affordable
+            <Sparkles className="h-7 w-7" /> {t.affordable}
           </FilterPill>
         </div>
 

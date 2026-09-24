@@ -19,23 +19,29 @@ import { useLanguage } from "@/components/LanguageContext";
 import { HallOfChampions } from "@/components/HallOfChampions";
 import { useState } from "react";
 import { formatCompact } from "@/lib/utils";
+import type { TranslationKeys } from "@/lib/i18n";
 
 const eventTypeConfig = {
   purchase: {
     icon: ShoppingCart,
-    label: "Get",
     color: "text-green-400",
     bgColor: "bg-green-500/10",
     borderColor: "border-green-500/20",
   },
   pump: {
     icon: Rocket,
-    label: "Overclock",
     color: "text-fuchsia-400",
     bgColor: "bg-fuchsia-500/10",
     borderColor: "border-fuchsia-500/20",
   },
 };
+
+function eventLabel(eventType: string, t: TranslationKeys): string {
+  if (eventType === "purchase") return t.historyEventGet;
+  if (eventType === "pump") return t.historyEventOverclock;
+  // Unknown event types fall back to the raw DB value.
+  return eventType;
+}
 
 export default function GameHistoryPage() {
   const { data: session, status } = useSession();
@@ -60,9 +66,9 @@ export default function GameHistoryPage() {
   }
 
   const filters = [
-    { value: null, label: "ALL" },
-    { value: "purchase", label: "GETS" },
-    { value: "pump", label: "OVERCLOCKS" },
+    { value: null, label: t.historyFilterAll },
+    { value: "purchase", label: t.historyFilterGets },
+    { value: "pump", label: t.historyFilterOverclocks },
   ];
 
   return (
@@ -73,10 +79,10 @@ export default function GameHistoryPage() {
       <div className="pt-4 border-t border-white/10">
         <h1 className="text-3xl font-bold text-white flex items-center gap-3">
           <History className="h-8 w-8 text-t2-400" />
-          Game History
+          {t.historyTitle}
         </h1>
         <p className="text-gray-400 mt-1">
-          Complete log of all game events including hires, overclocks, sells, and deletions
+          {t.historySubtitle}
         </p>
       </div>
 
@@ -103,7 +109,7 @@ export default function GameHistoryPage() {
       <Card className="border-gray-800 bg-transparent">
         <CardHeader>
           <CardTitle className="text-white">
-            {filter ? eventTypeConfig[filter as keyof typeof eventTypeConfig]?.label ?? "History" : "All Events"}
+            {filter ? eventLabel(filter, t) : t.historyAllEvents}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -114,9 +120,9 @@ export default function GameHistoryPage() {
           ) : data?.history?.length === 0 ? (
             <div className="text-center py-20 text-gray-500">
               <History className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No history events found</p>
+              <p>{t.historyNoEvents}</p>
               <p className="text-sm mt-1">
-                Game events will appear here as they occur
+                {t.historyNoEventsHint}
               </p>
             </div>
           ) : (
@@ -135,7 +141,6 @@ export default function GameHistoryPage() {
                 }) => {
                   const config = eventTypeConfig[event.eventType as keyof typeof eventTypeConfig] ?? {
                     icon: History,
-                    label: event.eventType,
                     color: "text-gray-400",
                     bgColor: "bg-gray-500/10",
                     borderColor: "border-gray-500/20",
@@ -174,11 +179,11 @@ export default function GameHistoryPage() {
                             )}
                             
                             <span className="text-sm text-gray-400 flex-shrink-0">
-                              {event.eventType === "purchase" && "got"}
-                              {event.eventType === "pump" && "overclocked"}
-                              {event.eventType === "sell" && "fired"}
-                              {event.eventType === "npc_deletion" && "deleted NPC"}
-                              {event.eventType === "player_deletion" && "deleted player"}
+                              {event.eventType === "purchase" && t.historyVerbGot}
+                              {event.eventType === "pump" && t.historyVerbOverclocked}
+                              {event.eventType === "sell" && t.historyVerbFired}
+                              {event.eventType === "npc_deletion" && t.historyVerbDeletedNpc}
+                              {event.eventType === "player_deletion" && t.historyVerbDeletedPlayer}
                             </span>
 
                             {event.targetUsername && (
@@ -204,7 +209,7 @@ export default function GameHistoryPage() {
                               variant="secondary"
                               className={`text-xs ${config.bgColor} ${config.color} ${config.borderColor}`}
                             >
-                              {config.label}
+                              {eventLabel(event.eventType, t)}
                             </Badge>
                           </div>
                         </div>

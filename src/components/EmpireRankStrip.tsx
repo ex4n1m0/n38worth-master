@@ -4,14 +4,20 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Calendar, Star } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/components/LanguageContext";
+import { cardDisplayName } from "@/lib/display-names";
+import type { Locale } from "@/lib/i18n";
 import { formatCompact, formatLastOnline } from "@/lib/utils";
 
 /**
  * Shorten goddess usernames for compact UIs (Live Activity and Ranks) by hiding
  * the "Goddess of " prefix — "Goddess of Wealth" → "Wealth", "Goddess" →
  * "Goddess". The full name is still used everywhere else in the game.
+ * In Chinese the localized special-card name (cardDisplayName, e.g. 银行家) is
+ * shown as-is — there is no prefix to strip.
  */
-function shortName(username: string): string {
+function shortName(username: string, locale: Locale = "en"): string {
+  if (locale === "zh") return cardDisplayName(username, "zh");
   if (username === "Goddess") return "Goddess";
   if (username.startsWith("Goddess of ")) return username.slice("Goddess of ".length);
   return username;
@@ -77,27 +83,28 @@ interface StripConfig {
 // src/lib/ranks.ts: Credits (Null→Yotta), Grid/owned (Lurker→Architect),
 // Portfolio (Void→Hegemon) and Value (Ghost→Ascendant). The Root Wall
 // (world-reset winners) and the live feeds sit between/after them.
+// `label` holds a dictionary key (resolved via `t[...]` in RankCard).
 const STRIPS: StripConfig[] = [
   {
     key: "topCredits",
-    label: "Most Credits",
+    label: "ranksMostCredits",
     getValue: (p) => p.credits,
     suffix: "¢",
   },
   {
     key: "topEmpire",
-    label: "Widest Grid",
+    label: "ranksWidestGrid",
     getValue: (p) => p.ownedCount,
   },
   {
     key: "topPortfolio",
-    label: "Top Portfolio",
+    label: "ranksTopPortfolio",
     getValue: (p) => p.portfolioValue,
     suffix: "¢",
   },
   {
     key: "topValue",
-    label: "Top Value",
+    label: "ranksTopValue",
     getValue: (p) => p.playerValue,
     suffix: "¢",
   },
@@ -128,12 +135,14 @@ function StripCard({
   );
 }
 
-function EmptyList({ text = "No entries yet" }: { text?: string }) {
-  return <p className="text-[11px] text-gray-600 italic">{text}</p>;
+function EmptyList({ text }: { text?: string }) {
+  const { t } = useLanguage();
+  return <p className="text-[11px] text-gray-600 italic">{text ?? t.ranksNoEntries}</p>;
 }
 
 /** Shared top-10 row list used by every ranking board in the strip. */
 function RankList({ rows, suffix }: { rows: RankRow[]; suffix?: string }) {
+  const { locale } = useLanguage();
   const top = rows.filter((r) => r.value > 0).slice(0, 10);
   if (top.length === 0) return <EmptyList />;
   return (
@@ -144,7 +153,7 @@ function RankList({ rows, suffix }: { rows: RankRow[]; suffix?: string }) {
             {i + 1}
           </span>
           <Link href={`/players/${p.username}`} className="flex-1 truncate font-medium text-gray-200 hover:underline">
-            {shortName(p.username)}
+            {shortName(p.username, locale)}
           </Link>
           <span className="shrink-0 font-mono tabular-nums text-gray-400">
             {formatCompact(p.value)}
@@ -164,8 +173,9 @@ interface RankRow {
 
 /** A compact, always-visible ranking Avatar showing the top 10. */
 function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] }) {
+  const { t } = useLanguage();
   return (
-    <StripCard label={cfg.label}>
+    <StripCard label={t[cfg.label as keyof typeof t]}>
       <RankList
         rows={entries.map((p) => ({ id: p.id, username: p.username, value: cfg.getValue(p) }))}
         suffix={cfg.suffix}
@@ -176,7 +186,8 @@ function RankCard({ cfg, entries }: { cfg: StripConfig; entries: RankPlayer[] })
 
 /** Live hire feed — "who just hired whom, for how much". */
 function HireFeed({ events }: { events: HireEvent[] }) {
-  if (events.length === 0) return <EmptyList text="No hires yet" />;
+  const { t, locale } = useLanguage();
+  if (events.length === 0) return <EmptyList text={t.ranksNoHires} />;
   return (
     <ol className="space-y-1">
       {events.slice(0, 10).map((e, i) => (
@@ -190,17 +201,17 @@ function HireFeed({ events }: { events: HireEvent[] }) {
                 href={`/players/${e.actorUsername}`}
                 className="truncate font-medium text-gray-200 hover:underline"
               >
-                {shortName(e.actorUsername)}
+                {shortName(e.actorUsername, locale)}
               </Link>
             ) : (
-              <span className="truncate text-gray-500">someone</span>
+              <span className="truncate text-gray-500">{t.ranksSomeone}</span>
             )}
             <ArrowRight className="h-2.5 w-2.5 shrink-0 text-gray-600" />
             <Link
               href={`/players/${e.targetUsername}`}
               className="truncate font-medium text-cyan-300 hover:underline"
             >
-              {shortName(e.targetUsername)}
+              {shortName(e.targetUsername, locale)}
             </Link>
           </span>
           {e.cost != null && (
@@ -222,6 +233,7 @@ function HireFeed({ events }: { events: HireEvent[] }) {
  * view; the full wall still lives at the top of the History page.
  */
 export function EmpireRankStrip({ variant = "default" }: { variant?: "default" | "transparent" } = {}) {
+  const { t, locale } = useLanguage();
   const transparent = variant === "transparent";
 
   const { data } = useQuery<RanksResponse>({
@@ -285,7 +297,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
         {/* 3. The Root Wall — latest world-reset winners (compact view of
             the History page's Hall of Champions). */}
         <StripCard
-          label="The Root Wall"
+          label={t.ranksRootWall}
           accent={
             transparent
               ? "border border-yellow-500/20 bg-transparent"
@@ -293,7 +305,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
           }
         >
           {topChampions.length === 0 ? (
-            <EmptyList text="No champions yet" />
+            <EmptyList text={t.ranksNoChampions} />
           ) : (
             <ol className="space-y-1">
               {topChampions.map((w, i) => (
@@ -306,7 +318,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
                     )}
                   </span>
                   <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
-                    {shortName(w.username)}
+                    {shortName(w.username, locale)}
                   </Link>
                   <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
                     <Calendar className="h-2.5 w-2.5" />
@@ -319,7 +331,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
         </StripCard>
 
         {/* 4. Top Score — most purchased/pumped Avatars (photoScore). */}
-        <StripCard label="Top Score">
+        <StripCard label={t.ranksTopScore}>
           <RankList rows={topScore.map((p) => ({ id: p.id, username: p.username, value: p.photoScore }))} />
         </StripCard>
 
@@ -329,13 +341,13 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
         ))}
 
         {/* 7. Recent Hires — latest purchase events. */}
-        <StripCard label="Recent Hires">
+        <StripCard label={t.ranksRecentHires}>
           <HireFeed events={recentHires} />
         </StripCard>
 
         {/* 8. Recently Online */}
         <StripCard
-          label="Recently Online"
+          label={t.ranksRecentlyOnline}
         >
           {humans.length === 0 ? (
             <EmptyList />
@@ -352,10 +364,10 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
                     )}
                     <Link href={`/players/${h.username}`} className={`flex-1 truncate font-medium hover:underline ${online ? "text-emerald-300" : "text-gray-200"}`}>
-                      {shortName(h.username)}
+                      {shortName(h.username, locale)}
                     </Link>
                     <span className="shrink-0 text-gray-500">
-                      {online ? "online" : formatLastOnline(h.lastOnlineAt)}
+                      {online ? t.online : formatLastOnline(h.lastOnlineAt)}
                     </span>
                   </li>
                 );

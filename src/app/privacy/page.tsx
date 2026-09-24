@@ -1,82 +1,66 @@
+"use client";
+
+import { useLanguage } from "@/components/LanguageContext";
+
 export default function PrivacyPolicy() {
+  const { t } = useLanguage();
   return (
     <div className="min-h-screen bg-gray-950 text-gray-300 py-16 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
-        <h1 className="text-3xl font-bold text-white">Privacy Policy</h1>
-        <p className="text-sm text-gray-500">Last updated: March 4, 2026</p>
+        <h1 className="text-3xl font-bold text-white">{t.privacyTitle}</h1>
+        <p className="text-sm text-gray-500">{t.lastUpdated}</p>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">1. Information We Collect</h2>
+          <h2 className="text-xl font-semibold text-white">{t.privacyCollectTitle}</h2>
           <p>
-            When you sign in with Facebook, we receive your <strong>name</strong> and{" "}
-            <strong>profile picture</strong> from your Facebook account. We use this
-            information solely to create and display your in-game profile.
+            {t.privacyCollectP1Prefix} <strong>{t.privacyCollectP1Name}</strong>{" "}
+            {t.privacyCollectP1Mid} <strong>{t.privacyCollectP1Picture}</strong>{" "}
+            {t.privacyCollectP1Suffix}
           </p>
-          <p>
-            If you register with a username and password, we store your username and a
-            securely hashed version of your password. We never store your password in
-            plain text.
-          </p>
+          <p>{t.privacyCollectP2}</p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">2. How We Use Your Information</h2>
-          <p>Your information is used exclusively to:</p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyUseTitle}</h2>
+          <p>{t.privacyUseIntro}</p>
           <ul className="list-disc list-inside space-y-1 ml-2">
-            <li>Create and manage your game account</li>
-            <li>Display your profile to other players</li>
-            <li>Enable in-game features such as trading, leaderboards, and chat</li>
+            <li>{t.privacyUseLi1}</li>
+            <li>{t.privacyUseLi2}</li>
+            <li>{t.privacyUseLi3}</li>
           </ul>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">3. Data Sharing</h2>
+          <h2 className="text-xl font-semibold text-white">{t.privacySharingTitle}</h2>
           <p>
-            We do <strong>not</strong> sell, rent, or share your personal information with
-            third parties. Your data stays within the n38worth platform.
+            {t.privacySharingP1Prefix} <strong>{t.privacySharingP1Not}</strong>{" "}
+            {t.privacySharingP1Suffix}
           </p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">4. Data Storage &amp; Security</h2>
-          <p>
-            Your data is stored securely in encrypted databases. We use industry-standard
-            security measures including HTTPS encryption, hashed passwords, and secure
-            session management via JSON Web Tokens (JWT).
-          </p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyStorageTitle}</h2>
+          <p>{t.privacyStorageP1}</p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">5. Account Deletion</h2>
-          <p>
-            In-game accounts may be removed automatically based on game mechanics (player
-            inactivity). You may also request full deletion of your data by contacting us.
-          </p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyDeletionTitle}</h2>
+          <p>{t.privacyDeletionP1}</p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">6. Cookies</h2>
-          <p>
-            We use essential cookies for authentication and session management. These are
-            strictly necessary for the game to function and cannot be opted out of.
-          </p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyCookiesTitle}</h2>
+          <p>{t.privacyCookiesP1}</p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">7. Changes to This Policy</h2>
-          <p>
-            We may update this privacy policy from time to time. Any changes will be posted
-            on this page with an updated revision date.
-          </p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyChangesTitle}</h2>
+          <p>{t.privacyChangesP1}</p>
         </section>
 
         <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">8. Contact</h2>
-          <p>
-            If you have questions about this privacy policy or wish to request data
-            deletion, please reach out through the in-game chat or contact us via our
-            GitHub repository.
-          </p>
+          <h2 className="text-xl font-semibold text-white">{t.privacyContactTitle}</h2>
+          <p>{t.privacyContactP1}</p>
         </section>
       </div>
     </div>

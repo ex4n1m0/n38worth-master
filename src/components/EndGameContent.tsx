@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Terminal, Loader2 } from "lucide-react";
 import { GoddessCard } from "@/components/GoddessCard";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface GoddessData {
   id: number;
@@ -23,6 +24,7 @@ interface GoddessData {
  * the top of the History page (`HallOfChampions`).
  */
 export function EndGameContent() {
+  const { t } = useLanguage();
   const { data: goddessData, isLoading: goddessLoading } = useQuery<{
     goddesses: GoddessData[];
     currentUserId: number | null;
@@ -44,11 +46,11 @@ export function EndGameContent() {
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-2">
           <Terminal className="h-6 w-6 text-yellow-400" />
-          <h2 className="text-xl sm:text-2xl font-black text-white">How to Win</h2>
+          <h2 className="text-xl sm:text-2xl font-black text-white">{t.endGameTitle}</h2>
         </div>
         <p className="text-sm sm:text-lg text-gray-200 leading-relaxed mb-4">
-          <span className="font-bold text-yellow-300">Own all Six and hold them for one full hour.</span>{" "}
-          The simulation then reboots and your name is carved into the Root Wall forever.
+          <span className="font-bold text-yellow-300">{t.endGameHoldHighlight}</span>{" "}
+          {t.endGameHoldBody}
         </p>
 
         {goddessLoading ? (
@@ -68,7 +70,7 @@ export function EndGameContent() {
           </div>
         ) : (
           <div className="text-center py-8 rounded-2xl border border-gray-800 bg-gray-900/40">
-            <p className="text-gray-500">No data available on the Six</p>
+            <p className="text-gray-500">{t.endGameNoData}</p>
           </div>
         )}
       </div>

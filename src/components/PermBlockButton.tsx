@@ -13,6 +13,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useLanguage } from "./LanguageContext";
 
 interface ActiveBlock {
   ownershipId: number;
@@ -40,6 +41,7 @@ export function PermBlockButton({
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeBlocks, setActiveBlocks] = useState<ActiveBlock[]>([]);
+  const { t } = useLanguage();
 
   const isAssigned = !!permBlockUntil;
   const isActive = isAssigned && new Date(permBlockUntil) > new Date();
@@ -54,13 +56,13 @@ export function PermBlockButton({
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data.activeBlocks) {
-          const error = new Error(data.error || "Permanent block limit reached") as Error & {
+          const error = new Error(data.error || t.hardLockLimitReached) as Error & {
             activeBlocks: ActiveBlock[];
           };
           error.activeBlocks = data.activeBlocks;
           throw error;
         }
-        throw new Error(data.error || "Failed to update permanent block");
+        throw new Error(data.error || t.hardLockUpdateFailed);
       }
       return data;
     },
@@ -68,9 +70,9 @@ export function PermBlockButton({
       setDialogOpen(false);
       setActiveBlocks([]);
       if (data.permBlockUntil) {
-        toast.success(`${targetUsername} is protected by a permanent block.`);
+        toast.success(t.hardLockProtectedToast.replace("{name}", targetUsername));
       } else {
-        toast.success(`Permanent block removed from ${targetUsername}.`);
+        toast.success(t.hardLockRemovedToast.replace("{name}", targetUsername));
       }
       queryClient.invalidateQueries({ queryKey: ["player"] });
       queryClient.invalidateQueries({ queryKey: ["players"] });
@@ -91,7 +93,7 @@ export function PermBlockButton({
     e.preventDefault();
     e.stopPropagation();
     if (isActive) {
-      const ok = window.confirm(`Remove permanent block from ${targetUsername}?`);
+      const ok = window.confirm(t.hardLockRemoveConfirm.replace("{name}", targetUsername));
       if (!ok) return;
     }
     // Expired blocks (assigned but no longer active) fall through here and
@@ -124,15 +126,15 @@ export function PermBlockButton({
         ) : (
           <Shield className={`h-3.5 w-3.5 ${isActive ? "fill-purple-300/60 text-purple-200" : "text-purple-300"}`} />
         )}
-        {isActive ? "Remove Hard Lock" : "Assign Hard Lock"}
+        {isActive ? t.hardLockRemove : t.hardLockAssign}
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Move Permanent Block</DialogTitle>
+            <DialogTitle>{t.hardLockMoveTitle}</DialogTitle>
             <DialogDescription>
-              All 10 permanent blocks are in use. Choose a player to move the block from.
+              {t.hardLockMoveDesc}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 max-h-80 overflow-auto">

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { getPusherClient } from "@/lib/pusher-client";
 import { playSound } from "@/hooks/useSound";
 import { MatrixRain } from "@/components/MatrixRain";
+import { useLanguage } from "@/components/LanguageContext";
 
 /**
  * Full-screen "Simulation is Rebooting" overlay.
@@ -28,6 +29,7 @@ export function triggerWorldReboot(winnerName?: string) {
 const DURATION_MS = 10 * 1000; // 10 seconds
 
 export function WorldRebootingOverlay() {
+  const { t } = useLanguage();
   const [active, setActive] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -124,7 +126,7 @@ export function WorldRebootingOverlay() {
       {/* Full-screen background image */}
       <img
         src="/reboot.webp"
-        alt="Simulation Reboot"
+        alt={t.rebootOverlayAlt}
         style={{
           position: "absolute",
           inset: 0,
@@ -158,7 +160,7 @@ export function WorldRebootingOverlay() {
           margin: 0,
           textShadow: "0 2px 10px rgba(0,0,0,0.8)",
         }}>
-          The Simulation is Rebooting
+          {t.rebootTitle}
         </h1>
         {winnerName && (
           <p style={{
@@ -167,7 +169,7 @@ export function WorldRebootingOverlay() {
             marginTop: "1rem",
             textShadow: "0 2px 8px rgba(0,0,0,0.8)",
           }}>
-            {winnerName} assembled all Six — root access granted
+            {t.rebootWinnerLine.replace("{name}", winnerName)}
           </p>
         )}
       </div>
@@ -207,7 +209,7 @@ export function WorldRebootingOverlay() {
       {/* Bottom hint */}
       <div style={{ position: "absolute", bottom: "12%", left: 0, right: 0, textAlign: "center", padding: "0 1rem" }}>
         <p style={{ fontSize: "0.75rem", color: "#9ca3af", animation: "pulse 2s infinite", textShadow: "0 1px 4px rgba(0,0,0,0.8)" }}>
-          Preparing a fresh start...
+          {t.rebootPreparing}
         </p>
       </div>
     </div>,

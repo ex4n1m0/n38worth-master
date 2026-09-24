@@ -37,7 +37,7 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
         headers: { "Content-Type": "application/json" },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Discard all failed");
+      if (!res.ok) throw new Error(data.error || t.discardAllFailed);
       return data;
     },
     onMutate: async () => {
@@ -52,7 +52,10 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
     },
     onSuccess: async (data) => {
       play("sell");
-      const msg = `Discarded ${data.discardedCount} player${data.discardedCount !== 1 ? "s" : ""} for ${data.totalCreditsEarned}¢!${data.skippedCount > 0 ? ` (${data.skippedCount} skipped due to sell blocks)` : ""}`;
+      const msg = (data.discardedCount !== 1 ? t.discardAllToastPlural : t.discardAllToast)
+        .replace("{count}", String(data.discardedCount))
+        .replace("{amount}", String(data.totalCreditsEarned))
+        + (data.skippedCount > 0 ? t.discardAllToastSkipped.replace("{count}", String(data.skippedCount)) : "");
       toast.success(msg);
       setOpen(false);
       await Promise.all([
@@ -86,11 +89,11 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
           size="sm"
           onClick={() => play("open")}
           disabled={!canAfford}
-          title={!canAfford ? `You need ${formatCompact(totalValue)}¢ to discard all` : undefined}
+          title={!canAfford ? t.discardAllNeedTitle.replace("{amount}", formatCompact(totalValue)) : undefined}
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Trash2 className="h-4 w-4 mr-1.5" />
-          {t.discardAll ?? "Discard All"}
+          {t.discardAll}
           <span className="ml-1.5 font-mono text-xs opacity-80">
             −{formatCompact(totalValue)}¢
           </span>
@@ -98,9 +101,12 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white">{t.discardAllConfirmTitle ?? "Discard All Players?"}</DialogTitle>
+          <DialogTitle className="text-white">{t.discardAllConfirmTitle}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            {`Discarding all ${ownedCount} player${ownedCount !== 1 ? "s" : ""} costs ${formatCompact(totalValue)}¢ upfront. You'll receive back ~${formatCompact(Math.floor(totalValue / 2))}¢ (50%), and each discarded player receives their 50%. Players with active sell blocks will be skipped.`}
+            {(ownedCount !== 1 ? t.discardAllDialogDescPlural : t.discardAllDialogDesc)
+              .replace("{count}", String(ownedCount))
+              .replace("{cost}", formatCompact(totalValue))
+              .replace("{refund}", formatCompact(Math.floor(totalValue / 2)))}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -119,10 +125,10 @@ export function DiscardAllButton({ ownedCount, totalValue, credits }: DiscardAll
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {t.discardingAll ?? "Discarding All..."}
+                {t.discardingAll}
               </>
             ) : (
-              t.discardAllConfirmButton ?? "Yes, Discard All"
+              t.discardAllConfirmButton
             )}
           </Button>
         </DialogFooter>

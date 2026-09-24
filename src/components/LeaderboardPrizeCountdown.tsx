@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Gift, Clock } from "lucide-react";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface LeaderboardPrizeCountdownProps {
   totalPlayers: number;
@@ -25,10 +26,13 @@ function getSecondsToNext10() {
 export function LeaderboardPrizeCountdown({
   totalPlayers,
   top3,
-  title = "Leaderboard Prize (every 10 min)",
-  description = "Top 3 players receive credits every 10 minutes",
+  title,
+  description,
   accentColor = "text-yellow-400",
 }: LeaderboardPrizeCountdownProps) {
+  const { t } = useLanguage();
+  const heading = title ?? t.leaderboardPrizeTitle;
+  const sub = description ?? t.leaderboardPrizeDesc;
   const [totalSeconds, setTotalSeconds] = useState(0);
 
   useEffect(() => {
@@ -70,7 +74,7 @@ export function LeaderboardPrizeCountdown({
         <div className="flex items-center gap-2">
           <Gift className={`h-5 w-5 ${accentColor}`} />
           <h3 className={`text-sm sm:text-base font-semibold ${accentColor}`}>
-            {title}
+            {heading}
           </h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-yellow-500/20">
@@ -109,9 +113,9 @@ export function LeaderboardPrizeCountdown({
 
       {/* Footer info */}
       <p className="text-[10px] sm:text-xs text-gray-500 text-center">
-        {description} based on{" "}
-        <span className="text-gray-400 font-medium">{totalPlayers.toLocaleString()}</span> total
-        players
+        {sub} {t.leaderboardPrizeBasedOn}{" "}
+        <span className="text-gray-400 font-medium">{totalPlayers.toLocaleString()}</span>{" "}
+        {t.leaderboardPrizeTotalPlayers}
       </p>
     </div>
   );

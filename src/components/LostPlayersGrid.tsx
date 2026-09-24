@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Swords, ChevronLeft, ChevronRight } from "lucide-react";
 import { RestoreAllButton } from "@/components/RestoreAllButton";
 import { PlayerCard } from "@/components/PlayerCard";
+import { useLanguage } from "@/components/LanguageContext";
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -34,6 +35,7 @@ interface LostPlayersGridProps {
 }
 
 export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
+  const { t } = useLanguage();
   const { data: session } = useSession();
   const [page, setPage] = useState(1);
   const [now] = useState(() => Date.now());
@@ -64,9 +66,9 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
         <div className="flex items-center gap-3 mb-3">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Swords className="h-4 w-4 text-red-400" />
-            Taken From{" "}
+            {t.lostTakenFrom}{" "}
             {session?.user?.name?.toLowerCase() === profileUsername.toLowerCase()
-              ? "Me"
+              ? t.lostMe
               : profileUsername}
           </h3>
         </div>
@@ -109,9 +111,9 @@ export function LostPlayersGrid({ profileUsername }: LostPlayersGridProps) {
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <Swords className="h-4 w-4 text-red-400" />
-          Taken From{" "}
+          {t.lostTakenFrom}{" "}
           {viewerUsername?.toLowerCase() === profileUsername.toLowerCase()
-            ? "Me"
+            ? t.lostMe
             : profileUsername}
           {total > 0 && (
             <span className="text-gray-400 font-normal text-xs ml-1">({total})</span>

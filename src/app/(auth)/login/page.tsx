@@ -76,7 +76,7 @@ export default function LoginPage() {
 
       if (result?.error) {
         play("error");
-        setError("Invalid username or password");
+        setError(t.invalidCredentials);
       } else {
         play("confirm");
         router.push("/my-profile?autoCards=1");
@@ -84,7 +84,7 @@ export default function LoginPage() {
       }
     } catch {
       play("error");
-      setError("Something went wrong. Please try again.");
+      setError(t.somethingWrong);
     } finally {
       setLoading(false);
     }
@@ -168,13 +168,13 @@ export default function LoginPage() {
                   try {
                     await signInWithGoogleInBrowser("/my-profile?autoCards=1");
                   } catch {
-                    setError("Google sign-in failed. Please try again.");
+                    setError(t.googleSignInFailed);
                     setGoogleLoading(false);
                   }
                 } else {
                   // Use NextAuth signIn directly for web
                   signIn("google", { callbackUrl: "/my-profile?autoCards=1" }).catch(() => {
-                    setError("Google sign-in failed. Please try again.");
+                    setError(t.googleSignInFailed);
                     setGoogleLoading(false);
                   });
                 }

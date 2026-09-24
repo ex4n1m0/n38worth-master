@@ -5,6 +5,8 @@ import { useMemo } from "react";
 import { Users } from "lucide-react";
 import { UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import { cardDisplayName } from "@/lib/display-names";
 
 /** How many cards fit the grid (12 cols × 6 rows on desktop). */
 const GRID_LIMIT = 72;
@@ -37,6 +39,7 @@ export function OwnedAvatarGrid({
   players: OwnedPlayer[];
   isOwnProfile: boolean;
 }) {
+  const { t, locale } = useLanguage();
   const topPlayers = useMemo(
     () =>
       [...players]
@@ -51,9 +54,13 @@ export function OwnedAvatarGrid({
     <div className="space-y-3">
       <h2 className="text-lg font-bold text-white flex items-center gap-2">
         <Users className="h-5 w-5 text-t1-400" />
-        {isOwnProfile ? "Your" : `${ownerUsername}'s`} Most Valuable Avatars
+        {isOwnProfile
+          ? t.mostValuableAvatarsYour
+          : t.mostValuableAvatarsOwner.replace("{name}", ownerUsername)}
         <span className="text-sm font-normal text-gray-400">
-          (top {topPlayers.length} of {players.length})
+          {t.topOfTotal
+            .replace("{top}", String(topPlayers.length))
+            .replace("{total}", String(players.length))}
         </span>
       </h2>
       <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-12 gap-1.5">
@@ -61,14 +68,16 @@ export function OwnedAvatarGrid({
           <Link
             key={p.id}
             href={`/players/${encodeURIComponent(p.username)}`}
-            title={`${p.username} — ${formatCompact(p.playerValue)}¢`}
-            aria-label={`View ${p.username}'s profile`}
+            title={t.avatarValueTooltip
+              .replace("{name}", cardDisplayName(p.username, locale))
+              .replace("{value}", formatCompact(p.playerValue))}
+            aria-label={t.viewProfileAria.replace("{name}", cardDisplayName(p.username, locale))}
             className="aspect-square rounded-lg border border-white/10 overflow-hidden shadow-lg relative block hover:border-white/40 hover:scale-[1.03] transition-all"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={`/api/avatar/${encodeURIComponent(p.username)}`}
-              alt={p.username}
+              alt={cardDisplayName(p.username, locale)}
               loading="lazy"
               decoding="async"
               onError={(e) => {

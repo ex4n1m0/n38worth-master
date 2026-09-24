@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 interface ResignButtonProps {
   ownershipId: number;
@@ -27,6 +28,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const cost = Math.floor(userCredits * 0.9);
 
@@ -38,12 +40,14 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
         body: JSON.stringify({ ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Resign failed");
+      if (!res.ok) throw new Error(data.error || t.resignFailed);
       return data;
     },
     onSuccess: async (data) => {
       toast.success(
-        `You resigned from ${ownerUsername}! Paid ${formatCompact(data.cost)}¢.`
+        t.resignToast
+          .replace("{name}", ownerUsername)
+          .replace("{amount}", formatCompact(data.cost))
       );
       setOpen(false);
       await Promise.all([
@@ -70,18 +74,18 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
           className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300 text-sm px-4 py-2 h-auto min-h-[36px] font-bold"
         >
           <DoorOpen className="h-4 w-4 mr-2" />
-          Resign — {formatCompact(cost)}¢
+          {t.resign} — {formatCompact(cost)}¢
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white">Resign from {ownerUsername}?</DialogTitle>
+          <DialogTitle className="text-white">{t.resignConfirmTitle.replace("{name}", ownerUsername)}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            You will pay{" "}
+            {t.resignDescPrefix}{" "}
             <span className="text-red-400 font-semibold">{formatCompact(cost)}¢</span>{" "}
-            (90% of your credits) to{" "}
+            {t.resignDescMiddle}{" "}
             <span className="text-white font-semibold">{ownerUsername}</span>{" "}
-            to release yourself from their ownership.
+            {t.releaseFromOwnership}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -90,7 +94,7 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
             onClick={() => setOpen(false)}
             className="border-gray-700 text-gray-300"
           >
-            Cancel
+            {t.cancel}
           </Button>
           <Button
             onClick={() => mutation.mutate()}
@@ -100,10 +104,10 @@ export function ResignButton({ ownershipId, ownerUsername, userCredits }: Resign
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Resigning…
+                {t.resigning}
               </>
             ) : (
-              `Resign — ${formatCompact(cost)}¢`
+              `${t.resign} — ${formatCompact(cost)}¢`
             )}
           </Button>
         </DialogFooter>

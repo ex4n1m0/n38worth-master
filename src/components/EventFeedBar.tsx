@@ -3,6 +3,7 @@
 import { ChevronDown, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { useEventFeed, type FeedKind } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 function KindIcon({ kind }: { kind: FeedKind }) {
   switch (kind) {
@@ -23,6 +24,7 @@ function KindIcon({ kind }: { kind: FeedKind }) {
 export function EventFeedBar({ inline = false }: { inline?: boolean }) {
   const { events, expanded, toggleExpanded } = useEventFeed();
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const latest = events[0];
   if (!latest) return null;
@@ -39,7 +41,7 @@ export function EventFeedBar({ inline = false }: { inline?: boolean }) {
           }}
           className="w-full flex items-center gap-2 sm:gap-3 py-1.5 pl-4 pr-1 min-w-0 text-left"
           aria-expanded={expanded}
-          aria-label="Game events — tap to see recent events"
+          aria-label={t.gameEventsAria}
         >
           <KindIcon kind={latest.kind} />
           <span

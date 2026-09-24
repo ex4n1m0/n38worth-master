@@ -8,6 +8,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface SquareAvatarUploadProps {
   currentUrl: string | null;
@@ -36,6 +37,7 @@ export function SquareAvatarUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const { refresh: refreshOnboarding } = useOnboarding();
   const { update: updateSession } = useSession();
 
@@ -60,12 +62,12 @@ export function SquareAvatarUpload({
 
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       play("error");
-      toast.error("Please upload a JPEG, PNG, or WebP image");
+      toast.error(t.uploadImageType);
       return;
     }
     if (file.size > 2 * 1024 * 1024) {
       play("error");
-      toast.error("Image must be less than 2MB");
+      toast.error(t.uploadImageTooLarge);
       return;
     }
 
@@ -79,7 +81,7 @@ export function SquareAvatarUpload({
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Upload failed");
+        throw new Error(data.error || t.uploadFailed);
       }
       const data = await res.json();
       setPreviewUrl(data.avatarUrl);
@@ -97,18 +99,18 @@ export function SquareAvatarUpload({
       await refreshOnboarding();
       if (data.demoConverted) {
         play("reward");
-        toast.success("Avatar updated! 🎉 Your account is now permanent — it will no longer be deleted!");
+        toast.success(t.avatarUpdatedPermanent);
       } else if (data.bonusAwarded) {
         play("reward");
-        toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
+        toast.success(t.avatarUpdatedBonus.replace("{amount}", String(data.bonusAmount)));
       } else {
         play("confirm");
-        toast.success("Avatar updated! ✨");
+        toast.success(t.avatarUpdatedSparkle);
       }
     } catch (error) {
       console.error("Upload error:", error);
       play("error");
-      toast.error("Failed to upload avatar");
+      toast.error(t.uploadAvatarFailed);
     } finally {
       setUploading(false);
     }
@@ -123,7 +125,7 @@ export function SquareAvatarUpload({
       }}
       disabled={uploading}
       className="group relative block w-full overflow-hidden"
-      aria-label="Change avatar"
+      aria-label={t.changeAvatarAria}
       style={{ display: "block" }}
     >
       {previewUrl ? (
@@ -145,7 +147,7 @@ export function SquareAvatarUpload({
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center p-4">
         <div className="flex items-center gap-2 text-white font-semibold">
           <Camera className="h-5 w-5" />
-          <span>Change Avatar</span>
+          <span>{t.changeAvatar}</span>
         </div>
       </div>
 
@@ -158,7 +160,7 @@ export function SquareAvatarUpload({
       {/* Onboarding pulse */}
       {!avatarCompleted && (
         <div className="absolute top-3 right-3 bg-gradient-to-r from-yellow-500 to-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full shadow-lg animate-pulse">
-          🎯 Upload to unlock
+          🎯 {t.uploadToUnlock}
         </div>
       )}
 
@@ -179,7 +181,7 @@ export function SquareAvatarUpload({
           className="flex-1 border-pink-500/30 bg-pink-500/10 text-pink-200 hover:bg-pink-500/20 hover:text-white"
         >
           <Camera className="h-4 w-4 mr-1.5 shrink-0" />
-          {uploading ? "Uploading..." : "Upload Photo"}
+          {uploading ? t.uploading : t.uploadPhoto}
         </Button>
       </div>
 
@@ -187,12 +189,12 @@ export function SquareAvatarUpload({
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gradient-to-r from-yellow-500/15 to-amber-500/15 border border-yellow-500/30">
           <Gift className="h-4 w-4 text-yellow-400 shrink-0" />
           <p className="text-xs font-bold text-yellow-200">
-            Upload your own photo and earn {bonusAmount}¢!
+            {t.uploadOwnPhotoBonus.replace("{amount}", String(bonusAmount))}
           </p>
         </div>
       )}
 
-      <p className="text-[11px] text-gray-500">JPEG, PNG, or WebP · Max 2MB</p>
+      <p className="text-[11px] text-gray-500">{t.avatarFormatHintInline}</p>
 
       <input
         ref={fileInputRef}
@@ -200,7 +202,7 @@ export function SquareAvatarUpload({
         accept="image/jpeg,image/png,image/webp"
         onChange={handleUpload}
         className="hidden"
-        aria-label="Upload avatar image"
+        aria-label={t.uploadAvatarImage}
       />
     </div>
   );
@@ -215,7 +217,7 @@ export function SquareAvatarUpload({
           accept="image/jpeg,image/png,image/webp"
           onChange={handleUpload}
           className="hidden"
-          aria-label="Upload avatar image"
+          aria-label={t.uploadAvatarImage}
         />
       </>
     );

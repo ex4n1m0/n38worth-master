@@ -7,11 +7,14 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, User } from "lucide-react";
 import Link from "next/link";
 import { formatCompact, getDynamicMosaicFontSize } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import { cardDisplayName } from "@/lib/display-names";
 
 const PER_PAGE = 18;
 
 export default function MosaicPage() {
   const { data: session } = useSession();
+  const { t, locale } = useLanguage();
   const [page, setPage] = useState(1);
 
   const { data: player, isLoading } = useQuery({
@@ -67,13 +70,16 @@ export default function MosaicPage() {
             className="border-gray-700 text-gray-300 hover:text-white hover:bg-gray-800"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
+            {t.back}
           </Button>
         </Link>
         <h1 className="text-xl font-bold text-white">
-          My Collection
+          {t.myCollection}
           <span className="text-sm font-normal text-gray-400 ml-2">
-            ({ownedPlayers.length} players)
+            {(ownedPlayers.length === 1
+              ? t.mosaicCountSingular
+              : t.mosaicCountPlural
+            ).replace("{count}", String(ownedPlayers.length))}
           </span>
         </h1>
       </div>
@@ -86,7 +92,7 @@ export default function MosaicPage() {
       ) : ownedPlayers.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-gray-500">
           <User className="h-12 w-12 mb-3 opacity-50" />
-          <p className="text-lg">You don&apos;t own any players yet</p>
+          <p className="text-lg">{t.mosaicEmptyState}</p>
         </div>
       ) : (
         <>
@@ -101,7 +107,7 @@ export default function MosaicPage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={p.avatarUrl}
-                    alt={p.username}
+                    alt={cardDisplayName(p.username, locale)}
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
@@ -113,7 +119,7 @@ export default function MosaicPage() {
                 {/* Overlay with name */}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-2 pt-6">
                   <p className="text-white text-xs sm:text-sm font-medium truncate">
-                    {p.username}
+                    {cardDisplayName(p.username, locale)}
                   </p>
                   <p className={`text-gray-300 ${getDynamicMosaicFontSize(p.playerValue)}`}>
                     ₡{formatCompact(p.playerValue)}
@@ -122,7 +128,7 @@ export default function MosaicPage() {
                 {/* Player type badge */}
                 {p.playerType === "card" && (
                   <div className="absolute top-1 right-1 bg-cyan-600/80 text-white text-[9px] px-1.5 py-0.5 rounded-full">
-                    NPC
+                    {t.npcBadge}
                   </div>
                 )}
               </Link>

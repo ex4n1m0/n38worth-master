@@ -99,9 +99,39 @@ export function finalGoddessThreshold(winCount: number): number {
   );
 }
 
+/**
+ * Simplified-Chinese progress-bar labels, keyed by mission index (the English
+ * labels above stay the server-side canon). `{n}` marks the threshold.
+ */
+export const MISSION_LABELS_ZH: Record<number, string> = {
+  0: "集齐 {n} 个化身，解锁完整游戏",
+  1: "集齐 {n} 个化身，解锁僵尸网络",
+  2: "集齐 {n} 个化身，解锁银行家",
+  3: "集齐 {n} 个化身，解锁先知",
+  4: "集齐 {n} 个化身，解锁锁匠",
+  5: "集齐 {n} 个化身，解锁守钟人",
+  6: "集齐 {n} 个化身，解锁空指针",
+  7: "集齐 {n} 个化身，解锁架构师",
+};
+
+/** Locale-aware progress-bar label for a mission. */
+export function missionLabel(index: number, locale: "en" | "zh" = "en"): string {
+  const threshold = MISSIONS[index]?.threshold ?? 0;
+  if (locale === "zh") {
+    return (MISSION_LABELS_ZH[index] ?? MISSIONS[index]?.label ?? "").replace(
+      "{n}",
+      threshold.toLocaleString("en-US")
+    );
+  }
+  return MISSIONS[index]?.label ?? "";
+}
+
 /** Label for the final mission at the given effective threshold. */
-export function finalGoddessLabel(threshold: number): string {
-  return `Get ${threshold.toLocaleString("en-US")} avatars to unlock The Architect`;
+export function finalGoddessLabel(threshold: number, locale: "en" | "zh" = "en"): string {
+  const n = threshold.toLocaleString("en-US");
+  return locale === "zh"
+    ? `集齐 ${n} 个化身，解锁架构师`
+    : `Get ${n} avatars to unlock The Architect`;
 }
 
 /**

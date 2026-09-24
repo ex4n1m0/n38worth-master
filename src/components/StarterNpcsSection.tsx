@@ -13,6 +13,8 @@ import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useSound, playSound } from "@/hooks/useSound";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import type { TranslationKeys } from "@/lib/i18n";
 
 interface StarterNpc {
   id: number;
@@ -39,6 +41,7 @@ export function StarterNpcsSection({
   onPurchase,
 }: StarterNpcsSectionProps) {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   const { ownedIds } = useOwnedPlayerIds();
 
   const { data: npcs, isLoading } = useQuery({
@@ -116,10 +119,10 @@ export function StarterNpcsSection({
           body: JSON.stringify({ targetId: nextId }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Auto-hire failed");
+        if (!res.ok) throw new Error(data.error || t.autoHireFailed);
 
         playSound("hire");
-        toast.success(`Auto-hired! 🎉`);
+        toast.success(t.autoHiredSuccess);
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
           queryClient.invalidateQueries({ queryKey: ["players"] }),
@@ -131,7 +134,7 @@ export function StarterNpcsSection({
         onPurchase();
       } catch (err: unknown) {
         playSound("error");
-        toast.error(err instanceof Error ? err.message : "Auto-hire failed");
+        toast.error(err instanceof Error ? err.message : t.autoHireFailed);
       } finally {
         // Remove the hired NPC from queue; schedule next if any remain.
         const remaining = queueRef.current.filter((id) => id !== nextId);
@@ -146,7 +149,7 @@ export function StarterNpcsSection({
     }, 800); // small delay for confetti to play
 
     return () => clearTimeout(startDelay);
-  }, [autoHireQueue, autoHiringId, queryClient, onPurchase]);
+  }, [autoHireQueue, autoHiringId, queryClient, onPurchase, t]);
 
   // Countdown tick for the auto-hire timer.
   useEffect(() => {
@@ -157,7 +160,7 @@ export function StarterNpcsSection({
 
   // ── End auto-hire orchestration ─────────────────────────────────────
 
-  const banner = getBannerStyle(ownedCount);
+  const banner = getBannerStyle(ownedCount, t);
 
   return (
     <div className="space-y-4">
@@ -178,7 +181,7 @@ export function StarterNpcsSection({
           <div className="mt-2 flex items-center justify-center gap-1.5">
             <Clock className="h-4 w-4 text-amber-300 animate-pulse" />
             <span className="text-sm font-semibold text-amber-200">
-              Auto-hiring next NPC in {autoHireTimer}s…
+              {t.autoHiringNext.replace("{seconds}", String(autoHireTimer))}
             </span>
           </div>
         )}
@@ -227,7 +230,7 @@ export function StarterNpcsSection({
 
       {npcIds.length < 3 && (
         <p className="text-yellow-400 text-sm text-center">
-          ⚠️ Only {npcIds.length} NPCs available under $20. Check back later!
+          {t.starterNpcsWarning.replace("{count}", String(npcIds.length))}
         </p>
       )}
     </div>
@@ -245,7 +248,7 @@ interface BannerStyle {
   subtitle: string;
 }
 
-function getBannerStyle(ownedCount: number): BannerStyle {
+function getBannerStyle(ownedCount: number, t: TranslationKeys): BannerStyle {
   if (ownedCount >= 3) {
     return {
       wrapper:
@@ -253,8 +256,8 @@ function getBannerStyle(ownedCount: number): BannerStyle {
       icon: "text-emerald-300",
       headline: "text-emerald-100",
       sub: "text-emerald-200",
-      title: "🎉 Onboarding complete!",
-      subtitle: "Welcome to the full game — the market is unlocked.",
+      title: t.starterCompleteTitle,
+      subtitle: t.starterCompleteSubtitle,
     };
   }
   if (ownedCount === 2) {
@@ -264,8 +267,8 @@ function getBannerStyle(ownedCount: number): BannerStyle {
       icon: "text-orange-300",
       headline: "text-orange-100",
       sub: "text-orange-200",
-      title: "🎉 Almost there — 1 more to go!",
-      subtitle: "Progress: 2/3 acquired",
+      title: t.starterAlmostTitle,
+      subtitle: t.starterProgressTwo,
     };
   }
   if (ownedCount === 1) {
@@ -275,8 +278,8 @@ function getBannerStyle(ownedCount: number): BannerStyle {
       icon: "text-amber-300",
       headline: "text-amber-100",
       sub: "text-amber-200",
-      title: "🎉 Great start — 2 more to unlock!",
-      subtitle: "Progress: 1/3 acquired",
+      title: t.starterGreatStartTitle,
+      subtitle: t.starterProgressOne,
     };
   }
   return {
@@ -285,8 +288,8 @@ function getBannerStyle(ownedCount: number): BannerStyle {
     icon: "text-blue-400",
     headline: "text-blue-200",
     sub: "text-blue-300",
-    title: "Press the Orange Button to Continue",
-    subtitle: "Progress: 0/3 acquired",
+    title: t.starterPressOrangeTitle,
+    subtitle: t.starterProgressZero,
   };
 }
 
@@ -308,6 +311,7 @@ function StarterNpcCard({
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const [isPending, setIsPending] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [justAcquired, setJustAcquired] = useState(false);
@@ -355,9 +359,9 @@ function StarterNpcCard({
         body: JSON.stringify({ targetId: npc.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
 
-      toast.success(`You bought ${npc.username}! 🎉`);
+      toast.success(t.youBoughtNpc.replace("{name}", npc.username));
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["players"] }),
@@ -368,7 +372,7 @@ function StarterNpcCard({
       ]);
       onPurchase();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Purchase failed");
+      toast.error(err instanceof Error ? err.message : t.purchaseFailed);
     } finally {
       setIsPending(false);
     }
@@ -431,7 +435,7 @@ function StarterNpcCard({
       {/* Position badge (1/2/3) so the user mentally tracks where they are */}
       <div
         className={`absolute top-1.5 left-1.5 z-10 h-5 w-5 rounded-full flex items-center justify-center text-[11px] font-black ${positionBadgeClass[cardState]}`}
-        aria-label={`Starter ${positionIndex} of 3`}
+        aria-label={t.starterPositionAria.replace("{position}", String(positionIndex))}
       >
         {positionIndex}
       </div>
@@ -474,12 +478,12 @@ function StarterNpcCard({
           {cardState === "acquired" ? (
             <div className="shrink-0 flex items-center gap-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 text-orange-950 font-black text-xs px-2.5 py-1.5 shadow-[0_0_10px_rgba(251,146,60,0.6)]">
               <Check className="h-3.5 w-3.5" strokeWidth={3} />
-              Acquired
+              {t.acquired}
             </div>
           ) : cardState === "auto-hiring" ? (
             <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold text-xs px-2.5 py-1.5 shadow-[0_0_10px_rgba(168,85,247,0.6)] animate-pulse">
               <Loader2 className="h-3 w-3 animate-spin" />
-              Hiring…
+              {t.starterHiring}
             </div>
           ) : cardState === "queued" ? (
             <div className="shrink-0 flex items-center gap-1.5 rounded-full bg-cyan-600/80 text-white font-semibold text-xs px-2.5 py-1.5">

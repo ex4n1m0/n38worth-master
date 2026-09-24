@@ -8,9 +8,11 @@ import { Gift, Clock, Check, Loader2, Terminal } from "lucide-react";
 import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
 
 export function LoginReward() {
   const queryClient = useQueryClient();
+  const { t } = useLanguage();
   const [countdown, setCountdown] = useState<string>("");
   const { play } = useSound();
   const autoClaimedRef = useRef(false);
@@ -81,12 +83,15 @@ export function LoginReward() {
     },
     onSuccess: (data) => {
       if (data.success) {
-        toast.success(`🎁 Login reward claimed! +${formatCompact(data.reward)}¢`);
+        toast.success(
+          t.loginRewardClaimedToast.replace("{amount}", formatCompact(data.reward)) +
+            "¢"
+        );
         queryClient.invalidateQueries({ queryKey: ["login-reward-status"] });
         queryClient.invalidateQueries({ queryKey: ["credits"] });
         queryClient.invalidateQueries({ queryKey: ["player"] });
       } else {
-        toast.info(data.message || "Reward already claimed");
+        toast.info(data.message || t.loginRewardAlreadyClaimed);
       }
       // All players START on the End Game page and stay there. Mark the reward
       // as claimed for this session so the per-session auto-claim doesn't re-fire.
@@ -103,7 +108,7 @@ export function LoginReward() {
         isAutoClaimRef.current = false;
         return;
       }
-      toast.error("Failed to claim login reward");
+      toast.error(t.loginRewardClaimFailed);
     },
   });
 
@@ -173,14 +178,16 @@ export function LoginReward() {
             </div>
             <div className="min-w-0">
               <h3 className="font-semibold text-white text-sm">
-                Daily Login Reward
+                {t.dailyLoginReward}
               </h3>
               <p className="text-xs text-gray-400 break-words">
                 {isLeader
-                  ? "You're #1 — top players earn no reward. Others catch up!"
+                  ? t.loginRewardLeaderNote
                   : canClaim
-                    ? `Claim your ${formatCompact(rewardStatus?.rewardAmount ?? 0)}¢ reward!`
-                    : `Next reward in ${countdown}`}
+                    ? `${t.loginRewardClaimPrefix}${formatCompact(
+                        rewardStatus?.rewardAmount ?? 0
+                      )}¢${t.loginRewardClaimSuffix}`
+                    : `${t.loginRewardNextInPrefix}${countdown}${t.loginRewardNextInSuffix}`}
               </p>
             </div>
           </div>
@@ -188,7 +195,7 @@ export function LoginReward() {
           {isLeader ? (
             <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold shrink-0">
               <Terminal className="h-3.5 w-3.5" />
-              <span>Leading</span>
+              <span>{t.loginRewardLeading}</span>
             </div>
           ) : canClaim ? (
             <Button
@@ -197,7 +204,10 @@ export function LoginReward() {
                 claimMutation.mutate();
               }}
               disabled={claimMutation.isPending}
-              aria-label={`Claim your ${formatCompact(rewardStatus?.rewardAmount ?? 0)} credits reward`}
+              aria-label={t.loginRewardClaimAria.replace(
+                "{amount}",
+                formatCompact(rewardStatus?.rewardAmount ?? 0)
+              )}
               className="bg-green-600 hover:bg-green-500 text-white shrink-0"
               size="sm"
             >
@@ -206,14 +216,14 @@ export function LoginReward() {
               ) : (
                 <>
                   <Gift className="h-4 w-4 mr-1" />
-                  Claim
+                  {t.loginRewardClaim}
                 </>
               )}
             </Button>
           ) : (
             <div className="flex items-center gap-1.5 text-gray-500 text-xs">
               <Check className="h-3.5 w-3.5" />
-              <span>Claimed</span>
+              <span>{t.loginRewardClaimed}</span>
             </div>
           )}
         </div>

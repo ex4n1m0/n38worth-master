@@ -1,4 +1,7 @@
+"use client";
+
 import { Camera } from "lucide-react";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface PhotoAttributionProps {
   authorName?: string | null;
@@ -23,6 +26,7 @@ export function PhotoAttribution({
   sourceUrl,
   className = "",
 }: PhotoAttributionProps) {
+  const { t } = useLanguage();
   if (!authorName || (!authorUrl && !sourceUrl)) return null;
 
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -35,7 +39,7 @@ export function PhotoAttribution({
       {/* Only the photographer name truncates on narrow (mobile) cards —
           the "on Unsplash" credit must stay visible per API guidelines. */}
       <span className="min-w-0 truncate" title={authorName}>
-        Photo by{" "}
+        {t.photoBy}{" "}
         {authorUrl ? (
           <a
             href={authorUrl}
@@ -51,7 +55,7 @@ export function PhotoAttribution({
         )}
       </span>
       <span className="shrink-0 whitespace-nowrap">
-        on{" "}
+        {t.photoOn}{" "}
         {sourceUrl ? (
           <a
             href={sourceUrl}

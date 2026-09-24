@@ -7,6 +7,8 @@ import { toast } from "@/lib/event-feed";
 import { Button } from "@/components/ui/button";
 import { Loader2, Briefcase, X, Check, Coins } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import { professionName } from "@/lib/professions";
 
 interface ProfessionOption {
   name: string;
@@ -58,6 +60,7 @@ export function AssignProfessionDialog({
   onForcedAssigned,
 }: AssignProfessionDialogProps) {
   const queryClient = useQueryClient();
+  const { t, locale } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -88,16 +91,16 @@ export function AssignProfessionDialog({
     setLoading(true);
     try {
       const res = await fetch("/api/profile/change-profession");
-      if (!res.ok) throw new Error("Failed to load profession options");
+      if (!res.ok) throw new Error(t.loadProfessionOptionsFailed);
       const json: ChangeProfessionData = await res.json();
       setData(json);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load profession options");
+      toast.error(e instanceof Error ? e.message : t.loadProfessionOptionsFailed);
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const openDialog = () => {
     setSelected(null);
@@ -131,12 +134,19 @@ export function AssignProfessionDialog({
         body: JSON.stringify({ targetId, profession: selected }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to assign profession");
+      if (!res.ok) throw new Error(json.error || t.assignProfessionFailed);
 
       toast.success(
         json.charged > 0
-          ? `${targetUsername} is now a ${selected}! (-${formatCompact(json.charged)}¢, value reset to ${formatCompact(json.newValue)}¢)`
-          : `${targetUsername} is now a ${selected}! (Free, value reset to ${formatCompact(json.newValue)}¢)`
+          ? t.assignSuccessPaid
+              .replace("{name}", targetUsername)
+              .replace("{profession}", professionName(selected, locale))
+              .replace("{charged}", formatCompact(json.charged))
+              .replace("{value}", formatCompact(json.newValue))
+          : t.assignSuccessFree
+              .replace("{name}", targetUsername)
+              .replace("{profession}", professionName(selected, locale))
+              .replace("{value}", formatCompact(json.newValue))
       );
 
       await Promise.all([
@@ -151,7 +161,7 @@ export function AssignProfessionDialog({
         setOpen(false);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to assign profession");
+      toast.error(e instanceof Error ? e.message : t.assignProfessionFailed);
     } finally {
       setSubmitting(false);
     }
@@ -167,7 +177,7 @@ export function AssignProfessionDialog({
           className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
         >
           <Briefcase className="h-3 w-3 mr-1" />
-          {currentProfession ? "Change Profession" : "Assign Profession"}
+          {currentProfession ? t.changeProfession : t.assignProfession}
         </Button>
       )}
 
@@ -181,7 +191,7 @@ export function AssignProfessionDialog({
               <button
                 onClick={() => !submitting && setOpen(false)}
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
-                aria-label="Close"
+                aria-label={t.close}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -189,18 +199,20 @@ export function AssignProfessionDialog({
 
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-                {forced ? "Profession Required" : currentProfession ? "Change Profession" : "Assign Profession"}
+                {forced ? t.professionRequired : currentProfession ? t.changeProfession : t.assignProfession}
               </h2>
               <p className="text-gray-400 mt-2 text-sm">
                 {forced
-                  ? `You hired ${targetUsername} — pick a profession to continue.`
+                  ? t.assignForcedHint.replace("{name}", targetUsername)
                   : currentProfession
-                    ? `${targetUsername} is currently a ${currentProfession}.`
-                    : `${targetUsername} has no profession yet.`}
+                    ? t.assignCurrentIs
+                        .replace("{name}", targetUsername)
+                        .replace("{profession}", professionName(currentProfession, locale))
+                    : t.assignNoProfession.replace("{name}", targetUsername)}
               </p>
               <p className="text-amber-300/70 mt-1 text-xs">
-                The Avatar&apos;s value will reset to its floor value. Cost = (others with that profession) × {formatCompact(1000)}¢ × your change #. A profession nobody else has is free.
-                {isFirstAssignment && " First assignment: the cheapest profession(s) are free — later changes pay the normal cost."}
+                {t.assignCostRule.replace("{base}", formatCompact(1000))}
+                {isFirstAssignment && t.assignFirstFreeNote}
               </p>
               {data && (
                 <div className="mt-3 flex items-center justify-center gap-4 text-xs">
@@ -209,7 +221,9 @@ export function AssignProfessionDialog({
                     {formatCompact(Math.floor(data.credits))}¢
                   </span>
                   <span className="text-gray-500">
-                    Change #{data.multiplier} (×{data.multiplier} multiplier)
+                    {t.professionChangeNumber
+                      .replace("{count}", String(data.multiplier))
+                      .replace("{count}", String(data.multiplier))}
                   </span>
                 </div>
               )}
@@ -220,7 +234,7 @@ export function AssignProfessionDialog({
                 <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
               </div>
             ) : !data ? (
-              <p className="text-center text-gray-400 py-8 text-sm">Could not load professions.</p>
+              <p className="text-center text-gray-400 py-8 text-sm">{t.couldNotLoadProfessions}</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                 {data.options.map((opt) => {
@@ -248,21 +262,21 @@ export function AssignProfessionDialog({
                       )}
                       {isCurrent && (
                         <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wide text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 rounded px-1.5 py-0.5">
-                          Current
+                          {t.currentBadge}
                         </span>
                       )}
                       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-950/50 border border-gray-700/50 flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={opt.imagePath} alt={opt.name} className="w-full h-full object-contain p-1" />
+                        <img src={opt.imagePath} alt={professionName(opt.name, locale)} className="w-full h-full object-contain p-1" />
                       </div>
                       <span className={`text-xs font-semibold text-center leading-tight ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
-                        {opt.name}
+                        {professionName(opt.name, locale)}
                       </span>
                       <span className={`text-[10px] font-bold tabular-nums ${effectiveCost === 0 ? "text-green-400" : affordable ? "text-amber-400" : "text-red-400"}`}>
                         {effectiveCost === 0
                           ? freeOnFirst(opt.cost) && opt.cost > 0
-                            ? "Free (1st)"
-                            : "Free"
+                            ? t.freeFirstLabel
+                            : t.freeLabel
                           : `${formatCompact(effectiveCost)}¢`}
                       </span>
                     </button>
@@ -279,7 +293,7 @@ export function AssignProfessionDialog({
                   variant="outline"
                   className="border-gray-600 text-gray-300 hover:bg-gray-800"
                 >
-                  Cancel
+                  {t.cancel}
                 </Button>
               )}
               <Button
@@ -288,9 +302,9 @@ export function AssignProfessionDialog({
                 className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-gray-900 font-bold"
               >
                 {submitting ? (
-                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Assigning...</>
+                  <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> {t.assigning}</>
                 ) : (
-                  <><Check className="h-4 w-4 mr-1" /> Confirm</>
+                  <><Check className="h-4 w-4 mr-1" /> {t.confirm}</>
                 )}
               </Button>
             </div>

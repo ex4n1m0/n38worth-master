@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Terminal, TrendingUp, Clock, Users } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface BossIncomeEstimate {
   estimatedPerHour: number;
@@ -16,6 +17,7 @@ interface BossIncomeCardProps {
 }
 
 export function BossIncomeCard({ userId }: BossIncomeCardProps) {
+  const { t } = useLanguage();
   const { data, isLoading } = useQuery<BossIncomeEstimate>({
     queryKey: ["boss-income-estimate", userId],
     queryFn: async () => {
@@ -36,7 +38,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
       <div className="flex items-center gap-2">
         <Terminal className="h-5 w-5 text-amber-400" />
         <h3 className="text-sm font-semibold text-amber-400">
-          Boss Income
+          {t.bossIncomeTitle}
         </h3>
       </div>
 
@@ -49,7 +51,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
             <span className={`text-2xl font-bold ${hasIncome ? "text-amber-400" : "text-gray-500"}`}>
               ~{formatCompact(data?.estimatedPerHour ?? 0)}¢
             </span>
-            <span className="text-xs text-gray-500">/ hour</span>
+            <span className="text-xs text-gray-500">{t.perHourUnit}</span>
           </div>
         )}
       </div>
@@ -61,7 +63,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5">
               <TrendingUp className="h-3 w-3 text-emerald-400" />
-              <span className="text-gray-400">Portfolio Tax (10%)</span>
+              <span className="text-gray-400">{t.portfolioTaxLabel}</span>
             </div>
             <span className="text-emerald-400 font-medium">
               ~{formatCompact(data?.portfolioTaxPerHour ?? 0)}¢/h
@@ -73,7 +75,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5">
                 <Clock className="h-3 w-3 text-orange-400" />
-                <span className="text-gray-400">Hourly Tax (1%)</span>
+                <span className="text-gray-400">{t.hourlyTaxLabel}</span>
               </div>
               <span className="text-orange-400 font-medium">
                 ~{formatCompact(data?.hourlyTaxPerHour ?? 0)}¢/h
@@ -86,7 +88,12 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
             <div className="flex items-center justify-between text-xs pt-2 border-t border-white/5">
               <div className="flex items-center gap-1.5">
                 <Users className="h-3 w-3 text-gray-500" />
-                <span className="text-gray-500">From {data.ownedPlayerCount} player{data.ownedPlayerCount !== 1 ? "s" : ""}</span>
+                <span className="text-gray-500">
+                  {(data.ownedPlayerCount !== 1
+                    ? t.fromPlayersPlural
+                    : t.fromPlayersSingular
+                  ).replace("{count}", String(data.ownedPlayerCount))}
+                </span>
               </div>
             </div>
           )}
@@ -96,7 +103,7 @@ export function BossIncomeCard({ userId }: BossIncomeCardProps) {
       {/* Empty state */}
       {!isLoading && !hasIncome && (
         <p className="mt-2 text-xs text-gray-500">
-          Hire players to start earning boss tax income!
+          {t.bossIncomeEmpty}
         </p>
       )}
     </div>

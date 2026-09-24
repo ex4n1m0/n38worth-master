@@ -19,6 +19,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import { rankTitle } from "@/lib/ranks";
+import type { TranslationKeys } from "@/lib/i18n";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -47,47 +50,58 @@ interface RewardPage {
 
 const TYPE_CONFIG: Record<
   RewardType,
-  { label: string; icon: React.ReactNode; color: string; bgColor: string }
+  { icon: React.ReactNode; color: string; bgColor: string }
 > = {
   portfolio_reward: {
-    label: "Portfolio Reward",
     icon: <TrendingUp className="h-3.5 w-3.5" />,
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/10 border-emerald-500/20",
   },
   rank_bonus: {
-    label: "Rank Bonus",
     icon: <Trophy className="h-3.5 w-3.5" />,
     color: "text-amber-400",
     bgColor: "bg-amber-500/10 border-amber-500/20",
   },
   login_reward: {
-    label: "Daily Login",
     icon: <CalendarDays className="h-3.5 w-3.5" />,
     color: "text-sky-400",
     bgColor: "bg-sky-500/10 border-sky-500/20",
   },
   purchase_income: {
-    label: "Purchase Income",
     icon: <ShoppingCart className="h-3.5 w-3.5" />,
     color: "text-violet-400",
     bgColor: "bg-violet-500/10 border-violet-500/20",
   },
   boss_portfolio_tax: {
-    label: "Boss Tax (Portfolio)",
     icon: <Terminal className="h-3.5 w-3.5" />,
     color: "text-amber-400",
     bgColor: "bg-amber-500/10 border-amber-500/20",
   },
   boss_no_income_tax: {
-    label: "Boss Tax (Hourly)",
     icon: <Clock className="h-3.5 w-3.5" />,
     color: "text-orange-400",
     bgColor: "bg-orange-500/10 border-orange-500/20",
   },
 };
 
-function formatRelativeTime(dateStr: string): string {
+function rewardTypeLabel(type: RewardType, t: TranslationKeys): string {
+  switch (type) {
+    case "rank_bonus":
+      return t.rewardTypeRankBonus;
+    case "login_reward":
+      return t.rewardTypeLogin;
+    case "purchase_income":
+      return t.rewardTypePurchase;
+    case "boss_portfolio_tax":
+      return t.rewardTypeBossPortfolio;
+    case "boss_no_income_tax":
+      return t.rewardTypeBossHourly;
+    default:
+      return t.rewardTypePortfolio;
+  }
+}
+
+function formatRelativeTime(dateStr: string, t: TranslationKeys): string {
   const now = Date.now();
   const then = new Date(dateStr).getTime();
   const diff = now - then;
@@ -96,10 +110,11 @@ function formatRelativeTime(dateStr: string): string {
   const hours = Math.floor(diff / 3_600_000);
   const days = Math.floor(diff / 86_400_000);
 
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
+  if (minutes < 1) return t.rewardJustNow;
+  if (minutes < 60)
+    return t.minutesAgo.replace("{minutes}", String(minutes));
+  if (hours < 24) return t.hoursAgo.replace("{hours}", String(hours));
+  if (days < 7) return t.daysAgo.replace("{days}", String(days));
   return new Date(dateStr).toLocaleDateString();
 }
 
@@ -112,10 +127,10 @@ function parseDetails(raw: string | null): Record<string, unknown> {
   }
 }
 
-function positionLabel(pos: number): string {
-  if (pos === 1) return "🥇 1st";
-  if (pos === 2) return "🥈 2nd";
-  if (pos === 3) return "🥉 3rd";
+function positionLabel(pos: number, t: TranslationKeys): string {
+  if (pos === 1) return t.rewardPosition1st;
+  if (pos === 2) return t.rewardPosition2nd;
+  if (pos === 3) return t.rewardPosition3rd;
   return `#${pos}`;
 }
 
@@ -180,6 +195,7 @@ function mergeRankBonusBatches(rewards: RewardEntry[]): DisplayEntry[] {
 
 function RewardRow({ display }: { display: DisplayEntry }) {
   const [expanded, setExpanded] = useState(false);
+  const { t, locale } = useLanguage();
   const config = TYPE_CONFIG[display.type] ?? TYPE_CONFIG.portfolio_reward;
 
   // For single-entry rows, parse details normally
@@ -201,10 +217,10 @@ function RewardRow({ display }: { display: DisplayEntry }) {
           <span className={`shrink-0 ${config.color}`}>{config.icon}</span>
           <div className="min-w-0">
             <span className={`text-xs font-semibold ${config.color}`}>
-              {config.label}
+              {rewardTypeLabel(display.type, t)}
             </span>
             <span className="text-xs text-gray-500 ml-2">
-              {formatRelativeTime(display.createdAt)}
+              {formatRelativeTime(display.createdAt, t)}
             </span>
           </div>
         </div>
@@ -231,7 +247,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
         <div className="mt-2 pt-2 border-t border-white/10 space-y-1">
           {display.type === "portfolio_reward" && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Portfolio Value</span>
+              <span className="text-gray-400">{t.portfolioValue}</span>
               <span className="text-white font-medium">
                 {formatCompact(Number(details.portfolioValue ?? 0))}¢
               </span>
@@ -245,20 +261,27 @@ function RewardRow({ display }: { display: DisplayEntry }) {
                 return (
                   <div key={entry.id} className={idx > 0 ? "pt-1.5 border-t border-white/5" : ""}>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400">Category</span>
-                      <span className="text-white font-medium capitalize">{String(d.category ?? "")}</span>
+                      <span className="text-gray-400">{t.rewardDetailCategory}</span>
+                      <span className="text-white font-medium capitalize">{
+                        {
+                          empire: t.categoryGrid,
+                          credits: t.categoryCredits,
+                          value: t.categoryValue,
+                          portfolio: t.categoryPortfolio,
+                        }[String(d.category ?? "")] ?? String(d.category ?? "")
+                      }</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400">Rank</span>
-                      <span className="text-white font-medium">{String(d.rank ?? "")}</span>
+                      <span className="text-gray-400">{t.rewardDetailRank}</span>
+                      <span className="text-white font-medium">{rankTitle(String(d.rank ?? ""), locale)}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400">Position</span>
-                      <span className="text-amber-400 font-medium">{positionLabel(Number(d.position ?? 0))}</span>
+                      <span className="text-gray-400">{t.rewardDetailPosition}</span>
+                      <span className="text-amber-400 font-medium">{positionLabel(Number(d.position ?? 0), t)}</span>
                     </div>
                     {display.entries.length > 1 && (
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">Amount</span>
+                        <span className="text-gray-400">{t.rewardDetailAmount}</span>
                         <span className="text-amber-400 font-medium">+{formatCompact(entry.amount)}¢</span>
                       </div>
                     )}
@@ -270,7 +293,7 @@ function RewardRow({ display }: { display: DisplayEntry }) {
 
           {display.type === "login_reward" && (
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-400">Total Economy at Claim</span>
+              <span className="text-gray-400">{t.rewardTotalEconomyAtClaim}</span>
               <span className="text-white font-medium">
                 {formatCompact(Number(details.totalEconomy ?? 0))}¢
               </span>
@@ -280,25 +303,25 @@ function RewardRow({ display }: { display: DisplayEntry }) {
           {display.type === "purchase_income" && (
             <>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Player Sold</span>
+                <span className="text-gray-400">{t.rewardPlayerSold}</span>
                 <span className="text-white font-medium">
                   {String(details.playerUsername ?? "")}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Buyer</span>
+                <span className="text-gray-400">{t.rewardBuyer}</span>
                 <span className="text-white font-medium">
                   {String(details.buyerUsername ?? "")}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Sale Price</span>
+                <span className="text-gray-400">{t.rewardSalePrice}</span>
                 <span className="text-white font-medium">
                   {formatCompact(Number(details.salePrice ?? 0))}¢
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-400">Your Share</span>
+                <span className="text-gray-400">{t.rewardYourShare}</span>
                 <span className="text-violet-400 font-medium">
                   {String(details.share ?? "")}
                 </span>
@@ -320,6 +343,7 @@ function SummaryBar({
   rewards: RewardEntry[];
   totalsByType?: Record<string, TypeTotal>;
 }) {
+  const { t } = useLanguage();
   // Prefer server-side aggregated totals (covers ALL history) when available;
   // fall back to summing only loaded rewards.
   const totals: Record<string, number> = {};
@@ -344,17 +368,17 @@ function SummaryBar({
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      {types.map((t) => {
-        const cfg = TYPE_CONFIG[t];
-        const val = totals[t] ?? 0;
+      {types.map((type) => {
+        const cfg = TYPE_CONFIG[type];
+        const val = totals[type] ?? 0;
         return (
           <div
-            key={t}
+            key={type}
             className={`rounded-lg border p-2 flex items-center gap-2 ${cfg.bgColor}`}
           >
             <span className={`shrink-0 ${cfg.color}`}>{cfg.icon}</span>
             <div className="min-w-0">
-              <p className="text-xs text-gray-400 truncate">{cfg.label}</p>
+              <p className="text-xs text-gray-400 truncate">{rewardTypeLabel(type, t)}</p>
               <p className={`text-xs font-bold ${cfg.color}`}>
                 +{formatCompact(val)}¢
               </p>
@@ -370,6 +394,7 @@ function SummaryBar({
 
 export function RewardHistory() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const queryClient = useQueryClient();
@@ -382,11 +407,16 @@ export function RewardHistory() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["reward-history"] });
-      toast.success(`Cleared ${data.deletedCount?.toLocaleString() ?? 0} entries`);
+      toast.success(
+        t.rewardClearedToast.replace(
+          "{count}",
+          String(data.deletedCount?.toLocaleString() ?? 0)
+        )
+      );
       setConfirmClear(false);
     },
     onError: () => {
-      toast.error("Failed to clear income history");
+      toast.error(t.rewardClearFailed);
       setConfirmClear(false);
     },
   });
@@ -419,7 +449,7 @@ export function RewardHistory() {
   // Use server-side totals from the first page (covers ALL history)
   const totalsByType = data?.pages[0]?.totalsByType;
   const totalEarned = totalsByType
-    ? Object.values(totalsByType).reduce((s, t) => s + t.total, 0)
+    ? Object.values(totalsByType).reduce((s, agg) => s + agg.total, 0)
     : allRewards.reduce((s, r) => s + r.amount, 0);
 
   return (
@@ -432,17 +462,18 @@ export function RewardHistory() {
         <div className="flex items-center gap-2">
           <History className="h-5 w-5 text-gray-400" />
           <h3 className="text-sm font-semibold text-gray-300">
-            Income History
+            {t.rewardIncomeHistory}
           </h3>
           {totalEarned > 0 && (
             <span className="text-xs text-gray-500">
-              — {formatCompact(totalEarned)}¢ total
+              {t.rewardTotalPrefix}
+              {formatCompact(totalEarned)}¢{t.rewardTotalSuffix}
             </span>
           )}
         </div>
         <div className="flex items-center gap-1 text-gray-500">
           <span className="text-xs">
-            {isOpen ? "Hide" : "Show"}
+            {isOpen ? t.rewardHide : t.rewardShow}
           </span>
           {isOpen ? (
             <ChevronUp className="h-4 w-4" />
@@ -464,12 +495,12 @@ export function RewardHistory() {
           {isLoading ? (
             <div className="flex items-center justify-center py-6 gap-2 text-gray-500">
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span className="text-xs">Loading history…</span>
+              <span className="text-xs">{t.rewardLoadingHistory}</span>
             </div>
           ) : allRewards.length === 0 ? (
             <div className="text-center py-6">
               <p className="text-xs text-gray-500">
-                No income recorded yet. Rewards will appear here as you earn them.
+                {t.rewardNoIncome}
               </p>
             </div>
           ) : (
@@ -490,12 +521,12 @@ export function RewardHistory() {
               {isFetchingNextPage ? (
                 <>
                   <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading…
+                  {t.rewardLoadingMore}
                 </>
               ) : (
                 <>
                   <ChevronRight className="h-3 w-3" />
-                  Load more
+                  {t.rewardLoadMore}
                 </>
               )}
             </button>
@@ -506,19 +537,19 @@ export function RewardHistory() {
             <div className="pt-2 border-t border-white/5 flex items-center justify-end gap-2">
               {confirmClear ? (
                 <>
-                  <span className="text-xs text-red-400">Clear all history?</span>
+                  <span className="text-xs text-red-400">{t.rewardClearConfirm}</span>
                   <button
                     onClick={() => clearMutation.mutate()}
                     disabled={clearMutation.isPending}
                     className="text-xs text-red-400 hover:text-red-300 font-semibold px-2 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:opacity-50"
                   >
-                    {clearMutation.isPending ? "Clearing…" : "Yes, clear"}
+                    {clearMutation.isPending ? t.rewardClearing : t.rewardYesClear}
                   </button>
                   <button
                     onClick={() => setConfirmClear(false)}
                     className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 transition-colors"
                   >
-                    Cancel
+                    {t.cancel}
                   </button>
                 </>
               ) : (
@@ -527,7 +558,7 @@ export function RewardHistory() {
                   className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-400 transition-colors"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Clear History
+                  {t.rewardClearHistory}
                 </button>
               )}
             </div>

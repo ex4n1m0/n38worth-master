@@ -41,14 +41,16 @@ import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useProfessionComboSelection } from "@/hooks/useProfessionComboSelection";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
-import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
+import { useLanguage } from "@/components/LanguageContext";
+import { PROFESSIONS, professionName, professionPerk } from "@/lib/professions";
 import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 
+// `label` holds a dictionary key (resolved via `t[...]` at render time).
 const OWNER_FILTERS = [
-  { key: "other", label: "Stealable" },
-  { key: "mine", label: "Mine" },
-  { key: "none", label: "Free" },
-  { key: "owns", label: "Has Team" },
+  { key: "other", label: "filterStealable" },
+  { key: "mine", label: "filterMine" },
+  { key: "none", label: "filterFree" },
+  { key: "owns", label: "filterHasTeam" },
 ] as const;
 
 /** localStorage key for the browse-grid density choice (4 or 8 per row). */
@@ -180,6 +182,7 @@ function BrowsePlayersSection({
   gameUnlocked?: boolean;
   ownedCount?: number;
 }) {
+  const { t, locale } = useLanguage();
   // Default view (user-specified): all Avatars (any owner status, any type),
   // most recently online first.
   const [sort, setSort] = useState("last-online");
@@ -322,11 +325,11 @@ function BrowsePlayersSection({
             }
           >
             <Sparkles className="h-3.5 w-3.5 mr-1" />
-            Profession
+            {t.leaderboardProfession}
           </Button>
           {PROFESSIONS.map((p) => {
             const inCombo = comboFilledProfessions.includes(p.name);
-            const perk = PROFESSION_PERKS[p.name];
+            const perk = professionPerk(p.name, locale);
             const perkActive = activePerks.has(p.name);
             return (
             <Button
@@ -334,7 +337,7 @@ function BrowsePlayersSection({
               variant="ghost"
               size="sm"
               onClick={() => { play("toggle"); setProfession(profession === p.name ? "" : p.name); }}
-              title={perk ? `${perk.name}${perkActive ? " (ACTIVE)" : ""} — ${perk.description}` : undefined}
+              title={perk ? (perkActive ? t.perkTooltipActive : t.perkTooltip).replace("{name}", perk.name).replace("{description}", perk.description) : undefined}
               className={
                 profession === p.name
                   ? "h-auto rounded-lg border border-amber-500/60 bg-amber-500/10 px-2.5 py-1.5 text-[13px] text-amber-300 font-semibold hover:bg-amber-500/15 hover:text-amber-200"
@@ -345,7 +348,7 @@ function BrowsePlayersSection({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.imagePath} alt="" className="h-4 w-4 mr-1 object-contain" />
-              {p.name.split(" ")[0]}
+              {professionName(p.name, locale).split(" ")[0]}
               {perkActive && <Zap className="h-3.5 w-3.5 ml-1 text-green-400 fill-green-400" />}
               {inCombo && <span className="ml-1 text-amber-300">✓</span>}
             </Button>
@@ -354,7 +357,7 @@ function BrowsePlayersSection({
         </div>
         ) : (
           <LockedFeature
-            title="Profession filters & hourly perks"
+            title={t.leaderboardProfessionFiltersTitle}
             ownedCount={ownedCount}
             threshold={UNLOCK_GAME_THRESHOLD}
           />
@@ -364,7 +367,7 @@ function BrowsePlayersSection({
             the active sort pill flips its direction. "All" makes the empty
             (no-filter) state explicit and tappable. */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Sort</span>
+          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">{t.leaderboardSort}</span>
           <FilterPill
             active={sort === "value"}
             onClick={() => {
@@ -373,9 +376,9 @@ function BrowsePlayersSection({
               else setSort("value");
             }}
             tone="amber"
-            title="Sort by avatar value — tap again to flip direction"
+            title={t.leaderboardSortByValue}
           >
-            Value
+            {t.value}
             {sort === "value" && (dir === "asc" ? <ArrowUp /> : <ArrowDown />)}
           </FilterPill>
           <FilterPill
@@ -386,9 +389,9 @@ function BrowsePlayersSection({
               else setSort("last-online");
             }}
             tone="amber"
-            title="Sort by last online — tap again to flip direction"
+            title={t.leaderboardSortByLastOnline}
           >
-            Last Online
+            {t.lastOnline}
             {sort === "last-online" && (dir === "asc" ? <ArrowUp /> : <ArrowDown />)}
           </FilterPill>
           {/* Grid density — how many Avatars per row on desktop. */}
@@ -396,12 +399,12 @@ function BrowsePlayersSection({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                title="Avatars per row"
-                aria-label={`Avatars per row: ${cols}`}
+                title={t.leaderboardAvatarsPerRow}
+                aria-label={t.leaderboardAvatarsPerRowAria.replace("{count}", String(cols))}
                 className="ml-auto flex h-auto items-center gap-1.5 rounded-lg border border-gray-600 bg-transparent px-2.5 py-1.5 text-[13px] font-semibold text-gray-400 hover:text-white hover:border-gray-400 hover:bg-white/5"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
-                {cols} / row
+                {t.leaderboardPerRow.replace("{count}", String(cols))}
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
@@ -411,23 +414,23 @@ function BrowsePlayersSection({
                 onValueChange={(v) => handleColsChange(Number(v) as 4 | 8)}
               >
                 <DropdownMenuRadioItem value="4" className="text-gray-200 focus:bg-gray-800 focus:text-white">
-                  4 per row
+                  {t.leaderboardPerRowCount.replace("{count}", "4")}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem value="8" className="text-gray-200 focus:bg-gray-800 focus:text-white">
-                  8 per row
+                  {t.leaderboardPerRowCount.replace("{count}", "8")}
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Owner</span>
+          <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">{t.leaderboardOwner}</span>
           <FilterPill
             active={ownerFilter === ""}
             onClick={() => { play("toggle"); setOwnerFilter(""); }}
             tone="amber"
           >
-            All
+            {t.leaderboardAll}
           </FilterPill>
           {OWNER_FILTERS.map((f) => (
             <FilterPill
@@ -437,14 +440,14 @@ function BrowsePlayersSection({
               tone="amber"
             >
               {f.key === "mine" ? <Terminal /> : f.key === "none" ? <UserX /> : <Users />}
-              {f.label}
+              {t[f.label]}
             </FilterPill>
           ))}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Search players..."
+            placeholder={t.searchPlayers}
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="pl-10 h-8 bg-transparent border-gray-800 text-white placeholder:text-gray-500 text-[13px]"
@@ -453,9 +456,7 @@ function BrowsePlayersSection({
       </div>
 
       <CoachMark id="hire-get" className="max-w-lg">
-        Tap <span className="font-bold text-green-300">GET</span> on an avatar to
-        hire it. Each hire raises that avatar&apos;s value — and pays credits to
-        the previous owner. Own avatars, then earn when others hire them from you!
+        {t.coachGetTap} <span className="font-bold text-green-300">GET</span> {t.coachGetRest}
       </CoachMark>
 
       {isLoading ? (
@@ -464,10 +465,10 @@ function BrowsePlayersSection({
         <Card className="border-gray-800 bg-transparent">
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-            <p className="text-gray-400">No players found</p>
+            <p className="text-gray-400">{t.noPlayersFound}</p>
             {search && (
               <p className="text-sm text-gray-500 mt-1">
-                Try a different search term
+                {t.leaderboardTryDifferentSearch}
               </p>
             )}
           </CardContent>
@@ -531,14 +532,14 @@ function BrowsePlayersSection({
             {isFetchingNextPage ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
-                Loading more Avatars…
+                {t.leaderboardLoadingMore}
               </span>
             ) : hasNextPage ? (
               <span>
-                {players.length} of {total} Avatars — scroll for more
+                {t.leaderboardXofYAvatars.replace("{loaded}", String(players.length)).replace("{total}", String(total))}
               </span>
             ) : (
-              <span>All {total} Avatars loaded</span>
+              <span>{t.leaderboardAllLoaded.replace("{total}", String(total))}</span>
             )}
           </div>
           {/* Clearance so the fixed desktop ComboDock pill never covers the

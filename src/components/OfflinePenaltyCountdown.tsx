@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Clock, AlertTriangle } from "lucide-react";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 /** Calculate seconds remaining until the next penalty interval */
 function getSecondsToNextPenalty(penaltyMinutes: number) {
@@ -21,6 +22,7 @@ export function OfflinePenaltyCountdown() {
   const prevSecondsRef = useRef<number>(0);
   const wasSmallRef = useRef<boolean>(false);
   const { play } = useSound();
+  const { t } = useLanguage();
 
   // Update countdown every second
   useEffect(() => {
@@ -56,7 +58,7 @@ export function OfflinePenaltyCountdown() {
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-red-400" />
           <h3 className="text-sm font-semibold text-red-400">
-            Offline Penalty — Every {penaltyMinutes} Minutes
+            {t.offlinePenaltyTitle.replace("{minutes}", String(penaltyMinutes))}
           </h3>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900/60 border border-red-500/20">
@@ -67,7 +69,7 @@ export function OfflinePenaltyCountdown() {
         </div>
       </div>
       <p className="text-xs text-gray-500 mt-2">
-        Inactive players lose 1% credits every {penaltyMinutes} minutes offline. Stay active to avoid decay!
+        {t.offlinePenaltyBody.replace("{minutes}", String(penaltyMinutes))}
       </p>
     </div>
   );

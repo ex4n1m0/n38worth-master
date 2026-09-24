@@ -6,9 +6,11 @@ import { TrendingUp, DollarSign } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
 import { useNow } from "@/hooks/useNow";
 import { secondsToNextHour, formatCountdown } from "@/components/HourlyRewardCountdown";
+import { useLanguage } from "@/components/LanguageContext";
 
 export function PortfolioRewardCountdown() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
 
   // Fetch current user's portfolio data from /api/me — this uses the same
   // BigInt-safe formula as the portfolio-reward cron and leaderboard rankings,
@@ -39,7 +41,7 @@ export function PortfolioRewardCountdown() {
       <div className="flex items-center gap-2">
         <TrendingUp className="h-5 w-5 text-t1-400" />
         <h3 className="text-sm font-semibold text-t1-400">
-          Portfolio Reward
+          {t.portfolioRewardTitle}
         </h3>
       </div>
       
@@ -51,11 +53,11 @@ export function PortfolioRewardCountdown() {
               <DollarSign className="h-4 w-4 text-t1-400 shrink-0" />
               {portfolioValue > 0 ? (
                 <span className="text-sm font-semibold text-t1-300 truncate">
-                  Your Portfolio: {formatCompact(portfolioValue)}¢
+                  {t.portfolioYourValue.replace("{value}", formatCompact(portfolioValue))}¢
                 </span>
               ) : (
                 <span className="text-sm font-semibold text-t1-300 truncate">
-                  Your Portfolio: 0¢ — Hire players to earn!
+                  {t.portfolioEmpty}
                 </span>
               )}
             </div>
@@ -67,14 +69,14 @@ export function PortfolioRewardCountdown() {
           </div>
           {portfolioValue > 0 && (
             <div className="mt-1 text-right text-[11px] text-t1-400/80 font-mono">
-              pays in {formatCountdown(secondsToPayout)}
+              {t.paysIn.replace("{time}", formatCountdown(secondsToPayout))}
             </div>
           )}
         </div>
       )}
 
       <p className="text-xs text-gray-500 mt-2">
-        Earn 0.2% of your portfolio value as credits.
+        {t.portfolioRewardNote}
       </p>
     </div>
   );

@@ -19,6 +19,7 @@ import { useOnboarding } from "@/components/OnboardingContext";
 import { useSound } from "@/hooks/useSound";
 import { UNLOCK_GAME_THRESHOLD } from "@/lib/missions-data";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
 
 const STORAGE_KEY = "n38worth_new_player_guide_dismissed";
 
@@ -40,6 +41,7 @@ export function NewPlayerGuide() {
   const username = session?.user?.name;
   const { state: onboarding, loading: onboardingLoading } = useOnboarding();
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const [isVisible, setIsVisible] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -100,29 +102,29 @@ export function NewPlayerGuide() {
   const steps = [
     {
       icon: Camera,
-      title: "Upload your avatar",
-      hint: "Your avatar needs a face before anyone can hire you.",
+      title: t.checkUploadAvatarTitle,
+      hint: t.checkUploadAvatarHint,
       done: onboarding.avatarCompleted,
       progress: null as string | null,
     },
     {
       icon: UserPlus,
-      title: "Hire your first 3 avatars",
-      hint: "Owned avatars earn you credits every time someone hires them from you.",
+      title: t.checkHireFirstTitle,
+      hint: t.checkHireFirstHint,
       done: ownedCount >= 3,
       progress: ownedCount >= 3 ? null : `${Math.min(ownedCount, 3)}/3`,
     },
     {
       icon: Sparkles,
-      title: "Pick your profession",
-      hint: "Claim one on your profile page — each profession has a unique perk.",
+      title: t.checkPickProfessionTitle,
+      hint: t.checkPickProfessionHint,
       done: !!player?.profession || onboarding.professionSelected,
       progress: null,
     },
     {
       icon: Users,
-      title: `Own ${UNLOCK_GAME_THRESHOLD} avatars to unlock the Game`,
-      hint: "Unlocks ranks, professions & combos. Hire cheap ownerless avatars first!",
+      title: t.guideOwnToUnlock.replace("{count}", String(UNLOCK_GAME_THRESHOLD)),
+      hint: t.checkOwnHint,
       done: missionLevel >= 1,
       progress:
         missionLevel >= 1
@@ -131,15 +133,15 @@ export function NewPlayerGuide() {
     },
     {
       icon: Terminal,
-      title: "Get hired by another player",
-      hint: "Every hire raises your value — and your revenue share.",
+      title: t.checkGetHiredTitle,
+      hint: t.checkGetHiredHint,
       done: (player?.ownerCount ?? 0) > 0,
       progress: null,
     },
     {
       icon: Gift,
-      title: "Claim your daily reward",
-      hint: "Free credits every day — it auto-claims on your profile page.",
+      title: t.checkDailyRewardTitle,
+      hint: t.checkDailyRewardHint,
       done: rewardStatus ? !rewardStatus.canClaim : false,
       progress: null,
     },
@@ -156,15 +158,17 @@ export function NewPlayerGuide() {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/50">
           <div>
-            <h2 className="text-lg font-bold text-white">Getting Started 🎮</h2>
+            <h2 className="text-lg font-bold text-white">{t.guideHeader}</h2>
             <p className="text-xs text-t1-300">
-              {doneCount}/{steps.length} done — complete these to learn the ropes
+              {t.guideProgressNote
+                .replace("{done}", String(doneCount))
+                .replace("{total}", String(steps.length))}
             </p>
           </div>
           <button
             onClick={handleDismiss}
             className="p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
-            aria-label="Dismiss guide"
+            aria-label={t.dismissGuideAria}
           >
             <X className="h-4 w-4 text-gray-400" />
           </button>
@@ -223,9 +227,8 @@ export function NewPlayerGuide() {
               <Trophy className="h-3.5 w-3.5 text-amber-400" />
             </div>
             <p className="text-xs text-amber-200/90 leading-tight">
-              <span className="font-semibold text-amber-300">The big goal:</span>{" "}
-              climb the mission ladder to unlock all 6 Goddesses — hold them all
-              for 60 minutes and you <span className="font-semibold">win the game</span>.
+              <span className="font-semibold text-amber-300">{t.bigGoalLabel}</span>{" "}
+              {t.bigGoalMiddle} <span className="font-semibold">{t.winTheGame}</span>.
             </p>
           </div>
         </div>
@@ -233,7 +236,7 @@ export function NewPlayerGuide() {
         {/* Footer */}
         <div className="px-5 py-2 bg-gray-900/30 border-t border-gray-800/50 flex items-center justify-between">
           <p className="text-[10px] text-gray-500">
-            This guide hides itself once you complete every step (or dismiss it for 24h)
+            {t.guideFooterNote}
           </p>
         </div>
       </div>

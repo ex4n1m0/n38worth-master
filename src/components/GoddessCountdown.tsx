@@ -6,6 +6,7 @@ import { Cpu, Timer, Zap, Sparkles } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "@/lib/event-feed";
 import { playSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface CountdownData {
   active: boolean;
@@ -18,6 +19,7 @@ interface CountdownData {
 }
 
 export function GoddessCountdown() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [localRemaining, setLocalRemaining] = useState<number | null>(null);
 
@@ -64,8 +66,11 @@ export function GoddessCountdown() {
 
     channel.bind("countdown-started", (data: { username: string; userId: number; durationMinutes: number }) => {
       playSound("reveal");
-      toast.info(`⏱️ ${data.username} owns all Six!`, {
-        description: `They must hold them for ${data.durationMinutes} minutes to root the mainframe. Take one of the Six to stop them!`,
+      toast.info(t.goddessCountdownStartedInfo.replace("{name}", data.username), {
+        description: t.goddessCountdownStartedInfoDesc.replace(
+          "{minutes}",
+          String(data.durationMinutes)
+        ),
         duration: 15000,
       });
       queryClient.invalidateQueries({ queryKey: ["goddess-countdown"] });
@@ -73,8 +78,8 @@ export function GoddessCountdown() {
 
     channel.bind("countdown-cancelled", () => {
       playSound("sell");
-      toast.success("🛡️ Countdown Cancelled!", {
-        description: "One of the Six was taken! The countdown has been stopped.",
+      toast.success(t.goddessCountdownCancelledToast, {
+        description: t.goddessCountdownCancelledToastDesc,
         duration: 10000,
       });
       setLocalRemaining(null);
@@ -93,7 +98,7 @@ export function GoddessCountdown() {
       channel.unbind_all();
       pusher.unsubscribe("game-global");
     };
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   // Don't render if no active countdown
   if (!countdown?.active || localRemaining === null || localRemaining <= 0) {
@@ -121,10 +126,10 @@ export function GoddessCountdown() {
             <div>
               <h3 className="text-base font-bold text-yellow-400 flex items-center gap-1.5">
                 <Sparkles className="h-4 w-4" />
-                Root Challenge Active!
+                {t.goddessCountdownActive}
               </h3>
               <p className="text-xs text-yellow-300/70">
-                <span className="font-semibold text-yellow-300">{countdown.username}</span> owns all Six
+                <span className="font-semibold text-yellow-300">{countdown.username}</span>{t.goddessCountdownOwnsAllSuffix}
               </p>
             </div>
           </div>
@@ -150,8 +155,8 @@ export function GoddessCountdown() {
         <div className="flex items-center gap-2 text-sm">
           <Zap className="h-4 w-4 text-red-400 shrink-0" />
           <p className="text-gray-300">
-            <span className="text-red-400 font-semibold">Take one of the Six</span> to stop them from winning! 
-            If the timer reaches zero, <span className="text-yellow-400 font-semibold">{countdown.username}</span> roots the mainframe and the simulation reboots!
+            <span className="text-red-400 font-semibold">{t.goddessCountdownCtaHighlight}</span>{t.goddessCountdownCtaBody}
+            <span className="text-yellow-400 font-semibold">{countdown.username}</span>{t.goddessCountdownCtaSuffix}
           </p>
         </div>
       </div>

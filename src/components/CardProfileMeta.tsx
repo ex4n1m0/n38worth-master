@@ -1,6 +1,7 @@
 "use client";
 
 import { Users, ExternalLink } from "lucide-react";
+import { useLanguage } from "@/components/LanguageContext";
 
 /**
  * Compact meta row shown on player cards (market + profile team cards):
@@ -21,6 +22,7 @@ export function CardProfileMeta({
   ownedCount?: number;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const openInNewTab = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -34,7 +36,11 @@ export function CardProfileMeta({
       {count > 0 ? (
         <span
           className="flex items-center gap-0.5 text-[10px] sm:text-xs text-gray-400"
-          title={`Owns ${count} player${count === 1 ? "" : "s"}`}
+          title={
+            count === 1
+              ? t.ownsCountPlayer.replace("{count}", String(count))
+              : t.ownsCountPlayers.replace("{count}", String(count))
+          }
         >
           <Users className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-t2-400 shrink-0" />
           <span className="font-semibold tabular-nums">{count}</span>
@@ -45,8 +51,8 @@ export function CardProfileMeta({
       <button
         type="button"
         onClick={openInNewTab}
-        title={`Open ${username}'s profile in a new tab`}
-        aria-label={`Open ${username}'s profile in a new tab`}
+        title={t.openProfileNewTab.replace("{name}", username)}
+        aria-label={t.openProfileNewTab.replace("{name}", username)}
         className="flex items-center justify-center h-6 w-6 rounded-md border border-gray-700 text-gray-400 hover:text-t1-300 hover:border-t1-500/60 hover:bg-t1-500/10 transition-colors shrink-0"
       >
         <ExternalLink className="h-3 w-3 sm:h-3.5 sm:w-3.5" />

@@ -6,10 +6,13 @@ import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { usePoachStore } from "@/hooks/usePoachEffect";
+import { useLanguage } from "@/components/LanguageContext";
+import { rankTitle } from "@/lib/ranks";
 
 export function usePlayerEvents(userId: string | undefined) {
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t, locale } = useLanguage();
 
   useEffect(() => {
     if (!userId) return;
@@ -50,7 +53,11 @@ export function usePlayerEvents(userId: string | undefined) {
             buyer: data.buyerUsername,
           });
         }
-        toast.success(`${data.buyerUsername} bought you! Your value is now ${data.newValue} 💰`);
+        toast.success(
+          t.eventBoughtYou
+            .replace("{buyer}", data.buyerUsername)
+            .replace("{value}", String(data.newValue))
+        );
       }
     );
 
@@ -91,23 +98,42 @@ export function usePlayerEvents(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
       if (data.type === "discard") {
         play("sell");
-        toast.info(`${data.initiator} discarded their relationship with you`);
+        toast.info(t.eventDiscardedYou.replace("{initiator}", data.initiator));
       }
     });
 
     channel.bind("portfolio-reward", (data: { amount: number; portfolioValue: number }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
       play("reward");
-      toast.success(`You earned ${data.amount} credits from your portfolio reward! 💼`);
+      toast.success(
+        t.eventPortfolioReward.replace("{amount}", String(data.amount))
+      );
     });
 
     channel.bind("rank-bonus", (data: { amount: number; category: string; rank: string; position: number }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["rankPositions"], refetchType: "active" });
       play("reward");
-      const positionLabels = ["1st", "2nd", "3rd"];
-      const positionLabel = positionLabels[data.position - 1] || `${data.position}th`;
-      toast.success(`You earned ${data.amount} credits! You're ${positionLabel} in ${data.category} rank (${data.rank}) 🏆`);
+      const positionLabels = [t.rankPos1, t.rankPos2, t.rankPos3];
+      const positionLabel =
+        positionLabels[data.position - 1] ||
+        t.rankPosN.replace("{n}", String(data.position));
+      // Raw category keys ("empire"/"credits"/"value"/"portfolio") map to their
+      // display names ("Grid" etc. per the sci-fi rebrand).
+      const categoryLabels: Record<string, string> = {
+        empire: t.categoryGrid,
+        credits: t.categoryCredits,
+        value: t.categoryValue,
+        portfolio: t.categoryPortfolio,
+      };
+      const categoryLabel = categoryLabels[data.category] ?? data.category;
+      toast.success(
+        t.eventRankBonus
+          .replace("{amount}", String(data.amount))
+          .replace("{position}", positionLabel)
+          .replace("{category}", categoryLabel)
+          .replace("{rank}", rankTitle(data.rank, locale))
+      );
     });
 
     channel.bind(
@@ -117,16 +143,24 @@ export function usePlayerEvents(userId: string | undefined) {
         queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
         play("coin");
         if (data.amount >= 0) {
-          toast.success(`You collected ${data.amount} credits in boss tax from ${data.fromPlayer} 👑`);
+          toast.success(
+            t.eventBossTaxCollected
+              .replace("{amount}", String(data.amount))
+              .replace("{player}", String(data.fromPlayer))
+          );
         } else {
-          toast.info(`You paid ${-data.amount} credits in tax to your boss ${data.toBoss}`);
+          toast.info(
+            t.eventBossTaxPaid
+              .replace("{amount}", String(-data.amount))
+              .replace("{boss}", String(data.toBoss))
+          );
         }
       }
     );
 
     channel.bind("multi-account-warning", (data: { message: string }) => {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
-      toast.warning("⚠️ Multi-Account Warning", {
+      toast.warning(t.multiAccountWarningTitle, {
         description: data.message,
         duration: 30000,
       });
@@ -136,7 +170,7 @@ export function usePlayerEvents(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" });
       play("error");
-      toast.error("🚫 Multi-Account Penalty", {
+      toast.error(t.multiAccountPenaltyTitle, {
         description: data.message,
         duration: 30000,
       });
@@ -146,5 +180,5 @@ export function usePlayerEvents(userId: string | undefined) {
       channel.unbind_all();
       pusher.unsubscribe(`player-${userId}`);
     };
-  }, [userId, queryClient, play]);
+  }, [userId, queryClient, play, t, locale]);
 }

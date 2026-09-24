@@ -7,6 +7,8 @@ import { toast } from "@/lib/event-feed";
 import { Button } from "@/components/ui/button";
 import { Loader2, Repeat, X, Check, Coins } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
+import { professionName } from "@/lib/professions";
 
 interface ProfessionOption {
   name: string;
@@ -36,6 +38,7 @@ interface ChangeProfessionDialogProps {
  */
 export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps) {
   const queryClient = useQueryClient();
+  const { t, locale } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -60,16 +63,16 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
     setLoading(true);
     try {
       const res = await fetch("/api/profile/change-profession");
-      if (!res.ok) throw new Error("Failed to load profession options");
+      if (!res.ok) throw new Error(t.loadProfessionOptionsFailed);
       const json: ChangeProfessionData = await res.json();
       setData(json);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to load profession options");
+      toast.error(e instanceof Error ? e.message : t.loadProfessionOptionsFailed);
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const openDialog = () => {
     setSelected(null);
@@ -94,12 +97,15 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
         body: JSON.stringify({ profession: selectedOption.name }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to change profession");
+      if (!res.ok) throw new Error(json.error || t.changeProfessionFailed);
 
       toast.success(
         json.charged > 0
-          ? `You are now a ${selectedOption.name}! (-${formatCompact(json.charged)}¢)`
-          : `You are now a ${selectedOption.name}! (Free)`
+          ? t.changeSuccessPaid
+              .replace("{profession}", professionName(selectedOption.name, locale))
+              .replace("{charged}", formatCompact(json.charged))
+          : t.changeSuccessFree
+              .replace("{profession}", professionName(selectedOption.name, locale))
       );
 
       await Promise.all([
@@ -110,7 +116,7 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
       ]);
       setOpen(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to change profession");
+      toast.error(e instanceof Error ? e.message : t.changeProfessionFailed);
     } finally {
       setSubmitting(false);
     }
@@ -125,7 +131,7 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
         className="border-amber-500/50 text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 h-7 px-2 text-xs"
       >
         <Repeat className="h-3 w-3 mr-1" />
-        Change Profession
+        {t.changeProfession}
       </Button>
 
       {open && mounted && createPortal(
@@ -135,18 +141,17 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
               onClick={closeDialog}
               disabled={submitting}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
-              aria-label="Close"
+              aria-label={t.close}
             >
               <X className="h-5 w-5" />
             </button>
 
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-                Change Your Profession
+                {t.changeYourProfession}
               </h2>
               <p className="text-gray-400 mt-2 text-sm">
-                Cost = (other players with that profession) × {formatCompact(1000)}¢ × your change number.
-                A profession nobody else has is free.
+                {t.changeCostRule.replace("{base}", formatCompact(1000))}
               </p>
               {data && (
                 <div className="mt-3 flex items-center justify-center gap-4 text-xs">
@@ -155,7 +160,9 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
                     {formatCompact(Math.floor(data.credits))}¢
                   </span>
                   <span className="text-gray-500">
-                    Change #{data.multiplier} (×{data.multiplier} multiplier)
+                    {t.professionChangeNumber
+                      .replace("{count}", String(data.multiplier))
+                      .replace("{count}", String(data.multiplier))}
                   </span>
                 </div>
               )}
@@ -166,7 +173,7 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
                 <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
               </div>
             ) : !data ? (
-              <p className="text-center text-gray-400 py-8 text-sm">Could not load professions.</p>
+              <p className="text-center text-gray-400 py-8 text-sm">{t.couldNotLoadProfessions}</p>
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
@@ -194,18 +201,18 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
                         )}
                         {opt.isCurrent && (
                           <span className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wide text-cyan-300 bg-cyan-500/15 border border-cyan-500/30 rounded px-1.5 py-0.5">
-                            Current
+                            {t.currentBadge}
                           </span>
                         )}
                         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-gray-950/50 border border-gray-700/50 flex-shrink-0">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={opt.imagePath} alt={opt.name} className="w-full h-full object-contain p-1" />
+                          <img src={opt.imagePath} alt={professionName(opt.name, locale)} className="w-full h-full object-contain p-1" />
                         </div>
                         <span className={`text-xs font-semibold text-center leading-tight ${isSelected ? "text-amber-300" : "text-gray-300"}`}>
-                          {opt.name}
+                          {professionName(opt.name, locale)}
                         </span>
-                        <span className="text-[10px] text-gray-500 leading-tight">
-                          {formatCompact(opt.count)} other{opt.count === 1 ? "" : "s"}
+                        <span className={`text-[10px] text-gray-500 leading-tight`}>
+                          {formatCompact(opt.count)} {opt.count === 1 ? t.xOther : t.xOthers}
                         </span>
                         {/* Cost badge — always visible */}
                         <span
@@ -217,7 +224,7 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
                                 : "text-red-400 bg-red-500/10 border border-red-500/30"
                           }`}
                         >
-                          {opt.cost === 0 ? "Free" : `${formatCompact(opt.cost)}¢`}
+                          {opt.cost === 0 ? t.freeLabel : `${formatCompact(opt.cost)}¢`}
                         </span>
                       </button>
                     );
@@ -233,14 +240,14 @@ export function ChangeProfessionDialog({ username }: ChangeProfessionDialogProps
                     {submitting ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                        Changing...
+                        {t.changingProfession}
                       </>
                     ) : !selectedOption ? (
-                      "Select a Profession"
+                      t.selectAProfession
                     ) : selectedOption.cost === 0 ? (
-                      `Change to ${selectedOption.name} (Free)`
+                      t.changeToFree.replace("{profession}", professionName(selectedOption.name, locale))
                     ) : (
-                      `Change for ${formatCompact(selectedOption.cost)}¢`
+                      t.changeForCost.replace("{cost}", formatCompact(selectedOption.cost))
                     )}
                   </Button>
                 </div>

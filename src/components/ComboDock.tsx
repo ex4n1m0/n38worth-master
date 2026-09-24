@@ -16,6 +16,8 @@ import {
 import { useMissionLevel } from "@/hooks/useMissionLevel";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
+import { professionName } from "@/lib/professions";
+import { useLanguage } from "./LanguageContext";
 
 /** Expansion state of the combo dock — shared so the navbar pill, the corner
  *  widget, and the keyboard layer (C / Esc) all control the same panel. */
@@ -57,6 +59,7 @@ export function ComboDockPill({ className = "" }: { className?: string }) {
   const combo = useProfessionComboSelection();
   const firewallMsLeft = useComboFirewallMsLeft();
   const { play } = useSound();
+  const { t } = useLanguage();
   const setOpen = useComboDock((s) => s.setOpen);
 
   const complete = combo.isComplete;
@@ -70,7 +73,7 @@ export function ComboDockPill({ className = "" }: { className?: string }) {
         play("open");
         setOpen(true);
       }}
-      aria-label={`Profession combo — ${combo.selectedCount} of 6 selected`}
+      aria-label={t.comboPillAria.replace("{count}", String(combo.selectedCount))}
       className={`relative flex flex-col items-center justify-center gap-1 min-h-[44px] px-3.5 rounded-full border shadow-xl backdrop-blur-sm transition-all select-none ${
         locked
           ? "border-cyan-400/70 bg-gray-950/95 text-cyan-300"
@@ -119,6 +122,7 @@ export function ComboDock() {
   const combo = useProfessionComboSelection();
   const { open, setOpen, toggle } = useComboDock();
   const { play } = useSound();
+  const { t, locale } = useLanguage();
 
   // Global keyboard layer (desktop / keyboard-on-tablet power users).
   useEffect(() => {
@@ -157,7 +161,11 @@ export function ComboDock() {
         const slotProfession = ORDERED_PROFESSIONS[Number(e.key) - 1];
         if (hovered.profession !== slotProfession) {
           toast.info(
-            `${hovered.username} is a ${hovered.profession} — key ${e.key} is the ${slotProfession} slot.`
+            t.comboKeyMismatch
+              .replace("{username}", hovered.username)
+              .replace("{profession}", professionName(hovered.profession, locale))
+              .replace("{key}", e.key)
+              .replace("{slotProfession}", professionName(slotProfession, locale))
           );
           return;
         }
@@ -167,7 +175,7 @@ export function ComboDock() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [setOpen, toggle, play]);
+  }, [setOpen, toggle, play, t, locale]);
 
   if (!onboarding.onboardingComplete || !gameUnlocked) return null;
 
@@ -194,15 +202,15 @@ export function ComboDock() {
           />
           <div
             role="dialog"
-            aria-label="Profession combo workbench"
+            aria-label={t.comboDockAria}
             className="fixed z-[70] inset-x-0 bottom-0 rounded-t-2xl border-t md:rounded-2xl border md:border border-gray-700 bg-gray-950/[0.98] backdrop-blur-xl p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:pb-3 shadow-2xl md:inset-auto md:bottom-4 md:right-4 md:w-[min(780px,calc(100vw-2.5rem))] animate-in fade-in slide-in-from-bottom-3 duration-200"
           >
             <div className="flex items-center justify-between gap-3 mb-2">
               <span className="flex items-center gap-1.5 text-xs font-bold text-white uppercase tracking-[0.2em]">
                 <Sparkles className="h-4 w-4 text-amber-300" />
-                Profession Combo
+                {t.comboWorkbenchTitle}
                 <span className="text-gray-500 normal-case tracking-normal font-medium">
-                  · follows you across tabs (C)
+                  {t.comboFollowsYou}
                 </span>
               </span>
               <button
@@ -211,7 +219,7 @@ export function ComboDock() {
                   play("close");
                   setOpen(false);
                 }}
-                aria-label="Close combo dock"
+                aria-label={t.comboCloseAria}
                 className="h-9 w-9 flex items-center justify-center rounded-lg border border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
               >
                 <X className="h-4 w-4" />

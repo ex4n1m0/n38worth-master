@@ -31,7 +31,7 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
         body: JSON.stringify({ targetId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send credits");
+      if (!res.ok) throw new Error(data.error || t.sendCreditsFailed);
       return data;
     },
     onMutate: async () => {
@@ -45,7 +45,9 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
     },
     onSuccess: (data) => {
       toast.success(
-        `Gifted ${formatNumber(data.amount.toFixed(2))}¢ to ${targetUsername}! 🎁`
+        t.sendCreditsToast
+          .replace("{amount}", formatNumber(data.amount.toFixed(2)))
+          .replace("{name}", targetUsername)
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -75,14 +77,16 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
         disabled={mutation.isPending}
         className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg border-0 bg-transparent hover:brightness-125 hover:bg-transparent disabled:opacity-60 text-white ${className ?? ""}`}
         style={navbarBtnStyle}
-        title={`${t.sendCredits} ${formatNumber(parseFloat(sendAmount.toFixed(2)))}¢ to ${targetUsername}`}
+        title={t.sendCreditsTitle
+          .replace("{amount}", formatNumber(parseFloat(sendAmount.toFixed(2))))
+          .replace("{name}", targetUsername)}
       >
         {mutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
             <Gift className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Gift</span>
+            <span className="text-[7px] leading-none mt-0.5">{t.gift}</span>
           </>
         )}
       </Button>
@@ -96,7 +100,7 @@ export function SendCreditsButton({ targetId, targetUsername, className, square 
       disabled={mutation.isPending}
       className={`text-white text-sm px-3 py-2 h-auto min-h-[36px] font-bold drop-shadow-lg border-0 bg-transparent hover:brightness-125 hover:bg-transparent disabled:opacity-60 ${className ?? ""}`}
       style={navbarBtnStyle}
-      title={`Gift 1% of your credits to ${targetUsername}`}
+      title={t.giftTitle.replace("{name}", targetUsername)}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />

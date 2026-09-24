@@ -15,8 +15,9 @@ import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact, formatNumber } from "@/lib/utils";
-import { GODDESS_POWERS } from "@/lib/goddesses";
+import { goddessPower } from "@/lib/goddesses";
 import { cardDisplayName } from "@/lib/display-names";
+import { useLanguage } from "@/components/LanguageContext";
 import {
   isLockablePurchaseCard,
   isPurchaseUnlockedAtLevel,
@@ -87,6 +88,7 @@ export function GoddessCard({
   powerDisabled = false,
 }: GoddessCardProps) {
   const { data: session } = useSession();
+  const { t, locale } = useLanguage();
   const queryClient = useQueryClient();
   const { data: myCredits } = useCredits();
   const { ownedIds } = useOwnedPlayerIds();
@@ -95,7 +97,7 @@ export function GoddessCard({
   const finalGoddessThreshold = useFinalGoddessThreshold();
 
   // Display name (sci-fi rebrand) — DB username stays the canonical key.
-  const displayName = cardDisplayName(username);
+  const displayName = cardDisplayName(username, locale);
 
   // Locked until the player has obtained this goddess from its mission once.
   const locked =
@@ -130,7 +132,7 @@ export function GoddessCard({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.goddessPurchaseFailed);
       return data;
     },
     onMutate: async () => {
@@ -151,15 +153,16 @@ export function GoddessCard({
     onSuccess: async (data) => {
       if (data.countdownStarted) {
         play("win");
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description:
-            "You own all Six! Hold them for 60 minutes to root the mainframe!",
+        toast.success(t.goddessCountdownStartedToast, {
+          description: t.goddessCountdownStartedToastDesc,
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
         toast.success(
-          `You bought ${displayName}! Their value is now ${data.newValue} 💰`
+          t.goddessBoughtToast
+            .replace("{name}", displayName)
+            .replace("{value}", String(data.newValue))
         );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -195,11 +198,15 @@ export function GoddessCard({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to extend partnership");
+      if (!res.ok) throw new Error(data.error || t.goddessExtendFailed);
       return data;
     },
     onSuccess: async (data) => {
-      toast.success(`+10 min partnership on ${displayName}! (-${formatCompact(data.cost)}¢)`);
+      toast.success(
+        t.goddessExtendToast
+          .replace("{name}", displayName)
+          .replace("{cost}", formatCompact(data.cost))
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["goddesses"] }),
@@ -230,7 +237,7 @@ export function GoddessCard({
         body: JSON.stringify({ goddessName: username }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to toggle power");
+      if (!res.ok) throw new Error(data.error || t.goddessTogglePowerFailed);
       return data;
     },
     onMutate: () => {
@@ -240,8 +247,8 @@ export function GoddessCard({
       setPowerOn(!data.disabled);
       toast.success(
         data.disabled
-          ? `${displayName} power turned OFF`
-          : `${displayName} power turned ON`
+          ? t.goddessPowerOffToast.replace("{name}", displayName)
+          : t.goddessPowerOnToast.replace("{name}", displayName)
       );
       await queryClient.invalidateQueries({ queryKey: ["goddesses"] });
     },
@@ -284,16 +291,16 @@ export function GoddessCard({
           {/* Stats */}
           <div className="grid grid-cols-1 gap-2">
             <div className="rounded-lg p-2">
-              <p className="text-gray-400 text-xs">Owner</p>
+              <p className="text-gray-400 text-xs">{t.goddessOwnerLabel}</p>
               {isOwned ? (
-                <Link 
+                <Link
                   href={`/players/${ownerName}`}
                   className="text-yellow-400 font-semibold text-sm truncate hover:text-yellow-300 transition-colors block"
                 >
                   {ownerName}
                 </Link>
               ) : (
-                <p className="text-green-400 font-semibold text-[10px] sm:text-sm">Available</p>
+                <p className="text-green-400 font-semibold text-[10px] sm:text-sm">{t.goddessAvailable}</p>
               )}
             </div>
           </div>
@@ -308,22 +315,22 @@ export function GoddessCard({
               e.stopPropagation();
               play("changepage");
             }}
-            title={`Open ${displayName}'s profile`}
+            title={t.goddessOpenProfile.replace("{name}", displayName)}
             className="w-full rounded-md border border-gray-700 bg-transparent hover:bg-gray-800/60 text-gray-400 hover:text-white font-bold px-2 py-1 text-xs flex items-center justify-center gap-1.5 transition-colors"
           >
             <User className="h-3.5 w-3.5" />
-            Profile
+            {t.goddessProfileLink}
           </Link>
 
           {/* Power description */}
-          {GODDESS_POWERS[username] && (
+          {goddessPower(username, locale) && (
             <div className={`rounded-lg p-2.5 border ${
               isViewerOwner && !powerOn
                 ? "border-gray-700/30 opacity-60"
                 : "bg-purple-900/20 border-purple-500/20"
             }`}>
               <div className="flex items-center justify-between mb-1">
-                <p className="text-purple-300 text-[10px] font-semibold uppercase tracking-wider">Power</p>
+                <p className="text-purple-300 text-[10px] font-semibold uppercase tracking-wider">{t.goddessPowerLabel}</p>
                 {isViewerOwner && (
                   <button
                     onClick={handleTogglePower}
@@ -333,18 +340,18 @@ export function GoddessCard({
                         ? "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30"
                         : "bg-gray-700/50 text-gray-400 border border-gray-600/30 hover:bg-gray-700/80"
                     }`}
-                    title={powerOn ? "Power is ON — click to disable" : "Power is OFF — click to enable"}
+                    title={powerOn ? t.goddessPowerOnHint : t.goddessPowerOffHint}
                   >
                     {toggleMutation.isPending ? (
                       <Loader2 className="h-2.5 w-2.5 animate-spin" />
                     ) : (
                       <Power className="h-2.5 w-2.5" />
                     )}
-                    {powerOn ? "ON" : "OFF"}
+                    {powerOn ? t.goddessPowerOn : t.goddessPowerOff}
                   </button>
                 )}
               </div>
-              <p className="text-gray-300 text-xs leading-snug">{GODDESS_POWERS[username]}</p>
+              <p className="text-gray-300 text-xs leading-snug">{goddessPower(username, locale)}</p>
             </div>
           )}
 
@@ -355,14 +362,14 @@ export function GoddessCard({
               <div className="w-full flex flex-col items-center gap-1 rounded-md border border-gray-700 py-2 px-2 min-h-[2.5rem] justify-center">
                 <span className="flex items-center gap-1 text-[10px] sm:text-xs font-bold text-gray-300 leading-none">
                   <Lock className="h-3 w-3" />
-                  Locked
+                  {t.goddessLocked}
                 </span>
                 <span className="text-[9px] sm:text-[10px] text-gray-400 font-mono tabular-nums leading-tight">
                   {formatNumber(effectiveCost)}¢
                 </span>
                 {unlockThreshold !== null && (
                   <span className="text-[9px] sm:text-[10px] text-gray-500 text-center leading-tight">
-                    Collect {formatCompact(unlockThreshold)} avatars to unlock
+                    {t.goddessCollectToUnlock.replace("{count}", formatCompact(unlockThreshold))}
                   </span>
                 )}
               </div>
@@ -416,7 +423,7 @@ export function GoddessCard({
               ) : (
                 <Clock className="h-3 w-3 mr-1 shrink-0" />
               )}
-              <span className="whitespace-normal break-all text-center leading-tight">+10 min · {formatNumber(effectiveCost)}¢</span>
+              <span className="whitespace-normal break-all text-center leading-tight">{t.goddessExtendPlusTenMin} · {formatNumber(effectiveCost)}¢</span>
             </Button>
           )}
 
@@ -424,11 +431,11 @@ export function GoddessCard({
           <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-800">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
-              {ownerCount} owner{ownerCount !== 1 ? 's' : ''}
+              {ownerCount} {ownerCount !== 1 ? t.goddessOwnerMany : t.goddessOwnerOne}
             </span>
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
-              Owns {ownedCount}
+              {t.goddessOwnsCount.replace("{count}", String(ownedCount))}
             </span>
           </div>
         </div>

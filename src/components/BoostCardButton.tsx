@@ -7,6 +7,7 @@ import { toast } from "@/lib/event-feed";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 interface BoostCardButtonProps {
   targetId: number;
@@ -28,6 +29,7 @@ export function BoostCardButton({
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const cost = Math.round(playerValue * 1.0 * 100) / 100;
   const canAfford = (credits ?? 0) >= cost;
@@ -41,7 +43,7 @@ export function BoostCardButton({
       });
       const data = await res.json();
       if (!res.ok) {
-          throw new Error(data.error || "Failed to apply sell block");
+          throw new Error(data.error || t.boostCardFailed);
       }
       return data;
     },
@@ -56,9 +58,11 @@ export function BoostCardButton({
     },
     onSuccess: (data) => {
       toast.success(
-        `Firewall on ${targetUsername}! +1h (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
-          data.creditsToPlayer
-        )}¢ gifted) 🛡️`
+        t.boostCardToast
+          .replace("{name}", targetUsername)
+          .replace("{cost}", formatCompact(data.cost))
+          .replace("{value}", formatCompact(data.newValue))
+          .replace("{gift}", formatCompact(data.creditsToPlayer))
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -80,7 +84,7 @@ export function BoostCardButton({
     e.stopPropagation();
     if (!canAfford) {
       play("error");
-      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
+      toast.error(t.notEnoughCreditsNeed.replace("{amount}", formatCompact(cost)));
       return;
     }
     play("confirm");
@@ -101,14 +105,16 @@ export function BoostCardButton({
             : "border-gray-700 text-gray-500 cursor-not-allowed"
         } ${className ?? ""}`}
         style={canAfford ? navbarBtnStyle : undefined}
-        title={`Apply a 1-hour firewall to ${targetUsername} for ${formatCompact(cost)}¢`}
+        title={t.boostCardTitle
+          .replace("{name}", targetUsername)
+          .replace("{amount}", formatCompact(cost))}
       >
         {mutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
             <Shield className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Firewall</span>
+            <span className="text-[7px] leading-none mt-0.5">{t.firewall}</span>
           </>
         )}
       </Button>
@@ -126,14 +132,16 @@ export function BoostCardButton({
           : "border-gray-700 text-gray-500 cursor-not-allowed"
       } ${className ?? ""}`}
       style={canAfford ? navbarBtnStyle : undefined}
-      title={`Apply a 1-hour firewall to ${targetUsername} for ${formatCompact(cost)}¢`}
+      title={t.boostCardTitle
+        .replace("{name}", targetUsername)
+        .replace("{amount}", formatCompact(cost))}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
           <Shield className="h-4 w-4 mr-2" />
-          Sell Block ({formatCompact(cost)}¢)
+          {t.sellBlockLabel} ({formatCompact(cost)}¢)
           {countdown && <span className="ml-2 text-amber-300/70">· {countdown}</span>}
         </>
       )}

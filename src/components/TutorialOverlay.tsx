@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Coins,
@@ -17,8 +17,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useOnboarding } from "@/components/OnboardingContext";
+import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { Button } from "@/components/ui/button";
+import type { TranslationKeys } from "@/lib/i18n";
 
 /**
  * Step-by-step onboarding tutorial overlay.
@@ -51,73 +53,73 @@ interface TutorialStep {
   anchor?: string;
 }
 
-const STEPS: TutorialStep[] = [
+const buildSteps = (t: TranslationKeys): TutorialStep[] => [
   {
     id: "welcome",
     icon: Terminal,
-    title: "Welcome to the Simulation",
+    title: t.tutorialStep1Title,
     body: (
       <>
-        Every player here is a card — including you. Hire other players to
-        build your portfolio, get hired to earn credits, and grow your net
-        worth. The first to <span className="text-cyan-300">root the mainframe</span> ends
-        the game and takes the wall.
+        {t.tutorialStep1BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep1BodyHighlight}</span>
+        {t.tutorialStep1BodySuffix}
       </>
     ),
   },
   {
     id: "wallet",
     icon: Coins,
-    title: "Your wallet",
+    title: t.tutorialStep2Title,
     anchor: "wallet",
     body: (
       <>
-        <span className="text-cyan-300">Credits (¢)</span> are what you hire
-        cards with. <span className="text-cyan-300">Value</span> is what others
-        pay for <em>you</em> — it climbs every time someone hires your card,
-        plus portfolio rewards every 30 minutes.
+        <span className="text-cyan-300">{t.tutorialStep2BodyHighlight1}</span>
+        {t.tutorialStep2BodyText1}
+        <span className="text-cyan-300">{t.tutorialStep2BodyHighlight2}</span>
+        {t.tutorialStep2BodyText2}
+        <em>{t.tutorialStep2BodyEmphasis}</em>
+        {t.tutorialStep2BodyText3}
       </>
     ),
   },
   {
     id: "tabs",
     icon: Compass,
-    title: "Two tabs",
+    title: t.tutorialStep3Title,
     anchor: "nav-tabs",
     body: (
       <>
-        <span className="text-cyan-300">Home</span> is your empire — profile,
-        owned cards, ranks and global chat.{" "}
-        <span className="text-cyan-300">Avatars</span> is the open market where
-        you browse, search and hire.
+        <span className="text-cyan-300">{t.tutorialStep3BodyHighlight1}</span>
+        {t.tutorialStep3BodyText1}{" "}
+        <span className="text-cyan-300">{t.tutorialStep3BodyHighlight2}</span>
+        {t.tutorialStep3BodyText2}
       </>
     ),
   },
   {
     id: "market",
     icon: Users,
-    title: "Hiring cards",
+    title: t.tutorialStep4Title,
     body: (
       <>
-        Open the <span className="text-cyan-300">Avatars</span> tab, filter by
-        profession or price, and tap a card to hire it. Your hire slots (shown
-        in the header) cap how many cards you can own — earn more by completing
-        missions.
+        {t.tutorialStep4BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep4BodyHighlight}</span>
+        {t.tutorialStep4BodySuffix}
       </>
     ),
   },
   {
     id: "combo",
     icon: Sparkles,
-    title: "Profession combos",
+    title: t.tutorialStep5Title,
     anchor: "combo-pill",
     body: (
       <>
-        Every card has a profession. Own 4+ of the same kind to arm a combo:{" "}
-        <span className="text-cyan-300">OVERCLOCK</span> multiplies their
-        value, <span className="text-cyan-300">FIREWALL</span> shields them
-        from forced sales. Build them in the combo dock — the pill in the
-        bottom bar (or the bottom-right corner), or press{" "}
+        {t.tutorialStep5BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep5BodyHighlight1}</span>
+        {t.tutorialStep5BodyMiddle}
+        <span className="text-cyan-300">{t.tutorialStep5BodyHighlight2}</span>
+        {t.tutorialStep5BodySuffix}
         <kbd className="rounded border border-gray-600 bg-gray-800 px-1.5 py-0.5 font-mono text-[11px] text-gray-300">C</kbd>
       </>
     ),
@@ -125,39 +127,39 @@ const STEPS: TutorialStep[] = [
   {
     id: "missions",
     icon: Target,
-    title: "Missions",
+    title: t.tutorialStep6Title,
     anchor: "mission-bar",
     body: (
       <>
-        Collect cards to complete missions. Each one pays{" "}
-        <span className="text-cyan-300">+50 hire slots</span>, reward cards and
-        a free NPC. Your progress is always in the header.
+        {t.tutorialStep6BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep6BodyHighlight}</span>
+        {t.tutorialStep6BodySuffix}
       </>
     ),
   },
   {
     id: "events",
     icon: Radio,
-    title: "Stay wired in",
+    title: t.tutorialStep7Title,
     anchor: "event-feed",
     body: (
       <>
-        The ticker streams every market move in real time.{" "}
-        <span className="text-cyan-300">Global Chat</span> (on Home) is where
-        players coordinate — and raid each other.
+        {t.tutorialStep7BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep7BodyHighlight}</span>
+        {t.tutorialStep7BodySuffix}
       </>
     ),
   },
   {
     id: "finish",
     icon: GraduationCap,
-    title: "You're set",
+    title: t.tutorialStep8Title,
     anchor: "account-menu",
     body: (
       <>
-        Your avatar menu opens <span className="text-cyan-300">Settings</span> —
-        sound, avatar, password… and this tutorial: replay it from there any
-        time. Good luck — root the mainframe.
+        {t.tutorialStep8BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep8BodyHighlight}</span>
+        {t.tutorialStep8BodySuffix}
       </>
     ),
   },
@@ -168,6 +170,7 @@ const clamp = (v: number, min: number, max: number) =>
 
 export function TutorialOverlay() {
   const { state, loading, refresh } = useOnboarding();
+  const { t } = useLanguage();
   const { play } = useSound();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
@@ -179,8 +182,9 @@ export function TutorialOverlay() {
   const anchorElRef = useRef<Element | null>(null);
   const autoShownRef = useRef(false);
 
-  const step = STEPS[stepIndex];
-  const isLast = stepIndex === STEPS.length - 1;
+  const steps = useMemo(() => buildSteps(t), [t]);
+  const step = steps[stepIndex];
+  const isLast = stepIndex === steps.length - 1;
 
   useEffect(() => setMounted(true), []);
 
@@ -231,8 +235,8 @@ export function TutorialOverlay() {
       return;
     }
     play("toggle");
-    setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
-  }, [isLast, finishTutorial, play]);
+    setStepIndex((i) => Math.min(i + 1, steps.length - 1));
+  }, [isLast, finishTutorial, play, steps]);
 
   const goBack = useCallback(() => {
     play("toggle");
@@ -378,7 +382,7 @@ export function TutorialOverlay() {
       ref={scrimRef}
       role="dialog"
       aria-modal="true"
-      aria-label="Tutorial"
+      aria-label={t.tutorialLabel}
       className="fixed inset-0 z-[90]"
       style={{ background: "rgba(0,0,0,0.85)" }}
     >
@@ -399,8 +403,8 @@ export function TutorialOverlay() {
         <button
           type="button"
           onClick={cancelTutorial}
-          aria-label="Exit tutorial"
-          title="Exit tutorial"
+          aria-label={t.tutorialExit}
+          title={t.tutorialExit}
           className="absolute right-3 top-3 rounded-md p-1 text-gray-500 transition-colors hover:bg-white/10 hover:text-white"
         >
           <X className="h-4 w-4" />
@@ -412,7 +416,9 @@ export function TutorialOverlay() {
           </div>
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-widest text-cyan-400/80">
-              Step {stepIndex + 1} of {STEPS.length}
+              {t.tutorialStepOf
+                .replace("{current}", String(stepIndex + 1))
+                .replace("{total}", String(steps.length))}
             </p>
             <h3 className="mt-0.5 text-lg font-bold leading-tight text-white">
               {step.title}
@@ -432,7 +438,7 @@ export function TutorialOverlay() {
             className="text-gray-300 hover:text-white"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back
+            {t.tutorialBack}
           </Button>
           {!isLast && (
             <Button
@@ -442,7 +448,7 @@ export function TutorialOverlay() {
               onClick={advance}
               className="text-gray-400 hover:text-white"
             >
-              Skip
+              {t.tutorialSkip}
             </Button>
           )}
           <Button
@@ -451,7 +457,7 @@ export function TutorialOverlay() {
             onClick={advance}
             className="ml-auto bg-t1-600 px-4 text-white hover:bg-t1-500"
           >
-            {isLast ? "Finish" : "Next"}
+            {isLast ? t.tutorialFinish : t.next}
             {isLast ? (
               <GraduationCap className="h-4 w-4" />
             ) : (

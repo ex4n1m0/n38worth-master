@@ -7,6 +7,7 @@ import { toast } from "@/lib/event-feed";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 interface RevealAvatarButtonProps {
   targetId: number;
@@ -28,6 +29,7 @@ export function RevealAvatarButton({
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const cost = Math.round(playerValue * 1.0 * 100) / 100;
   const canAfford = (credits ?? 0) >= cost;
@@ -41,15 +43,17 @@ export function RevealAvatarButton({
       });
       const data = await res.json();
       if (!res.ok) {
-          throw new Error(data.error || "Failed to reveal avatar");
+          throw new Error(data.error || t.revealFailed);
       }
       return data;
     },
     onSuccess: (data) => {
       toast.success(
-        `Revealed ${targetUsername}! +1h reveal (cost ${formatCompact(data.cost)}¢). Value → ${formatCompact(data.newValue)}¢ (+${formatCompact(
-          data.creditsToPlayer
-        )}¢ gifted) 👁️`
+        t.revealToast
+          .replace("{name}", targetUsername)
+          .replace("{cost}", formatCompact(data.cost))
+          .replace("{value}", formatCompact(data.newValue))
+          .replace("{gift}", formatCompact(data.creditsToPlayer))
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -66,7 +70,7 @@ export function RevealAvatarButton({
     e.preventDefault();
     e.stopPropagation();
     if (!canAfford) {
-      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
+      toast.error(t.notEnoughCreditsNeed.replace("{amount}", formatCompact(cost)));
       return;
     }
     play("hire");
@@ -87,14 +91,16 @@ export function RevealAvatarButton({
             : "border-gray-700 text-gray-500 cursor-not-allowed"
         } ${className ?? ""}`}
         style={canAfford ? navbarBtnStyle : undefined}
-        title={`Reveal ${targetUsername}'s avatar for 1 hour for ${formatCompact(cost)}¢`}
+        title={t.revealTitle
+          .replace("{name}", targetUsername)
+          .replace("{amount}", formatCompact(cost))}
       >
         {mutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
             <Camera className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Reveal</span>
+            <span className="text-[7px] leading-none mt-0.5">{t.reveal}</span>
           </>
         )}
       </Button>
@@ -112,14 +118,16 @@ export function RevealAvatarButton({
           : "border-gray-700 text-gray-500 cursor-not-allowed"
       } ${className ?? ""}`}
       style={canAfford ? navbarBtnStyle : undefined}
-      title={`Reveal ${targetUsername}'s avatar on Network for 1 hour for ${formatCompact(cost)}¢`}
+      title={t.revealTitleNetwork
+        .replace("{name}", targetUsername)
+        .replace("{amount}", formatCompact(cost))}
     >
       {mutation.isPending ? (
         <Loader2 className="h-4 w-4 animate-spin" />
       ) : (
         <>
           <Camera className="h-4 w-4 mr-2" />
-          Reveal ({formatCompact(cost)}¢)
+          {t.reveal} ({formatCompact(cost)}¢)
           {countdown && <span className="ml-2 text-amber-300/70">· {countdown}</span>}
         </>
       )}

@@ -40,7 +40,7 @@ export function GlobalInfoBar() {
     <div className="flex items-center gap-1.5 sm:gap-2.5 flex-wrap sm:ml-auto sm:justify-end text-sm sm:text-base font-bold">
       <div className="flex items-center gap-1.5">
         <Users className="h-4 w-4 sm:h-5 sm:w-5 text-t1-400 shrink-0" />
-        <span className="text-gray-500">Avatars</span>
+        <span className="text-gray-500">{t.totalPlayers}</span>
         <span className="text-white">
           {formatNumber(stats.totalPlayers)}
         </span>
@@ -56,7 +56,7 @@ export function GlobalInfoBar() {
       <div className="hidden sm:block w-px h-3 bg-gray-700" />
       <div className="flex items-center gap-1.5">
         <User className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 shrink-0" />
-        <span className="text-gray-500">Humans</span>
+        <span className="text-gray-500">{t.infoHumans}</span>
         <span className="text-white">
           {formatCompact(stats.totalHumans)}
         </span>
@@ -66,7 +66,7 @@ export function GlobalInfoBar() {
             <span className="text-white">
               {formatCompact(stats.onlineHumans)}
             </span>
-            <span>online</span>
+            <span>{t.online}</span>
           </span>
         )}
       </div>

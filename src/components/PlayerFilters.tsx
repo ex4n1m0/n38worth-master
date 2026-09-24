@@ -11,7 +11,8 @@ import {
   ArrowUp,
   ArrowDown,
 } from "lucide-react";
-import { PROFESSIONS } from "@/lib/professions";
+import { PROFESSIONS, professionName } from "@/lib/professions";
+import { useLanguage } from "@/components/LanguageContext";
 
 export type SortDir = "asc" | "desc";
 
@@ -86,23 +87,34 @@ export function SortBar({
   onSortChange: (key: string) => void;
   onToggleDir: () => void;
 }) {
+  const { t } = useLanguage();
+  // Localized labels for the shared PLAYER_SORTS keys (fall back to the
+  // module-level English label for unknown keys).
+  const sortLabels: Record<string, string | undefined> = {
+    value: t.value,
+    credits: t.credits,
+    score: t.scoreLabel,
+    "hired-times": t.hiredTimesLabel,
+    "last-online": t.lastOnline,
+    newest: t.newest,
+  };
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Sort</span>
+      <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">{t.sortLabel}</span>
       {PLAYER_SORTS.map(({ key, label, icon: Icon }) => (
         <FilterPill key={key} active={sort === key} onClick={() => onSortChange(key)} tone="amber">
-          <Icon /> {label}
+          <Icon /> {sortLabels[key] ?? label}
         </FilterPill>
       ))}
       <button
         type="button"
         onClick={onToggleDir}
-        title={dir === "asc" ? "Ascending — tap for descending" : "Descending — tap for ascending"}
-        aria-label={dir === "asc" ? "Sort ascending, activate for descending" : "Sort descending, activate for ascending"}
+        title={dir === "asc" ? t.sortAscTitle : t.sortDescTitle}
+        aria-label={dir === "asc" ? t.sortAscAria : t.sortDescAria}
         className="flex items-center gap-1.5 text-[13px] font-semibold px-2.5 py-1.5 rounded-lg border border-amber-500/60 text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 transition-colors active:scale-95 [&_svg]:size-3.5"
       >
         {dir === "asc" ? <ArrowUp /> : <ArrowDown />}
-        {dir === "asc" ? "Asc" : "Desc"}
+        {dir === "asc" ? t.asc : t.desc}
       </button>
     </div>
   );
@@ -116,9 +128,10 @@ export function ProfessionFilterBar({
   selected: string;
   onSelect: (name: string) => void;
 }) {
+  const { t, locale } = useLanguage();
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">Profession</span>
+      <span className="text-xs uppercase tracking-wide text-gray-500 mr-0.5">{t.professionLabel}</span>
       {PROFESSIONS.map((p) => (
         <FilterPill
           key={p.name}
@@ -127,7 +140,7 @@ export function ProfessionFilterBar({
           onClick={() => onSelect(selected === p.name ? "" : p.name)}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={p.imagePath} alt="" className="object-contain" /> {p.name}
+          <img src={p.imagePath} alt="" className="object-contain" /> {professionName(p.name, locale)}
         </FilterPill>
       ))}
     </div>

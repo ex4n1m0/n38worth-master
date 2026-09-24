@@ -7,6 +7,7 @@ import { toast } from "@/lib/event-feed";
 import { Button } from "@/components/ui/button";
 import { Loader2, Pencil, X } from "lucide-react";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface RenameNpcDialogProps {
   /** The NPC card's user ID */
@@ -28,6 +29,7 @@ export function RenameNpcDialog({
 }: RenameNpcDialogProps) {
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -63,10 +65,12 @@ export function RenameNpcDialog({
         body: JSON.stringify({ targetId, newUsername: trimmed }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to rename avatar");
+      if (!res.ok) throw new Error(json.error || t.renameFailed);
 
       play("reward");
-      toast.success(`${json.oldUsername} is now known as ${json.newUsername}!`);
+      toast.success(
+        t.renameSuccess.replace("{oldName}", json.oldUsername).replace("{newName}", json.newUsername)
+      );
 
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
@@ -76,7 +80,7 @@ export function RenameNpcDialog({
       setOpen(false);
     } catch (e) {
       play("error");
-      toast.error(e instanceof Error ? e.message : "Failed to rename avatar");
+      toast.error(e instanceof Error ? e.message : t.renameFailed);
     } finally {
       setSubmitting(false);
     }
@@ -91,7 +95,7 @@ export function RenameNpcDialog({
         className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
       >
         <Pencil className="h-3 w-3 mr-1" />
-        Rename
+        {t.rename}
       </Button>
 
       {open && mounted && createPortal(
@@ -103,18 +107,17 @@ export function RenameNpcDialog({
             <button
               onClick={() => !submitting && setOpen(false)}
               className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
-              aria-label="Close"
+              aria-label={t.close}
             >
               <X className="h-5 w-5" />
             </button>
 
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-                Rename {targetUsername}
+                {t.renameTitle.replace("{name}", targetUsername)}
               </h2>
               <p className="text-amber-300/70 mt-2 text-xs">
-                Ownership perk: you can rename this avatar once. If it gets hired
-                away, the next owner gets their own rename. Choose wisely!
+                {t.renamePerkHint}
               </p>
             </div>
 
@@ -123,13 +126,13 @@ export function RenameNpcDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleConfirm(); }}
-              placeholder="New name"
+              placeholder={t.renamePlaceholder}
               maxLength={30}
               autoFocus
               className="w-full rounded-lg border border-gray-700 bg-gray-800/80 px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 mb-2"
             />
             <p className="text-xs text-gray-500 mb-5">
-              3–30 characters: letters, numbers, and underscores only. Must be unique.
+              {t.renameRules}
             </p>
 
             <Button
@@ -140,7 +143,7 @@ export function RenameNpcDialog({
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                "Rename (one time only)"
+                t.renameOneTime
               )}
             </Button>
           </div>

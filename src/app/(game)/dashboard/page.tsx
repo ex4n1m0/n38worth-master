@@ -21,10 +21,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { DiscardAllButton } from "@/components/DiscardAllButton";
 import { LoginReward } from "@/components/LoginReward";
+import { useLanguage } from "@/components/LanguageContext";
 import { formatCompact, getDynamicInlineFontSize, navbarBtnStyle } from "@/lib/utils";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -93,7 +95,7 @@ export default function DashboardPage() {
                 <span className={`${getDynamicInlineFontSize(credits ?? 0)} font-bold font-mono text-white truncate`}>
                   {formatCompact(credits ?? 0)}¢
                 </span>
-                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">credits</span>
+                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">{t.creditsLabelLower}</span>
               </div>
               <div className="w-px h-5 bg-gray-700 shrink-0" />
               <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -101,7 +103,7 @@ export default function DashboardPage() {
                 <span className={`${getDynamicInlineFontSize(portfolioValue)} font-bold font-mono text-white truncate`}>
                   {formatCompact(portfolioValue)}¢
                 </span>
-                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">portfolio</span>
+                <span className="text-xs text-gray-500 hidden sm:inline shrink-0">{t.portfolioLabelLower}</span>
               </div>
             </div>
 
@@ -131,7 +133,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Users className="h-5 w-5 text-t1-400" />
-            Players You Own
+            {t.playersYouOwn}
             <span className="text-sm font-normal text-gray-400">
               ({player?.ownedPlayers?.length ?? 0})
             </span>
@@ -197,7 +199,7 @@ export default function DashboardPage() {
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Terminal className="h-5 w-5 text-yellow-400" />
-            Your Boss
+            {t.yourOwners}
             <span className="text-sm font-normal text-gray-400">
               ({player?.owners?.length ?? 0})
             </span>
@@ -238,13 +240,6 @@ export default function DashboardPage() {
   );
 }
 
-const SORT_OPTIONS = [
-  { key: "last-online", label: "Latest Online" },
-  { key: "value", label: "Value" },
-  { key: "newest", label: "Newest" },
-  { key: "name", label: "Name" },
-] as const;
-
 function BrowsePlayersSection({
   search,
   onSearch,
@@ -259,8 +254,17 @@ function BrowsePlayersSection({
     onToggle: (player: { playerId: number; username: string; playerValue: number; avatarUrl: string | null; isNpc: number; valueFloor: number }, profession: string) => boolean;
   };
 }) {
+  const { t } = useLanguage();
   const [sort, setSort] = useState("last-online");
   const [hasOwner, setHasOwner] = useState(false);
+
+  // Labels come from the locale dictionary; keys stay stable for the API sort param.
+  const sortOptions = [
+    { key: "last-online", label: t.lastOnline },
+    { key: "value", label: t.value },
+    { key: "newest", label: t.newest },
+    { key: "name", label: t.name },
+  ] as const;
 
   const { data, isLoading } = useQuery({
     queryKey: ["players", debouncedSearch, sort, hasOwner],
@@ -284,10 +288,10 @@ function BrowsePlayersSection({
       <div>
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Users className="h-5 w-5 text-t2-400" />
-          Browse Players
+          {t.browsePlayers}
         </h2>
         <p className="text-gray-400 text-sm mt-0.5">
-          Find players to add to your portfolio
+          {t.findPlayersForPortfolio}
         </p>
       </div>
 
@@ -295,14 +299,14 @@ function BrowsePlayersSection({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <Input
-            placeholder="Search players..."
+            placeholder={t.searchPlayers}
             value={search}
             onChange={(e) => onSearch(e.target.value)}
             className="pl-10 bg-gray-900 border-gray-800 text-white placeholder:text-gray-500"
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {SORT_OPTIONS.map((s) => (
+          {sortOptions.map((s) => (
             <Button
               key={s.key}
               variant="ghost"
@@ -330,7 +334,7 @@ function BrowsePlayersSection({
             style={navbarBtnStyle}
           >
             <Terminal className="h-3.5 w-3.5 mr-1" />
-            Has Boss
+            {t.hasOwner}
           </Button>
         </div>
       </div>
@@ -343,9 +347,9 @@ function BrowsePlayersSection({
         <Card className="border-gray-800 bg-gray-900/60">
           <CardContent className="py-12 text-center">
             <Users className="h-12 w-12 mx-auto mb-3 text-gray-600" />
-            <p className="text-gray-400">No players found</p>
+            <p className="text-gray-400">{t.noPlayersFound}</p>
             {search && (
-              <p className="text-sm text-gray-500 mt-1">Try a different search term</p>
+              <p className="text-sm text-gray-500 mt-1">{t.tryDifferentSearch}</p>
             )}
           </CardContent>
         </Card>

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { toast } from "@/lib/event-feed";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/LanguageContext";
 
 /**
  * Shows a one-time toast notification when a player's account has been reset.
@@ -17,6 +18,7 @@ import { useRouter } from "next/navigation";
 export function AccountResetNotification() {
   const hasChecked = useRef(false);
   const router = useRouter();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (hasChecked.current) return;
@@ -30,14 +32,11 @@ export function AccountResetNotification() {
 
         if (data.wasReset === 2) {
           // Game win reset — someone assembled all Six
-          toast.success("🏆 Game Won — Simulation Rebooted!", {
-            description:
-              "A player has assembled all Six and rooted the mainframe! " +
-              "The simulation has been reset. Everyone starts fresh with 100¢. " +
-              "Check the Root Wall on your profile to see the root holder!",
+          toast.success(t.gameWonTitle, {
+            description: t.gameWonDesc,
             duration: 20000,
             action: {
-              label: "Root Wall",
+              label: t.rootWallAction,
               onClick: () => router.push("/my-profile"),
             },
           });
@@ -46,10 +45,8 @@ export function AccountResetNotification() {
           await fetch("/api/me", { method: "POST" });
         } else if (data.wasReset === 1) {
           // Account credit reset — player ran out of credits
-          toast.warning("🔄 Account Reset", {
-            description:
-              "Your account ran out of credits and has been reset to a fresh start. " +
-              "You have 10¢ to begin again — upload an avatar to earn bonus credits!",
+          toast.warning(t.accountResetTitle, {
+            description: t.accountResetDesc,
             duration: 15000,
           });
 
@@ -62,7 +59,7 @@ export function AccountResetNotification() {
     }
 
     checkReset();
-  }, [router]);
+  }, [router, t]);
 
   return null;
 }

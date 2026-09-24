@@ -7,10 +7,14 @@ import { toast } from "@/lib/event-feed";
 import { formatCompact } from "@/lib/utils";
 import { useSound } from "@/hooks/useSound";
 import { CoachMark } from "@/components/CoachMark";
+import { useLanguage } from "@/components/LanguageContext";
+import type { Locale, TranslationKeys } from "@/lib/i18n";
+import { cardDisplayName } from "@/lib/display-names";
 import {
   MISSIONS,
   FINAL_MISSION_INDEX,
   UNLOCK_GAME_MISSION_INDEX,
+  missionLabel,
   finalGoddessLabel,
 } from "@/lib/missions-data";
 
@@ -29,15 +33,22 @@ interface MissionData {
 }
 
 /** Human-readable summary of what completing mission `index` unlocks. */
-function unlockDescription(index: number): string {
+function unlockDescription(index: number, t: TranslationKeys, locale: Locale): string {
   const mission = MISSIONS[index];
   if (!mission) return "";
-  const parts: string[] = ["+1 free NPC added to your squad"];
-  if (mission.addHireSlots) parts.push(`+${mission.addHireSlots} hire slots`);
+  const parts: string[] = [t.missionUnlockFreeNpc];
+  if (mission.addHireSlots) {
+    parts.push(t.missionUnlockHireSlots.replace("{count}", String(mission.addHireSlots)));
+  }
   if (index === UNLOCK_GAME_MISSION_INDEX) {
-    parts.push("Ranks, professions & combos unlocked!");
+    parts.push(t.missionUnlockGame);
   } else if (mission.rewardCards.length > 0) {
-    parts.push(`${mission.rewardCards.join(", ")} unlocked!`);
+    parts.push(
+      t.missionUnlockCards.replace(
+        "{cards}",
+        mission.rewardCards.map((card) => cardDisplayName(card, locale)).join(", ")
+      )
+    );
   }
   return parts.join(" · ");
 }
@@ -52,6 +63,7 @@ function unlockDescription(index: number): string {
  * they're working toward.
  */
 export function MissionProgress() {
+  const { t, locale } = useLanguage();
   const { play } = useSound();
   const { data, isPending } = useQuery<MissionData>({
     queryKey: ["missions"],
@@ -78,15 +90,15 @@ export function MissionProgress() {
     if (data.missionLevel > prevLevelRef.current) {
       play("win");
       for (let i = prevLevelRef.current; i < data.missionLevel; i++) {
-        const description = unlockDescription(i);
-        toast.success("🎉 Mission complete!", {
+        const description = unlockDescription(i, t, locale);
+        toast.success(t.missionCompleteToast, {
           description: description || undefined,
           duration: 8000,
         });
       }
       prevLevelRef.current = data.missionLevel;
     }
-  }, [data, play]);
+  }, [data, play, t, locale]);
 
   if (isPending) {
     return (
@@ -107,17 +119,23 @@ export function MissionProgress() {
     ? Math.min(100, Math.round((current.progress / current.threshold) * 100))
     : 0;
 
+  // Locale-aware label for the CURRENT mission (dynamic threshold for the final).
+  const currentLabel =
+    current.index === FINAL_MISSION_INDEX && data.finalGoddessThreshold
+      ? finalGoddessLabel(data.finalGoddessThreshold, locale)
+      : missionLabel(current.index, locale);
+
   // Preview of the mission after the current one (dynamic label for the final).
   const nextIndex = current.index + 1;
   const nextMission = MISSIONS[nextIndex];
   const nextLabel = nextMission
     ? nextIndex === FINAL_MISSION_INDEX && data.finalGoddessThreshold
-      ? finalGoddessLabel(data.finalGoddessThreshold)
-      : nextMission.label
+      ? finalGoddessLabel(data.finalGoddessThreshold, locale)
+      : missionLabel(nextIndex, locale)
     : null;
 
   return (
-    <div title="Win the game: unlock all Six and hold them for 60 minutes">
+    <div title={t.missionWinConditionHint}>
       <div className="flex items-center gap-2 min-w-0">
         <div className="flex items-center gap-1.5 shrink-0">
           <Trophy className="h-3.5 w-3.5 text-t1-400 shrink-0" />
@@ -128,7 +146,7 @@ export function MissionProgress() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-0.5">
             <p className="text-xs font-semibold text-white leading-tight truncate">
-              {current.label}
+              {currentLabel}
             </p>
             <span className="text-[11px] font-bold text-t1-200 shrink-0 tabular-nums">
               {formatCompact(current.progress)} / {formatCompact(current.threshold)}
@@ -144,12 +162,11 @@ export function MissionProgress() {
       </div>
       {nextLabel && (
         <p className="text-[10px] text-gray-500 truncate mt-0.5">
-          Next: {nextLabel}
+          {t.missionNextLabel.replace("{label}", nextLabel)}
         </p>
       )}
       <CoachMark id="mission-bar" className="mt-1 max-w-lg">
-        This bar tracks your current mission. Complete it to unlock new
-        features — ranks, profession combos, Botnet, and the Six.
+        {t.missionCoachMark}
       </CoachMark>
     </div>
   );

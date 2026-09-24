@@ -38,13 +38,14 @@ import { useEffect, useState, useRef } from "react";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useThemeColor } from "./ThemeContext";
 import { useLanguage } from "./LanguageContext";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useSound, useSoundSettings } from "@/hooks/useSound";
 import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
 
 const mainNavLinks = [
-  { href: "/my-profile", label: "Home", icon: Users },
-  { href: "/leaderboard", label: "Avatars", icon: Search },
+  { href: "/my-profile", icon: Users },
+  { href: "/leaderboard", icon: Search },
 ];
 
 export function Navbar() {
@@ -55,6 +56,8 @@ export function Navbar() {
   // Hardcode green as the only theme
   useEffect(() => { setTheme("green"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { t } = useLanguage();
+  const navLabel = (href: string) =>
+    href === "/my-profile" ? t.navHome : t.navAvatars;
   const { play } = useSound();
   const muted = useSoundSettings((s) => s.muted);
   const toggleMuted = useSoundSettings((s) => s.toggleMuted);
@@ -159,6 +162,7 @@ export function Navbar() {
 
   const renderNavButton = (link: typeof mainNavLinks[0], highlight = false) => {
     const active = isActive(link.href);
+    const label = navLabel(link.href);
 
     const btnContent = (
       <span
@@ -171,7 +175,7 @@ export function Navbar() {
         }`}
       >
         <link.icon className="h-4 w-4 shrink-0" />
-        <span>{link.label}</span>
+        <span>{label}</span>
       </span>
     );
 
@@ -179,7 +183,7 @@ export function Navbar() {
       <Link
         key={link.href}
         href={link.href}
-        aria-label={link.label}
+        aria-label={label}
         aria-current={active ? "page" : undefined}
         onClick={() => {
           if (link.href === "/leaderboard") {
@@ -258,9 +262,9 @@ export function Navbar() {
                 number spans truncate (…) as a hard safety net so a rich
                 player's balance can never slide under the slots chip. */}
             <div data-tutorial="wallet" className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <span className="flex items-center gap-1.5 min-w-0" title="My credits">
+              <span className="flex items-center gap-1.5 min-w-0" title={t.navbarMyCredits}>
                 <Coins className="h-4 w-4 text-t1-400 shrink-0" />
-                <span className="hidden xl:inline text-gray-500 text-xs">Credits</span>
+                <span className="hidden xl:inline text-gray-500 text-xs">{t.navbarCredits}</span>
                 {creditsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 ) : (
@@ -269,9 +273,9 @@ export function Navbar() {
                   </span>
                 )}
               </span>
-              <span className="hidden sm:flex items-center gap-1.5 min-w-0" title="My value">
+              <span className="hidden sm:flex items-center gap-1.5 min-w-0" title={t.navbarMyValue}>
                 <TrendingUp className="h-4 w-4 text-t1-400 shrink-0" />
-                <span className="hidden xl:inline text-gray-500 text-xs">Value</span>
+                <span className="hidden xl:inline text-gray-500 text-xs">{t.navbarValue}</span>
                 {playerValueLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 ) : (
@@ -292,12 +296,13 @@ export function Navbar() {
               <div className="flex items-center gap-1 shrink-0">
                 <OwnershipLimit />
                 <ChatNotificationBell className="shrink-0" />
+                <LanguageSwitcher />
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => { toggleMuted(); if (muted) play("click"); }}
                   className="shrink-0 h-8 w-8 text-gray-400 hover:text-white"
-                  title={muted ? "Unmute sounds" : "Mute sounds"}
+                  title={muted ? t.unmuteSounds : t.muteSounds}
                 >
                   {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                 </Button>
@@ -334,7 +339,7 @@ export function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/history" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
                         <History className="h-4 w-4 mr-2" />
-                        History
+                        {t.navHistory}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-800" />
@@ -356,8 +361,7 @@ export function Navbar() {
 
           </div>
           <CoachMark id="credits" className="mb-1.5 sm:max-w-md">
-            Earn credits when other players hire your cards, plus portfolio
-            rewards every 30 minutes. Your value grows every time you get hired.
+            {t.coachCredits}
           </CoachMark>
         </div>
       </div>
@@ -408,7 +412,7 @@ export function Navbar() {
                 >
                   <link.icon className={`h-5 w-5 ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-75"}`} />
                   <span className={`text-[10px] font-semibold leading-none ${active ? "text-cyan-400 brightness-125" : highlight ? "text-amber-300 brightness-125" : "brightness-75"}`}>
-                    {link.label}
+                    {navLabel(link.href)}
                   </span>
                   {active && (
                     <div className="absolute bottom-1 w-6 h-0.5 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.8)]" />

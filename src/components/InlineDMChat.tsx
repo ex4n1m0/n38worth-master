@@ -11,6 +11,7 @@ import { MessageCircle, Send, Lock, Loader2 } from "lucide-react";
 import { toast } from "@/lib/event-feed";
 import { useChat } from "@/contexts/ChatContext";
 import { playSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 function formatTime(date: string): string {
   const d = new Date(date);
@@ -29,6 +30,7 @@ export function InlineDMChat({
   targetAvatarUrl,
 }: InlineDMChatProps) {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const [message, setMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -53,7 +55,7 @@ export function InlineDMChat({
   const sendMutation = useMutation({
     mutationFn: async () => {
       const result = await sendMessage(message.trim(), targetUsername);
-      if (!result) throw new Error("Failed to send");
+      if (!result) throw new Error(t.chatSendFailed);
       return result;
     },
     onSuccess: () => {
@@ -91,7 +93,7 @@ export function InlineDMChat({
             variant="secondary"
             className="bg-gray-500/20 text-gray-400 text-[9px] px-1 py-0 shrink-0"
           >
-            Free
+            {t.dmFree}
           </Badge>
           {hasUnreadMessages && (
             <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse shrink-0" />
@@ -107,7 +109,7 @@ export function InlineDMChat({
         {localMessages.length === 0 && (
           <div className="flex items-center justify-center h-full text-gray-600 text-xs">
             <MessageCircle className="h-3.5 w-3.5 mr-1.5" />
-            No messages yet. Say hello!
+            {t.dmNoMessages}
           </div>
         )}
         {localMessages.map((msg) => {
@@ -126,7 +128,7 @@ export function InlineDMChat({
                   }
                 />
                 <AvatarFallback className="bg-gradient-to-br from-purple-600 to-t2-600 text-white text-[8px] font-bold">
-                  {(isOwn ? session?.user?.name || "ME" : targetUsername)
+                  {(isOwn ? session?.user?.name || t.dmMe : targetUsername)
                     .slice(0, 2)
                     .toUpperCase()}
                 </AvatarFallback>
@@ -156,8 +158,8 @@ export function InlineDMChat({
       {/* Input */}
       <form onSubmit={handleSend} className="flex gap-1.5 mt-2">
         <Input
-          placeholder={`Message ${targetUsername}...`}
-          aria-label={`Message ${targetUsername}`}
+          placeholder={t.dmMessagePlaceholder.replace("{username}", targetUsername)}
+          aria-label={t.dmMessageAria.replace("{username}", targetUsername)}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           maxLength={280}
@@ -165,7 +167,7 @@ export function InlineDMChat({
         />
         <Button
           type="submit"
-          aria-label={`Send message to ${targetUsername}`}
+          aria-label={t.dmSendAria.replace("{username}", targetUsername)}
           disabled={sendMutation.isPending || !message.trim()}
           className="shrink-0 bg-purple-600 hover:bg-purple-500 text-white h-8 px-2"
           size="sm"

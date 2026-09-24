@@ -37,7 +37,7 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         body: JSON.stringify({ otherId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sell failed");
+      if (!res.ok) throw new Error(data.error || t.sellFailed);
       return data;
     },
     onMutate: async () => {
@@ -51,7 +51,11 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
     },
     onSuccess: async () => {
       play("sell");
-      toast.success(`Sold ${otherUsername} for ${cost}¢! Their value resets to 1.`);
+      toast.success(
+        t.discardToast
+          .replace("{name}", otherUsername)
+          .replace("{amount}", String(cost))
+      );
       setOpen(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -78,7 +82,9 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         <Button
           variant="outline"
           onClick={() => play("open")}
-          aria-label={`Sell ${otherUsername} for ${cost} credits`}
+          aria-label={t.discardAriaLabel
+            .replace("{name}", otherUsername)
+            .replace("{amount}", String(cost))}
           className="border-t1-500/30 text-t1-400 hover:bg-t1-500/10 hover:text-t1-300 text-sm px-3 py-2 h-auto min-h-[36px] font-bold"
         >
           <DollarSign className="h-4 w-4 mr-2" />
@@ -89,11 +95,11 @@ export function DiscardButton({ otherId, otherUsername, cost }: SellButtonProps)
         <DialogHeader>
           <DialogTitle className="text-white">{t.discardConfirmTitle}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Are you sure you want to sell{" "}
-            <span className="text-white font-semibold">{otherUsername}</span>?
-            You will receive{" "}
-            <span className="text-t1-400 font-semibold">{cost}¢</span> and
-            their value will reset to 1¢.
+            {t.discardDialogPrefix}{" "}
+            <span className="text-white font-semibold">{otherUsername}</span>
+            {t.discardDialogMiddle}{" "}
+            <span className="text-t1-400 font-semibold">{cost}¢</span>{" "}
+            {t.discardDialogSuffix}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

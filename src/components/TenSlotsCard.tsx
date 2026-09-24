@@ -9,6 +9,7 @@ import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCooldowns";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 /**
  * Pinned "10 Slots" card for the market page.
@@ -20,6 +21,7 @@ import { formatCompact } from "@/lib/utils";
 export function TenSlotsCard() {
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const { data: myCredits } = useCredits();
   const { onCooldown, label: cooldownLabel, pct: cooldownPct } = useBonusCooldown("slots");
   const refreshCooldowns = useRefreshBonusCooldowns();
@@ -31,11 +33,14 @@ export function TenSlotsCard() {
     mutationFn: async () => {
       const res = await fetch("/api/game/buy-slots", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Buying slots failed");
+      if (!res.ok) throw new Error(data.error || t.buySlotsFailed);
       return data;
     },
     onSuccess: async (data) => {
-      toast.success(`+${data.slotsAdded} hire slots! Now ${data.newSlots} total (-${formatCompact(data.cost)}¢)`);
+      toast.success(t.buySlotsToast
+        .replace("{added}", String(data.slotsAdded))
+        .replace("{total}", String(data.newSlots))
+        .replace("{cost}", formatCompact(data.cost)));
       refreshCooldowns();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -51,12 +56,14 @@ export function TenSlotsCard() {
   const handleClick = () => {
     if (onCooldown) {
       play("error");
-      toast.error(`10 Slots is on cooldown — ready in ${cooldownLabel}.`);
+      toast.error(t.cooldownReadyIn
+        .replace("{feature}", t.tenSlotsTitle)
+        .replace("{time}", cooldownLabel));
       return;
     }
     if (!canAfford) {
       play("error");
-      toast.error("Not enough credits to buy slots.");
+      toast.error(t.tenSlotsNoCredits);
       return;
     }
     if (mutation.isPending) return;
@@ -84,7 +91,7 @@ export function TenSlotsCard() {
             style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Users className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
-            10 Slots
+            {t.tenSlotsTitle}
           </h3>
         </div>
 
@@ -100,7 +107,7 @@ export function TenSlotsCard() {
             }`}
           >
             <Avatar className="w-full h-full rounded-lg">
-              <AvatarImage src="/10slots.webp" alt="10 Slots" className="object-fill" />
+              <AvatarImage src="/10slots.webp" alt={t.tenSlotsTitle} className="object-fill" />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 text-white font-bold text-2xl sm:text-3xl">
                 10
               </AvatarFallback>
@@ -120,7 +127,7 @@ export function TenSlotsCard() {
               ) : (
                 <>
                   <Users className="h-3 w-3" />
-                  +10 SLOTS {formatCompact(cost)}¢
+                  {t.tenSlotsAction} {formatCompact(cost)}¢
                 </>
               )}
             </div>
@@ -136,7 +143,7 @@ export function TenSlotsCard() {
         </div>
 
         <p className="w-full text-center text-[10px] text-cyan-200/70 mt-1.5">
-          Expand your team by 10 hire slots
+          {t.tenSlotsHint}
         </p>
       </CardContent>
     </Card>

@@ -60,12 +60,15 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
         body: JSON.stringify({ ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Firewall failed");
+      if (!res.ok) throw new Error(data.error || t.firewallFailed);
       return data;
     },
     onSuccess: (data) => {
       toast.success(
-        `Firewall on ${ownedUsername}! Paid ${data.cost}¢ (+1h, ${data.totalHours}h total). 🔒`
+        t.firewallToast
+          .replace("{name}", ownedUsername)
+          .replace("{cost}", String(data.cost))
+          .replace("{hours}", String(data.totalHours))
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -89,15 +92,17 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
                 ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
                 : "border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
             }`}
-            title={isBlocked ? `Firewall ${ownedUsername}${timeLeft ? ` · ${timeLeft}` : ""}` : `Firewall ${ownedUsername} (${cost}¢)`}
+            title={isBlocked
+              ? t.firewallTitle.replace("{name}", ownedUsername) + (timeLeft ? ` · ${timeLeft}` : "")
+              : t.firewallTitleCost.replace("{name}", ownedUsername).replace("{cost}", String(cost))}
           >
             <Shield className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Firewall</span>
+            <span className="text-[7px] leading-none mt-0.5">{t.firewall}</span>
           </Button>
         ) : isBlocked ? (
           <button onClick={() => play("buttons")} className="flex items-center gap-3 px-6 py-4 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-lg font-bold min-h-[56px] cursor-pointer hover:bg-amber-500/20 transition-colors">
             <Shield className="h-7 w-7" />
-            <span>Firewall</span>
+            <span>{t.firewall}</span>
             {timeLeft && (
               <span className="flex items-center gap-1 text-amber-500/70">
                 <Clock className="h-5 w-5" />
@@ -112,39 +117,38 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
             className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300 text-xl px-8 py-6 h-auto min-h-[56px] font-bold"
           >
             <Shield className="h-7 w-7 mr-2" />
-            Firewall
+            {t.firewall}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
-          <DialogTitle className="text-white">Firewall — {ownedUsername}</DialogTitle>
+          <DialogTitle className="text-white">{t.firewall} — {ownedUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
             {isBlocked ? (
               <>
-                Add <span className="text-white font-semibold">+1 hour</span> to
-                the firewall on{" "}
+                {t.firewallDescAddPrefix} <span className="text-white font-semibold">{t.firewallDescAddHour}</span> {t.firewallDescAddMiddle}{" "}
                 <span className="text-white font-semibold">{ownedUsername}</span>.
                 <br /><br />
-                Currently shielded for{" "}
+                {t.firewallDescShieldedPrefix}{" "}
                 <span className="text-white font-semibold">{timeLeft}</span>.
                 <br /><br />
-                This will cost{" "}
+                {t.firewallDescCostPrefix}{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (100% of {ownedUsername}&apos;s value), paid directly to them.
+                {t.firewallDescCostSuffix.replace("{name}", ownedUsername)}
               </>
             ) : (
               <>
-                Shield{" "}
+                {t.firewallDescShieldPrefix}{" "}
                 <span className="text-white font-semibold">{ownedUsername}</span>{" "}
-                from being sold for{" "}
-                <span className="text-white font-semibold">1 hour</span>.
+                {t.firewallDescShieldMiddle}{" "}
+                <span className="text-white font-semibold">{t.firewallDescOneHour}</span>.
                 <br /><br />
-                This will cost{" "}
+                {t.firewallDescCostPrefix}{" "}
                 <span className="text-amber-400 font-semibold">{cost}¢</span>{" "}
-                (100% of {ownedUsername}&apos;s value), paid directly to them.
+                {t.firewallDescCostSuffix.replace("{name}", ownedUsername)}
                 <br /><br />
-                You can press Firewall multiple times to add more hours.
+                {t.firewallDescMoreHours}
               </>
             )}
           </DialogDescription>
@@ -165,7 +169,7 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Blocking...
+                {t.blocking}
               </>
             ) : (
               `+1h ${cost}¢`

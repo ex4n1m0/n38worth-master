@@ -22,8 +22,10 @@ import {
   getValueRank,
   getOwnedRankColor,
   getValueRankColor,
+  rankTitle,
 } from "@/lib/ranks";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "@/components/LanguageContext";
 
 /**
  * Compact "My Profile" card shown on the leaderboard.
@@ -33,6 +35,7 @@ import { formatCompact } from "@/lib/utils";
  */
 export function MyProfileCard() {
   const { data: session } = useSession();
+  const { t, locale } = useLanguage();
   const username = session?.user?.name;
 
   const { data: player, isPending } = useQuery({
@@ -103,7 +106,7 @@ export function MyProfileCard() {
             <div className="flex items-center gap-1.5 flex-wrap mb-1">
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md">
                 <Sparkles className="h-2.5 w-2.5" />
-                YOU
+                {t.youBadge}
               </span>
               <h3 className="text-lg sm:text-xl font-black bg-gradient-to-r from-orange-300 via-pink-300 to-purple-300 bg-clip-text text-transparent truncate">
                 {username}
@@ -121,12 +124,12 @@ export function MyProfileCard() {
               {player.playerType === "human" ? (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border text-emerald-200 bg-emerald-500/15 border-emerald-400/30">
                   <User className="h-2.5 w-2.5" />
-                  Human
+                  {t.humanBadge}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border text-cyan-200 bg-cyan-500/15 border-cyan-400/30">
                   <CreditCard className="h-2.5 w-2.5" />
-                  Card
+                  {t.cardBadge}
                 </span>
               )}
               <span
@@ -135,7 +138,7 @@ export function MyProfileCard() {
                 )}`}
               >
                 <Swords className="h-2.5 w-2.5" />
-                {getOwnedRank(player.ownedCount).title}
+                {rankTitle(getOwnedRank(player.ownedCount).title, locale)}
               </span>
               <span
                 className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${getValueRankColor(
@@ -143,7 +146,7 @@ export function MyProfileCard() {
                 )}`}
               >
                 <TrendingUp className="h-2.5 w-2.5" />
-                {getValueRank(player.playerValue).title}
+                {rankTitle(getValueRank(player.playerValue).title, locale)}
               </span>
             </div>
 
@@ -151,13 +154,13 @@ export function MyProfileCard() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <MiniStat
                 icon={<TrendingUp className="h-3 w-3" />}
-                label="Value"
+                label={t.value}
                 value={`${formatCompact(player.playerValue)}¢`}
                 color="text-orange-300"
               />
               <MiniStat
                 icon={<Coins className="h-3 w-3" />}
-                label="Credits"
+                label={t.credits}
                 value={`${formatCompact(
                   parseFloat((player.credits ?? 0).toFixed(2))
                 )}¢`}
@@ -165,13 +168,13 @@ export function MyProfileCard() {
               />
               <MiniStat
                 icon={<Terminal className="h-3 w-3" />}
-                label="Bosses"
+                label={t.bossesLabel}
                 value={String(player.ownerCount)}
                 color="text-rose-300"
               />
               <MiniStat
                 icon={<Users className="h-3 w-3" />}
-                label="Squad"
+                label={t.squadLabel}
                 value={String(player.ownedCount)}
                 color="text-violet-300"
               />

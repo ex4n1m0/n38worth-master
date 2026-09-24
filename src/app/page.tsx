@@ -11,7 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Volume2, VolumeX, Terminal } from "lucide-react";
 import { MatrixRain } from "@/components/MatrixRain";
-import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useLanguage } from "@/components/LanguageContext";
+import { PROFESSIONS, professionName, professionPerk } from "@/lib/professions";
+import { cardDisplayName } from "@/lib/display-names";
 import { buildStampLabel } from "@/lib/build-info";
 import { captureUtmCookies, sendVisitBeacon } from "@/lib/utm";
 
@@ -66,6 +69,7 @@ function Stat({ label, value, suffix, compact }: { label: string; value: number;
 
 /* ─── Countdown Display ─── */
 function CountdownBanner({ countdown }: { countdown: Countdown }) {
+  const { t } = useLanguage();
   if (!countdown?.active || !countdown.username) return null;
   const mins = Math.floor((countdown.remainingSeconds ?? 0) / 60);
   const secs = (countdown.remainingSeconds ?? 0) % 60;
@@ -73,7 +77,9 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
     <div className="lp-fade-up flex items-center gap-3 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-6 py-2.5" style={{ animationDelay: "0.5s" }}>
       <Terminal className="h-5 w-5 text-yellow-400 animate-pulse" />
       <span className="text-sm sm:text-base font-bold text-yellow-200">
-        {countdown.username} is <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span> away from rooting the mainframe
+        {t.landingCountdownPrefix.replace("{name}", cardDisplayName(countdown.username))}{" "}
+        <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span>{" "}
+        {t.landingCountdownSuffix}
       </span>
     </div>
   );
@@ -81,6 +87,7 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
 
 /* ─── Main Component ─── */
 export default function Home() {
+  const { t, locale } = useLanguage();
   const [gameplayOpen, setGameplayOpen] = useState(false);
   const [data, setData] = useState<LandingData | null>(null);
   const [demoLoading, setDemoLoading] = useState(false);
@@ -187,14 +194,17 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-black" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,black_85%)]" />
 
-        {/* Sound toggle */}
-        <button
-          onClick={toggleSound}
-          className="absolute top-6 right-6 z-20 rounded-full border border-white/10 bg-white/5 p-2.5 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
-          aria-label="Toggle sound"
-        >
-          {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-        </button>
+        {/* Sound toggle + language switcher */}
+        <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+          <LanguageSwitcher variant="pill" />
+          <button
+            onClick={toggleSound}
+            className="rounded-full border border-white/10 bg-white/5 p-2.5 text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+            aria-label={t.landingToggleSound}
+          >
+            {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+          </button>
+        </div>
 
         {/* Hero content — centered in the viewport */}
         <div className="relative z-10 flex flex-col items-center gap-6">
@@ -215,14 +225,14 @@ export default function Home() {
             className="lp-fade-up lp-gradient-text bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 font-bold uppercase tracking-[0.32em] md:tracking-[0.4em] text-[1.35rem] sm:text-2xl md:text-[1.8rem] select-none drop-shadow-[0_0_20px_var(--t1-500)]"
             style={{ animationDelay: "0.2s" }}
           >
-            the human trading simulation
+            {t.landingTagline}
           </p>
 
           {/* Live stats */}
           <div className="lp-fade-up flex items-center gap-6 sm:gap-10" style={{ animationDelay: "0.3s" }}>
-            <Stat label="Avatars" value={stats?.totalPlayers ?? 0} />
+            <Stat label={t.totalPlayers} value={stats?.totalPlayers ?? 0} />
             <div className="h-8 w-px bg-white/15" />
-            <Stat label="Economy" value={stats?.totalEconomy ?? 0} suffix="¢" compact />
+            <Stat label={t.totalEconomy} value={stats?.totalEconomy ?? 0} suffix="¢" compact />
           </div>
 
           {/* Active countdown */}
@@ -237,7 +247,7 @@ export default function Home() {
               onClick={() => setGameplayOpen(true)}
               className="lp-shine relative overflow-hidden inline-flex items-center gap-2 rounded-full bg-transparent border border-t1-500/40 px-14 py-6 text-2xl sm:text-3xl font-bold text-white shadow-[0_0_40px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
             >
-              Start Here
+              {t.landingStartHere}
             </button>
           </div>
         </div>
@@ -253,18 +263,18 @@ export default function Home() {
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
         <DialogContent className="!max-w-[90vw] w-[90vw] max-h-[85vh] overflow-y-auto bg-gray-950/60 backdrop-blur-md border-gray-800 text-gray-100">
           <DialogHeader className="sr-only">
-            <DialogTitle>How to Play</DialogTitle>
+            <DialogTitle>{t.howToPlay}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-4">
 
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-4 text-lg font-semibold text-t1-400">Getting Started</h3>
+              <h3 className="mb-4 text-lg font-semibold text-t1-400">{t.gettingStarted}</h3>
               <ol className="space-y-3">
                 {[
-                  { title: "Create your avatar", body: "Register, upload your avatar, pick a profession. Everyone starts equal: 100¢ and 20 hire slots." },
-                  { title: "Hire your first avatars", body: "Hiring costs the avatar's value and overclocks it up. Your first 10 hires get a 24-hour unbreakable hard lock." },
-                  { title: "Get 20 avatars", body: "Unlocks the full game: rankings, filters, feeds and missions. Each mission also adds +50 hire slots." },
-                  { title: "Claim your daily reward", body: "Every 24h, claim The Banker's value — skimmed from the richest player. If that's you, no reward that day." },
+                  { title: t.landStep1Title, body: t.landStep1Body },
+                  { title: t.landStep2Title, body: t.landStep2Body },
+                  { title: t.landStep3Title, body: t.landStep3Body },
+                  { title: t.landStep4Title, body: t.landStep4Body },
                 ].map((step, i) => (
                   <li key={step.title} className="flex gap-4">
                     <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-gradient-to-br from-t1-600 to-t2-600 text-sm font-bold text-white">
@@ -280,44 +290,39 @@ export default function Home() {
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">Earning Credits</h3>
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">{t.earningCredits}</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Four ways to earn:
+                {t.fourWaysToEarn}
               </p>
               <ul className="space-y-1.5 text-sm text-gray-300">
                 <li>
-                  <span className="font-semibold text-amber-300">Portfolio reward</span> — 0.2%
-                  of your portfolio value, every hour.
+                  <span className="font-semibold text-amber-300">{t.earn1Label}</span> {t.earn1Body}
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Getting hired</span> — you get
-                  paid and your value rises when someone hires or overclocks you.
+                  <span className="font-semibold text-amber-300">{t.earn2Label}</span> {t.earn2Body}
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Rank bonuses</span> — top 3 in a
-                  ranking category pays hourly.
+                  <span className="font-semibold text-amber-300">{t.earn3Label}</span> {t.earn3Body}
                 </li>
                 <li>
-                  <span className="font-semibold text-amber-300">Daily login reward</span> —
-                  The Banker&apos;s value, every 24h.
+                  <span className="font-semibold text-amber-300">{t.earn4Label}</span> {t.earn4Body}
                 </li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Whoever owns your Avatar skims 10% of your portfolio reward. Hire slots cap how many
-                Avatars you can hold — earn more from missions, poaching, and the 10 Slots Avatar.
+                {t.landSkimNote}
               </p>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-4 text-lg font-semibold text-t1-400">The Buttons</h3>
+              <h3 className="mb-4 text-lg font-semibold text-t1-400">{t.theButtons}</h3>
               {/* Core action buttons — available on every Avatar. */}
               <ul className="space-y-2.5 text-sm leading-relaxed">
                 {[
-                  { chip: "GET", cls: "from-emerald-600 to-green-500", body: "Hire at current value. The avatar and its previous owner get paid, and its value jumps (2× under 1,000¢, tapering to 1.1× above 1M). Poaching also earns +1 hire slot." },
-                  { chip: "OVERCLOCK", cls: "from-fuchsia-600 to-purple-500", body: "Pay 100% of value to double it, gift the cost to the avatar, extend its firewall 10 min (12h max). Your main growth engine." },
-                  { chip: "FIREWALL", cls: "from-amber-600 to-yellow-600", body: "Shield from hires: +1 hour per press (12h max), +10% value, 90% of the cost paid to the Avatar." },
-                  { chip: "BREACH", cls: "from-amber-600 to-red-600", body: "Breach a rival's firewall by paying hours remaining × value to the owner. Hard-locked Avatars cost 1000×; unbreakable locks can't be breached." },
-                  { chip: "HARD LOCK", cls: "from-amber-500 to-amber-400", body: "Your first 10 hires get a 24h unbreakable lock — movable between regular NPC Avatars, restarting the 24h." },
+                  { chip: t.landChipGet, cls: "from-emerald-600 to-green-500", body: t.landGetBody },
+                  { chip: t.landChipOverclock, cls: "from-fuchsia-600 to-purple-500", body: t.landOverclockBody },
+                  { chip: t.landChipFirewall, cls: "from-amber-600 to-yellow-600", body: t.landFirewallBody },
+                  { chip: t.landChipBreach, cls: "from-amber-600 to-red-600", body: t.landBreachBody },
+                  { chip: t.landChipHardLock, cls: "from-amber-500 to-amber-400", body: t.landHardLockBody },
                 ].map((a) => (
                   <li key={a.chip} className="flex items-start gap-3">
                     <span className={`mt-0.5 inline-flex w-14 flex-none items-center justify-center rounded-md bg-gradient-to-r ${a.cls} px-1.5 py-1 text-[10px] font-bold text-white`}>
@@ -331,19 +336,19 @@ export default function Home() {
               {/* Bonus Avatars — special avatars with their own buttons. */}
               <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">
-                  Bonus Avatars
+                  {t.bonusAvatars}
                 </p>
                 <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm leading-relaxed">
                   {[
-                    { chip: "BOTNET", cls: "from-amber-600 to-yellow-500", img: "/botnet.webp", body: "Bulk-hires the cheapest avatars — 1 + 10% of your owned count per press. Unlocks at 50 avatars. 10-min cooldown." },
-                    { chip: "SLOTS", cls: "from-cyan-600 to-blue-500", img: "/10slots.webp", body: "+10 hire slots for 10% of your credits. 10-min cooldown." },
-                    { chip: "SCAN", cls: "from-violet-600 to-purple-500", img: "/scan.webp", body: "Decloaks every cloaked avatar for 10 minutes, for 10% of your credits. 10-min cooldown." },
+                    { chip: t.landChipBotnet, cls: "from-amber-600 to-yellow-500", img: "/botnet.webp", body: t.landBotnetBody },
+                    { chip: t.landChipSlots, cls: "from-cyan-600 to-blue-500", img: "/10slots.webp", body: t.landSlotsBody },
+                    { chip: t.landChipScan, cls: "from-violet-600 to-purple-500", img: "/scan.webp", body: t.landScanBody },
                   ].map((a) => (
-                    <li key={a.chip} className="text-center">
+                    <li key={a.img} className="text-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={a.img}
-                        alt={`${a.chip} Avatar`}
+                        alt={t.landAvatarAlt.replace("{chip}", a.chip)}
                         loading="lazy"
                         decoding="async"
                         className="aspect-square w-full rounded-lg border border-white/15 object-cover shadow-lg"
@@ -359,10 +364,11 @@ export default function Home() {
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">Professions: Perks &amp; Combos</h3>
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">{t.professionsSection}</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Pick one for yourself, assign one to any NPC you own (and <span className="font-semibold text-amber-300">rename
-                it once</span>). Being a profession or owning its Avatar activates its perk:
+                {t.professionsIntro1}{" "}
+                <span className="font-semibold text-amber-300">{t.professionsIntro2}</span>
+                {t.professionsIntro3}
               </p>
               <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {PROFESSIONS.map((p) => (
@@ -370,87 +376,74 @@ export default function Home() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.imagePath}
-                      alt={p.name}
+                      alt={professionName(p.name, locale)}
                       loading="lazy"
                       decoding="async"
                       className="aspect-square w-full rounded-md border border-white/10 object-cover shadow-lg"
                     />
-                    <p className="mt-2 text-xs font-semibold text-amber-300">{p.name}</p>
+                    <p className="mt-2 text-xs font-semibold text-amber-300">{professionName(p.name, locale)}</p>
                     <p className="mt-0.5 text-[11px] leading-snug text-gray-400">
-                      {PROFESSION_PERKS[p.name]?.description}
+                      {professionPerk(p.name, locale)?.description}
                     </p>
                   </li>
                 ))}
               </ul>
               <p className="text-sm leading-relaxed text-gray-300 mt-3">
-                <span className="font-semibold text-amber-300">Combo:</span> sell one Avatar of each
-                profession together for <span className="font-bold text-amber-300">10× their combined
-                value</span> — overclock first, since the boosted value is what gets multiplied
-                (your first sale also pays +50 hire slots). Firewalled Avatars can&apos;t be sold,
-                and overclocking adds a firewall — so time the sale for when it expires. The
-                Avatars reset to floor and 6 fresh NPCs spawn — but you lose the
-                perks until you rebuild.
+                <span className="font-semibold text-amber-300">{t.comboLabel}</span> {t.comboBody}{" "}
+                <span className="font-bold text-amber-300">{t.comboHighlight}</span>
+                {t.comboTail}
               </p>
             </section>
 
             <section className="rounded-xl border border-gray-800 p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">The Mission Ladder</h3>
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">{t.missionLadderTitle}</h3>
               <p className="text-sm leading-relaxed text-gray-300 mb-3">
-                Grow your grid to earn the Six (+50 hire slots per mission):
+                {t.missionLadderIntro}
               </p>
               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-sm text-gray-300">
-                <li><span className="font-mono text-t1-400">20</span> — Unlock the full game</li>
-                <li><span className="font-mono text-t1-400">50</span> — Botnet avatar</li>
-                <li><span className="font-mono text-t1-400">100</span> — The Banker</li>
-                <li><span className="font-mono text-t1-400">250</span> — The Oracle</li>
-                <li><span className="font-mono text-t1-400">500</span> — The Locksmith</li>
-                <li><span className="font-mono text-t1-400">1,000</span> — The Clockkeeper</li>
-                <li><span className="font-mono text-t1-400">2,000</span> — NullPointer</li>
-                <li><span className="font-mono text-t1-400">5,000+</span> — The Architect (+1,000 per reboot)</li>
+                <li><span className="font-mono text-t1-400">20</span> — {t.landLadder1}</li>
+                <li><span className="font-mono text-t1-400">50</span> — {t.landLadder2}</li>
+                <li><span className="font-mono text-t1-400">100</span> — {t.landLadder3}</li>
+                <li><span className="font-mono text-t1-400">250</span> — {t.landLadder4}</li>
+                <li><span className="font-mono text-t1-400">500</span> — {t.landLadder5}</li>
+                <li><span className="font-mono text-t1-400">1,000</span> — {t.landLadder6}</li>
+                <li><span className="font-mono text-t1-400">2,000</span> — {t.landLadder7}</li>
+                <li><span className="font-mono text-t1-400">5,000+</span> — {t.landLadder8}</li>
               </ul>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Held daemons grant powers: The Banker doubles rewards, The Oracle decloaks
-                cloaked avatars, The Locksmith hard-locks your team&apos;s firewalls (1000× breach
-                fee), The Clockkeeper halves payout waits, NullPointer makes your breaches free
-                and lets you destroy Avatars you own (deleting NPCs — 2 fresh ones spawn — or
-                resetting a human to 1¢ and releasing them, with a 1-minute cooldown) — The
-                Architect grants all at once.
+                {t.landPowersNote}
               </p>
             </section>
 
             <section className="rounded-xl border border-t1-900 bg-gradient-to-br from-t1-900/30 to-transparent p-5">
-              <h3 className="mb-2 text-lg font-semibold text-t1-400">Rooting the Mainframe</h3>
+              <h3 className="mb-2 text-lg font-semibold text-t1-400">{t.rootingTitle}</h3>
               <div className="mb-3 grid grid-cols-3 gap-3">
                 {[
-                  { src: "/TheBanker.webp", alt: "The Banker" },
-                  { src: "/TheOracle.webp", alt: "The Oracle" },
-                  { src: "/TheLocksmith.webp", alt: "The Locksmith" },
-                  { src: "/TheClockkeeper.webp", alt: "The Clockkeeper" },
-                  { src: "/NullPointer.webp", alt: "NullPointer" },
-                  { src: "/TheArchitect.webp", alt: "The Architect" },
+                  { src: "/TheBanker.webp", card: "Goddess of Wealth" },
+                  { src: "/TheOracle.webp", card: "Goddess of Knowledge" },
+                  { src: "/TheLocksmith.webp", card: "Goddess of Fate" },
+                  { src: "/TheClockkeeper.webp", card: "Goddess of Time" },
+                  { src: "/NullPointer.webp", card: "Goddess of War" },
+                  { src: "/TheArchitect.webp", card: "Goddess" },
                 ].map((g) => (
                   <div key={g.src} className="text-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={g.src}
-                      alt={g.alt}
+                      alt={cardDisplayName(g.card, locale)}
                       loading="lazy"
                       decoding="async"
                       className="aspect-square w-full rounded-lg border border-t1-500/30 object-cover shadow-[0_0_15px_var(--t1-900)]"
                     />
-                    <p className="mt-1.5 text-xs font-semibold text-amber-300">{g.alt}</p>
+                    <p className="mt-1.5 text-xs font-semibold text-amber-300">{cardDisplayName(g.card, locale)}</p>
                   </div>
                 ))}
               </div>
               <p className="text-sm leading-relaxed text-gray-300">
-                Hold all Six to start a 1-hour countdown, visible to everyone. If a rival
-                breaches one away, you have 2 minutes to take it back. Survive the hour and the
-                simulation reboots — your name joins the Root Wall forever.
+                {t.rootIntro}
               </p>
               <p className="text-sm leading-relaxed text-gray-400 mt-3">
-                Only one of each exists. The Six are never minted again — they are
-                won through the mission ladder alone, and the powers above are why
-                rivals will try to breach them away from you.
+                {t.rootOutro}
               </p>
             </section>
 
@@ -462,14 +455,14 @@ export default function Home() {
               href="/register"
               className="lp-shine relative overflow-hidden inline-flex items-center justify-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
             >
-              Play Now
+              {t.playNow}
             </Link>
             <button
               onClick={handleDemoPlay}
               disabled={demoLoading}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-green-500/40 bg-green-500/10 px-8 py-4 text-lg font-semibold text-green-300 hover:bg-green-500/20 hover:scale-105 active:scale-100 transition-all disabled:opacity-50"
             >
-              {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Try as Guest"}
+              {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : t.tryAsGuest}
             </button>
           </div>
         </DialogContent>

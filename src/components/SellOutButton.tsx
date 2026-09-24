@@ -40,7 +40,7 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
         body: JSON.stringify({ ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sell out failed");
+      if (!res.ok) throw new Error(data.error || t.sellOutFailed);
       return data;
     },
     onMutate: async () => {
@@ -55,7 +55,9 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
     onSuccess: async (data) => {
       play("sell");
       toast.success(
-        `Sold out from ${ownerUsername}! Paid ${data.cost}¢. Your value resets to floor.`
+        t.sellOutToast
+          .replace("{name}", ownerUsername)
+          .replace("{amount}", String(data.cost))
       );
       setOpen(false);
       await Promise.all([
@@ -93,13 +95,13 @@ export function SellOutButton({ ownershipId, ownerUsername, playerValue }: SellO
         <DialogHeader>
           <DialogTitle className="text-white">{t.sellOutConfirmTitle} — {ownerUsername}</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Pay{" "}
+            {t.sellOutDescPay}{" "}
             <span className="text-red-400 font-semibold">{formatCompact(cost)}¢</span>{" "}
-            (your current value) to{" "}
+            {t.sellOutDescCurrent}{" "}
             <span className="text-white font-semibold">{ownerUsername}</span>{" "}
-            to release yourself from their ownership.
+            {t.releaseFromOwnership}
             <br /><br />
-            ⚠️ Your player value will reset to its floor value.
+            {t.sellOutDescReset}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

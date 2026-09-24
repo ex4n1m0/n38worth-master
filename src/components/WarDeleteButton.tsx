@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { useSound } from "@/hooks/useSound";
 import { useNow } from "@/hooks/useNow";
+import { useLanguage } from "./LanguageContext";
 
 interface WarDeleteButtonProps {
   targetId: number;
@@ -46,6 +47,7 @@ export function WarDeleteButton({
 }: WarDeleteButtonProps) {
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Shared 1s clock for the cooldown countdown (no per-card intervals).
@@ -76,7 +78,7 @@ export function WarDeleteButton({
       });
       const data = await res.json();
       if (!res.ok) {
-        const error = new Error(data.error || "War delete failed") as Error & {
+        const error = new Error(data.error || t.warDeleteFailed) as Error & {
           cooldownUntil?: string;
         };
         error.cooldownUntil = data.cooldownUntil;
@@ -95,8 +97,10 @@ export function WarDeleteButton({
       syncCooldownCache(data.cooldownUntil);
       toast.success(
         data.kind === "npc"
-          ? `${data.username} was deleted from the game. ${data.respawnedCount ?? 0} new NPCs entered the market.`
-          : `${data.username}'s value was reset to 1¢ and you lost ownership.`
+          ? t.warDeleteNpcToast
+              .replace("{name}", data.username)
+              .replace("{count}", String(data.respawnedCount ?? 0))
+          : t.warDeleteHumanToast.replace("{name}", data.username)
       );
       // Owned-card count changes on NPC delete — keep the navbar indicators
       // (missions progress + slots counter) in sync per project convention.
@@ -123,7 +127,7 @@ export function WarDeleteButton({
     e.stopPropagation();
     if (onCooldown) {
       play("error");
-      toast.error(`War Delete is on cooldown — ${cooldownRemainingSec}s remaining`);
+      toast.error(t.warDeleteCooldown.replace("{seconds}", String(cooldownRemainingSec)));
       return;
     }
     play("open");
@@ -137,8 +141,8 @@ export function WarDeleteButton({
         disabled={mutation.isPending || onCooldown}
         title={
           onCooldown
-            ? `Null Delete recharges in ${cooldownRemainingSec}s`
-            : "NullPointer power: destroy this avatar"
+            ? t.warDeleteRechargeTitle.replace("{seconds}", String(cooldownRemainingSec))
+            : t.warDeleteTitle
         }
         className={`rounded-md flex items-center justify-center gap-1.5 font-bold text-xs py-1 px-2 h-auto border border-orange-800 text-orange-300 bg-transparent hover:bg-orange-900/30 hover:text-orange-200 disabled:opacity-50 ${className}`}
       >
@@ -147,7 +151,7 @@ export function WarDeleteButton({
         ) : (
           <Swords className="h-3.5 w-3.5" />
         )}
-        {onCooldown ? `Delete (${cooldownRemainingSec}s)` : "Delete"}
+        {onCooldown ? `${t.warDeleteLabel} (${cooldownRemainingSec}s)` : t.warDeleteLabel}
       </Button>
 
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -155,12 +159,12 @@ export function WarDeleteButton({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-orange-400" />
-              War Delete — {targetUsername}
+              {t.warDelete} — {targetUsername}
             </DialogTitle>
             <DialogDescription>
               {isNpc
-                ? "This NPC will be permanently deleted from the game and 2 new NPCs will be generated into the market. This cannot be undone."
-                : `${targetUsername} is a human player and cannot be deleted — instead their card value resets to 1¢ and you lose ownership of them. They remain in the game.`}
+                ? t.warDeleteNpcDesc
+                : t.warDeleteHumanDesc.replace("{name}", targetUsername)}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -169,7 +173,7 @@ export function WarDeleteButton({
               onClick={() => setConfirmOpen(false)}
               disabled={mutation.isPending}
             >
-              Cancel
+              {t.cancel}
             </Button>
             <Button
               variant="destructive"
@@ -177,7 +181,7 @@ export function WarDeleteButton({
               disabled={mutation.isPending}
             >
               {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              {isNpc ? "Delete NPC" : "Reset value & release"}
+              {isNpc ? t.warDeleteConfirmNpc : t.warDeleteConfirmHuman}
             </Button>
           </DialogFooter>
         </DialogContent>

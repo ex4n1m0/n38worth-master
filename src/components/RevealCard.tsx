@@ -10,6 +10,7 @@ import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useBonusCooldown, useRefreshBonusCooldowns } from "@/hooks/useBonusCooldowns";
+import { useLanguage } from "@/components/LanguageContext";
 import { formatCompact } from "@/lib/utils";
 
 /**
@@ -21,6 +22,7 @@ import { formatCompact } from "@/lib/utils";
  * card becomes usable again.
  */
 export function RevealCard() {
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const { play } = useSound();
   const { data: session } = useSession();
@@ -67,11 +69,11 @@ export function RevealCard() {
     mutationFn: async () => {
       const res = await fetch("/api/game/reveal-all", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Scan failed");
+      if (!res.ok) throw new Error(data.error || t.scanFailed);
       return data;
     },
     onSuccess: async (data) => {
-      toast.success(`👁️ Scan complete — all avatars decloaked for 10 minutes! (-${formatCompact(data.cost)}¢)`);
+      toast.success(t.scanComplete.replace("{cost}", formatCompact(data.cost)));
       setRevealUntil(data.revealUntil);
       refreshCooldowns();
       await Promise.all([
@@ -90,12 +92,12 @@ export function RevealCard() {
   const handleClick = () => {
     if (onCooldown) {
       play("error");
-      toast.error(`Scan is on cooldown — ready in ${cooldownLabel}.`);
+      toast.error(t.scanCooldown.replace("{time}", cooldownLabel));
       return;
     }
     if (!canAfford) {
       play("error");
-      toast.error("Not enough credits to scan.");
+      toast.error(t.scanNoCredits);
       return;
     }
     if (mutation.isPending) return;
@@ -123,7 +125,7 @@ export function RevealCard() {
             style={{ fontSize: "clamp(0.87rem, 1.6vw, 1.2rem)" }}
           >
             <Eye className="h-3.5 w-3.5 text-violet-400 shrink-0" />
-            Scan
+            {t.scanTitle}
           </h3>
         </div>
 
@@ -139,7 +141,7 @@ export function RevealCard() {
             }`}
           >
             <Avatar className="w-full h-full rounded-lg">
-              <AvatarImage src="/scan.webp" alt="Scan" className="object-fill" />
+              <AvatarImage src="/scan.webp" alt={t.scanTitle} className="object-fill" />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-violet-600 to-purple-600 text-white font-bold text-2xl sm:text-3xl">
                 <Eye className="h-8 w-8 sm:h-10 sm:w-10" />
               </AvatarFallback>
@@ -159,13 +161,13 @@ export function RevealCard() {
               ) : (
                 <>
                   <Eye className="h-3 w-3" />
-                  SCAN {formatCompact(cost)}¢
+                  {t.scanAction} {formatCompact(cost)}¢
                 </>
               )}
             </div>
             {isActive && (
               <div className="text-[9px] text-violet-300/90 tabular-nums leading-none mt-0.5">
-                {mins}m {secs}s active
+                {t.scanActiveTime.replace("{mins}", String(mins)).replace("{secs}", String(secs))}
               </div>
             )}
             {onCooldown && (
@@ -180,7 +182,7 @@ export function RevealCard() {
         </div>
 
         <p className="w-full text-center text-[10px] text-violet-200/70 mt-1.5">
-          See every avatar for 10 minutes
+          {t.scanHint}
         </p>
       </CardContent>
     </Card>

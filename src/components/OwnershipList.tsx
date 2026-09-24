@@ -11,6 +11,7 @@ import { LetGoButton } from "@/components/LetGoButton";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import { CardProfileMeta } from "@/components/CardProfileMeta";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
+import { useLanguage } from "@/components/LanguageContext";
 import {
   Coins,
   BadgeCheck,
@@ -30,7 +31,7 @@ import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { getAvatarSrc } from "@/lib/avatar-utils";
-import { getProfessionImage } from "@/lib/professions";
+import { getProfessionImage, professionName } from "@/lib/professions";
 import { formatCompact, getDynamicFontSize, navbarBtnStyle } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { cardDisplayName } from "@/lib/display-names";
@@ -213,6 +214,7 @@ function OwnershipCard({
   const { ownedIds } = useOwnedPlayerIds();
   const { hasKnowledge } = useKnowledgePower();
   const { play } = useSound();
+  const { t, locale } = useLanguage();
 
   const isOwnCard = session?.user?.name === item.username;
   const isBonus = false; // Bonus Avatars removed from the game.
@@ -246,7 +248,7 @@ function OwnershipCard({
         body: JSON.stringify({ targetId: item.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
     },
     onMutate: async () => {
@@ -274,14 +276,16 @@ function OwnershipCard({
       }
       if (data.countdownStarted) {
         play("win");
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description: "You own all Six! Hold them for 60 minutes to root the mainframe! Other players will try to stop you!",
+        toast.success(t.countdownStartedTitle, {
+          description: t.countdownStartedDesc,
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
         toast.success(
-          `You bought ${cardDisplayName(item.username)}! Their value is now ${data.newValue} 💰`
+          t.boughtValueToast
+            .replace("{name}", cardDisplayName(item.username, locale))
+            .replace("{value}", String(data.newValue))
         );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"] }),
@@ -315,7 +319,7 @@ function OwnershipCard({
         body: JSON.stringify({ ownershipId: item.ownershipId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Overclock failed");
+      if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
     },
     onMutate: async () => {
@@ -334,7 +338,12 @@ function OwnershipCard({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`🚀 OVERCLOCKED ${cardDisplayName(item.username)}! Value now ${formatCompact(data.newValue)}¢ (+${formatCompact(data.cost)}¢ to avatar)`);
+      toast.success(
+        t.overclockedToast
+          .replace("{name}", cardDisplayName(item.username, locale))
+          .replace("{value}", formatCompact(data.newValue))
+          .replace("{cost}", formatCompact(data.cost))
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
@@ -413,9 +422,9 @@ function OwnershipCard({
         style={comboSelection && hasProfession ? { cursor: "pointer" } : undefined}
         title={
           comboSelection && hasProfession && comboFirewalled
-            ? "Firewalled — this avatar can't be combo-sold until the shield expires"
+            ? t.comboFirewalledTooltip
             : fillsEmptySlot
-              ? "Completes an empty combo slot — click to add"
+              ? t.comboFillsSlotTooltip
               : undefined
         }
       >
@@ -435,7 +444,7 @@ function OwnershipCard({
           <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-                <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username)} className={avatarFitClass} />
+                <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username, locale)} className={avatarFitClass} />
                 <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                   {item.username.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -446,13 +455,13 @@ function OwnershipCard({
                 className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words flex items-center justify-center gap-1.5 flex-wrap"
                 style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
               >
-                {cardDisplayName(item.username)}
+                {cardDisplayName(item.username, locale)}
                 {item.isVerified === 1 && (<BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />)}
                 {(item.valueFloor ?? 0) >= 100 && (<Gem className="h-5 w-5 text-purple-400 shrink-0" />)}
                 {(item.valueFloor ?? 0) >= 10 && (item.valueFloor ?? 0) < 100 && (<Star className="h-5 w-5 text-yellow-400 shrink-0" />)}
               </h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                {item.profession || "Cloaked"}
+                {item.profession ? professionName(item.profession, locale) : t.cloaked}
               </p>
               <div className={`flex items-center justify-center gap-1 mt-0.5 ${getDynamicFontSize(item.playerValue)}`}>
                 <Coins className="h-3 w-3 text-t1-400 shrink-0" />
@@ -485,7 +494,7 @@ function OwnershipCard({
               <Loader2 className="h-6 w-6 animate-spin" />
             ) : (
               <>
-                <span className="text-sm sm:text-lg leading-none">OVERCLOCK</span>
+                <span className="text-sm sm:text-lg leading-none">{t.landChipOverclock}</span>
                 <span style={{ fontSize: "clamp(0.6rem, 1.2vw, 0.8rem)" }}>
                   {formatCompact(pumpCost)}¢
                 </span>
@@ -539,7 +548,7 @@ function OwnershipCard({
           {/* TOP: Full-width avatar with overlayed square Hire button */}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
-              <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username)} className={avatarFitClass} />
+              <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username, locale)} className={avatarFitClass} />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
                 {item.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
@@ -560,7 +569,7 @@ function OwnershipCard({
                 ) : (
                   <>
                     <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4" />
-                    <span className="text-[9px] sm:text-[10px] leading-none">Hire</span>
+                    <span className="text-[9px] sm:text-[10px] leading-none">{t.hire}</span>
                     <span className={`leading-none ${getDynamicFontSize(item.playerValue)}`}>
                       {formatCompact(item.playerValue)}¢
                     </span>
@@ -576,7 +585,7 @@ function OwnershipCard({
               className="font-bold text-white group-hover:text-t1-400 transition-colors leading-tight break-words text-left flex items-center justify-start gap-1.5 flex-wrap"
               style={{ fontSize: "clamp(0.75rem, 1.4vw, 1.1rem)" }}
             >
-              {cardDisplayName(item.username)}
+              {cardDisplayName(item.username, locale)}
               {item.isVerified === 1 && (
                 <BadgeCheck className="h-5 w-5 text-blue-400 shrink-0" />
               )}
@@ -591,11 +600,11 @@ function OwnershipCard({
             <div className="flex items-center gap-1.5 mt-1">
               {effectiveProfession && professionImage && (
                 <span className="h-5 w-5 rounded overflow-hidden ring-1 ring-amber-500/40 ring-inset bg-black/50 shrink-0">
-                  <img src={professionImage} alt={effectiveProfession} className="w-full h-full object-contain p-px" />
+                  <img src={professionImage} alt={professionName(effectiveProfession, locale)} className="w-full h-full object-contain p-px" />
                 </span>
               )}
               <span className={`text-sm font-semibold truncate ${effectiveProfession ? 'text-amber-400/80' : 'text-gray-400'}`}>
-                {effectiveProfession || "Cloaked"}
+                {effectiveProfession ? professionName(effectiveProfession, locale) : t.cloaked}
               </span>
             </div>
 
@@ -619,7 +628,7 @@ function OwnershipCard({
             {showChat && (
               <button
                 onClick={() => setChatOpen((v) => !v)}
-                title={`Message ${item.username}`}
+                title={t.messageUsername.replace("{name}", cardDisplayName(item.username, locale))}
                 className={`h-12 w-12 p-0 rounded-md flex flex-col items-center justify-center gap-0 font-bold drop-shadow-lg border transition-colors ${
                   chatOpen
                     ? "border-t1-500/60 text-t1-300 bg-t1-500/10"
@@ -627,7 +636,7 @@ function OwnershipCard({
                 } ${item.hasUnreadDM ? "ring-2 ring-t1-400/60" : ""}`}
               >
                 <MessageSquare className="h-4 w-4" />
-                <span className="text-[7px] leading-none mt-0.5">Chat</span>
+                <span className="text-[7px] leading-none mt-0.5">{t.chat}</span>
               </button>
             )}
           </div>
@@ -665,10 +674,11 @@ export function OwnershipList({
   ownedMode,
   comboSelection,
 }: OwnershipListProps) {
+  const { t } = useLanguage();
   if (!items || items.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
-        {type === "owners" ? "No bosses yet" : "No players owned yet"}
+        {type === "owners" ? t.noBossesYet : t.noPlayersOwnedYet}
       </div>
     );
   }

@@ -28,6 +28,23 @@ export const GODDESS_POWERS: Record<string, string> = {
   "Goddess": "Holder activates the powers of all other daemons, even ones they don't hold.",
 };
 
+/** Simplified-Chinese power descriptions (DB usernames stay English). */
+export const GODDESS_POWERS_ZH: Record<string, string> = {
+  "Goddess of Wealth": "持有者的投资组合奖励翻倍，且从拥有的玩家处收取的老板税翻倍。",
+  "Goddess of Knowledge": "持有者可以看见每个化身，包括隐匿化身。",
+  "Goddess of Fate": "持有者拥有的玩家获得永久硬锁；击穿需支付该玩家身价的 1000 倍。",
+  "Goddess of Time": "持有者收取投资组合奖励（并支付老板税）的频率翻倍。",
+  "Goddess of War": "持有者可免费击穿防火墙，只需支付正常雇佣费用——搭档关系初始的不可解除期除外。还可销毁一张拥有的卡牌（冷却 1 分钟）：NPC 被删除并由 2 个新 NPC 替代；人类玩家重置为 1¢ 并被释放。",
+  "Goddess": "持有者可激活其他所有守护者的能力，即使并未持有它们。",
+};
+
+/** Locale-aware power description for a goddess username. */
+export function goddessPower(username: string, locale: "en" | "zh" = "en"): string {
+  return locale === "zh"
+    ? GODDESS_POWERS_ZH[username] ?? GODDESS_POWERS[username] ?? ""
+    : GODDESS_POWERS[username] ?? "";
+}
+
 /**
  * Value/price floor for the most expensive goddess. Its effective value is
  * max(this floor, 90% of the global economy) — whichever is higher. This is

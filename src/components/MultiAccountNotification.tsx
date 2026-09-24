@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { toast } from "@/lib/event-feed";
+import { useLanguage } from "@/components/LanguageContext";
 
 /**
  * Shows a one-time toast notification when a player has been flagged
@@ -12,6 +13,7 @@ import { toast } from "@/lib/event-feed";
  */
 export function MultiAccountNotification() {
   const hasChecked = useRef(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (hasChecked.current) return;
@@ -24,17 +26,13 @@ export function MultiAccountNotification() {
         const data = await res.json();
 
         if (data.penalized) {
-          toast.error("🚫 Multi-Account Penalty Active", {
-            description:
-              "Your account has been penalized for using multiple accounts from the same network. " +
-              "A 50% reduction has been applied to your credits and player value.",
+          toast.error(t.multiAccountPenaltyActiveTitle, {
+            description: t.multiAccountPenaltyActiveDesc,
             duration: 20000,
           });
         } else if (data.warnings > 0) {
-          toast.warning("⚠️ Multi-Account Warning", {
-            description:
-              "Multiple accounts have been detected from your network. " +
-              "If this continues, a 50% penalty will be applied to your credits and player value.",
+          toast.warning(t.multiAccountWarningTitle, {
+            description: t.multiAccountWarningDesc,
             duration: 15000,
           });
         }
@@ -44,7 +42,7 @@ export function MultiAccountNotification() {
     }
 
     checkMultiAccountStatus();
-  }, []);
+  }, [t]);
 
   return null;
 }

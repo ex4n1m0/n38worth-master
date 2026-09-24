@@ -9,6 +9,7 @@ import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface AvatarUploadProps {
   currentUrl: string | null;
@@ -22,6 +23,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const { play } = useSound();
+  const { t } = useLanguage();
   const { refresh: refreshOnboarding } = useOnboarding();
   const { update: updateSession } = useSession();
 
@@ -50,7 +52,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Failed to generate random avatar");
+        throw new Error(data.error || t.randomAvatarFailed);
       }
 
       const data = await res.json();
@@ -64,10 +66,10 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
         console.error("Failed to refresh session after random avatar:", sessionErr);
       }
       refreshOnboarding();
-      toast.success("Random avatar generated!");
+      toast.success(t.randomAvatarGenerated);
     } catch (error) {
       console.error("Random avatar error:", error);
-      toast.error("Failed to generate random avatar");
+      toast.error(t.randomAvatarFailed);
     } finally {
       setUploading(false);
     }
@@ -79,13 +81,13 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
 
     // Validate file type
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      toast.error("Please upload a JPEG, PNG, or WebP image");
+      toast.error(t.uploadImageType);
       return;
     }
 
     // Validate file size (2MB)
     if (file.size > 2 * 1024 * 1024) {
-      toast.error("Image must be less than 2MB");
+      toast.error(t.uploadImageTooLarge);
       return;
     }
 
@@ -102,7 +104,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || "Upload failed");
+        throw new Error(data.error || t.uploadFailed);
       }
 
       const data = await res.json();
@@ -117,13 +119,13 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
       }
       refreshOnboarding();
       if (data.bonusAwarded) {
-        toast.success(`Avatar updated! 🎉 You earned ${data.bonusAmount} bonus credits!`);
+        toast.success(t.avatarUpdatedBonus.replace("{amount}", String(data.bonusAmount)));
       } else {
-        toast.success("Avatar updated!");
+        toast.success(t.avatarUpdated);
       }
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error("Failed to upload avatar");
+      toast.error(t.uploadAvatarFailed);
     } finally {
       setUploading(false);
     }
@@ -155,7 +157,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
               className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-black font-bold shadow-lg shadow-yellow-500/30 animate-pulse w-full"
             >
               <Camera className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 shrink-0" />
-              <span className="truncate">{uploading ? "Uploading..." : "🎯 Upload Your Avatar"}</span>
+              <span className="truncate">{uploading ? t.uploading : t.uploadYourAvatarCta}</span>
             </Button>
             <Button
               variant="outline"
@@ -165,7 +167,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
               className="border-gray-700 text-gray-300 hover:bg-gray-800 w-full"
             >
               <Shuffle className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2 shrink-0" />
-              <span className="truncate">{uploading ? "Generating..." : "🎲 Skip & Get Random Avatar"}</span>
+              <span className="truncate">{uploading ? t.generating : t.skipRandomAvatar}</span>
             </Button>
           </div>
         ) : (
@@ -178,7 +180,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
               className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               <Camera className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
-              <span className="truncate">{uploading ? "Uploading..." : "Change Avatar"}</span>
+              <span className="truncate">{uploading ? t.uploading : t.changeAvatar}</span>
             </Button>
             <Button
               variant="outline"
@@ -188,18 +190,18 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
               className="border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               <Shuffle className="h-4 w-4 mr-1 sm:mr-2 shrink-0" />
-              <span className="truncate">{uploading ? "Generating..." : "Get Random Avatar"}</span>
+              <span className="truncate">{uploading ? t.generating : t.getRandomAvatar}</span>
             </Button>
           </div>
         )}
         <p className="text-xs text-gray-500 mt-1">
-          JPEG, PNG, or WebP. Max 2MB.
+          {t.avatarFormatHint}
         </p>
         {!hasCustomAvatar && bonusAmount && (
           <div className="mt-2 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 max-w-full">
             <Gift className="h-4 w-4 text-yellow-400 shrink-0" />
             <p className="text-xs sm:text-sm font-bold text-yellow-300 break-words">
-              Upload a picture and earn {bonusAmount}¢!
+              {t.uploadEarnBonus.replace("{amount}", String(bonusAmount))}
             </p>
           </div>
         )}
@@ -209,7 +211,7 @@ export function AvatarUpload({ currentUrl, username, avatarCompleted = true }: A
           accept="image/jpeg,image/png,image/webp"
           onChange={handleUpload}
           className="hidden"
-          aria-label="Upload avatar image"
+          aria-label={t.uploadAvatarImage}
         />
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Terminal, Calendar, Star } from "lucide-react";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface HallOfFameEntry {
   id: number;
@@ -16,6 +17,7 @@ interface HallOfFameEntry {
  * History page.
  */
 export function HallOfChampions() {
+  const { t } = useLanguage();
   const { data: winners = [], isLoading } = useQuery<HallOfFameEntry[]>({
     queryKey: ["hall-of-fame"],
     queryFn: async () => {
@@ -31,12 +33,14 @@ export function HallOfChampions() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
           <Terminal className="h-6 w-6 text-yellow-400" />
-          The Root Wall
+          {t.ranksRootWall}
         </h2>
         {winners.length > 0 && (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-semibold text-yellow-300">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-            {winners.length} reboot{winners.length !== 1 ? "s" : ""} · Latest root: {winners[0]?.username}
+            {(winners.length !== 1 ? t.championsBadgeMany : t.championsBadgeOne)
+              .replace("{count}", String(winners.length))
+              .replace("{name}", winners[0]?.username ?? "")}
           </span>
         )}
       </div>
@@ -54,9 +58,9 @@ export function HallOfChampions() {
       ) : winners.length === 0 ? (
         <div className="text-center py-16 rounded-2xl border border-gray-800 bg-gray-900/40">
           <Terminal className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-400 mb-2">No Root Holders Yet</h3>
+          <h3 className="text-lg font-semibold text-gray-400 mb-2">{t.championsNoneTitle}</h3>
           <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            The root shell awaits. Be the first to assemble all Six and etch your name into the simulation!
+            {t.championsNoneBody}
           </p>
         </div>
       ) : (
@@ -125,7 +129,7 @@ export function HallOfChampions() {
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
                       <Calendar className="h-3 w-3" />
-                      <span>{formattedDate} at {formattedTime}</span>
+                      <span>{t.championsDateAt.replace("{date}", formattedDate).replace("{time}", formattedTime)}</span>
                     </div>
                   </div>
 
@@ -138,7 +142,7 @@ export function HallOfChampions() {
                           : "bg-gray-800 text-gray-500"
                       }`}
                     >
-                      Game #{gameNumber}
+                      {t.championsGameNumber.replace("{number}", String(gameNumber))}
                     </div>
                   </div>
                 </div>

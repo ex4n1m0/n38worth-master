@@ -7,6 +7,7 @@ import { toast } from "@/lib/event-feed";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 interface LetGoButtonProps {
   targetId: number;
@@ -20,6 +21,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
   const queryClient = useQueryClient();
   const { data: credits } = useCredits();
   const { play } = useSound();
+  const { t } = useLanguage();
 
   const cost = playerValue;
   const canAfford = (credits ?? 0) >= cost;
@@ -32,12 +34,14 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
         body: JSON.stringify({ targetId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to let go");
+      if (!res.ok) throw new Error(data.error || t.letGoFailed);
       return data;
     },
     onSuccess: (data) => {
       toast.success(
-        `Let ${targetUsername} go! Paid ${formatCompact(data.letGoCost)}¢. They kept their value.`
+        t.letGoToast
+          .replace("{name}", targetUsername)
+          .replace("{amount}", formatCompact(data.letGoCost))
       );
       queryClient.invalidateQueries({ queryKey: ["credits"] });
       queryClient.invalidateQueries({ queryKey: ["player"] });
@@ -58,7 +62,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
     e.stopPropagation();
     if (!canAfford) {
       play("error");
-      toast.error(`Not enough credits. Need ${formatCompact(cost)}¢`);
+      toast.error(t.notEnoughCreditsNeed.replace("{amount}", formatCompact(cost)));
       return;
     }
     play("hire");
@@ -77,14 +81,18 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
             : "text-white border-0 bg-transparent hover:brightness-125 hover:bg-transparent"
         } ${className ?? ""}`}
         style={canAfford ? navbarBtnStyle : undefined}
-        title={canAfford ? `Let ${targetUsername} go for ${formatCompact(cost)}¢` : `Need ${formatCompact(cost)}¢`}
+        title={canAfford
+          ? t.letGoTitle
+            .replace("{name}", targetUsername)
+            .replace("{amount}", formatCompact(cost))
+          : t.needCreditsTitle.replace("{amount}", formatCompact(cost))}
       >
         {mutation.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <>
             <HandHeart className="h-4 w-4" />
-            <span className="text-[7px] leading-none mt-0.5">Let Go</span>
+            <span className="text-[7px] leading-none mt-0.5">{t.letGo}</span>
           </>
         )}
       </Button>
@@ -104,8 +112,10 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
       style={canAfford ? navbarBtnStyle : undefined}
       title={
         canAfford
-          ? `Let ${targetUsername} go for ${formatCompact(cost)}¢ (they keep value)`
-          : `Need ${formatCompact(cost)}¢`
+          ? t.letGoTitleKeep
+            .replace("{name}", targetUsername)
+            .replace("{amount}", formatCompact(cost))
+          : t.needCreditsTitle.replace("{amount}", formatCompact(cost))
       }
     >
       {mutation.isPending ? (
@@ -113,7 +123,7 @@ export function LetGoButton({ targetId, targetUsername, playerValue, className, 
       ) : (
         <>
           <HandHeart className="h-4 w-4 mr-2" />
-          Let Go ({formatCompact(cost)}¢)
+          {t.letGo} ({formatCompact(cost)}¢)
         </>
       )}
     </Button>

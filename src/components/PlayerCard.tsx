@@ -12,6 +12,7 @@ import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { useNow } from "@/hooks/useNow";
 import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
+import { useLanguage } from "@/components/LanguageContext";
 import { useHoveredCardStore } from "@/components/ComboDock";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import {
@@ -20,7 +21,7 @@ import {
   formatCompact,
 } from "@/lib/utils";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { getProfessionImage } from "@/lib/professions";
+import { getProfessionImage, professionName } from "@/lib/professions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -145,6 +146,7 @@ function PlayerCardImpl({
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { t, locale } = useLanguage();
   const { data: myCredits } = useCredits();
   const { ownedIds, renamedIds } = useOwnedPlayerIds();
   const { hasKnowledge, hasWar, warDeleteCooldownUntil } = useKnowledgePower();
@@ -269,7 +271,7 @@ function PlayerCardImpl({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
     },
     onMutate: async () => {
@@ -299,14 +301,17 @@ function PlayerCardImpl({
       }
       if (data.countdownStarted) {
         play("win");
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description:
-            "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+        toast.success(t.countdownStartedTitle, {
+          description: t.countdownStartedDesc,
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
-        toast.success(`You bought ${cardDisplayName(username)}! Their value is now ${data.newValue} 💰`);
+        toast.success(
+          t.youBoughtValueNow
+            .replace("{name}", cardDisplayName(username, locale))
+            .replace("{value}", String(data.newValue))
+        );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
@@ -398,7 +403,7 @@ function PlayerCardImpl({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Overclock failed");
+      if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
     },
     onMutate: async () => {
@@ -418,7 +423,11 @@ function PlayerCardImpl({
     },
     onSuccess: async (data) => {
       triggerFlip();
-      toast.success(`🚀 Overclocked ${cardDisplayName(username)}! Value → ${formatNumber(data.newValue)}¢`);
+      toast.success(
+        t.overclockedValueNow
+          .replace("{name}", cardDisplayName(username, locale))
+          .replace("{value}", `${formatNumber(data.newValue)}¢`)
+      );
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credits"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
@@ -455,7 +464,7 @@ function PlayerCardImpl({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to breach the firewall");
+      if (!res.ok) throw new Error(data.error || t.breachFailed);
       return data;
     },
     onMutate: async () => {
@@ -484,14 +493,17 @@ function PlayerCardImpl({
       }
       if (data.countdownStarted) {
         play("win");
-        toast.success("⏱️ COUNTDOWN STARTED! ⏱️", {
-          description:
-            "You own all 6 Goddesses! Hold them for 60 minutes to win the game! Other players will try to stop you!",
+        toast.success(t.countdownStartedTitle, {
+          description: t.countdownStartedDesc,
           duration: 15000,
         });
         await queryClient.invalidateQueries();
       } else {
-        toast.success(`Firewall breached! You hired ${cardDisplayName(username)}! Their value is now ${data.newValue} 💰`);
+        toast.success(
+          t.breachHiredValueNow
+            .replace("{name}", cardDisplayName(username, locale))
+            .replace("{value}", String(data.newValue))
+        );
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" }),
           queryClient.invalidateQueries({ queryKey: ["player"], refetchType: "active" }),
@@ -511,13 +523,16 @@ function PlayerCardImpl({
     e.stopPropagation();
     if (isPermBlocked) {
       play("error");
-      toast.error("This partnership is unbreakable.");
+      toast.error(t.unbreakablePartnership);
       return;
     }
     if ((myCredits ?? 0) < totalBreakCost) {
       play("error");
       toast.error(
-        `Not enough credits. Need ${formatNumber(totalBreakCost)}¢ (${formatNumber(breakCost)}¢ breach fee + ${formatNumber(playerValue)}¢ hire)`
+        t.notEnoughCreditsBreach
+          .replace("{total}", formatNumber(totalBreakCost))
+          .replace("{fee}", formatNumber(breakCost))
+          .replace("{hire}", formatNumber(playerValue))
       );
       return;
     }
@@ -569,7 +584,7 @@ function PlayerCardImpl({
   const actionOverlayColor =
     actionMode === "pump" ? "text-fuchsia-400" : actionMode === "break" ? "text-red-400" : "text-green-400";
   const actionOverlayLabel =
-    countdown !== null ? "Hiring" : actionMode === "pump" ? "Overclocking" : actionMode === "break" ? "Breaching" : "Hiring";
+    countdown !== null ? t.cardOverlayHiring : actionMode === "pump" ? t.overclocking : actionMode === "break" ? t.breaching : t.cardOverlayHiring;
 
   const getActionColors = () => {
     if (actionMode === "locked" || !canAffordAction) {
@@ -603,13 +618,13 @@ function PlayerCardImpl({
   };
 
   const avatarTitle = (() => {
-    if (isOwnProfile) return "Your profile";
+    if (isOwnProfile) return t.yourProfile;
     if (isPurchaseLocked)
       return unlockThreshold !== null
-        ? `Own ${formatCompact(unlockThreshold)} avatars to unlock`
-        : "Locked";
-    if (isHireBlocked && isPermBlocked) return "Unbreakable partnership";
-    if (!canAffordAction) return `Need ${formatNumber(actionCost)}¢`;
+        ? t.ownAvatarsToUnlock.replace("{count}", formatCompact(unlockThreshold))
+        : t.lockedLabel;
+    if (isHireBlocked && isPermBlocked) return t.unbreakableTitle;
+    if (!canAffordAction) return t.needAmount.replace("{amount}", formatNumber(actionCost));
     return undefined;
   })();
 
@@ -621,7 +636,7 @@ function PlayerCardImpl({
       return (
         <span className="inline-flex items-center gap-1">
           <Eye className="h-3 w-3" />
-          VIEW
+          {t.actionView}
         </span>
       );
     }
@@ -629,11 +644,11 @@ function PlayerCardImpl({
       return (
         <span className="inline-flex items-center gap-1">
           <Lock className="h-3 w-3" />
-          LOCKED
+          {t.actionLocked}
         </span>
       );
     }
-    const label = actionMode === "get" ? "GET" : actionMode === "pump" ? "OVERCLOCK" : "BREACH";
+    const label = actionMode === "get" ? t.actionGet : actionMode === "pump" ? t.actionOverclock : t.actionBreach;
     return (
       <span className="inline-flex items-center gap-1">
         {actionMode === "break" && <Shield className="h-3 w-3" />}
@@ -656,9 +671,9 @@ function PlayerCardImpl({
                 ? "border-purple-800 bg-transparent text-yellow-300/90 hover:bg-purple-900/30 hover:text-yellow-200"
                 : "border-purple-800 bg-transparent text-purple-200 hover:bg-purple-900/30 hover:text-white"
           )}
-          title="Tap to add/remove from your 6-profession combo"
+          title={t.comboToggleTitle}
         >
-          {effectiveProfession}
+          {professionName(effectiveProfession, locale)}
         </button>
       );
     }
@@ -669,7 +684,7 @@ function PlayerCardImpl({
           isMine ? "text-yellow-300/90" : "text-purple-200/80"
         )}
       >
-        {effectiveProfession}
+        {professionName(effectiveProfession, locale)}
       </span>
     );
   })();
@@ -736,14 +751,14 @@ function PlayerCardImpl({
               <button
                 type="button"
                 onClick={handleOpenProfile}
-                title={`Open ${cardDisplayName(username)}'s profile — or hold the card for quick actions`}
+                title={t.openProfileHoldHint.replace("{name}", cardDisplayName(username, locale))}
                 className={cn(
                   "text-left hover:underline underline-offset-2 decoration-current/60 transition-colors",
                   isMine ? "hover:text-yellow-200" : "hover:text-t1-300"
                 )}
                 style={{ fontSize: "0.8125rem" }}
               >
-                {cardDisplayName(username)}
+                {cardDisplayName(username, locale)}
               </button>
               {isVerified === 1 && (
                 <BadgeCheck className="h-3.5 w-3.5 text-blue-400 shrink-0" />
@@ -765,7 +780,7 @@ function PlayerCardImpl({
             {ownedCount > 0 && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold rounded-full px-2 py-0.5 border border-t2-500/30 text-t2-300 bg-t2-950/40">
                 <Users className="h-3 w-3" />
-                Owns {formatCompact(ownedCount)}
+                {t.ownsCount.replace("{count}", formatCompact(ownedCount))}
               </span>
             )}
           </div>
@@ -798,7 +813,7 @@ function PlayerCardImpl({
             >
               <AvatarImage
                 src={displayedAvatarSrc || undefined}
-                alt={cardDisplayName(username)}
+                alt={cardDisplayName(username, locale)}
                 className={cn("w-full h-full", avatarFitClass)}
               />
               <AvatarFallback className="rounded-lg bg-gradient-to-br from-t1-600 to-t2-600 text-white font-bold text-2xl sm:text-3xl">
@@ -873,7 +888,7 @@ function PlayerCardImpl({
               variant="secondary"
               className="absolute top-2 left-2 z-20 bg-red-500/20 text-red-300 border-red-500/30 text-[10px] backdrop-blur-sm pointer-events-none"
             >
-              Inactive
+              {t.inactive}
             </Badge>
           )}
 
@@ -965,7 +980,7 @@ function PlayerCardImpl({
               <div className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-semibold leading-tight">
                 {ownerName !== session?.user?.name && (
                   <span className="text-[9px] font-medium tracking-widest text-white/50 uppercase leading-none shrink-0">
-                    Boss
+                    {t.boss}
                   </span>
                 )}
                 <span
@@ -976,7 +991,7 @@ function PlayerCardImpl({
                 >
                   <Terminal className="h-3 w-3 shrink-0" />
                   <span className="truncate">
-                    {ownerName === session?.user?.name ? "MINE" : ownerName}
+                    {ownerName === session?.user?.name ? t.mine : ownerName}
                   </span>
                 </span>
               </div>
@@ -984,7 +999,7 @@ function PlayerCardImpl({
             {leaderboardMode && !ownerName && (
               <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-white leading-tight">
                 <Terminal className="h-3 w-3 shrink-0" />
-                <span className="truncate">LOST</span>
+                <span className="truncate">{t.lost}</span>
               </div>
             )}
           </div>
@@ -1006,15 +1021,15 @@ function PlayerCardImpl({
         <DialogContent className="bg-gray-900 border-gray-800 max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-white break-all leading-tight">
-              {cardDisplayName(username)}
+              {cardDisplayName(username, locale)}
             </DialogTitle>
             <DialogDescription>
               {formatNumber(playerValue)}¢
-              {effectiveProfession ? ` · ${effectiveProfession}` : ""}
+              {effectiveProfession ? ` · ${professionName(effectiveProfession, locale)}` : ""}
               {leaderboardMode && ownerName
                 ? ownerName === session?.user?.name
-                  ? " · yours"
-                  : ` · belongs to ${ownerName}`
+                  ? ` · ${t.quickSheetYours}`
+                  : ` · ${t.quickSheetBelongsTo.replace("{name}", ownerName)}`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -1040,11 +1055,11 @@ function PlayerCardImpl({
                 {isActionPending ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : actionMode === "get" ? (
-                  `GET · ${formatCompact(playerValue)}¢`
+                  t.getCostLabel.replace("{amount}", formatCompact(playerValue))
                 ) : actionMode === "pump" ? (
-                  `OVERCLOCK · ${formatCompact(playerValue)}¢`
+                  t.overclockCostLabel.replace("{amount}", formatCompact(playerValue))
                 ) : (
-                  `BREACH · ${formatCompact(totalBreakCost)}¢`
+                  t.breachCostLabel.replace("{amount}", formatCompact(totalBreakCost))
                 )}
               </Button>
             )}
@@ -1062,7 +1077,9 @@ function PlayerCardImpl({
                     : "border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
                 )}
               >
-                {isComboSelected ? "Remove from combo" : `Add to combo · ${effectiveProfession}`}
+                {isComboSelected
+                  ? t.removeFromCombo
+                  : t.addToCombo.replace("{profession}", professionName(effectiveProfession, locale))}
               </Button>
             )}
             <Button
@@ -1074,10 +1091,10 @@ function PlayerCardImpl({
               className="w-full h-auto py-3 font-bold rounded-lg border-gray-700 text-gray-300 hover:bg-gray-800"
             >
               <User className="h-4 w-4 mr-2" />
-              Open profile
+              {t.openProfile}
             </Button>
             <p className="text-[11px] text-gray-500 text-center pt-1">
-              Hold any card to open this quick-action sheet
+              {t.holdCardHint}
             </p>
           </div>
         </DialogContent>

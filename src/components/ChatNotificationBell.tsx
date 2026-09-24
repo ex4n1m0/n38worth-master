@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface ChatMessage {
   id: number;
@@ -29,6 +30,7 @@ function getLastReadKey(userId: number, targetId: number): string {
 
 export function ChatNotificationBell({ className }: { className?: string } = {}) {
   const { data: session } = useSession();
+  const { t } = useLanguage();
   const { play } = useSound();
   const [unreadCount, setUnreadCount] = useState(0);
   const userId = session?.user?.id ? parseInt(session.user.id) : null;
@@ -132,7 +134,13 @@ export function ChatNotificationBell({ className }: { className?: string } = {})
         className={`relative text-gray-400 hover:text-white hover:bg-gray-800 px-2 ${
           unreadCount > 0 ? "animate-pulse" : ""
         }`}
-        title={unreadCount > 0 ? `${unreadCount} unread message${unreadCount > 1 ? "s" : ""}` : "Chat"}
+        title={
+          unreadCount > 0
+            ? unreadCount > 1
+              ? t.bellUnreadMany.replace("{count}", String(unreadCount))
+              : t.bellUnreadOne.replace("{count}", String(unreadCount))
+            : t.chat
+        }
       >
         <Bell className={`h-4 w-4 ${unreadCount > 0 ? "text-yellow-400" : ""}`} />
         {unreadCount > 0 && (

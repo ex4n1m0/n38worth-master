@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Users } from "lucide-react";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface OwnershipLimitData {
   limit: number;
@@ -18,6 +19,7 @@ interface OwnershipLimitData {
  * invalidate it for an instant update; the slow poll is just a fallback.
  */
 export function OwnershipLimit() {
+  const { t } = useLanguage();
   const { data, isPending } = useQuery<OwnershipLimitData>({
     queryKey: ["ownership-limit"],
     queryFn: async () => {
@@ -44,7 +46,9 @@ export function OwnershipLimit() {
   return (
     <div
       className="flex items-center gap-1 sm:gap-1.5 rounded-lg bg-gray-800/50 border border-gray-700/50 px-2 py-1 sm:px-2.5"
-      title={`${data.currentOwned} of ${data.limit} hire slots used`}
+      title={t.hireSlotsUsedTooltip
+        .replace("{current}", String(data.currentOwned))
+        .replace("{limit}", String(data.limit))}
     >
       <Users className="h-4 w-4 text-gray-400 shrink-0" />
       <span className="text-xs sm:text-sm font-bold tabular-nums whitespace-nowrap">

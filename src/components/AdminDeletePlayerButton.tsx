@@ -19,6 +19,7 @@ import {
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
 import { isAdminUser } from "@/lib/admins";
+import { useLanguage } from "./LanguageContext";
 
 interface AdminDeletePlayerButtonProps {
   targetId: number;
@@ -43,6 +44,7 @@ export function AdminDeletePlayerButton({
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const { play } = useSound();
+  const { t } = useLanguage();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -56,11 +58,11 @@ export function AdminDeletePlayerButton({
         body: JSON.stringify({ targetUserId: targetId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Admin delete failed");
+      if (!res.ok) throw new Error(data.error || t.adminDeleteFailed);
       return data as { success: true; deletedUsername: string };
     },
     onSuccess: async (data) => {
-      toast.success(`Deleted "${data.deletedUsername}".`);
+      toast.success(t.adminDeleteToast.replace("{name}", data.deletedUsername));
       setOpen(false);
       // Invalidate every list that may have rendered this player. The current
       // /players/<username> page will 404 on its next fetch, so push the
@@ -90,39 +92,47 @@ export function AdminDeletePlayerButton({
         >
           <Shield className="h-4 w-4 mr-1.5" />
           <Trash2 className="h-4 w-4 mr-1.5" />
-          Admin Delete
+          {t.adminDelete}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-gray-900 border-gray-800">
         <DialogHeader>
           <DialogTitle className="text-red-400 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5" />
-            Admin Delete: {targetUsername}
+            {t.adminDelete}: {targetUsername}
           </DialogTitle>
           <DialogDescription className="text-gray-400 space-y-3">
             <p>
-              You are about to permanently delete{" "}
-              <span className="text-white font-semibold">{targetUsername}</span>.
-              This action is{" "}
-              <span className="text-red-400 font-semibold">irreversible</span>.
+              {t.adminDeleteDescPrefix}{" "}
+              <span className="text-white font-semibold">{targetUsername}</span>
+              {t.adminDeleteDescMiddle}{" "}
+              <span className="text-red-400 font-semibold">{t.adminDeleteIrreversible}</span>.
             </p>
             <div className="bg-gray-800/80 rounded-lg p-3 space-y-2 text-sm">
               {ownerCount > 0 && (
                 <p>
-                  👤 Their <span className="text-white font-semibold">{ownerCount} owner{ownerCount !== 1 ? "s" : ""}</span>{" "}
-                  will each receive a refund of{" "}
+                  {t.adminDeleteOwnersPrefix}{" "}
+                  <span className="text-white font-semibold">
+                    {(ownerCount !== 1 ? t.adminDeleteOwnerPlural : t.adminDeleteOwnerSingular)
+                      .replace("{count}", String(ownerCount))}
+                  </span>{" "}
+                  {t.adminDeleteRefundPrefix}{" "}
                   <span className="text-t1-400 font-semibold">{formatCompact(refundPerOwner)}¢</span>{" "}
-                  <span className="text-gray-500">(half their current value)</span>
+                  <span className="text-gray-500">{t.adminDeleteRefundNote}</span>
                 </p>
               )}
               {ownedCount > 0 && (
                 <p>
-                  📦 Their <span className="text-white font-semibold">{ownedCount} owned player{ownedCount !== 1 ? "s" : ""}</span>{" "}
-                  will be released and their values reset
+                  {t.adminDeleteOwnedPrefix}{" "}
+                  <span className="text-white font-semibold">
+                    {(ownedCount !== 1 ? t.adminDeleteOwnedPlural : t.adminDeleteOwnedSingular)
+                      .replace("{count}", String(ownedCount))}
+                  </span>{" "}
+                  {t.adminDeleteOwnedSuffix}
                 </p>
               )}
               <p>
-                🗑️ All their data (transactions, messages, history) will be deleted
+                {t.adminDeleteDataNote}
               </p>
             </div>
           </DialogDescription>
@@ -133,7 +143,7 @@ export function AdminDeletePlayerButton({
             onClick={() => setOpen(false)}
             className="border-gray-700 text-gray-300"
           >
-            Cancel
+            {t.cancel}
           </Button>
           <Button
             onClick={() => mutation.mutate()}
@@ -143,12 +153,12 @@ export function AdminDeletePlayerButton({
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Deleting...
+                {t.deleting}
               </>
             ) : (
               <>
                 <Trash2 className="h-4 w-4 mr-2" />
-                Delete Player
+                {t.adminDeleteConfirm}
               </>
             )}
           </Button>

@@ -3,13 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "@/components/OnboardingContext";
-import { PROFESSIONS } from "@/lib/professions";
+import { PROFESSIONS, professionName } from "@/lib/professions";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "@/lib/event-feed";
+import { useLanguage } from "@/components/LanguageContext";
 
 export function OnboardingProfessionStep() {
   const { state, loading, refresh } = useOnboarding();
+  const { t, locale } = useLanguage();
   const router = useRouter();
   const [selectedProfession, setSelectedProfession] = useState<string | null>(
     state.profession ?? null
@@ -55,17 +57,17 @@ export function OnboardingProfessionStep() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Failed to select profession");
+        throw new Error(data.error || t.selectProfessionFailed);
       }
 
-      toast.success(`You are now a ${selectedProfession}! 🔮`);
+      toast.success(t.onboardingNowProfession.replace("{profession}", professionName(selectedProfession, locale)));
       await refresh();
       // Onboarding is complete — send the player to their profile page, where
       // the daily reward auto-claims and they can see their rewards & income.
       router.push("/my-profile");
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to select profession"
+        error instanceof Error ? error.message : t.selectProfessionFailed
       );
     } finally {
       setSubmitting(false);
@@ -81,11 +83,10 @@ export function OnboardingProfessionStep() {
             <ShieldCheck className="h-8 w-8 text-amber-400" />
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-            Choose Your Profession
+            {t.chooseYourProfession}
           </h2>
           <p className="text-gray-400 mt-2 text-sm sm:text-base">
-            Select the path that will define your footprint in the simulation. Your
-            profession icon will appear on your player card.
+            {t.onboardingProfessionDesc}
           </p>
         </div>
 
@@ -125,7 +126,7 @@ export function OnboardingProfessionStep() {
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-lg overflow-hidden bg-gray-950/50 border border-gray-700/50 flex-shrink-0">
                   <img
                     src={prof.imagePath}
-                    alt={prof.name}
+                    alt={professionName(prof.name, locale)}
                     className="w-full h-full object-contain p-1"
                   />
                 </div>
@@ -135,11 +136,11 @@ export function OnboardingProfessionStep() {
                     isSelected ? "text-amber-300" : "text-gray-300"
                   }`}
                 >
-                  {prof.name}
+                  {professionName(prof.name, locale)}
                 </span>
                 {/* Current count in game */}
                 <span className="text-[10px] sm:text-xs text-gray-500 leading-tight">
-                  {(counts[prof.name] ?? 0).toLocaleString()} in the grid
+                  {(counts[prof.name] ?? 0).toLocaleString()} {t.inTheGrid}
                 </span>
               </button>
             );
@@ -160,19 +161,19 @@ export function OnboardingProfessionStep() {
             {submitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                Choosing...
+                {t.choosing}
               </>
             ) : selectedProfession ? (
-              `Become a ${selectedProfession}`
+              t.becomeA.replace("{profession}", professionName(selectedProfession, locale))
             ) : (
-              "Select a Profession"
+              t.selectAProfession
             )}
           </Button>
         </div>
 
         {/* Footer note */}
         <p className="text-center text-gray-500 text-xs mt-4">
-          Some professions are more rare than others
+          {t.someProfessionsRarer}
         </p>
       </div>
     </div>

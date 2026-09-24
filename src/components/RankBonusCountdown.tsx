@@ -6,9 +6,11 @@ import { Trophy, Medal } from "lucide-react";
 import { formatCompact } from "@/lib/utils";
 import { useNow } from "@/hooks/useNow";
 import { secondsToNextHour, formatCountdown } from "@/components/HourlyRewardCountdown";
+import { useLanguage } from "@/components/LanguageContext";
 
 export function RankBonusCountdown() {
   const { data: session } = useSession();
+  const { t } = useLanguage();
 
   // Fetch current user's rank positions
   const { data: rankPositions } = useQuery({
@@ -53,10 +55,10 @@ export function RankBonusCountdown() {
   const userPositions = rankPositions?.userPositions || {};
   const categories = ["empire", "credits", "value", "portfolio"];
   const categoryLabels: Record<string, string> = {
-    empire: "Grid",
-    credits: "Credits",
-    value: "Value",
-    portfolio: "Portfolio"
+    empire: t.categoryGrid,
+    credits: t.categoryCredits,
+    value: t.categoryValue,
+    portfolio: t.categoryPortfolio
   };
 
   // Find all positions where user is in top 3
@@ -81,7 +83,7 @@ export function RankBonusCountdown() {
       <div className="flex items-center gap-2">
         <Trophy className="h-5 w-5 text-t2-400" />
         <h3 className="text-sm font-semibold text-t2-400">
-          Rank Bonus
+          {t.rankBonusTitle}
         </h3>
       </div>
       
@@ -92,15 +94,15 @@ export function RankBonusCountdown() {
             <div className="flex items-center gap-2">
               <Medal className="h-4 w-4 text-t2-400" />
               <span className="text-xs font-semibold text-t2-300">
-                Your Positions:
+                {t.yourPositions}
               </span>
             </div>
             <span className="text-xs font-bold text-t2-400">
-              +{formatCompact(totalPrize)}¢ total
+              +{formatCompact(totalPrize)}¢ {t.rankBonusTotal}
             </span>
           </div>
           <div className="mb-2 text-right text-[11px] text-t2-400/80 font-mono">
-            pays in {formatCountdown(secondsToPayout)}
+            {t.paysIn.replace("{time}", formatCountdown(secondsToPayout))}
           </div>
           <div className="space-y-1">
             {qualifyingPositions.map(({ category, position, prize }) => (
@@ -118,7 +120,7 @@ export function RankBonusCountdown() {
       )}
       
       <p className="text-xs text-gray-500 mt-2">
-        🥇3x  🥈2x  🥉  1x  (2% of Portfolio) Rewards:
+        {t.rankBonusLegend}
       </p>
     </div>
   );

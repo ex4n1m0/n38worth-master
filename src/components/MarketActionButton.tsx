@@ -12,6 +12,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { formatCompact } from "@/lib/utils";
+import { useLanguage } from "./LanguageContext";
 
 interface MarketActionButtonProps {
   id: number;
@@ -50,6 +51,7 @@ export function MarketActionButton({
   const { ownedIds } = useOwnedPlayerIds();
   const { data: myCredits } = useCredits();
   const { play } = useSound();
+  const { t, locale } = useLanguage();
 
   const isOwned = ownedIds.has(id);
   const isBlocked = blockSellUntil ? new Date(blockSellUntil) > new Date() : false;
@@ -84,7 +86,7 @@ export function MarketActionButton({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Purchase failed");
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
     },
     onError: (err: Error) => {
@@ -92,7 +94,9 @@ export function MarketActionButton({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`You got ${username}! Their value is now ${formatCompact(data.newValue)}¢ 💰`);
+      toast.success(t.purchaseToast
+        .replace("{name}", username)
+        .replace("{value}", formatCompact(data.newValue)));
       // Hired an NPC with no profession → forced assignment pops up instantly.
       if (data.needsProfession) {
         useForcedProfessionStore.getState().require({
@@ -112,7 +116,7 @@ export function MarketActionButton({
         body: JSON.stringify({ targetId: id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Overclock failed");
+      if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
     },
     onError: (err: Error) => {
@@ -120,7 +124,9 @@ export function MarketActionButton({
       toast.error(err.message);
     },
     onSuccess: async (data) => {
-      toast.success(`🚀 Overclocked ${cardDisplayName(username)}! Value → ${formatCompact(data.newValue)}¢`);
+      toast.success(t.overclockToast
+        .replace("{name}", cardDisplayName(username, locale))
+        .replace("{value}", formatCompact(data.newValue)));
       await refresh();
     },
   });
@@ -146,7 +152,7 @@ export function MarketActionButton({
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <>
-              <span className="text-base leading-none">OVERCLOCK</span>
+              <span className="text-base leading-none">{t.landChipOverclock}</span>
               <span className="text-xs">{formatCompact(playerValue)}¢</span>
             </>
           )}
@@ -168,7 +174,7 @@ export function MarketActionButton({
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <>
-              <span className="text-base leading-none">GET</span>
+              <span className="text-base leading-none">{t.landChipGet}</span>
               <span className="text-xs">{formatCompact(playerValue)}¢</span>
             </>
           )}

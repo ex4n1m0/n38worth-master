@@ -13,6 +13,8 @@ import Link from "next/link";
 import { ChatProvider, useChat } from "@/contexts/ChatContext";
 import { InlineDMChat } from "@/components/InlineDMChat";
 import { playSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
+import type { TranslationKeys } from "@/lib/i18n";
 
 interface ChatMessage {
   id: number;
@@ -43,19 +45,24 @@ function formatDate(date: string): string {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function formatRelativeTime(dateStr: string | null): string {
-  if (!dateStr) return "Never";
+function formatRelativeTime(
+  dateStr: string | null,
+  t: TranslationKeys
+): string {
+  if (!dateStr) return t.lastSeenNever;
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return t.justNow;
+  if (minutes < 60)
+    return t.minutesAgo.replace("{minutes}", String(minutes));
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t.hoursAgo.replace("{hours}", String(hours));
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t.daysAgo.replace("{days}", String(days));
 }
 
 function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
+  const { t } = useLanguage();
   const { data: session, status } = useSession();
   const [message, setMessage] = useState("");
   const [realtimeMessages, setRealtimeMessages] = useState<ChatMessage[]>([]);
@@ -71,7 +78,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
     try {
       const res = await fetch("/api/demo-register", { method: "POST" });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Failed to create guest account");
+      if (!res.ok) throw new Error(d.error || t.guestAccountFailed);
       await signIn("credentials", {
         username: d.username,
         password: d.password,
@@ -79,7 +86,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
       });
       window.location.reload();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to create guest account");
+      toast.error(e instanceof Error ? e.message : t.guestAccountFailed);
       setGuestLoading(false);
     }
   };
@@ -155,7 +162,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
         body: JSON.stringify({ content: message.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send");
+      if (!res.ok) throw new Error(data.error || t.chatSendFailed);
       return data;
     },
     onSuccess: (data) => {
@@ -196,10 +203,10 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               <MessageCircle className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg leading-tight">Global Chat</h1>
+              <h1 className="text-white font-bold text-lg leading-tight">{t.chatGlobalTitle}</h1>
               <p className="text-gray-400 text-xs flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
-                Public room · everyone can read
+                {t.chatPublicRoomNote}
               </p>
             </div>
           </div>
@@ -209,7 +216,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               className="flex items-center gap-1.5 rounded-full border border-gray-700 bg-gray-800/50 px-3 py-1.5 text-gray-300 hover:text-white hover:border-gray-600 text-sm transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back
+              {t.chatBack}
             </Link>
           )}
         </div>
@@ -227,7 +234,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                 className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white mb-3 transition-colors self-start"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Public Chat
+                {t.chatPublicTab}
               </button>
               <div className="flex-1" style={{ minHeight: 0 }}>
                 <InlineDMChat
@@ -254,7 +261,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-800/60">
                 <MessageCircle className="h-7 w-7 text-gray-600" />
               </div>
-              <p>No messages yet. Be the first to say hello!</p>
+              <p>{t.chatNoMessages}</p>
             </div>
           )}
           {localMessages.map((msg, i) => {
@@ -322,7 +329,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
               {/* No autoFocus — this component lazy-loads on the profile page,
                   and focusing late scrolls the page down to the chat. */}
               <Input
-                placeholder="Send a message to the world..."
+                placeholder={t.chatMessagePlaceholder}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 maxLength={280}
@@ -343,7 +350,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
           ) : (
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border border-gray-700 rounded-xl px-4 py-3">
               <p className="text-gray-400 text-sm">
-                <span className="text-white font-medium">Sign in</span> to join the conversation
+                <span className="text-white font-medium">{t.signIn}</span> {t.chatJoinSuffix}
               </p>
               <div className="flex items-center gap-2">
                 <Button
@@ -352,19 +359,19 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                   disabled={guestLoading}
                   className="bg-green-600/20 border border-green-500/40 text-green-300 hover:bg-green-600/30 gap-1.5"
                 >
-                  {guestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Try as Guest"}
+                  {guestLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.tryAsGuest}
                 </Button>
                 <Link href="/register">
                   <Button size="sm" className="bg-t1-600 hover:bg-t1-500 text-white gap-1.5">
                     <LogIn className="h-3.5 w-3.5" />
-                    Join
+                    {t.chatJoin}
                   </Button>
                 </Link>
               </div>
             </div>
           )}
           <p className="text-center text-gray-700 text-[10px] mt-2">
-            Messages are public · be respectful
+            {t.chatPublicNotice}
           </p>
         </div>
         </>
@@ -377,7 +384,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
         <div className="hidden lg:flex flex-col w-64 shrink-0">
           <div className="flex items-center gap-2 mb-3">
             <Users className="h-4 w-4 text-gray-500" />
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Players</span>
+            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t.chatPlayers}</span>
             {humanPlayers.length > 0 && (
               <span className="text-[10px] text-gray-600 ml-auto">{humanPlayers.length}</span>
             )}
@@ -388,7 +395,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
             {humanPlayers.length === 0 && (
               <div className="flex items-center justify-center py-8 text-gray-600 text-xs">
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Loading...
+                {t.loading}
               </div>
             )}
             {humanPlayers.map((player) => {
@@ -420,7 +427,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                       {player.username}
                     </p>
                     <p className="text-[10px] text-gray-500 truncate">
-                      {formatRelativeTime(player.lastOnlineAt)}
+                      {formatRelativeTime(player.lastOnlineAt, t)}
                     </p>
                   </div>
                   {hasUnread && !isActive && (

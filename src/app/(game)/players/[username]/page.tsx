@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/components/LanguageContext";
+import { cardDisplayName } from "@/lib/display-names";
 import { useOnboarding } from "@/components/OnboardingContext";
 import { AdminDeletePlayerButton } from "@/components/AdminDeletePlayerButton";
 import { OwnedAvatarGrid } from "@/components/OwnedAvatarGrid";
@@ -95,7 +96,7 @@ export default function PlayerProfilePage() {
   const router = useRouter();
   const username = decodeURIComponent(params.username as string);
   const { data: session } = useSession();
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const { state: onboarding, loading: onboardingLoading } = useOnboarding();
   const queryClient = useQueryClient();
   const [bioEditing, setBioEditing] = useState(false);
@@ -151,11 +152,11 @@ export default function PlayerProfilePage() {
         body: JSON.stringify({ targetUserId: player?.id, bio }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save bio");
+      if (!res.ok) throw new Error(data.error || t.bioSaveFailed);
       return data;
     },
     onSuccess: () => {
-      toast.success("Bio updated!");
+      toast.success(t.bioUpdated);
       setBioEditing(false);
       queryClient.invalidateQueries({ queryKey: ["player", username] });
       queryClient.invalidateQueries({ queryKey: ["credits"] });
@@ -169,7 +170,7 @@ export default function PlayerProfilePage() {
     mutationFn: async () => {
       const res = await fetch("/api/game/test-reset", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Reset failed");
+      if (!res.ok) throw new Error(data.error || t.resetFailed);
       return data;
     },
     onSuccess: () => {
@@ -363,7 +364,7 @@ export default function PlayerProfilePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center">
         <p className="text-white text-lg font-semibold">
-          Upload a custom profile picture to start your journey!
+          {t.uploadAvatarToStart}
         </p>
         <SquareAvatarUpload
           currentUrl={player.avatarUrl ?? null}
@@ -387,7 +388,7 @@ export default function PlayerProfilePage() {
           <EmpireRankStrip variant="transparent" />
         ) : (
           <LockedFeature
-            title="Ranks & live activity"
+            title={t.ranksLiveActivity}
             ownedCount={player.pagination?.total ?? player.ownedPlayers.length}
             threshold={UNLOCK_GAME_THRESHOLD}
           />
@@ -398,19 +399,19 @@ export default function PlayerProfilePage() {
         <div className="bg-gradient-to-r from-yellow-900/30 to-amber-900/30 border border-yellow-500/40 rounded-xl p-3 sm:p-4 text-center shadow-md">
           <div className="flex items-center justify-center gap-1.5 mb-0.5">
             <Camera className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400 shrink-0" />
-            <p className="text-yellow-200 text-base sm:text-lg md:text-xl font-bold">🎯 Your Avatar is your Brand</p>
+            <p className="text-yellow-200 text-base sm:text-lg md:text-xl font-bold">{t.yourAvatarIsYourBrand}</p>
           </div>
-          <p className="text-yellow-300 text-xs sm:text-sm">Upload a custom profile picture to start your journey!</p>
+          <p className="text-yellow-300 text-xs sm:text-sm">{t.uploadAvatarToStart}</p>
         </div>
       )}
 
       {isDemoPlayer && isOwnProfile && (
         <div className="border border-amber-500/30 rounded-lg p-3 mb-4">
           <p className="text-amber-400 text-3xl font-semibold text-center">
-            ⚠️ Demo Player: This account will be automatically deleted after 1 hour
+            {t.demoPlayerWarning}
           </p>
           <p className="text-amber-300/70 text-2xl text-center mt-1">
-            Go to <a href="/settings" className="underline hover:text-amber-200">Settings</a> to change your username and avatar to make this account permanent
+            {t.demoGoTo} <a href="/settings" className="underline hover:text-amber-200">{t.settings}</a> {t.demoGoToSuffix}
           </p>
         </div>
       )}
@@ -435,12 +436,12 @@ export default function PlayerProfilePage() {
                   <img src={heroAvatarSrc} alt={player.username} className={`w-full h-full ${heroAvatarFitClass}`} />
                 )}
                 {!isOwnProfile && player.isActive === 0 && (
-                  <div className="absolute top-2 left-2 bg-red-500/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">Inactive</div>
+                  <div className="absolute top-2 left-2 bg-red-500/80 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg">{t.inactive}</div>
                 )}
               </div>
               <div className="min-w-0 flex-1 space-y-1.5">
                 <div className="flex items-start gap-2 flex-wrap">
-                  <h1 className="text-base sm:text-xl font-black text-white break-all leading-tight">{player.username}</h1>
+                  <h1 className="text-base sm:text-xl font-black text-white break-all leading-tight">{cardDisplayName(player.username, locale)}</h1>
                   <div className="flex items-center gap-1 mt-0.5">
                     {player.valueFloor >= 100 && (
                       <Gem className="h-4 w-4 text-purple-400 shrink-0 drop-shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
@@ -449,18 +450,18 @@ export default function PlayerProfilePage() {
                       <Star className="h-4 w-4 text-yellow-400 shrink-0 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
                     )}
                     {isOwnProfile && (
-                      <Badge className="bg-gradient-to-r from-t1-500 to-t2-500 text-white border-0 shrink-0"><Sparkles className="h-3 w-3 mr-1" />You</Badge>
+                      <Badge className="bg-gradient-to-r from-t1-500 to-t2-500 text-white border-0 shrink-0"><Sparkles className="h-3 w-3 mr-1" />{t.you}</Badge>
                     )}
                   </div>
                 </div>
                 <p className="flex items-center gap-1.5 text-sm">
                   <TrendingUp className="h-3.5 w-3.5 text-t1-400 shrink-0" />
-                  <span className="text-gray-500">Value</span>
+                  <span className="text-gray-500">{t.value}</span>
                   <span className="font-mono font-bold text-white">{formatNumber(player.playerValue)}¢</span>
                 </p>
                 <p className="flex items-center gap-1.5 text-sm">
                   <Coins className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
-                  <span className="text-gray-500">Credits</span>
+                  <span className="text-gray-500">{t.credits}</span>
                   <span className="font-mono font-bold text-yellow-300">{formatNumber(player.credits ?? 0)}¢</span>
                 </p>
 
@@ -469,12 +470,12 @@ export default function PlayerProfilePage() {
                 <div className="flex items-center gap-1.5 flex-wrap pt-1">
                   <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-gray-300 bg-white/5 border-white/20">
                     {isNpc ? <CreditCard className="h-3 w-3" /> : <User className="h-3 w-3" />}
-                    {isNpc ? "NPC" : "Human"}
+                    {isNpc ? t.npc : t.human}
                   </span>
                   {(player.photoScore ?? 0) > 0 && (
                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border text-amber-300 bg-amber-500/10 border-amber-500/30">
                       <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      Score {formatNumber(player.photoScore)}
+                      {t.scoreCount.replace("{count}", formatNumber(player.photoScore))}
                     </span>
                   )}
                   {isOwnProfile && <ChangeProfessionDialog username={player.username} />}
@@ -490,20 +491,20 @@ export default function PlayerProfilePage() {
                 <div>
                   {bioEditing ? (
                     <div className="flex flex-col gap-2">
-                      <textarea className="w-full bg-gray-800/80 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-t1-400" rows={3} maxLength={BIO_MAX} value={bioDraft} onChange={(e) => setBioDraft(e.target.value)} placeholder="Write a short bio…" autoFocus />
+                      <textarea className="w-full bg-gray-800/80 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:border-t1-400" rows={3} maxLength={BIO_MAX} value={bioDraft} onChange={(e) => setBioDraft(e.target.value)} placeholder={t.bioPlaceholder} autoFocus />
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-[11px] ${bioDraft.length > BIO_MAX - 10 ? "text-orange-400" : "text-gray-500"}`}>{bioDraft.length}/{BIO_MAX}</span>
                         <div className="flex items-center gap-2">
-                          {bioCost > 0 && (<span className="text-[11px] text-amber-400 font-semibold">Costs {bioCost.toLocaleString()}¢</span>)}
-                          <button onClick={() => setBioEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"><X className="h-3 w-3" /> Cancel</button>
-                          <button onClick={() => bioMutation.mutate(bioDraft)} disabled={bioMutation.isPending} className="flex items-center gap-1 text-xs text-white bg-t1-600 hover:bg-t1-500 disabled:opacity-50 px-2 py-1 rounded transition-colors"><Check className="h-3 w-3" /> Save</button>
+                          {bioCost > 0 && (<span className="text-[11px] text-amber-400 font-semibold">{t.costsAmount.replace("{amount}", bioCost.toLocaleString())}</span>)}
+                          <button onClick={() => setBioEditing(false)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white px-2 py-1 rounded border border-white/10 hover:border-white/30 transition-colors"><X className="h-3 w-3" /> {t.cancel}</button>
+                          <button onClick={() => bioMutation.mutate(bioDraft)} disabled={bioMutation.isPending} className="flex items-center gap-1 text-xs text-white bg-t1-600 hover:bg-t1-500 disabled:opacity-50 px-2 py-1 rounded transition-colors"><Check className="h-3 w-3" /> {t.save}</button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-start gap-2 group/bio">
-                      {player.bio ? (<p className="text-sm text-gray-300 italic leading-snug flex-1">&ldquo;{player.bio}&rdquo;</p>) : (canEditBio && (<p className="text-xs text-gray-600 italic flex-1">No bio yet.</p>))}
-                      {canEditBio && (<button onClick={() => { setBioDraft(player.bio ?? ""); setBioEditing(true); }} className="shrink-0 opacity-0 group-hover/bio:opacity-100 transition-opacity text-gray-500 hover:text-t1-400 p-1 rounded" title={bioCost > 0 ? `Edit bio (${bioCost.toLocaleString()}¢)` : "Edit bio"}><Pencil className="h-3.5 w-3.5" /></button>)}
+                      {player.bio ? (<p className="text-sm text-gray-300 italic leading-snug flex-1">&ldquo;{player.bio}&rdquo;</p>) : (canEditBio && (<p className="text-xs text-gray-600 italic flex-1">{t.noBioYet}</p>))}
+                      {canEditBio && (<button onClick={() => { setBioDraft(player.bio ?? ""); setBioEditing(true); }} className="shrink-0 opacity-0 group-hover/bio:opacity-100 transition-opacity text-gray-500 hover:text-t1-400 p-1 rounded" title={bioCost > 0 ? t.editBioCost.replace("{amount}", bioCost.toLocaleString()) : t.editBio}><Pencil className="h-3.5 w-3.5" /></button>)}
                     </div>
                   )}
                 </div>
@@ -511,7 +512,7 @@ export default function PlayerProfilePage() {
                 <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{new Date(player.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}</span>
                   <span className="w-1 h-1 rounded-full bg-gray-600" />
-                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{player.lastOnlineAt ? formatLastOnline(player.lastOnlineAt) : "Never seen"}</span>
+                  <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{player.lastOnlineAt ? formatLastOnline(player.lastOnlineAt) : t.neverSeen}</span>
                   {showFullImageLink && (
                     <>
                       <span className="w-1 h-1 rounded-full bg-gray-600" />
@@ -522,7 +523,7 @@ export default function PlayerProfilePage() {
                         className="flex items-center gap-1 underline-offset-2 hover:text-t1-300 hover:underline"
                       >
                         <Eye className="h-3 w-3" />
-                        View full image
+                        {t.viewFullImage}
                       </a>
                     </>
                   )}
@@ -548,7 +549,7 @@ export default function PlayerProfilePage() {
                   <a
                     href={`/players/${profileOwner.username}`}
                     className="relative rounded-lg overflow-hidden w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 shrink-0 ring-2 ring-yellow-500/30 hover:ring-yellow-500/60 transition-all block"
-                    aria-label={`View ${profileOwner.username}'s profile`}
+                    aria-label={t.viewUserProfile.replace("{name}", cardDisplayName(profileOwner.username, locale))}
                   >
                     <Avatar className="w-full h-full rounded-lg">
                       <AvatarImage
@@ -565,18 +566,18 @@ export default function PlayerProfilePage() {
                     <div className="flex items-start gap-2 flex-wrap justify-end">
                       <h2 className="text-base sm:text-xl font-black text-white break-all leading-tight">
                         <a href={`/players/${profileOwner.username}`} className="hover:text-yellow-300 transition-colors">
-                          {profileOwner.username}
+                          {cardDisplayName(profileOwner.username, locale)}
                         </a>
                       </h2>
                       <Terminal className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
                     </div>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
-                      <span className="text-gray-500">Value</span>
+                      <span className="text-gray-500">{t.value}</span>
                       <span className="font-mono font-bold text-yellow-300">{formatNumber(profileOwner.playerValue)}¢</span>
                       <TrendingUp className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
                     </p>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
-                      <span className="font-semibold text-yellow-400/90">{isOwnProfile ? "Your Leader" : `${player.username}'s Leader`}</span>
+                      <span className="font-semibold text-yellow-400/90">{isOwnProfile ? t.yourLeader : t.playersLeader.replace("{name}", cardDisplayName(player.username, locale))}</span>
                       <Terminal className="h-3.5 w-3.5 text-yellow-400 shrink-0" />
                     </p>
                   </div>
@@ -587,9 +588,9 @@ export default function PlayerProfilePage() {
                     <Terminal className="h-6 w-6 text-gray-600" />
                   </div>
                   <div className="min-w-0 flex-1 space-y-1">
-                    <h2 className="text-sm font-black text-gray-500 leading-tight">No leader yet</h2>
+                    <h2 className="text-sm font-black text-gray-500 leading-tight">{t.noLeaderYet}</h2>
                     <p className="text-xs text-gray-600 leading-snug">
-                      When someone hires {isOwnProfile ? "you" : player.username}, they&apos;ll appear here.
+                      {t.leaderAppearWhen.replace("{name}", isOwnProfile ? t.youLower : cardDisplayName(player.username, locale))}
                     </p>
                   </div>
                 </>
@@ -610,7 +611,7 @@ export default function PlayerProfilePage() {
               isSelf={isOwnProfile}
             />
             {!alreadyOwns && (credits ?? 0) < player.playerValue && (
-              <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />Need {formatNumber(player.playerValue - (credits ?? 0))} more credits</div>
+              <div className="flex items-center gap-2 text-sm text-red-300"><span className="w-2 h-2 rounded-full bg-red-400" />{t.needMoreCredits.replace("{amount}", formatNumber(player.playerValue - (credits ?? 0)))}</div>
             )}
             {/* Admin-only hard-delete (self-renders null for non-admins). */}
             <AdminDeletePlayerButton
@@ -634,17 +635,17 @@ export default function PlayerProfilePage() {
             type="button"
             onClick={() => useComboDock.getState().setOpen(true)}
             className="flex items-center gap-3 rounded-xl border border-gray-800 bg-black/30 px-4 py-3 text-left hover:border-amber-500/40 hover:bg-amber-950/10 transition-colors min-w-0 lg:w-[340px] shrink-0"
-            aria-label="Open profession combo workbench"
+            aria-label={t.openComboWorkbench}
           >
             <Sparkles className="h-5 w-5 text-amber-300 shrink-0" />
             <span className="flex-1 min-w-0">
               <span className="flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm font-bold text-white uppercase tracking-wide">Combo</span>
+                <span className="text-sm font-bold text-white uppercase tracking-wide">{t.combo}</span>
                 <span className="font-mono font-bold tabular-nums text-amber-300">
                   {combo.isComplete && comboFirewallMsLeft > 0
-                    ? `firewalled · ${formatFirewallWait(comboFirewallMsLeft)}`
+                    ? t.comboFirewalled.replace("{time}", formatFirewallWait(comboFirewallMsLeft))
                     : combo.isComplete
-                      ? `${formatNumber(combo.reward)}¢ ready`
+                      ? t.comboReady.replace("{amount}", formatNumber(combo.reward))
                       : `${combo.selectedCount}/6`}
                 </span>
               </span>
@@ -687,7 +688,7 @@ export default function PlayerProfilePage() {
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <MessageCircle className="h-5 w-5 text-t1-400" />
-            Message {player.username}
+            {t.messagePlayer.replace("{name}", cardDisplayName(player.username, locale))}
           </h2>
           <ChatProvider>
             <div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}>
@@ -735,7 +736,7 @@ export default function PlayerProfilePage() {
               >
                 <span className="flex items-center gap-2 font-bold text-white">
                   <Wallet className="h-5 w-5 text-t1-400" />
-                  Your Rewards &amp; Income
+                  {t.yourRewardsIncome}
                 </span>
                 <span className="flex items-center gap-2">
                   <HourlyRewardCountdown />
@@ -762,9 +763,9 @@ export default function PlayerProfilePage() {
       {!inOnboarding && !isOwnProfile && player?.ownedPlayers?.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="h-5 w-5 text-t1-400" />{`${username}'s Team`}<span className="text-sm font-normal text-gray-400">({player.pagination?.total ?? player.ownedPlayers.length})</span></h2>
+            <h2 className="text-lg font-bold text-white flex items-center gap-2"><Users className="h-5 w-5 text-t1-400" />{t.playersTeam.replace("{name}", cardDisplayName(username, locale))}<span className="text-sm font-normal text-gray-400">({player.pagination?.total ?? player.ownedPlayers.length})</span></h2>
             <div className="flex items-center gap-2 ml-auto flex-wrap">
-              <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" /><Input placeholder="Search..." value={teamSearch} onChange={(e) => { setTeamSearch(e.target.value); setTeamPage(1); }} className="pl-8 h-8 w-36 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 text-sm" /></div>
+              <div className="relative"><Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" /><Input placeholder={t.searchDots} value={teamSearch} onChange={(e) => { setTeamSearch(e.target.value); setTeamPage(1); }} className="pl-8 h-8 w-36 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 text-sm" /></div>
             </div>
           </div>
           <SortBar
@@ -774,12 +775,12 @@ export default function PlayerProfilePage() {
             onToggleDir={() => { setTeamDir((d) => (d === "asc" ? "desc" : "asc")); setTeamPage(1); }}
           />
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500 mr-1">Filter:</span>
-            <FilterPill active={teamPlayerType === "human"} onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }} tone="amber"><User className="h-3 w-3" /> Human</FilterPill>
-            <FilterPill active={teamPlayerType === "card"} onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }} tone="amber"><CreditCard className="h-3 w-3" /> NPC</FilterPill>
+            <span className="text-xs text-gray-500 mr-1">{t.filterLabel}</span>
+            <FilterPill active={teamPlayerType === "human"} onClick={() => { setTeamPlayerType(teamPlayerType === "human" ? "" : "human"); setTeamPage(1); }} tone="amber"><User className="h-3 w-3" /> {t.human}</FilterPill>
+            <FilterPill active={teamPlayerType === "card"} onClick={() => { setTeamPlayerType(teamPlayerType === "card" ? "" : "card"); setTeamPage(1); }} tone="amber"><CreditCard className="h-3 w-3" /> {t.npc}</FilterPill>
             <span className="w-px h-4 bg-gray-700 mx-1" />
-            <FilterPill active={hasPlayersFilter} onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }} tone="amber"><Users className="h-3 w-3" /> Has Team</FilterPill>
-            <FilterPill active={noPartnerFilter} onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }} tone="amber"><Shield className="h-3 w-3" /> Available</FilterPill>
+            <FilterPill active={hasPlayersFilter} onClick={() => { setHasPlayersFilter(!hasPlayersFilter); setTeamPage(1); }} tone="amber"><Users className="h-3 w-3" /> {t.hasTeam}</FilterPill>
+            <FilterPill active={noPartnerFilter} onClick={() => { setNoPartnerFilter(!noPartnerFilter); setTeamPage(1); }} tone="amber"><Shield className="h-3 w-3" /> {t.available}</FilterPill>
           </div>
           <ProfessionFilterBar
             selected={teamProfession}
@@ -813,7 +814,7 @@ export default function PlayerProfilePage() {
           {gameUnlocked && <GlobalChatPage embedded />}
           {profileOwner && (
             <div className="space-y-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Terminal className="h-5 w-5 text-yellow-400" />My Leader<span className="text-sm font-normal text-gray-400">— {profileOwner.username}</span></h2>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2"><Terminal className="h-5 w-5 text-yellow-400" />{t.myLeader}<span className="text-sm font-normal text-gray-400">— {cardDisplayName(profileOwner.username, locale)}</span></h2>
               <div className="space-y-3 border border-gray-800 rounded-xl bg-gray-900/60 p-4">
                 <div className="flex justify-end gap-2 flex-wrap"><ResignButton ownershipId={profileOwner.ownershipId} ownerUsername={profileOwner.username} userCredits={player?.credits ?? 0} /></div>
                 <ChatProvider><div className="rounded-lg border border-gray-800 bg-gray-950/50 p-4" style={{ minHeight: "340px" }}><InlineDMChat targetId={profileOwner.id} targetUsername={profileOwner.username} targetAvatarUrl={`/api/avatar/${encodeURIComponent(profileOwner.username)}`} /></div></ChatProvider>
@@ -826,14 +827,14 @@ export default function PlayerProfilePage() {
             {session?.user?.name === "IgorCarlier" && (
               <button
                 onClick={() => {
-                  if (confirm("This will RESET THE ENTIRE GAME (test mode, no Hall of Fame entry). All ownership, credits, and progress will be wiped. Are you sure?")) {
+                  if (confirm(t.confirmTestReset)) {
                     testResetMutation.mutate();
                   }
                 }}
                 disabled={testResetMutation.isPending}
                 className="w-full rounded-lg border border-red-500/40 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 px-4 py-2.5 text-sm font-bold transition-colors disabled:opacity-50"
               >
-                {testResetMutation.isPending ? "Resetting World..." : "Test World Reset (No HoF)"}
+                {testResetMutation.isPending ? t.resettingWorld : t.testWorldReset}
               </button>
             )}
             <DeleteAccountButton playerValue={player.playerValue} ownerCount={player.ownerCount} ownedCount={player.ownedCount} />

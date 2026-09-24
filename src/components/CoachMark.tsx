@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 const PREFIX = "n38worth_coach_";
 
@@ -27,6 +28,7 @@ export function CoachMark({
 }) {
   const [show, setShow] = useState(false);
   const { play } = useSound();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!wasSeen(id)) setShow(true);
@@ -50,7 +52,7 @@ export function CoachMark({
       <button
         onClick={dismiss}
         className="shrink-0 p-0.5 rounded text-cyan-300 hover:text-white transition-colors"
-        aria-label="Dismiss tip"
+        aria-label={t.dismissTip}
       >
         <X className="h-3.5 w-3.5" />
       </button>
