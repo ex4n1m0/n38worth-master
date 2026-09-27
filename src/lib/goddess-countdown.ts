@@ -194,6 +194,26 @@ export async function isCountdownExpired(): Promise<boolean> {
 }
 
 /**
+ * True when the countdown window has EXPIRED but the win-processing cron
+ * (every 5 min) has not resolved it yet. In that gap getCountdownState()
+ * reports active:false (idle-shaped payload), which made the city's Root
+ * Sequence look aborted for up to one cron interval. Pure display hint (M1,
+ * 2026-09-27): the city UI holds its brink visuals while resolving=true
+ * instead of collapsing to idle. The client must NEVER infer this itself.
+ */
+export function isResolvingState(
+  state: CountdownState,
+  lastProcessedStart: number
+): boolean {
+  return (
+    state.userId !== 0 &&
+    state.startedAt !== 0 &&
+    state.remainingSeconds === 0 &&
+    state.startedAt !== lastProcessedStart
+  );
+}
+
+/**
  * Idempotency guard: returns the last countdown start epoch that has already
  * been processed to a win, or 0 if none.
  */

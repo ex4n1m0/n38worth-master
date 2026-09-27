@@ -534,6 +534,12 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
                 username: buyer.username,
                 userId: buyerId,
                 durationMinutes: countdownState.durationMinutes,
+                // M3 (2026-09-27): timing fields so clients can render the
+                // sequence straight from the event instead of refetching into
+                // a possibly-stale CDN copy. Grace-resume returns the ORIGINAL
+                // window here.
+                startedAt: countdownState.startedAt,
+                expiresAt: countdownState.expiresAt,
               });
             } catch (pusherError) {
               console.error("Pusher error on countdown start:", pusherError);

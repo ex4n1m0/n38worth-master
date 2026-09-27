@@ -1,0 +1,21 @@
+{
+  "navCity": "City",
+  "cityTitle": "Mainframe City",
+  "citySubtitle": "Every avatar you own stands as a building in your grid",
+  "cityStatBuildings": "Buildings",
+  "cityStatPortfolio": "Portfolio",
+  "cityStatSectors": "Sectors",
+  "cityStatGoddesses": "The Six",
+  "cityEmptyTitle": "Your city is empty",
+  "cityEmptyBody": "Hire avatars to construct your city — every hire raises a new building here.",
+  "cityLockedTitle": "Sector locked",
+  "cityLockedBody": "Mainframe City is not online in this simulation yet.",
+  "cityAggregatedMore": "+{count} more",
+  "cityUnassignedFamily": "Unassigned",
+  "cityBuildingAria": "{name}, stage {stage}, {value}",
+  "cityFirewall": "Firewall",
+  "cityHardLock": "Hard Lock",
+  "cityLoadError": "City failed to load. Please try again later.",
+  "cityBootSector": "Boot Sector",
+  "cityProfileVisitLink": "Visit Mainframe City"
+}

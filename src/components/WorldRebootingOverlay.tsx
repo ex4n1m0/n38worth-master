@@ -71,17 +71,24 @@ export function WorldRebootingOverlay() {
 
     const channel = pusher.subscribe("game-global");
 
-    channel.bind("world-rebooting", (data: { winnerUsername?: string }) => {
+    // game-global is SHARED (GoddessCountdown, city Root Sequence) —
+    // cleanup must unbind precisely, never unbind_all/unsubscribe, or this
+    // overlay's unmount would sever the other subscribers' handlers (and
+    // vice versa: their old unbind_all killed THIS overlay's reboot cue).
+    const onRebooting = (data: { winnerUsername?: string }) => {
       activate(data.winnerUsername);
-    });
+    };
 
-    channel.bind("game-won", (data: { winnerUsername?: string }) => {
+    const onWon = (data: { winnerUsername?: string }) => {
       if (data.winnerUsername) setWinnerName(data.winnerUsername);
-    });
+    };
+
+    channel.bind("world-rebooting", onRebooting);
+    channel.bind("game-won", onWon);
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe("game-global");
+      channel.unbind("world-rebooting", onRebooting);
+      channel.unbind("game-won", onWon);
     };
   }, []);
 

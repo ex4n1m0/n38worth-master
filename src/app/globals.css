@@ -1232,9 +1232,601 @@ button {
   animation: crt-flicker 7s linear infinite;
 }
 
+/* ── Mainframe City: one-shot building construct animation ──
+   Fires when a newly hired avatar's building mounts (Pusher-driven). The
+   tile grows in from the ground like a floor stack assembling (~400ms). */
+@keyframes city-construct {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scaleY(0.35);
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+  }
+}
+.city-construct {
+  transform-origin: bottom center;
+  animation: city-construct 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .city-construct {
+    animation: none !important;
+  }
   .glitch-in,
   .crt-flicker {
+    animation: none !important;
+  }
+}
+
+/* ── Mainframe City world (Phase B): canvas stage + DOM shell ──
+   The canvas itself is aria-hidden Pixi; everything user-facing here is
+   DOM (HUD buttons, inspector, queue, a11y mirror). Focus rings are always
+   visible (never removed), and every transition collapses under
+   prefers-reduced-motion. */
+.city-world-root {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1024px) {
+  .city-world-root {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    align-items: start;
+  }
+}
+
+.city-world-stage {
+  position: relative;
+  height: clamp(420px, 60vh, 720px);
+  overflow: hidden;
+  border: 1px solid rgb(31 41 55);
+  border-radius: 1rem;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, rgba(34, 211, 238, 0.06), transparent),
+    #05070d;
+}
+
+.city-world-canvas-host {
+  position: absolute;
+  inset: 0;
+  outline: none;
+}
+.city-world-canvas-host:focus-visible {
+  outline: 2px solid var(--t1-400);
+  outline-offset: -2px;
+}
+.city-world-canvas-host canvas {
+  display: block;
+  touch-action: none; /* CameraRig owns pointer gestures on the canvas */
+}
+
+.city-world-loading {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 40%;
+  height: 12px;
+  border-radius: 9999px;
+  background: rgba(31, 41, 55, 0.8);
+  animation: city-world-pulse 1.2s ease-in-out infinite;
+}
+@keyframes city-world-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* HUD overlay (top-left cluster + place-mode status bar) */
+.city-world-hud {
+  position: absolute;
+  inset-inline: 0;
+  top: 0.625rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-inline: 0.625rem;
+  pointer-events: none;
+}
+.city-world-hud-cluster,
+.city-world-place-status {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(31 41 55);
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.city-world-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(55 65 81);
+  color: rgb(209 213 219);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+.city-world-btn:hover:not(:disabled) {
+  border-color: rgb(107 114 128);
+  color: white;
+  background: rgba(31, 41, 55, 0.4);
+}
+.city-world-btn:focus-visible {
+  outline: 2px solid var(--t1-400);
+  outline-offset: 2px;
+}
+.city-world-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.city-world-btn-active {
+  border-color: rgb(245 158 11);
+  color: rgb(252 211 77);
+  background: rgba(120, 53, 15, 0.25);
+}
+.city-world-btn-primary {
+  border-color: rgb(34 211 238);
+  color: rgb(165 243 252);
+}
+.city-world-btn-primary:hover:not(:disabled) {
+  background: rgba(8, 51, 68, 0.45);
+}
+
+.city-world-sector-chip {
+  padding-inline: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(161 161 170);
+  white-space: nowrap;
+}
+
+/* Locked-sector threshold line (Phase D) — under the HUD cluster */
+.city-world-sector-locked {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  max-width: min(20rem, 90%);
+  padding: 0.375rem 0.625rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(120, 53, 15);
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(6px);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: rgb(252 211 77); /* amber-300 on dark — contrast-safe */
+}
+
+/* Root Sequence status chip (Phase E) — top-center under the HUD, above
+ * the world summary. Phase-tinted (stir sky / surge violet / brink rose);
+ * the foreign variant stays quiet (rival intel, not an alert). */
+.city-root-chip {
+  position: absolute;
+  top: 3.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(55 65 81);
+  background: rgba(3, 7, 18, 0.88);
+  backdrop-filter: blur(6px);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  pointer-events: none; /* display-only status */
+  z-index: 3;
+}
+.city-root-chip-title {
+  text-transform: uppercase;
+  color: rgb(226 232 240);
+}
+.city-root-chip-phase {
+  color: rgb(148 163 184);
+}
+.city-root-chip-time {
+  font-variant-numeric: tabular-nums;
+  color: white;
+}
+.city-root-chip-stir {
+  border-color: rgb(14 116 144);
+}
+.city-root-chip-stir .city-root-chip-phase {
+  color: rgb(103 232 249);
+}
+.city-root-chip-surge {
+  border-color: rgb(109 40 217);
+}
+.city-root-chip-surge .city-root-chip-phase {
+  color: rgb(196 181 253);
+}
+.city-root-chip-brink {
+  border-color: rgb(190 18 60);
+}
+.city-root-chip-brink .city-root-chip-phase {
+  color: rgb(253 164 175);
+}
+.city-root-chip-foreign {
+  top: 0.625rem;
+  left: auto;
+  right: 0.625rem;
+  transform: none;
+  color: rgb(161 161 170);
+  letter-spacing: 0.02em;
+}
+
+/* The Six landmarks panel (Phase E) — side column sibling of the district
+ * panel; rows double as the landmark a11y bridge (canvas is aria-hidden). */
+.city-world-landmarks {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(31 41 55);
+  background: rgba(3, 7, 18, 0.85);
+}
+.city-landmark-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.375rem;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+}
+.city-landmark-row-btn:hover {
+  background: rgba(31, 41, 55, 0.4);
+}
+.city-landmark-row-btn:focus-visible {
+  outline: 2px solid var(--t1-400);
+  outline-offset: 1px;
+}
+.city-landmark-row-btn-selected {
+  border-color: rgb(34 211 238);
+  background: rgba(8, 51, 68, 0.35);
+}
+.city-landmark-dot-dormant {
+  background-color: rgb(30 41 59);
+}
+.city-landmark-detail {
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(31 41 55);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+/* World-LOD summary overlay (Phase D) — bottom-right, display-only.
+ * Flex column + max-height: the title and BUILDINGS/PORTFOLIO totals stay
+ * pinned; only the family list can scroll (short mobile canvases). */
+.city-world-summary {
+  position: absolute;
+  right: 0.625rem;
+  bottom: 0.625rem;
+  width: min(15rem, 60%);
+  max-height: calc(100% - 1.25rem);
+  display: flex;
+  flex-direction: column;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(31 41 55);
+  background: rgba(3, 7, 18, 0.85);
+  backdrop-filter: blur(6px);
+  pointer-events: none; /* display-only — camera gestures pass through */
+}
+.city-world-summary-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgb(161 161 170);
+  margin-bottom: 0.375rem;
+  flex-shrink: 0;
+}
+.city-world-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* The panel is gesture-transparent, but the list itself must be scrollable
+   * when a locale/nested viewport overflows it — pan-y only. */
+  pointer-events: auto;
+  touch-action: pan-y;
+}
+.city-world-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(209 213 219);
+}
+/* Compact two-column family grid. On small viewports the panel moves to a
+ * top-anchored card below the HUD row: the stage is ≥420px tall and starts
+ * ~250px down the page, so a bottom-anchored panel sits below the initial
+ * viewport fold and the totals were only reachable after page scroll. */
+@media (max-width: 640px) {
+  .city-world-summary {
+    top: 3.25rem; /* clear the HUD button row */
+    right: 0.625rem;
+    left: 0.625rem;
+    bottom: auto;
+    width: auto;
+    max-height: none;
+    padding: 0.5rem 0.625rem;
+  }
+  .city-world-summary-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.1875rem 0.625rem;
+    overflow: visible;
+    pointer-events: none; /* fits by construction — gestures pass through */
+    touch-action: auto;
+  }
+  .city-world-summary-row {
+    font-size: 0.625rem;
+  }
+}
+.city-world-summary-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid rgb(31 41 55);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgb(161 161 170);
+}
+.city-world-summary-total span:last-child {
+  color: rgb(229 231 235);
+}
+
+/* Place-mode status (PREVIEW predicate verdict — server re-validates) */
+.city-world-place-status {
+  flex-wrap: wrap;
+  padding-inline: 0.625rem;
+}
+.city-world-place-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: #22d3ee;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+  flex-shrink: 0;
+}
+.city-world-place-dot-invalid {
+  background: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+}
+.city-world-place-text {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(229 231 235);
+}
+.city-world-place-hint {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(148 163 184); /* gray-400 — Phase B polish (b): contrast bump */
+}
+
+/* Inspector panel (bottom-left over the canvas) */
+.city-world-inspector {
+  position: absolute;
+  left: 0.625rem;
+  bottom: 0.625rem;
+  width: min(280px, calc(100% - 1.25rem));
+  border-radius: 0.75rem;
+  border: 1px solid rgb(31 41 55);
+  background: rgba(3, 7, 18, 0.92);
+  backdrop-filter: blur(6px);
+  padding: 0.625rem 0.75rem;
+}
+/* Phase B polish (f): dismissible bottom sheet on narrow viewports so the
+   inspector never blankets the world. The close button (always rendered)
+   dismisses it; max-height + scroll keeps the map visible above it. */
+@media (max-width: 640px) {
+  .city-world-inspector {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 45%;
+    overflow-y: auto;
+    border-radius: 0.75rem 0.75rem 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-top: 2px solid rgb(34, 211, 238);
+    padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+.city-world-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(34 211 238);
+  border-radius: 0.375rem;
+}
+.city-world-link:hover {
+  text-decoration: underline;
+}
+.city-world-link:focus-visible {
+  outline: 2px solid var(--t1-400);
+  outline-offset: 2px;
+}
+
+/* District panel (Phase C): per-profession presence + combo entry */
+.city-world-district {
+  border: 1px solid rgb(31 41 55);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.625rem;
+}
+.city-world-district-complete {
+  border-color: rgba(245, 158, 11, 0.55);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.12) inset;
+}
+.city-world-district header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+.city-world-district-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+.city-world-district-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.1875rem 0.25rem;
+}
+.city-world-district-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  flex-shrink: 0;
+}
+.city-world-district-complete-box {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px dashed rgba(245, 158, 11, 0.5);
+  background: rgba(120, 53, 15, 0.12);
+}
+
+/* Side column: queue + a11y mirror */
+.city-world-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.city-world-queue,
+.city-world-mirror {
+  border: 1px solid rgb(31 41 55);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 0.625rem;
+}
+.city-world-queue header,
+.city-world-mirror header {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
+}
+.city-world-queue-list,
+.city-world-mirror-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.city-world-queue-row,
+.city-world-mirror-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.4375rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.city-world-queue-row {
+  background: rgba(255, 255, 255, 0.02);
+}
+.city-world-queue-row:hover:not(:disabled),
+.city-world-mirror-row:hover {
+  border-color: rgb(55 65 81);
+  background: rgba(31, 41, 55, 0.35);
+}
+.city-world-queue-row:focus-visible,
+.city-world-mirror-row:focus-visible {
+  outline: 2px solid var(--t1-400);
+  outline-offset: 1px;
+}
+.city-world-queue-row:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.city-world-queue-row-active {
+  border-color: rgb(34 211 238);
+  background: rgba(8, 51, 68, 0.35);
+}
+.city-world-mirror-aggregate {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.4375rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px dashed rgb(55 65 81);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+/* District-overview fallback (SceneErrorBoundary / context-lost ladder) */
+.city-world-fallback {
+  padding: 0.75rem;
+  height: 100%;
+  overflow-y: auto;
+}
+.city-world-fallback-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgb(69, 26, 3);
+  background: rgba(120, 53, 15, 0.18);
+  color: rgb(252 211 77);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .city-world-btn,
+  .city-world-queue-row,
+  .city-world-mirror-row,
+  .city-world-loading {
+    transition: none !important;
     animation: none !important;
   }
 }

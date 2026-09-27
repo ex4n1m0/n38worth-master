@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { getCountdownState } from "@/lib/goddess-countdown";
+import {
+  getCountdownState,
+  getLastProcessedCountdownStart,
+  isResolvingState,
+} from "@/lib/goddess-countdown";
 
 // Public global state, polled every 15s by many clients — cache at the CDN so
 // a single function invocation serves all viewers within the window.
@@ -11,6 +15,13 @@ const CACHE_HEADERS = { "Cache-Control": "public, s-maxage=10, stale-while-reval
 export async function GET() {
   try {
     const state = await getCountdownState();
+    // Expired-but-unprocessed window: the payload is idle-shaped, but the
+    // win/cancel resolution is still pending (M1). s-maxage=10 keeps this
+    // time-dependent field fresh enough.
+    const resolving = isResolvingState(
+      state,
+      await getLastProcessedCountdownStart()
+    );
 
     if (!state.active || state.userId === 0) {
       return NextResponse.json({
@@ -21,6 +32,7 @@ export async function GET() {
         expiresAt: 0,
         remainingSeconds: 0,
         durationMinutes: state.durationMinutes,
+        resolving,
       }, { headers: CACHE_HEADERS });
     }
 
@@ -38,6 +50,7 @@ export async function GET() {
       expiresAt: state.expiresAt,
       remainingSeconds: state.remainingSeconds,
       durationMinutes: state.durationMinutes,
+      resolving, // always false while active (remaining > 0)
     }, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error("Goddess countdown fetch error:", error);

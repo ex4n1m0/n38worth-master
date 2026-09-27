@@ -69,6 +69,7 @@ import { useProfessionComboSelection, useComboFirewallMsLeft } from "@/hooks/use
 import { useComboDock } from "@/components/ComboDock";
 import { formatFirewallWait } from "@/components/ProfessionComboBar";
 import { formatNumber, formatLastOnline } from "@/lib/utils";
+import { VisitCityLink } from "@/components/city/VisitCityLink";
 
 // Code-split heavy components that are only needed on the profile page.
 // These load lazily after the initial render, reducing the initial bundle.
@@ -570,6 +571,7 @@ export default function PlayerProfilePage() {
                         </a>
                       </h2>
                       <Terminal className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5 drop-shadow-[0_0_8px_rgba(250,204,21,0.7)]" />
+                      <VisitCityLink username={profileOwner.username} />
                     </div>
                     <p className="flex items-center gap-1.5 text-sm justify-end">
                       <span className="text-gray-500">{t.value}</span>

@@ -600,6 +600,9 @@ export async function buyPlayerCore(
                 username: buyer.username,
                 userId: buyerId,
                 durationMinutes: countdownState.durationMinutes,
+                // M3 (2026-09-27): render-from-event timing (see purchasePlayer).
+                startedAt: countdownState.startedAt,
+                expiresAt: countdownState.expiresAt,
               });
             } catch (pusherError) {
               console.error("Pusher error on countdown start:", pusherError);

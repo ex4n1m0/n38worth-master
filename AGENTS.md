@@ -176,10 +176,11 @@ and Pusher events were NOT renamed. Keep these rules:
   (routes still exist but nothing invokes them). The only remaining
   `createRandomPlayer` call site is the combo-sale NPC respawn in
   `comboCore.ts` (player-triggered, kept for game economy).
-- **Cron cadences were slowed** to minimize invocations: fate-seal */30,
-  goddess-countdown */30, offline-penalty */30,
-  refill-onboarding-pool every 3h, default-avatar hourly,
-  delete-demo-players hourly, boss-tax every 2h. Ownership-limit and agent
+- **Cron cadences** (verify against vercel.json before relying on this list):
+  portfolio-reward 0,30 * * * *; offline-penalty */30; leaderboard-prizes
+  hourly; rank-bonus hourly; rank-snapshot */10; goddess-countdown */5;
+  fate-seal */5; refill-onboarding-pool every 3h; default-avatar hourly;
+  delete-demo-players hourly; boss-tax every 2h. Ownership-limit and agent
   crons removed. Don't tighten these without the user's approval —
   billing reduction is a priority.
 - **Middleware matcher narrowed** in `src/proxy.ts` so `auth()` only runs on
@@ -210,3 +211,33 @@ and Pusher events were NOT renamed. Keep these rules:
   no `agent-typing` Pusher event is emitted, and no AI player ever speaks.
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
+
+## Mainframe City building layer (planned 2026-09)
+The city is a DERIVED visual projection of the existing economy — never a
+second economy, currency, or simulation. Invariants (enforced by
+n38worth-game-systems review):
+- Owned avatar = building/module. Hire constructs; loss/poach removes;
+  restore reconstructs. Building stage derives from current value relative
+  to value_floor; the server computes it, the client only renders it.
+- Firewall / hard-lock authority stays in blockSellUntil / permBlockUntil
+  timestamps; the city layer only adds protection VISUALS.
+- Professions set building families; owning all six professions completes a
+  district (combo state stays in existing profession logic — do not fork it).
+- Existing ownership milestones (missionLevel) unlock sectors; the six
+  goddess cards are landmarks; holding all six drives the Root Sequence
+  countdown VISUAL (goddess-countdown.ts stays authoritative).
+- Credits remain the only currency. NO construction timers, roads,
+  utilities, citizens, crafting, building damage, or game engines in the MVP
+  — CSS/SVG/WebP and restrained transitions only.
+- Data comes from a read-only derived projection (e.g. /api/city/[username])
+  computed from existing ownership/value/profession/milestone/protection/
+  goddess state; prefer additive endpoints over economy-table changes, and
+  never duplicate economy formulas in UI components.
+- Rendering stays bounded: aggregate ordinary avatars beyond the
+  detailed-display limit, lazy-load heavy avatar media, support keyboard
+  interaction and prefers-reduced-motion.
+- Economy-touching city work follows: map paths → state invariants → review
+  by n38worth-game-systems (formulas/milestones/goddesses) and
+  security-reviewer (auth/ownership/races) → image-analyst for major UI
+  states. Tests before economy-logic changes (framework TBD — the repo
+  currently has none).

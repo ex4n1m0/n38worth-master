@@ -223,6 +223,9 @@ async function maybeStartGoddessCountdown(buyerId: number, buyerUsername: string
             username: buyerUsername,
             userId: buyerId,
             durationMinutes: state.durationMinutes,
+            // M3 (2026-09-27): render-from-event timing (see purchasePlayer).
+            startedAt: state.startedAt,
+            expiresAt: state.expiresAt,
           });
         } catch (e) {
           console.error("Mission countdown pusher error:", e);

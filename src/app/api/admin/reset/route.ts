@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { isAdminUser } from "@/lib/admins";
 import { db } from "@/db";
 import { users, ownership, transactions, messages } from "@/db/schema";
 import { sql } from "drizzle-orm";
 
+// TH-00 hotfix (2026-09-26): this route previously had NO auth gate — an
+// unauthenticated POST wiped the whole game. Admin-only now, per the
+// code-allowlist in src/lib/admins.ts.
 export async function POST() {
+  const session = await auth();
+  if (!isAdminUser(session?.user?.name)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     // Delete in order due to foreign key constraints
     // Skip protected users (e.g., goddesses)

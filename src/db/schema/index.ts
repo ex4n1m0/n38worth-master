@@ -10,4 +10,5 @@ export { hallOfFame } from "./hallOfFame";
 export { rewardHistory } from "./rewardHistory";
 export { avatarReveals } from "./avatarReveals";
 export { userRankSnapshots } from "./userRankSnapshots";
+export { cityLayout, cityLayoutMeta } from "./cityLayout";
 export { analyticsEvents } from "./analyticsEvents";

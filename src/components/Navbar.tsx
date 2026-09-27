@@ -33,6 +33,7 @@ import {
   LogOut,
   Search,
   History,
+  Building2,
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { usePoachStore } from "@/hooks/usePoachEffect";
@@ -42,9 +43,11 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useSound, useSoundSettings } from "@/hooks/useSound";
 import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
+import { useCityEnabled } from "@/hooks/useCityEnabled";
 
 const mainNavLinks = [
   { href: "/my-profile", icon: Users },
+  { href: "/city", icon: Building2 },
   { href: "/leaderboard", icon: Search },
 ];
 
@@ -57,7 +60,9 @@ export function Navbar() {
   useEffect(() => { setTheme("green"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { t } = useLanguage();
   const navLabel = (href: string) =>
-    href === "/my-profile" ? t.navHome : t.navAvatars;
+    href === "/my-profile" ? t.navHome : href === "/city" ? t.navCity : t.navAvatars;
+  // Mainframe City entry shows only while the feature flag is on.
+  const { cityEnabled } = useCityEnabled();
   const { play } = useSound();
   const muted = useSoundSettings((s) => s.muted);
   const toggleMuted = useSoundSettings((s) => s.toggleMuted);
@@ -113,9 +118,13 @@ export function Navbar() {
   // Filter nav links based on onboarding state.
   // - During onboarding: only Home is visible.
   // - After onboarding: all links.
+  // - /city additionally requires the city feature flag (useCityEnabled).
   const getVisibleLinks = () => {
-    if (!onboarding.onboardingComplete) return mainNavLinks.filter((l) => l.href === "/my-profile");
-    return mainNavLinks;
+    const links = cityEnabled
+      ? mainNavLinks
+      : mainNavLinks.filter((l) => l.href !== "/city");
+    if (!onboarding.onboardingComplete) return links.filter((l) => l.href === "/my-profile");
+    return links;
   };
 
   const allVisibleLinks = getVisibleLinks();
@@ -136,7 +145,7 @@ export function Navbar() {
     if (onboardingLoading) return;
     const allowedPaths = allVisibleLinks.map((l) => l.href);
     const isCurrentPathAllowed = allowedPaths.some(
-      (p) => pathname === p || pathname.startsWith("/players/") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
+      (p) => pathname === p || pathname.startsWith("/players/") || pathname.startsWith("/city") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
     );
     if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/history")) {
       // During onboarding (avatar OR starter-NPC step) the only legitimate
@@ -268,7 +277,7 @@ export function Navbar() {
                 {creditsLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin text-t1-400" />
                 ) : (
-                  <span className={`font-mono font-bold text-t1-400 tabular-nums truncate min-w-0 ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.8rem, 1.3vw, 1.1rem)" }}>
+                  <span className={`font-mono font-bold text-t1-400 tabular-nums truncate min-w-[3.25rem] ${creditsBump ? "credits-bump" : ""}`} style={{ fontSize: "clamp(0.75rem, 1.3vw, 1.1rem)" }}>
                     {formatCompact(credits ?? 0)}¢
                   </span>
                 )}

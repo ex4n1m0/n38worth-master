@@ -435,6 +435,10 @@ function PlayerCardImpl({
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        // Overclock doubles the card's value → its building tier bumps.
+        // The city query is what redraws it (Explore finding: previously no
+        // ["city"] invalidation fired for the owner).
+        queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
       ]);
     },
   });

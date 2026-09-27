@@ -13,6 +13,7 @@ const PROTECTED_ROUTES = [
   "/ranks",
   "/history",
   "/transactions",
+  "/city",
 ];
 
 // Routes that require a completed avatar (profile photo uploaded)
@@ -91,6 +92,7 @@ export const config = {
     "/ranks/:path*",
     "/history/:path*",
     "/transactions/:path*",
+    "/city/:path*",
     "/login",
     "/register",
   ],

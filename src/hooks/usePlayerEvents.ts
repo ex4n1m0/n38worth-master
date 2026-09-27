@@ -96,6 +96,8 @@ export function usePlayerEvents(userId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ["missions"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["ownership-limit"], refetchType: "active" });
       queryClient.invalidateQueries({ queryKey: ["boss-income-estimate"], refetchType: "active" });
+      // Mainframe City: hires/losses construct/remove buildings live.
+      queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" });
       if (data.type === "discard") {
         play("sell");
         toast.info(t.eventDiscardedYou.replace("{initiator}", data.initiator));

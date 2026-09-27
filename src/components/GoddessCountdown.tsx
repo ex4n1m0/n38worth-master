@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Cpu, Timer, Zap, Sparkles } from "lucide-react";
 import { getPusherClient } from "@/lib/pusher-client";
 import { toast } from "@/lib/event-feed";
 import { playSound } from "@/hooks/useSound";
 import { useLanguage } from "@/components/LanguageContext";
+import { useNow } from "@/hooks/useNow";
 
 interface CountdownData {
   active: boolean;
@@ -21,7 +22,6 @@ interface CountdownData {
 export function GoddessCountdown() {
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const [localRemaining, setLocalRemaining] = useState<number | null>(null);
 
   const { data: countdown } = useQuery<CountdownData>({
     queryKey: ["goddess-countdown"],
@@ -30,32 +30,19 @@ export function GoddessCountdown() {
       if (!res.ok) return { active: false, userId: 0, username: null, startedAt: 0, expiresAt: 0, remainingSeconds: 0, durationMinutes: 60 };
       return res.json();
     },
-    refetchInterval: 60000, // Poll every 60 seconds (local 1s ticker keeps the countdown smooth)
+    refetchInterval: 60000, // Poll every 60 seconds (the shared 1s clock keeps the display smooth)
     staleTime: 5000,
   });
 
-  // Sync local timer with server data
-  useEffect(() => {
-    if (countdown?.active && countdown.remainingSeconds > 0) {
-      setLocalRemaining(countdown.remainingSeconds);
-    } else if (!countdown?.active) {
-      setLocalRemaining(null);
-    }
-  }, [countdown]);
-
-  // Client-side countdown tick
-  useEffect(() => {
-    if (localRemaining === null || localRemaining <= 0) return;
-
-    const timer = setInterval(() => {
-      setLocalRemaining((prev) => {
-        if (prev === null || prev <= 1) return 0;
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [localRemaining]);
+  // L2 (Phase E review): derive the remaining time from the server's
+  // expiresAt through the SHARED useNow() clock — no private setInterval
+  // (repo rule; also matches how the city Root Sequence HUD derives it, so
+  // the two displays can't disagree). Stays accurate between polls.
+  const nowSec = Math.floor(useNow() / 1000);
+  const localRemaining =
+    countdown?.active && countdown.expiresAt > 0
+      ? Math.max(0, countdown.expiresAt - nowSec)
+      : null;
 
   // Listen for Pusher events
   useEffect(() => {
@@ -64,7 +51,10 @@ export function GoddessCountdown() {
 
     const channel = pusher.subscribe("game-global");
 
-    channel.bind("countdown-started", (data: { username: string; userId: number; durationMinutes: number }) => {
+    // game-global is SHARED (WorldRebootingOverlay, city Root Sequence) —
+    // cleanup must unbind precisely, never unbind_all/unsubscribe, or this
+    // component's unmount would sever the other subscribers' handlers.
+    const onStarted = (data: { username: string; userId: number; durationMinutes: number }) => {
       playSound("reveal");
       toast.info(t.goddessCountdownStartedInfo.replace("{name}", data.username), {
         description: t.goddessCountdownStartedInfoDesc.replace(
@@ -74,29 +64,32 @@ export function GoddessCountdown() {
         duration: 15000,
       });
       queryClient.invalidateQueries({ queryKey: ["goddess-countdown"] });
-    });
+    };
 
-    channel.bind("countdown-cancelled", () => {
+    const onCancelled = () => {
       playSound("sell");
       toast.success(t.goddessCountdownCancelledToast, {
         description: t.goddessCountdownCancelledToastDesc,
         duration: 10000,
       });
-      setLocalRemaining(null);
       queryClient.invalidateQueries({ queryKey: ["goddess-countdown"] });
-    });
+    };
 
-    channel.bind("game-won", (data: { winnerUsername: string }) => {
+    const onWon = () => {
       // The WorldRebootingOverlay handles the full-screen reboot experience.
       // We just clear the countdown state here — no toast (the overlay is
       // already showing the "World is Rebooting" message).
-      setLocalRemaining(null);
       queryClient.invalidateQueries();
-    });
+    };
+
+    channel.bind("countdown-started", onStarted);
+    channel.bind("countdown-cancelled", onCancelled);
+    channel.bind("game-won", onWon);
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe("game-global");
+      channel.unbind("countdown-started", onStarted);
+      channel.unbind("countdown-cancelled", onCancelled);
+      channel.unbind("game-won", onWon);
     };
   }, [queryClient, t]);
 

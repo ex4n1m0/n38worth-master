@@ -57,6 +57,8 @@ export function normalizeLocale(tag: string | null | undefined): Locale | null {
 // mirror them key-for-key (the TranslationKeys type enforces completeness).
 import enActionButtons from "./i18n-keys/en/action-buttons.json";
 import enChatHistory from "./i18n-keys/en/chat-history.json";
+import enCity from "./i18n-keys/en/city.json";
+import enCityWorld from "./i18n-keys/en/city-world.json";
 import enLeaderboardRanks from "./i18n-keys/en/leaderboard-ranks.json";
 import enMarketCards from "./i18n-keys/en/market-cards.json";
 import enMiscMeta from "./i18n-keys/en/misc-meta.json";
@@ -65,6 +67,8 @@ import enOwnershipHome from "./i18n-keys/en/ownership-home.json";
 import enSettingsOnboarding from "./i18n-keys/en/settings-onboarding.json";
 import zhActionButtons from "./i18n-keys/zh/action-buttons.json";
 import zhChatHistory from "./i18n-keys/zh/chat-history.json";
+import zhCity from "./i18n-keys/zh/city.json";
+import zhCityWorld from "./i18n-keys/zh/city-world.json";
 import zhLeaderboardRanks from "./i18n-keys/zh/leaderboard-ranks.json";
 import zhMarketCards from "./i18n-keys/zh/market-cards.json";
 import zhMiscMeta from "./i18n-keys/zh/misc-meta.json";
@@ -110,6 +114,7 @@ const en = {
   kinLabel: "From the same maker",
   kinDeepfluxDesc: "— the AI-native media & download suite",
   kinOnlyhumansDesc: "— every word is a room",
+  kinRemoteDesc: "— peer-to-peer remote desktop",
   landingCountdownPrefix: "{name} is",
   landingCountdownSuffix: "away from rooting the mainframe",
   howToPlay: "How to Play",
@@ -314,6 +319,8 @@ const en = {
   // Sweep fragments (see imports above).
   ...enActionButtons,
   ...enChatHistory,
+  ...enCity,
+  ...enCityWorld,
   ...enLeaderboardRanks,
   ...enMarketCards,
   ...enMiscMeta,
@@ -362,6 +369,7 @@ const zh: TranslationKeys = {
   kinLabel: "出自同一作者",
   kinDeepfluxDesc: "—— AI 原生的媒体与下载套件",
   kinOnlyhumansDesc: "—— 每个词都是一个房间",
+  kinRemoteDesc: "—— 点对点远程桌面",
   landingCountdownPrefix: "{name} 距离攻占主机还剩",
   landingCountdownSuffix: "",
   howToPlay: "游戏玩法",
@@ -566,6 +574,8 @@ const zh: TranslationKeys = {
   // Sweep fragments (see imports above).
   ...zhActionButtons,
   ...zhChatHistory,
+  ...zhCity,
+  ...zhCityWorld,
   ...zhLeaderboardRanks,
   ...zhMarketCards,
   ...zhMiscMeta,

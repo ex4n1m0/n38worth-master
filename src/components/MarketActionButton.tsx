@@ -76,6 +76,9 @@ export function MarketActionButton({
       queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       queryClient.invalidateQueries({ queryKey: ["missions"] }),
       queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
+      // Overclock doubles the card's value → its building tier bumps.
+      // The city query is what redraws it for the owner.
+      queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
     ]);
 
   const buyMutation = useMutation({

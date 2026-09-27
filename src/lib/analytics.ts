@@ -12,7 +12,7 @@ import { analyticsEvents } from "@/db/schema";
 import { cleanUtmValue, utmCookieName, UTM_FIELDS, type UtmField } from "@/lib/utm";
 
 export type AnalyticsEvent = {
-  type: "visit" | "signup";
+  type: "visit" | "signup" | "city-visit";
   path?: string | null;
   referrerDomain?: string | null;
   utmSource?: string | null;
@@ -76,5 +76,23 @@ export async function recordSignup(username: string): Promise<void> {
     type: "signup",
     username: username.slice(0, 64),
     ...(await utmFromCookies()),
+  });
+}
+
+/**
+ * Record a Mainframe City public visit (Phase F): which player's city was
+ * viewed and from which path. Called from /api/analytics/city-visit
+ * (fire-and-forget client beacon on the public city page). No UTM capture —
+ * this is product telemetry, not acquisition attribution, so it never mixes
+ * with the landing "visit" rows that feed the channel dashboards.
+ */
+export async function recordCityVisit(
+  username: string,
+  path: string | null
+): Promise<void> {
+  await insertEvent({
+    type: "city-visit",
+    username: username.slice(0, 64),
+    path: path ? path.slice(0, 128) : null,
   });
 }
