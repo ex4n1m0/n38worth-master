@@ -63,5 +63,10 @@
   "cityStealHardLockNote": "Hard locked — cannot be hired",
   "stolenToast": "Stole {name} for {value}¢",
   "cityInspectorSatelliteOf": "Satellite of",
-  "cityInspectorForeignCity": "{name}'s city"
+  "cityInspectorForeignCity": "{name}'s city",
+  "cityUniverseChip": "Universe · {count} cities · your rank #{rank}",
+  "cityUniverseChipUnranked": "Universe · {count} cities",
+  "cityUniverseVisit": "View city",
+  "cityUniverseSummaryLabel": "Shared universe",
+  "cityUniverseSelected": "{name}'s city"
 }

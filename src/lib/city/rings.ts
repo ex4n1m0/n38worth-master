@@ -25,11 +25,13 @@ import {
 } from "@/lib/city/scene/iso";
 
 /**
- * First ring ordinary buildings may occupy. The landmark ring's farthest
- * monument sits at Chebyshev radius 6 from the HQ, so buildings start one
- * ring further out — the core plaza (HQ + monuments + moat) stays clear.
+ * First ring ordinary buildings may occupy. The landmark hexagon's farthest
+ * monument sits at Chebyshev radius 3 from the HQ and its moat reaches 4, so
+ * buildings start one ring further out — the core plaza (HQ + monuments +
+ * moat) stays clear while the goddess ring hugs the core (2026-09-28 user
+ * ruling: less empty space between the core and the Six).
  */
-export const ORBIT_START_RING = 7;
+export const ORBIT_START_RING = 5;
 
 /** The orbit center: the HQ core tile (sector 0 center) in global tiles. */
 export function hqGlobalTile(gridSize: number = GRID_SIZE): Point {

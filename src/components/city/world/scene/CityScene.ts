@@ -49,9 +49,9 @@ import {
 } from "@/lib/city/scene/motion";
 import { clampCamera, ZOOM_MIN, type CameraState } from "@/lib/city/scene/camera";
 import { visibleWorldRect } from "@/lib/city/scene/culling";
-import { pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
-import { unionBounds } from "@/lib/city/satellites";
+import { TILE_W, pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
 import { rankArrangeTiles, type TileRef } from "@/lib/city/placement";
+import type { UniversePayload } from "@/lib/city/universe";
 import {
   districtRepresentatives,
   districtsFromFamilies,
@@ -62,7 +62,6 @@ import {
   HQ_TILE,
   IsoWorld,
   LANDMARK_RING_SPAN_PX,
-  landmarkIndexOfTile,
   landmarkTile,
   worldPointOfTile,
 } from "./IsoWorld";
@@ -73,6 +72,7 @@ import { RootSequenceLayer, ROOT_PHASE_COLORS } from "./RootSequenceLayer";
 import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
 import { SatelliteLayer } from "./SatelliteLayer";
+import { UniverseLayer } from "./UniverseLayer";
 import { mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
@@ -132,7 +132,8 @@ const CITY_BLOOM_ENV = process.env.NEXT_PUBLIC_CITY_BLOOM !== "off";
  * camera (infinite-distance backdrop). A sparse seeded STARFIELD is baked
  * into the same texture (study §Track D): zero runtime cost, and it sits
  * behind fxRoot so stars never bloom — the backdrop stays calm while the
- * city glows.
+ * city glows. (2026-09-28: the distant-skyline city strip was REMOVED by
+ * user ruling — the background is sky + stars only.)
  */
 function buildSkyTexture(app: Application, w: number, h: number): Texture {
   // Normalized local gradient (0,0)→(0,1) over the full-screen rect.
@@ -168,43 +169,6 @@ function buildSkyTexture(app: Application, w: number, h: number): Texture {
   return tex;
 }
 
-/**
- * Distant-skyline silhouette strip (study §Track D): procedural jagged
- * skyline with sparse lit windows, screen-space, ~0.06× camera parallax,
- * world-LOD only (massing views read as "a city in a world"). Built once
- * per size like the sky; the strip is wider than the viewport so the
- * parallax offset never reveals an edge.
- */
-function buildSkylineTexture(app: Application, w: number, h: number): Texture {
-  const stripH = Math.max(90, Math.round(h * 0.16));
-  const width = w + SKYLINE_PARALLAX_MARGIN * 2;
-  const g = new Graphics();
-  const rng = mulberry32(0x5c17c1);
-  let x = 0;
-  while (x < width) {
-    const bw = 18 + Math.floor(rng() * 46);
-    const bh = Math.round(stripH * (0.25 + rng() * 0.75));
-    g.rect(x, stripH - bh, bw - 2, bh).fill({ color: 0x0d1322, alpha: 0.9 });
-    // Sparse lit windows — 1px dots, mostly cool with rare warm.
-    const dots = Math.floor((bw * bh) / 260);
-    for (let i = 0; i < dots; i++) {
-      if (rng() > 0.5) continue;
-      g.circle(
-        x + 2 + Math.floor(rng() * (bw - 6)),
-        stripH - bh + 3 + Math.floor(rng() * Math.max(1, bh - 6)),
-        1
-      ).fill({ color: rng() < 0.85 ? 0x8fb8e8 : 0xffb547, alpha: 0.35 + rng() * 0.4 });
-    }
-    x += bw;
-  }
-  const tex = app.renderer.generateTexture(g);
-  g.destroy();
-  return tex;
-}
-
-/** Horizontal room (px) the skyline strip keeps for parallax travel. */
-const SKYLINE_PARALLAX_MARGIN = 200;
-
 /** Initial/reset zoom: district LOD — the core + landmark ring read clearly
  *  while the wider sector grid stays in frame. */
 const HOME_ZOOM = 0.75;
@@ -228,10 +192,6 @@ export class CityScene {
   private readonly fxRoot = new Container();
   /** Static night-sky backdrop (behind fxRoot, never filtered). */
   private sky!: Sprite;
-  /** Distant-skyline strip (world LOD, parallax; behind fxRoot). */
-  private skyline!: Sprite;
-  /** Resting Y of the skyline strip (parallax drifts around it). */
-  private skylineBaseY = 0;
   /** Threshold bloom (study §Track B) — dark palette makes it selective. */
   private readonly bloom = new AdvancedBloomFilter({
     threshold: 0.55,
@@ -249,7 +209,9 @@ export class CityScene {
   private lastRenderAt = 0;
   private readonly world: IsoWorld;
   private readonly aggregate: AggregateBlocks;
-  private readonly satellites = new SatelliteLayer();
+  private readonly satellites = new SatelliteLayer(() => this.requestRender());
+  /** The shared universe map (markers + lazy mini cities, 2026-09-28). */
+  private readonly universe = new UniverseLayer();
   private readonly paths = new PathLayer();
   private readonly links: DistrictLinks;
   private readonly rootLayer: RootSequenceLayer;
@@ -307,6 +269,8 @@ export class CityScene {
     this.host = init.host;
     this.callbacks = init.callbacks;
     this.policy = resolveMotion(init.reducedMotion);
+    this.satellites.setPulseEnabled(!this.policy.reduced);
+    this.universe.setReducedMotion(this.policy.reduced);
     this.world = world;
     this.aggregate = aggregate;
     this.links = links;
@@ -347,27 +311,22 @@ export class CityScene {
     // Night relight stack (study §A5/§B1): static sky behind everything, the
     // whole world inside ONE screen-sized filtered container — with the dark
     // night palette, a threshold bloom on that pass is effectively selective
-    // (only emissives clear the threshold) without per-building layers. The
-    // distant-skyline strip sits between sky and world (world-LOD only).
+    // (only emissives clear the threshold) without per-building layers.
     scene.sky = new Sprite(buildSkyTexture(app, app.renderer.width, app.renderer.height));
-    scene.skyline = new Sprite(
-      buildSkylineTexture(app, app.renderer.width, app.renderer.height)
-    );
-    scene.positionSkyline(app.renderer.width, app.renderer.height);
-    scene.skyline.alpha = 0; // home view is district LOD — fades in at world
     scene.fxRoot.addChild(scene.worldContainer);
     scene.fxRoot.filterArea = new Rectangle(0, 0, app.renderer.width, app.renderer.height);
-    app.stage.addChild(scene.sky, scene.skyline, scene.fxRoot);
+    app.stage.addChild(scene.sky, scene.fxRoot);
     scene.bloomSupported = CITY_BLOOM_ENV && scene.detectWebGL2();
     scene.syncBloom();
 
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
-    // beneath paths/buildings as a ground-level wash. Satellite cities join
-    // above the aggregate skyline — they live far outside the macro grid, so
-    // they never depth-sort against the home city's layers.
+    // beneath paths/buildings as a ground-level wash. The shared UNIVERSE
+    // sits just under the satellites (its cities live far outside the macro
+    // grid too); satellite clusters draw over it near the home city.
     scene.worldContainer.addChild(
       scene.world,
       scene.aggregate,
+      scene.universe,
       scene.satellites,
       scene.rootLayer.beams,
       scene.fx
@@ -382,13 +341,11 @@ export class CityScene {
     scene.updateVeilBounds();
 
     const viewport = () => scene.viewportSize();
-    const worldBounds = () => scene.worldBoundsWithSatellites();
 
     const rig = new CameraRig(
       {
         element: init.host,
         getViewport: viewport,
-        getWorldBounds: worldBounds,
         getHomeCamera: () => scene.homeCamera(),
         applyCamera: (cam) => scene.applyCamera(cam),
         requestRender: () => scene.requestRender(),
@@ -397,10 +354,10 @@ export class CityScene {
         isReduced: () => scene.policy.reduced,
       },
       // INITIAL FRAMING = the static home view (HQ anchor). No glide, no
-      // sync dependency, no viewport dependence beyond the clamp — a
-      // content fit is wrong here: multi-sector cities spread over the
-      // whole macro grid, so fitting "all content" clamps to ZOOM_MIN and
-      // centers on the empty gap between sector clusters.
+      // sync dependency — a content fit is wrong here: multi-sector cities
+      // spread over the whole macro grid, so fitting "all content" clamps
+      // to the zoom floor and centers on the empty gap between sector
+      // clusters.
       scene.homeCamera()
     );
     scene.rig = rig; // private access from the static factory (same class)
@@ -437,6 +394,7 @@ export class CityScene {
         this.strings.satelliteMoreLabel
       );
     }
+    this.universe.setLabels(this.strings.displayName);
     this.updateNameChips();
     this.requestRender();
   }
@@ -562,13 +520,18 @@ export class CityScene {
     );
 
     // Satellite cities (owned cards that own cards): sync the foreign
-    // clusters + their home↔satellite data-links, then play construct/loss
-    // FX at their world positions (the seeded first sync stays silent,
-    // reduced-motion safe via the FX policy — same rules as the home orbit).
+    // clusters + their home↔satellite data-links + the core→core pulse
+    // target, then play construct/loss FX at their world positions (the
+    // seeded first sync stays silent, reduced-motion safe via the FX policy
+    // — same rules as the home orbit). The anchor ring is sized from the
+    // UNLOCKED sector extent (dynamic distance).
+    const hqPoint = worldPointOfTile(HQ_TILE);
     const satFx = this.satellites.sync(
       projection.neighbors ?? [],
       (cardId) => tileOf.get(cardId),
-      this.lod
+      this.lod,
+      this.world.sectorCount,
+      hqPoint
     );
     if (!satFx.seeded) {
       for (const p of satFx.added) this.fx.playConstruct(p.x, p.y);
@@ -635,11 +598,51 @@ export class CityScene {
     this.requestRender();
   }
 
+  /** Universe-city selection visuals (marker ring + HUD chip source). */
+  setSelectedUniverseCity(username: string | null): void {
+    this.universe.setSelected(username);
+    this.requestRender();
+  }
+
+  /**
+   * City-detail fetcher for lazy universe minis (public /api/city/[u]);
+   * injected by the React shell so the scene itself never fetches.
+   */
+  setCityDetailFetcher(
+    fetcher: (username: string) => Promise<CitySceneProjection | null>
+  ): void {
+    this.universe.setCityDetailFetcher(fetcher);
+  }
+
+  /**
+   * Shared universe map sync (2026-09-28): cities placed on rank orbits
+   * around the viewer's city. Stake usernames (the satellite owners) tint
+   * violet; the viewer's own city is the home render and gets no marker.
+   */
+  syncUniverse(payload: UniversePayload | null, viewerUsername: string): void {
+    if (this.destroyed) return;
+    const stake = (this.lastProjection?.neighbors ?? []).map((n) => n.username);
+    this.universe.sync(payload, viewerUsername, stake);
+    const summary = this.universe.summary();
+    cityWorldStore.getState().setUniverseSummary(
+      summary
+        ? {
+            count: summary.count,
+            myRank: summary.viewerRank <= summary.count ? summary.viewerRank : null,
+          }
+        : null
+    );
+    this.updateCulling();
+    this.requestRender();
+  }
+
   setReducedMotion(reduced: boolean): void {
     this.policy = resolveMotion(reduced);
     this.fx.setPolicy(this.policy);
     this.links.setPolicy(this.policy);
     this.rootLayer.setPolicy(this.policy);
+    this.satellites.setPulseEnabled(!this.policy.reduced);
+    this.universe.setReducedMotion(this.policy.reduced);
     if (this.policy.reduced) {
       // In-flight LOD fades and re-rank glides snap to their terminal state.
       for (const m of this.moving) m.sprite.position.set(m.toX, m.toY);
@@ -659,11 +662,10 @@ export class CityScene {
     this.lod = lod;
     this.world.setLod(lod);
     this.satellites.setLod(lod);
+    this.universe.setLod(lod);
     this.paths.sync(this.lastTiles, HQ_TILE, lod);
     this.links.setLod(lod);
     this.syncBloom(); // world-LOD massing views skip the filter pass
-    // Distant skyline reads only in world-overview framing (study §Track D).
-    this.skyline.alpha = lod === "world" ? 0.9 : 0;
     // Root beams/veil carry LOD-dependent alpha — redraw from the last state.
     this.applyRoot(false);
     if (this.lastProjection) {
@@ -705,11 +707,7 @@ export class CityScene {
     const p = this.satellites.anchorPointOf(slot);
     if (!p) return;
     this.rig.animateTo(
-      clampCamera(
-        { x: p.x, y: p.y - 30, zoom: Math.max(this.rig.state.zoom, 0.7) },
-        this.worldBoundsWithSatellites(),
-        this.viewportSize()
-      )
+      clampCamera({ x: p.x, y: p.y - 30, zoom: Math.max(this.rig.state.zoom, 0.7) })
     );
   }
 
@@ -757,18 +755,8 @@ export class CityScene {
     const tx = (p.x * 2 + hq.x) / 3;
     const ty = (p.y * 2 + hq.y) / 3 - 40;
     this.rig.animateTo(
-      clampCamera(
-        { x: tx, y: ty, zoom: Math.max(this.rig.state.zoom, 0.8) },
-        this.worldBoundsWithSatellites(),
-        this.viewportSize()
-      )
+      clampCamera({ x: tx, y: ty, zoom: Math.max(this.rig.state.zoom, 0.8) })
     );
-  }
-
-  /** Camera pan bounds: the macro grid ∪ the satellite clusters (when any). */
-  private worldBoundsWithSatellites() {
-    const base = sectorWorldBounds(this.world.sectorCount, GRID_SIZE);
-    return unionBounds(base, this.satellites.worldBounds()) ?? base;
   }
 
   /** Redraw the root visuals from the last pushed state. */
@@ -931,18 +919,13 @@ export class CityScene {
    * ring (image-analyst Phase E: a cropped ring read as "3 landmarks")
    * down to the zoom floor — world-LOD massing for the overview, one
    * pinch crosses into district detail. Nudged up so the tall HQ body
-   * reads centered. Clamped into the pan bounds so a portrait viewport
-   * still shows the core.
+   * reads centered.
    */
   private homeCamera(): CameraState {
     const p = worldPointOfTile(HQ_TILE);
     const ringFit = (this.viewportSize().width * 0.96) / LANDMARK_RING_SPAN_PX;
     const zoom = Math.min(HOME_ZOOM, Math.max(ZOOM_MIN, ringFit));
-    return clampCamera(
-      { x: p.x, y: p.y - 48, zoom },
-      sectorWorldBounds(this.world.sectorCount, GRID_SIZE),
-      this.viewportSize()
-    );
+    return clampCamera({ x: p.x, y: p.y - 48, zoom });
   }
 
   /**
@@ -1004,25 +987,7 @@ export class CityScene {
     const h = Math.max(1, this.host.clientHeight);
     this.worldContainer.scale.set(cam.zoom);
     this.worldContainer.position.set(w / 2 - cam.x * cam.zoom, h / 2 - cam.y * cam.zoom);
-    // Distant-skyline parallax: the strip drifts against the pan at a fixed
-    // fraction of camera travel, clamped to the baked margin so no edge ever
-    // shows. Screen-space (never zoomed) — infinite-distance illusion.
-    if (this.skyline) {
-      const parallax = -cam.x * 0.06;
-      this.skyline.x = Math.max(
-        -SKYLINE_PARALLAX_MARGIN * 2,
-        Math.min(0, -SKYLINE_PARALLAX_MARGIN + parallax)
-      );
-      this.skyline.y = this.skylineBaseY - Math.max(-24, Math.min(24, cam.y * 0.02));
-    }
     this.dirty = true;
-  }
-
-  /** Park the freshly (re)built skyline strip: centered, horizon-anchored. */
-  private positionSkyline(w: number, h: number): void {
-    this.skyline.x = -SKYLINE_PARALLAX_MARGIN;
-    this.skylineBaseY = Math.round(h * 0.58) - this.skyline.texture.height;
-    this.skyline.y = this.skylineBaseY;
   }
 
   private onCameraSettled(cam: { x: number; y: number; zoom: number }): void {
@@ -1031,65 +996,95 @@ export class CityScene {
     store.setCameraSnapshot({ x: cam.x, y: cam.y, zoom: cam.zoom }, picked?.sector ?? -1);
     this.setLodForZoom(cam.zoom);
     store.setLod(this.lod); // world-summary overlay visibility (React shell)
+    // Lazy universe minis: ensure the nearest cities load near THIS framing.
+    this.universe.onCameraSettle(cam.x, cam.y, cam.zoom);
     // Chips follow the camera center — refresh after the (possible) LOD swap.
     this.updateNameChips();
     // Bounded rendering: cull off-viewport sprites (camera-settle only).
     this.updateCulling();
   }
 
+  /**
+   * Forgiving tap picking (2026-09-28 "easier selection"), in priority order:
+   *   1. exact building tile (classic iso pick)
+   *   2. satellite cluster (the layer hit-tests bodies + proximity itself)
+   *   3. goddess monument body (big art on small tiles)
+   *   4. building body-rect / nearest tower within a screen-px tolerance —
+   *      towers rise above their tiles, so a rooftop tap used to hit the
+   *      empty tile BEHIND the building
+   *   5. locked-pad peek / deselect
+   */
   private onTap(worldX: number, worldY: number): void {
     const state = cityWorldStore.getState();
     const hit = this.world.pickBuilding(worldX, worldY);
-    if (!hit) {
-      // Satellite cities live outside the macro grid, where pickTile cannot
-      // address tiles — the layer hit-tests its own clusters instead.
-      const sat = this.satellites.pick(worldX, worldY);
-      if (sat) {
-        if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-        if (state.selectedLandmark !== null) state.selectLandmark(null);
-        if (sat.kind === "hq") {
-          // The relay IS a home-orbit building of this city — open the
-          // normal inspector (overclock / profession) for it.
-          state.selectForeign(null);
-          this.callbacks.onSelectCard(sat.ownerCardId);
-        } else {
-          state.selectForeign({ owner: sat.ownerCardId, cardId: sat.cardId });
-        }
-        return;
-      }
+    if (hit && hit.cardId !== null) {
+      if (state.selectedLandmark !== null) state.selectLandmark(null);
+      state.selectForeign(null);
+      this.callbacks.onSelectCard(hit.cardId);
+      return;
     }
-    if (!hit || hit.cardId === null) {
-      const picked = pickTile(worldX, worldY, GRID_SIZE);
-      if (picked) {
-        // Tapping a goddess monument selects it (power panel, Phase E).
-        const tile: TileRef = {
-          sector: `s${picked.sector}`,
-          x: picked.x,
-          y: picked.y,
-        };
-        const landmarkIndex = landmarkIndexOfTile(tile);
-        if (landmarkIndex >= 0 && picked.sector < this.world.sectorCount) {
-          if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-          state.selectLandmark(landmarkIndex);
-          return;
-        }
-        // Tapping a LOCKED pad peeks its unlock requirement into the HUD
-        // (the pan clamp means a locked sector can never be CENTERED one).
-        if (picked.sector >= this.world.sectorCount) {
-          state.setLockedPeek(picked.sector);
-          return;
-        }
+    // Satellite cities live outside the macro grid, where pickTile cannot
+    // address tiles — the layer hit-tests its own clusters instead.
+    const sat = this.satellites.pick(worldX, worldY);
+    if (sat) {
+      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
+      if (state.selectedLandmark !== null) state.selectLandmark(null);
+      if (sat.kind === "hq") {
+        // The relay IS a home-orbit building of this city — open the
+        // normal inspector (overclock / profession) for it.
+        state.selectForeign(null);
+        this.callbacks.onSelectCard(sat.ownerCardId);
+      } else {
+        state.selectForeign({ owner: sat.ownerCardId, cardId: sat.cardId });
       }
+      return;
+    }
+    // Shared universe (2026-09-28): a marker or lazy mini city selects that
+    // city (HUD chip + visit link) — clears the other selections like the
+    // satellite/landmark branches do.
+    const universeCity = this.universe.pick(worldX, worldY);
+    if (universeCity) {
+      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
+      if (state.selectedLandmark !== null) state.selectLandmark(null);
+      state.selectForeign(null);
+      state.selectUniverseCity(universeCity);
+      return;
+    }
+    // Goddess monument bodies tower over their tiles — tap the art anywhere.
+    const landmarkIndex = this.world.landmarkHitAt(worldX, worldY);
+    if (landmarkIndex >= 0) {
+      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
+      state.selectForeign(null);
+      state.selectLandmark(landmarkIndex);
+      return;
+    }
+    // Nearest tower within a ~40 screen-px tolerance (zoom-aware).
+    const tol = Math.max(TILE_W * 0.75, 40 / this.rig.state.zoom);
+    const near = this.world.pickBuildingProximate(worldX, worldY, tol);
+    if (near) {
+      if (state.selectedLandmark !== null) state.selectLandmark(null);
+      state.selectForeign(null);
+      this.callbacks.onSelectCard(near.cardId);
+      return;
+    }
+    if (!hit) {
       if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
       if (state.selectedLandmark !== null) state.selectLandmark(null);
       state.selectForeign(null);
       return;
     }
-    // Selecting a building clears any landmark/foreign selection (one
-    // inspector at a time).
+    // hit.cardId === null — an empty tile inside the grid.
+    const picked = pickTile(worldX, worldY, GRID_SIZE);
+    if (picked) {
+      // Tapping a LOCKED pad peeks its unlock requirement into the HUD.
+      if (picked.sector >= this.world.sectorCount) {
+        state.setLockedPeek(picked.sector);
+        return;
+      }
+    }
+    if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
     if (state.selectedLandmark !== null) state.selectLandmark(null);
     state.selectForeign(null);
-    this.callbacks.onSelectCard(hit.cardId);
   }
 
   private onResize(): void {
@@ -1101,11 +1096,6 @@ export class CityScene {
     this.sky.destroy({ texture: true });
     this.sky = new Sprite(buildSkyTexture(this.app, w, h));
     this.app.stage.addChildAt(this.sky, 0);
-    this.skyline.destroy({ texture: true });
-    this.skyline = new Sprite(buildSkylineTexture(this.app, w, h));
-    this.positionSkyline(w, h);
-    // Resize never changes the LOD band, so keep the strip's current alpha.
-    this.app.stage.addChildAt(this.skyline, 1);
     this.rig.onResize();
     this.requestRender();
   }
@@ -1126,6 +1116,7 @@ export class CityScene {
     this.world.applyCull(rect);
     this.aggregate.applyCull(rect);
     this.satellites.applyCull(rect);
+    this.universe.applyCull(rect);
   }
 
   /** Start the LOD-swap detail fade-in (reduced motion: instant). */
@@ -1167,6 +1158,8 @@ export class CityScene {
     if (this.links.update(performance.now())) busy = true;
     if (this.rootLayer.update(performance.now())) busy = true;
     if (this.aggregate.update(performance.now())) busy = true;
+    if (this.satellites.update(performance.now())) busy = true;
+    if (this.universe.update(performance.now())) busy = true;
     if (this.updateMoves(performance.now())) busy = true;
     if (this.updateDetailFade(performance.now())) busy = true;
     if (this.dirty || busy) {

@@ -2,19 +2,32 @@
  * Mainframe City — satellite cities layer (client-only Pixi).
  *
  * Renders the NEIGHBOR cities of the projection (owned cards that own
- * cards): one compact cluster per neighbor, far outside the 3×3 macro grid
- * (geometry in lib/city/satellites.ts — anchors can never overlap the home
- * city or each other). Each cluster is a miniature of the home rule set:
- * a relay HQ (the neighbor card) at the anchor, its owned buildings on
- * clockwise mini-rings (priciest nearest the relay), a violet identity
- * plate, and a dim dashed data-link back to the neighbor's OWN building in
- * the home orbit — "this tower is why that city is here".
+ * cards): one cluster per neighbor, outside the city's UNLOCKED sector pads
+ * (geometry in lib/city/satellites.ts — the anchor ring is sized
+ * DYNAMICALLY from the unlocked extent, so small cities keep their
+ * satellites close).
+ *
+ * SAME SHAPE AS HOME (2026-09-28): each cluster is the home layout in
+ * miniature — relay HQ core at the anchor, the SIX goddess monuments on the
+ * same landmark hexagon (lit per the neighbor's `goddessOwned` flags,
+ * dormant otherwise), and buildings on clockwise mini-rings from
+ * ORBIT_START_RING out (priciest nearest the core). The whole mini city
+ * lives in a 0.55-scaled `cityBox` so relative proportions match the home
+ * city; the identity plate + data-link stay unscaled.
+ *
+ * CORE PULSE (2026-09-28): a small comet periodically travels each
+ * data-link from the satellite's relay core to the player's HQ core —
+ * value flowing home. Render-on-demand friendly: the layer keeps its own
+ * wake timer so the idle gap between pulses costs zero rAF frames, and
+ * reduced motion disables the pulse entirely.
  *
  * INTERACTION: satellite buildings are FOREIGN cards. Tapping one selects
  * it for the DOM inspector's steal (hire) action; tapping the relay selects
- * the neighbor's own home-orbit building (normal inspector). RENDER-ONLY:
- * tier/protection/value all arrive from the public projection and are never
- * recomputed here; the steal itself goes through /api/game/purchase.
+ * the neighbor's own home-orbit building (normal inspector). Picking is
+ * forgiving — a body-rect/nearest match inside the cluster selects instead
+ * of requiring the exact tile. RENDER-ONLY: tier/protection/value all
+ * arrive from the public projection and are never recomputed here; the
+ * steal itself goes through /api/game/purchase.
  */
 
 import { Container, Graphics } from "pixi.js";
@@ -35,19 +48,34 @@ import {
   unionBounds,
   type WorldBounds,
 } from "@/lib/city/satellites";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { TileRef } from "@/lib/city/placement";
 import { drawDashedLine, makeTextChip } from "./art";
 import { BuildingSprite } from "./BuildingSprite";
 import { HqSprite } from "./HqSprite";
-import { worldPointOfTile } from "./IsoWorld";
+import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
+import { LandmarkSprite } from "./landmarks";
 
 /** Dim cool slate over satellite ink — reads "not your city" at a glance. */
 const FOREIGN_TINT = 0xc7d0e4;
 /** Identity/interaction accent for all satellite chrome (violet). */
 const SATELLITE_ACCENT = 0x8b5cf6;
 
-/** Screen-px kept above the pad for relay art + plates (bounds/culling). */
-const CLUSTER_ART_TOP_PX = 150;
+/**
+ * Mini-city uniform scale. Internal geometry (tile distances, monument
+ * scale, building art) is IDENTICAL to the home city; this one scale makes
+ * it a miniature. Keep in sync with pick()'s local-space conversion.
+ */
+const MINI_CITY_SCALE = 0.55;
+
+/** Screen-px kept above the pad for monument art + plates (bounds/culling). */
+const CLUSTER_ART_TOP_PX = 210;
+
+/** One core→core pulse cycle: travel window + idle gap (render-on-demand). */
+const PULSE_TRAVEL_MS = 1500;
+const PULSE_CYCLE_MS = 3400;
+/** Stagger between clusters so pulses don't march in lockstep. */
+const PULSE_STAGGER_MS = 430;
 
 export type SatellitePick =
   | { kind: "hq"; ownerCardId: number }
@@ -58,7 +86,11 @@ interface Cluster {
   /** Current slot (index in the neighbors array) — anchor + focus source. */
   slot: number;
   container: Container;
+  /** The 0.55-scaled mini city (pad, monuments, relay, buildings). */
+  cityBox: Container;
   relay: HqSprite;
+  /** The Six mini monuments, roster order (created once, owned-flag synced). */
+  monuments: LandmarkSprite[];
   pad: Graphics;
   plate: Container | null;
   plateKey: string;
@@ -77,57 +109,96 @@ export class SatelliteLayer extends Container {
   private readonly clusters = new Map<number, Cluster>();
   /** One Graphics for ALL home↔satellite data-links (redrawn per sync). */
   private readonly links = new Graphics();
+  /** One Graphics for the core→core pulse comets (redrawn per frame). */
+  private readonly pulses = new Graphics();
+  /** Player HQ core world point — pulse destination, set per sync. */
+  private corePoint: { x: number; y: number } | null = null;
+  /** Reduced motion → no pulse at all. */
+  private pulseEnabled = true;
+  /** Idle-gap wake timer (keeps the pulse looping without a live rAF). */
+  private wakeTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly onWake: () => void;
   private displayName: ((username: string) => string) | null = null;
   private moreLabel: ((count: number) => string) | null = null;
   private prevForeignKeys: Set<string> | null = null;
   private lastFx: SatelliteSyncFx = { seeded: true, added: [], removed: [] };
   private selected: { owner: number; cardId: number } | null = null;
 
-  constructor() {
+  constructor(onWake: () => void = () => {}) {
     super();
-    this.addChild(this.links);
+    this.onWake = onWake;
+    this.addChild(this.links, this.pulses);
     this.sortableChildren = false;
+  }
+
+  destroy(): void {
+    this.clearWake();
+    super.destroy();
   }
 
   /**
    * Full projection sync. `anchorTileOf` resolves a neighbor card id to its
-   * CURRENT home-orbit tile (the data-link origin); a missing tile (card
-   * beyond the detailed window cannot happen — satellites derive from the
-   * detailed set — but a stale mid-sync miss is simply skipped).
+   * CURRENT home-orbit tile (the data-link origin); `sectorCount` sizes the
+   * dynamic anchor ring; `corePoint` is the player's HQ core (pulse target).
    */
   sync(
     neighbors: readonly CityNeighbor[],
     anchorTileOf: (cardId: number) => TileRef | undefined,
-    lod: Lod
+    lod: Lod,
+    sectorCount: number,
+    corePoint: { x: number; y: number }
   ): SatelliteSyncFx {
     const added: Array<{ x: number; y: number }> = [];
     const removed: Array<{ x: number; y: number }> = [];
     const nextKeys = new Set<string>();
     const seen = new Set<number>();
+    this.corePoint = corePoint;
 
     neighbors.forEach((neighbor, slot) => {
       seen.add(neighbor.cardId);
       let cluster = this.clusters.get(neighbor.cardId);
       if (!cluster) {
         const container = new Container();
-        container.sortableChildren = true;
-        const anchor = satelliteAnchor(slot);
+        const cityBox = new Container();
+        cityBox.sortableChildren = true;
+        cityBox.scale.set(MINI_CITY_SCALE);
+        container.addChild(cityBox);
+        const anchor = satelliteAnchor(slot, undefined, sectorCount);
         const p = tileToScreen(anchor.x, anchor.y);
         container.position.set(p.x, p.y);
         const pad = new Graphics();
-        container.addChild(pad);
+        cityBox.addChild(pad);
+        // The Six mini monuments — the home landmark hexagon, roster order.
+        // Never labeled (the identity plate speaks for the cluster); zIndex
+        // mirrors the home layering: monuments above buildings, relay above
+        // monuments (the screen-north monument grounds behind the core).
+        const monuments: LandmarkSprite[] = [];
+        for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
+          const monument = new LandmarkSprite(i, false);
+          monument.tint = FOREIGN_TINT;
+          const lt = landmarkTile(i);
+          const local = tileToScreen(
+            lt.x - HQ_TILE.x,
+            lt.y - HQ_TILE.y
+          );
+          monument.position.set(local.x, local.y);
+          monument.zIndex = local.x + local.y + 100_000;
+          cityBox.addChild(monument);
+          monuments.push(monument);
+        }
         const relay = new HqSprite(neighbor.profession);
-        relay.scale.set(0.5);
         relay.setTag(""); // the identity plate below replaces the CORE tag
         relay.tint = FOREIGN_TINT;
-        relay.zIndex = 9_000; // above the ring buildings, below the plate
-        container.addChild(relay);
+        relay.zIndex = 900_000; // core above monuments, monuments above rings
+        cityBox.addChild(relay);
         this.addChild(container);
         cluster = {
           neighbor,
           slot,
           container,
+          cityBox,
           relay,
+          monuments,
           pad,
           plate: null,
           plateKey: "",
@@ -141,11 +212,14 @@ export class SatelliteLayer extends Container {
       }
       cluster.neighbor = neighbor;
       cluster.slot = slot;
+      // Mini monument owned flags (stale CDN payloads may omit the field).
+      const flags = neighbor.goddessOwned ?? [];
+      cluster.monuments.forEach((m, i) => m.setOwned(flags[i] === true));
 
-      // Slot drift (a richer neighbor displaced this one): snap the cluster
-      // to its new anchor — rare, and a glide across the void would read as
-      // noise rather than intent.
-      const anchor = satelliteAnchor(slot);
+      // Slot drift or a sector unlock re-sizes the anchor ring: snap the
+      // cluster to its new anchor — rare, and a glide across the void would
+      // read as noise rather than intent.
+      const anchor = satelliteAnchor(slot, undefined, sectorCount);
       if (anchor.x !== cluster.anchor.x || anchor.y !== cluster.anchor.y) {
         cluster.anchor = anchor;
         const p = tileToScreen(anchor.x, anchor.y);
@@ -155,13 +229,17 @@ export class SatelliteLayer extends Container {
 
       this.syncPlate(cluster);
 
-      // Buildings: reuse sprites by card id, place on fresh mini-ring tiles.
+      // Buildings: reuse sprites by card id, place on fresh mini-ring tiles
+      // (world = anchor + local·scale, so FX anchor on the visible art).
       const tiles = satelliteClusterTiles(anchor, neighbor.buildings.length);
       const nextIds = new Set(neighbor.buildings.map((b) => b.cardId));
       for (const [cardId, entry] of cluster.buildings) {
         if (!nextIds.has(cardId)) {
-          removed.push({ x: cluster.container.x + entry.sprite.x, y: cluster.container.y + entry.sprite.y });
-          cluster.container.removeChild(entry.sprite);
+          removed.push({
+            x: cluster.container.x + entry.sprite.x * MINI_CITY_SCALE,
+            y: cluster.container.y + entry.sprite.y * MINI_CITY_SCALE,
+          });
+          cluster.cityBox.removeChild(entry.sprite);
           entry.sprite.destroy({ children: true });
           cluster.buildings.delete(cardId);
         }
@@ -175,12 +253,16 @@ export class SatelliteLayer extends Container {
           const sprite = new BuildingSprite(building);
           sprite.tint = FOREIGN_TINT;
           sprite.setLod(lod);
-          cluster.container.addChild(sprite);
+          cluster.cityBox.addChild(sprite);
           entry = { sprite, gx: tile.gx, gy: tile.gy };
           cluster.buildings.set(building.cardId, entry);
           added.push({
-            x: cluster.container.x + tileToScreen(tile.gx - anchor.x, tile.gy - anchor.y).x,
-            y: cluster.container.y + tileToScreen(tile.gx - anchor.x, tile.gy - anchor.y).y,
+            x:
+              cluster.container.x +
+              tileToScreen(tile.gx - anchor.x, tile.gy - anchor.y).x * MINI_CITY_SCALE,
+            y:
+              cluster.container.y +
+              tileToScreen(tile.gx - anchor.x, tile.gy - anchor.y).y * MINI_CITY_SCALE,
           });
         } else {
           entry.sprite.updateBuilding(building);
@@ -197,7 +279,10 @@ export class SatelliteLayer extends Container {
     for (const [cardId, cluster] of this.clusters) {
       if (seen.has(cardId)) continue;
       for (const entry of cluster.buildings.values()) {
-        removed.push({ x: cluster.container.x + entry.sprite.x, y: cluster.container.y + entry.sprite.y });
+        removed.push({
+          x: cluster.container.x + entry.sprite.x * MINI_CITY_SCALE,
+          y: cluster.container.y + entry.sprite.y * MINI_CITY_SCALE,
+        });
       }
       this.removeChild(cluster.container);
       cluster.container.destroy({ children: true });
@@ -205,6 +290,7 @@ export class SatelliteLayer extends Container {
     }
 
     this.redrawLinks(anchorTileOf);
+    this.clearWake(); // cluster set changed — re-evaluate pulse scheduling
 
     const seeded = this.prevForeignKeys === null;
     this.lastFx = seeded
@@ -240,6 +326,15 @@ export class SatelliteLayer extends Container {
     }
   }
 
+  /** Reduced-motion policy change: pulses stop entirely when reduced. */
+  setPulseEnabled(enabled: boolean): void {
+    this.pulseEnabled = enabled;
+    if (!enabled) {
+      this.pulses.clear();
+      this.clearWake();
+    }
+  }
+
   /** Coarse culling: whole clusters in/out (≤ 8, pads are cheap). */
   applyCull(rect: CullRect): void {
     for (const cluster of this.clusters.values()) {
@@ -251,16 +346,21 @@ export class SatelliteLayer extends Container {
 
   /**
    * Hit-test a world point against the satellite clusters: exact building
-   * tile first, then the relay's own anchor tile. Cluster-proximate misses
-   * (pad, gaps) return null — same rule as the home grid's empty tiles.
+   * tile first (in the mini city's LOCAL tile space — the cityBox is scaled,
+   * so world→local divides by MINI_CITY_SCALE), then a forgiving pass —
+   * body-rect hits on tower art (bodies rise above their tiles) and the
+   * nearest tile within ~1 platform select too, so dense clusters stay
+   * tappable at miniature size.
    */
   pick(worldX: number, worldY: number): SatellitePick | null {
-    const t = screenToTile(worldX, worldY);
-    const gx = Math.floor(t.x);
-    const gy = Math.floor(t.y);
+    // Pass 1 — exact tile hits (previous behaviour, unchanged priority).
     for (const [ownerCardId, cluster] of this.clusters) {
       const a = cluster.anchor;
-      const cheb = Math.max(Math.abs(t.x - a.x), Math.abs(t.y - a.y));
+      const local = this.worldToMiniLocal(cluster, worldX, worldY);
+      const t = screenToTile(local.x, local.y);
+      const gx = Math.floor(a.x + t.x);
+      const gy = Math.floor(a.y + t.y);
+      const cheb = Math.max(Math.abs(t.x), Math.abs(t.y));
       if (cheb > SATELLITE_CLUSTER_RADIUS + 1) continue;
       for (const [cardId, entry] of cluster.buildings) {
         if (entry.gx === gx && entry.gy === gy) {
@@ -271,7 +371,51 @@ export class SatelliteLayer extends Container {
         return { kind: "hq", ownerCardId };
       }
     }
-    return null;
+    // Pass 2 — forgiving: nearest candidate inside the cluster (local px,
+    // threshold converted back from world so the touch target tracks the
+    // on-screen miniature, not the internal tile scale).
+    let bestPick: SatellitePick | null = null;
+    let bestD = Infinity;
+    const tolLocal = (TILE_W * 0.95) / MINI_CITY_SCALE;
+    for (const [ownerCardId, cluster] of this.clusters) {
+      if (!cluster.container.visible) continue;
+      const local = this.worldToMiniLocal(cluster, worldX, worldY);
+      const t = screenToTile(local.x, local.y);
+      const cheb = Math.max(Math.abs(t.x), Math.abs(t.y));
+      if (cheb > SATELLITE_CLUSTER_RADIUS + 1.6) continue;
+      // The relay gets a small distance penalty so buildings win ties
+      // against the (wide) relay art.
+      const dRelay = Math.hypot(local.x, local.y) + 18;
+      if (dRelay < bestD) {
+        bestD = dRelay;
+        bestPick = { kind: "hq", ownerCardId };
+      }
+      for (const [cardId, entry] of cluster.buildings) {
+        // Tower bodies rise above the tile — measure toward the body middle
+        // so tapping the shaft hits this building, not the void behind it.
+        const d = Math.hypot(
+          local.x - entry.sprite.x,
+          local.y - (entry.sprite.y + entry.sprite.topY * 0.5)
+        );
+        if (d < bestD) {
+          bestD = d;
+          bestPick = { kind: "building", ownerCardId, cardId };
+        }
+      }
+    }
+    return bestD <= tolLocal ? bestPick : null;
+  }
+
+  /** World px → mini-city local px (undoes the anchor + cityBox scale). */
+  private worldToMiniLocal(
+    cluster: Cluster,
+    worldX: number,
+    worldY: number
+  ): { x: number; y: number } {
+    return {
+      x: (worldX - cluster.container.x) / MINI_CITY_SCALE,
+      y: (worldY - cluster.container.y) / MINI_CITY_SCALE,
+    };
   }
 
   /** Screen point of a cluster anchor (camera focus for the side panel). */
@@ -291,18 +435,93 @@ export class SatelliteLayer extends Container {
     return bounds;
   }
 
+  // ── core pulse ────────────────────────────────────────────────────────
+
+  /**
+   * Advance the core→core pulse comets. True while any comet is in its
+   * travel window (the scene keeps rendering); during the idle gap a one-shot
+   * timer re-wakes the render loop at the next departure — zero idle cost.
+   */
+  update(now: number): boolean {
+    if (!this.pulseEnabled || !this.corePoint || this.clusters.size === 0) {
+      this.pulses.clear();
+      return false;
+    }
+    let traveling = false;
+    let nextDeparture = Infinity;
+    for (let s = 0; s < this.clusters.size; s++) {
+      const phase = (now + s * PULSE_STAGGER_MS) % PULSE_CYCLE_MS;
+      if (phase < PULSE_TRAVEL_MS) traveling = true;
+      else nextDeparture = Math.min(nextDeparture, PULSE_CYCLE_MS - phase);
+    }
+    if (!traveling) {
+      this.pulses.clear();
+      this.scheduleWake(nextDeparture);
+      return false;
+    }
+    this.clearWake();
+    const g = this.pulses;
+    g.clear();
+    let i = 0;
+    for (const cluster of this.clusters.values()) {
+      const phase = (now + i * PULSE_STAGGER_MS) % PULSE_CYCLE_MS;
+      i++;
+      if (phase >= PULSE_TRAVEL_MS) continue;
+      const p = phase / PULSE_TRAVEL_MS;
+      // ease-in-out so the comet visibly leaves and arrives.
+      const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      const fade = Math.min(1, Math.min(p / 0.18, (1 - p) / 0.18));
+      const ax = cluster.container.x;
+      const ay = cluster.container.y;
+      const cx = this.corePoint.x;
+      const cy = this.corePoint.y - 40; // aim at the spire, not the pad
+      const at = (tt: number) => ({
+        x: ax + (cx - ax) * tt,
+        y: ay + (cy - ay) * tt,
+      });
+      // Comet: bright head + violet tail trailing back toward the satellite.
+      for (let k = 0; k < 4; k++) {
+        const tt = Math.max(0, e - k * 0.055);
+        const pos = at(tt);
+        const r = k === 0 ? 5 : 4.5 - k;
+        g.circle(pos.x, pos.y, r).fill({
+          color: k === 0 ? 0xffffff : SATELLITE_ACCENT,
+          alpha: (k === 0 ? 0.95 : 0.55 - k * 0.12) * fade,
+        });
+      }
+    }
+    return true;
+  }
+
+  private scheduleWake(delayMs: number): void {
+    if (this.wakeTimer !== null || !Number.isFinite(delayMs)) return;
+    this.wakeTimer = setTimeout(() => {
+      this.wakeTimer = null;
+      this.onWake();
+    }, Math.max(16, delayMs));
+  }
+
+  private clearWake(): void {
+    if (this.wakeTimer !== null) {
+      clearTimeout(this.wakeTimer);
+      this.wakeTimer = null;
+    }
+  }
+
   // ── internals ─────────────────────────────────────────────────────────
 
-  /** Faint violet pad diamond under one cluster (radius + skirt). */
+  /** Faint violet pad diamond under one mini city (radius + skirt). */
   private drawPad(cluster: Cluster): void {
     const g = cluster.pad;
     g.clear();
     const e = SATELLITE_CLUSTER_RADIUS + 1.5;
+    // Half-extents match satelliteClusterBounds: e tiles of tile halfwidth
+    // (TILE_W/2 per tile of x-offset — NOT TILE_W, which drew 2× oversized).
     const corners: ReadonlyArray<[number, number]> = [
-      [0, -e * TILE_H],
-      [e * TILE_W, 0],
-      [0, e * TILE_H],
-      [-e * TILE_W, 0],
+      [0, -e * (TILE_H / 2)],
+      [e * (TILE_W / 2), 0],
+      [0, e * (TILE_H / 2)],
+      [-e * (TILE_W / 2), 0],
     ];
     g.poly(corners.flat()).fill({ color: 0x0a0e1a, alpha: 0.55 });
     const stroke = { width: 1.5, color: SATELLITE_ACCENT, alpha: 0.28 };
@@ -313,7 +532,7 @@ export class SatelliteLayer extends Container {
     }
   }
 
-  /** Identity plate (+ "+N more" when truncated) above the relay spire. */
+  /** Identity plate (+ "+N more" when truncated) above the mini city. */
   private syncPlate(cluster: Cluster): void {
     if (!this.displayName) return;
     const name = this.displayName(cluster.neighbor.username);
@@ -344,8 +563,8 @@ export class SatelliteLayer extends Container {
       moreChip.position.set(0, 17);
       plate.addChild(moreChip);
     }
-    plate.position.set(0, -92);
-    plate.zIndex = 10_000;
+    // Above the tallest mini-monument art (unscaled — text stays readable).
+    plate.position.set(0, -188);
     cluster.container.addChild(plate);
     cluster.plate = plate;
   }

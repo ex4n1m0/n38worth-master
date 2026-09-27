@@ -217,6 +217,9 @@ export function makeFixtureNeighbors(
       visibleOwnedCount: 7,
       buildings,
       truncated: true,
+      // Mini monument ring flags: first fixture neighbor holds two goddesses
+      // (roster order), the others none — exercises lit + dormant monuments.
+      goddessOwned: GODDESS_USERNAMES.map((_, gi) => oi === 0 && gi < 2),
     });
   });
   return neighbors;

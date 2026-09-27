@@ -52,14 +52,19 @@ export interface SceneBuildingEntry {
 /** HQ tile: sector 0 center. */
 export const HQ_TILE: TileRef = { sector: "s0", x: GRID_SIZE >> 1, y: GRID_SIZE >> 1 };
 
-/** Fixed goddess landmark ring (roster order), radius ~6 tiles around HQ. */
+/**
+ * Fixed goddess landmark hexagon (roster order), hugging the HQ core at
+ * Chebyshev radius ~3 — every city therefore reads with the SAME layout:
+ * core in the middle, the Six tight around it, value rings beyond
+ * (2026-09-28 user ruling: less empty space between core and goddesses).
+ */
 const LANDMARK_RING: ReadonlyArray<{ dx: number; dy: number }> = [
-  { dx: 6, dy: 0 },
-  { dx: 3, dy: 3 },
-  { dx: 0, dy: 6 },
-  { dx: -6, dy: 0 },
-  { dx: -3, dy: -3 },
-  { dx: 0, dy: -6 },
+  { dx: 3, dy: 0 },
+  { dx: 2, dy: 2 },
+  { dx: 0, dy: 3 },
+  { dx: -3, dy: 0 },
+  { dx: -2, dy: -2 },
+  { dx: 0, dy: -3 },
 ];
 
 export function landmarkTile(index: number): TileRef {
@@ -117,15 +122,6 @@ export function worldPointOfTile(tile: TileRef): { x: number; y: number } {
   return tileToScreen(g.x, g.y);
 }
 
-/** Roster index of the landmark fixed at this tile, or -1 (landmarks.ts). */
-export function landmarkIndexOfTile(tile: TileRef): number {
-  for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
-    const lt = landmarkTile(i);
-    if (lt.sector === tile.sector && lt.x === tile.x && lt.y === tile.y) return i;
-  }
-  return -1;
-}
-
 /**
  * DEPTH FOG (night atmosphere, study §A5): iso depth = global (x + y), the
  * same signal as zIndex. The tint is normalized over the city's OCCUPIED
@@ -150,6 +146,13 @@ export class IsoWorld extends Container {
   readonly beneathBuildings = new Container();
   private readonly buildingsLayer = new Container();
   private readonly landmarkLayer = new Container();
+  /**
+   * HQ sits ABOVE the landmarks (2026-09-28 tight goddess ring): the screen-north
+   * monument now grounds directly behind the HQ spire, and the near object must
+   * paint over the far one. Ordinary towers stay under the monuments (moat keeps
+   * them off the plinths anyway).
+   */
+  private readonly hqLayer = new Container();
   /** Sector identity chips — ABOVE buildings so they read over rooftops. */
   private readonly sectorLabelLayer = new Container();
   private hq: HqSprite | null = null;
@@ -179,6 +182,7 @@ export class IsoWorld extends Container {
       this.beneathBuildings,
       this.buildingsLayer,
       this.landmarkLayer,
+      this.hqLayer,
       this.sectorLabelLayer
     );
     this.rebuildGround();
@@ -449,7 +453,7 @@ export class IsoWorld extends Container {
       const g = globalTile(0, HQ_TILE.x, HQ_TILE.y, GRID_SIZE);
       this.hq.zIndex = g.x + g.y;
       this.hq.tint = fogTint(g.x + g.y, this.depthMin, this.depthSpan);
-      this.buildingsLayer.addChild(this.hq);
+      this.hqLayer.addChild(this.hq);
     } else {
       this.hq.setProfession(profession);
     }
@@ -472,6 +476,63 @@ export class IsoWorld extends Container {
     if (picked.sector >= this._sectorCount) return null; // locked pad
     const tile: TileRef = { sector: `s${picked.sector}`, x: picked.x, y: picked.y };
     return { tile, cardId: this.occupancy.get(tileRefKey(tile)) ?? null };
+  }
+
+  /**
+   * Forgiving building pick (2026-09-28 "easier selection"): first a body-rect
+   * hit (towers rise well above their tile, so tapping a rooftop used to hit
+   * the tile BEHIND the building) — topmost painter order wins — then the
+   * nearest building tile within `tolWorld` world px. Returns null when
+   * nothing is close enough; exact-tile picking stays pickBuilding's job.
+   */
+  pickBuildingProximate(
+    worldX: number,
+    worldY: number,
+    tolWorld: number
+  ): { tile: TileRef; cardId: number } | null {
+    let bestRect: { sprite: BuildingSprite; z: number } | null = null;
+    let bestNear: { sprite: BuildingSprite; d: number } | null = null;
+    for (const sprite of this.sprites.values()) {
+      if (!sprite.visible) continue;
+      const dx = worldX - sprite.x;
+      const dy = worldY - sprite.y;
+      // Body rect: platform halfwidth + a little slack, rooftop down to the
+      // tile's front edge.
+      if (
+        Math.abs(dx) <= TILE_W * 0.55 &&
+        dy >= sprite.topY - 8 &&
+        dy <= TILE_H * 0.75
+      ) {
+        if (!bestRect || sprite.zIndex > bestRect.z) bestRect = { sprite, z: sprite.zIndex };
+        continue;
+      }
+      // Distance to the body's vertical middle — nearest tower wins ties.
+      const d = Math.hypot(dx, dy + sprite.topY * 0.5);
+      if (d <= tolWorld && (!bestNear || d < bestNear.d)) bestNear = { sprite, d };
+    }
+    const sprite = bestRect?.sprite ?? bestNear?.sprite;
+    if (!sprite) return null;
+    const tile = this.spriteTiles.get(sprite.building.cardId);
+    if (!tile) return null;
+    return { tile, cardId: sprite.building.cardId };
+  }
+
+  /**
+   * Forgiving monument pick: the Six are big art on small tiles — tap anywhere
+   * on the monument body (pad to art tip, monument-scaled width) to select it.
+   * Roster index, or -1.
+   */
+  landmarkHitAt(worldX: number, worldY: number): number {
+    for (let i = 0; i < this.landmarkSprites.length; i++) {
+      const s = this.landmarkSprites[i];
+      if (!s.visible) continue;
+      const dx = Math.abs(worldX - s.x);
+      const dy = worldY - s.y;
+      if (dx <= TILE_W * 0.62 && dy >= -(landmarkArtHeight(i) + 12) && dy <= TILE_H * 0.8) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   setLod(lod: Lod): void {

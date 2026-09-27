@@ -6,7 +6,11 @@
  *   - wheel zoom AT THE CURSOR (world point under the cursor is preserved)
  *   - two-pointer pinch (zoom at the midpoint + mid-point pan)
  *   - WASD / arrow-key pan, +/- zoom steps, R reset-to-HQ
- *   - tap (press < 500 ms, < 6 px movement) → selection/picking callback
+ *   - tap (press < 500 ms, < 10 px movement) → selection/picking callback
+ *
+ * FREE CAMERA (2026-09-28): pan and zoom-out are unbounded — the rig never
+ * clamps position against world bounds (the pure camera module owns the
+ * only remaining clamp, the zoom ceiling).
  *
  * Direct manipulations (drag/pinch/wheel) apply 1:1 with no easing;
  * programmatic moves (reset, focus, HUD buttons) glide via the motion
@@ -22,31 +26,26 @@ import {
   clampCamera,
   clampZoom,
   panBy,
-  resetCamera,
   screenToWorld,
   zoomAt,
   type CameraState,
   type Viewport,
-  type WorldBounds,
 } from "@/lib/city/scene/camera";
 import { easeOutCubic } from "@/lib/city/scene/motion";
 
 const KEY_PAN_SPEED = 520; // screen px per second
 const ZOOM_STEP = 0.2;
 const TAP_MAX_MS = 500;
-const TAP_MAX_DIST = 6;
+const TAP_MAX_DIST = 10;
 const SETTLE_DEBOUNCE_MS = 180;
 
 export interface CameraRigOptions {
   /** Element receiving pointer + keyboard events (the canvas host). */
   element: HTMLElement;
   getViewport: () => Viewport;
-  getWorldBounds: () => WorldBounds;
-  /**
-   * Home framing (HQ anchor) for Reset; falls back to the world-bounds
-   * center at the default zoom.
-   */
-  getHomeCamera?: () => CameraState;
+  /** Home framing (HQ anchor) for Reset — required (free camera has no
+   *  world-bounds fallback to center on). */
+  getHomeCamera: () => CameraState;
   /** Push a camera into the world container transform. */
   applyCamera: (camera: CameraState) => void;
   /** Ask the scene for a render (dirty flag pattern). */
@@ -149,34 +148,37 @@ export class CameraRig {
 
   animateTo(next: CameraState): void {
     if (this.opts.isReduced()) {
-      this.setImmediate(clampCamera(next, this.opts.getWorldBounds(), this.opts.getViewport()));
+      this.setImmediate(clampCamera(next));
       return;
     }
-    this.target = clampCamera(next, this.opts.getWorldBounds(), this.opts.getViewport());
+    this.target = clampCamera(next);
     this.animStart = performance.now();
     this.animating = true;
     this.markInteraction();
   }
 
+  /**
+   * HUD +/- step. Additive above zoom 1, MULTIPLICATIVE below it — a flat
+   * −0.2 would slam straight to the sub-pixel floor once the city is small
+   * on screen, while ×0.8 keeps stepping down through the infinite zoom-out
+   * at a constant perceived rate.
+   */
   zoomBy(delta: number): void {
-    this.animateTo({ ...this.camera, zoom: this.camera.zoom + delta });
+    const base = this.camera.zoom;
+    const next =
+      delta < 0 && base <= 1
+        ? base * (1 + delta) // e.g. −0.2 → ×0.8
+        : base + delta;
+    this.animateTo({ ...this.camera, zoom: clampZoom(next) });
   }
 
   /**
-   * Reset glides HOME — the HQ anchor (city core + landmark ring), not the
-   * content bounds: multi-sector cities spread over the whole macro grid, so
-   * a content fit clamps to ZOOM_MIN and centers on the empty gap between
-   * sector clusters.
+   * Reset glides HOME — the HQ anchor (city core + landmark ring), never a
+   * content fit: multi-sector cities spread over the whole macro grid, so a
+   * content fit centers on the empty gap between sector clusters.
    */
   reset(): void {
-    const world = this.opts.getWorldBounds();
-    const home =
-      this.opts.getHomeCamera?.() ??
-      resetCamera({
-        x: (world.minX + world.maxX) / 2,
-        y: (world.minY + world.maxY) / 2,
-      });
-    this.animateTo(home);
+    this.animateTo(this.opts.getHomeCamera());
   }
 
   focusWorldPoint(x: number, y: number): void {
@@ -184,16 +186,12 @@ export class CameraRig {
   }
 
   /**
-   * Viewport changed (resize) — re-clamp the camera AND any in-flight glide
-   * target into the new viewport. Must NOT cancel the animation (the old
-   * setImmediate(clamp) killed programmatic glides mid-flight whenever the
-   * host resized right after mount).
+   * Viewport changed (resize) — re-apply the camera transform (free camera:
+   * nothing to re-clamp) and keep any in-flight glide target alive.
    */
   onResize(): void {
-    const world = this.opts.getWorldBounds();
-    const view = this.opts.getViewport();
-    this.camera = clampCamera(this.camera, world, view);
-    this.target = clampCamera(this.target, world, view);
+    this.camera = clampCamera(this.camera);
+    this.target = clampCamera(this.target);
     this.opts.applyCamera(this.camera);
     this.markInteraction();
   }
@@ -215,9 +213,7 @@ export class CameraRig {
       if (dx !== 0 || dy !== 0) {
         const dt = 1 / 60;
         this.camera = clampCamera(
-          panBy(this.camera, this.opts.getWorldBounds(), this.opts.getViewport(), dx * KEY_PAN_SPEED * dt, dy * KEY_PAN_SPEED * dt),
-          this.opts.getWorldBounds(),
-          this.opts.getViewport()
+          panBy(this.camera, dx * KEY_PAN_SPEED * dt, dy * KEY_PAN_SPEED * dt)
         );
         this.target = { ...this.camera };
         this.opts.applyCamera(this.camera);
@@ -297,13 +293,7 @@ export class CameraRig {
     if (Math.hypot(p.x - rec.startX, p.y - rec.startY) > TAP_MAX_DIST) rec.moved = true;
 
     if (this.pointers.size === 1) {
-      this.setImmediate(
-        clampCamera(
-          panBy(this.camera, this.opts.getWorldBounds(), this.opts.getViewport(), dx, dy),
-          this.opts.getWorldBounds(),
-          this.opts.getViewport()
-        )
-      );
+      this.setImmediate(clampCamera(panBy(this.camera, dx, dy)));
     } else if (this.pointers.size === 2) {
       const [a, b] = [...this.pointers.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -311,7 +301,7 @@ export class CameraRig {
       if (this.pinchDist > 0 && dist > 0) {
         const factor = dist / this.pinchDist;
         this.setImmediate(
-          zoomAt(this.camera, this.opts.getWorldBounds(), this.opts.getViewport(), mid.x, mid.y, this.camera.zoom * factor)
+          zoomAt(this.camera, this.opts.getViewport(), mid.x, mid.y, this.camera.zoom * factor)
         );
       }
       this.pinchDist = dist;
@@ -345,7 +335,7 @@ export class CameraRig {
     const p = this.localPoint(e);
     const factor = Math.exp(-e.deltaY * 0.0016);
     this.setImmediate(
-      zoomAt(this.camera, this.opts.getWorldBounds(), this.opts.getViewport(), p.x, p.y, this.camera.zoom * factor)
+      zoomAt(this.camera, this.opts.getViewport(), p.x, p.y, this.camera.zoom * factor)
     );
   };
 
@@ -363,12 +353,12 @@ export class CameraRig {
     }
     if (key === "+" || key === "=") {
       e.preventDefault();
-      this.animateTo({ ...this.camera, zoom: clampZoom(this.camera.zoom + ZOOM_STEP) });
+      this.zoomBy(ZOOM_STEP);
       return;
     }
     if (key === "-" || key === "_") {
       e.preventDefault();
-      this.animateTo({ ...this.camera, zoom: clampZoom(this.camera.zoom - ZOOM_STEP) });
+      this.zoomBy(-ZOOM_STEP);
       return;
     }
     if (key === "r" || key === "R") {

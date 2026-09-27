@@ -287,6 +287,21 @@ export async function GET(
         .where(lte(windowed.rn, NEIGHBOR_BUILDING_LIMIT))
         .orderBy(asc(windowed.ownerId), desc(windowed.playerValue))
         .limit(NEIGHBOR_CITY_LIMIT * NEIGHBOR_BUILDING_LIMIT);
+      // Mini monument ring (2026-09-28): which of the six goddesses each
+      // chosen neighbor owns — same value-independent basis as the owner's
+      // landmark query above (H1); bounded ≤ 8 owners × 6 goddesses. The
+      // windowed building rows EXCLUDE goddesses by design, so ownership
+      // needs this dedicated query.
+      const neighborGoddessRows = await db
+        .select({ ownerId: ownership.ownerId, username: users.username })
+        .from(ownership)
+        .innerJoin(users, eq(ownership.ownedId, users.id))
+        .where(
+          and(
+            inArray(ownership.ownerId, chosenNeighborIds),
+            inArray(users.username, GODDESS_USERNAMES)
+          )
+        );
       neighbors = assembleCityNeighbors(
         detailedRows,
         visibleOwnedCounts,
@@ -295,7 +310,8 @@ export async function GET(
           ownedByCityOwner: Number(r.ownedByCityOwner) === 1,
         })),
         owner.username,
-        new Date()
+        new Date(),
+        neighborGoddessRows
       );
     }
 

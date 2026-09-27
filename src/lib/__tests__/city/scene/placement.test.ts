@@ -197,15 +197,17 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
     expect(empty.entries).toHaveLength(0);
     expect(empty.resumeRing).toBe(ORBIT_START_RING);
 
-    // Ring 7 holds 56 tiles → 57 buildings spill into ring 8.
+    // Ring r holds 8r tiles (the start ring lies fully inside sector 0 for
+    // a 9-sector city) → capacity+1 buildings spill into the next ring.
+    const capacity = 8 * ORBIT_START_RING;
     const { entries, resumeRing } = rankArrangeTiles(
-      Array.from({ length: 57 }, (_, i) => b(i + 1, 1000 - i)),
+      Array.from({ length: capacity + 1 }, (_, i) => b(i + 1, 1000 - i)),
       9,
       noneBlocked
     );
-    expect(entries).toHaveLength(57);
-    expect(entries[55].ring).toBe(ORBIT_START_RING);
-    expect(entries[56].ring).toBe(ORBIT_START_RING + 1);
+    expect(entries).toHaveLength(capacity + 1);
+    expect(entries[capacity - 1].ring).toBe(ORBIT_START_RING);
+    expect(entries[capacity].ring).toBe(ORBIT_START_RING + 1);
     expect(resumeRing).toBe(ORBIT_START_RING + 1);
   });
 

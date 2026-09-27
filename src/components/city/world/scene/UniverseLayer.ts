@@ -1,0 +1,569 @@
+/**
+ * Mainframe City — the shared UNIVERSE layer (client-only Pixi).
+ *
+ * Every ranked city in the game on ONE map (2026-09-28 user ruling):
+ * cities sit on clockwise rings around the universe center in
+ * portfolio-rank order (pure placement in lib/city/universe.ts — rank 1
+ * at the exact center, smaller cities spiraling outward). The viewer's
+ * own city stays at their world origin, so the constellation is shared
+ * and only translated per viewer — nobody can observe the difference.
+ *
+ * LOD ladder (bounded rendering):
+ *   close zoom  — layer hidden (the home city + satellites are the world)
+ *   district +  — MARKERS: batched Graphics dots sized by rank (≤ 500
+ *                 circles in 4 chunks; the viewer's own city is skipped —
+ *                 the real render IS the marker; stake cities glow violet)
+ *   world zoom  — plus lazy MINI CITIES: the nearest handful of cities
+ *                 load their public projection (the same CDN-cached
+ *                 /api/city/[username] the public views use) and render as
+ *                 full miniatures — relay core, six goddess monuments lit
+ *                 per that city's ownership, top buildings on the orbit
+ *                 rings — the home-city shape at 0.55 scale.
+ *
+ * Rank re-orders (new epoch, different ordering) GLIDE the markers to
+ * their new ring (capped; reduced motion snaps). Data flows DOWN: the
+ * layer renders what sync() receives and fetches nothing itself — city
+ * detail comes through the fetcher callback the React shell injects.
+ */
+
+import { Container, Graphics } from "pixi.js";
+import type { CityBuilding, CityProjection } from "@/lib/city/types";
+
+/** Public city projection + the route's owner.profession extra (relay art). */
+type UniverseCityProjection = CityProjection & {
+  owner: CityProjection["owner"] & { profession: string | null };
+};
+import type { Lod } from "@/lib/city/scene/lod";
+import type { CullRect } from "@/lib/city/scene/culling";
+import { TILE_W, tileToScreen } from "@/lib/city/scene/iso";
+import {
+  universeCityOffset,
+  universeMarkerRadius,
+  universeOffsetPx,
+  universeViewerRank,
+  type UniverseCity,
+  type UniversePayload,
+} from "@/lib/city/universe";
+import { satelliteClusterTiles } from "@/lib/city/satellites";
+import type { Point } from "@/lib/city/scene/iso";
+import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
+import { LandmarkSprite } from "./landmarks";
+import { HqSprite } from "./HqSprite";
+import { BuildingSprite } from "./BuildingSprite";
+import { makeTextChip } from "./art";
+
+/** Distant-city ink: cool pale blue (stake cities use the satellite violet). */
+const UNIVERSE_TINT = 0xbfd0e8;
+/** Stake accent (matches SatelliteLayer's SATELLITE_ACCENT). */
+const STAKE_ACCENT = 0x8b5cf6;
+/** Top-3 constellation gold. */
+const TOP_RANK_FILL = 0xf5c66b;
+
+/** Mini-city uniform scale — same miniature language as the satellites. */
+const MINI_CITY_SCALE = 0.55;
+/** Markers per batched Graphics chunk (4 chunks cover the 500 cap). */
+const MARKER_CHUNK = 128;
+/** Rank glide duration (value re-rank at the city level). */
+const EPOCH_GLIDE_MS = 700;
+/** Above this many moved cities, snap everyone (re-rank storm). */
+const EPOCH_GLIDE_CAP = 160;
+/** Mini cities kept alive at once (LRU by camera distance). */
+const MINI_LIVE_CAP = 14;
+/** Nearest cities considered per camera settle (subset that may load). */
+const MINI_REQUEST_CAP = 8;
+/** Screen-px above a mini city kept for plates (culling margin). */
+const MINI_ART_TOP_PX = 210;
+
+export interface UniverseLayerStrings {
+  displayName: (username: string) => string;
+}
+
+interface MiniBuildingEntry {
+  sprite: BuildingSprite;
+  gx: number;
+  gy: number;
+}
+
+interface MiniCity {
+  city: UniverseCity;
+  container: Container;
+  cityBox: Container;
+  relay: HqSprite;
+  monuments: LandmarkSprite[];
+  buildings: Map<number, MiniBuildingEntry>;
+  plate: Container | null;
+  plateKey: string;
+  /** World-px anchor (recomputed per epoch; minis snap). */
+  world: Point;
+}
+
+export class UniverseLayer extends Container {
+  private payload: UniversePayload | null = null;
+  private epoch = "";
+  private viewerUsername = "";
+  private viewerRank = 1;
+  private readonly stake = new Set<string>();
+  private readonly failed = new Set<string>();
+  /** Viewer HQ world point — the translation origin of the constellation. */
+  private readonly hqWorld: Point = worldPointOfTile(HQ_TILE);
+  private readonly markerChunks: Graphics[] = [];
+  private readonly minis = new Map<string, MiniCity>();
+  /** LRU order of live minis (most recently needed last). */
+  private readonly miniOrder: string[] = [];
+  private displayName: ((username: string) => string) | null = null;
+  private lod: Lod = "district";
+  private reduced = false;
+  private selected: string | null = null;
+  /** In-flight epoch glide (markers lerp from old to new anchors). */
+  private glide: { from: Map<string, Point>; start: number } | null = null;
+  /** City-detail fetcher injected by the React shell (returns null on 404). */
+  private fetchCityDetail:
+    | ((username: string) => Promise<UniverseCityProjection | null>)
+    | null = null;
+
+  constructor() {
+    super();
+    this.sortableChildren = false;
+  }
+
+  setCityDetailFetcher(
+    fetcher: (username: string) => Promise<UniverseCityProjection | null>
+  ): void {
+    this.fetchCityDetail = fetcher;
+  }
+
+  setLabels(displayName: (username: string) => string): void {
+    this.displayName = displayName;
+    for (const mini of this.minis.values()) mini.plateKey = "";
+    this.syncPlates();
+  }
+
+  setReducedMotion(reduced: boolean): void {
+    this.reduced = reduced;
+    if (reduced && this.glide) {
+      this.glide = null;
+      this.redrawMarkers(null);
+    }
+  }
+
+  setLod(lod: Lod): void {
+    this.lod = lod;
+    this.visible = lod !== "close";
+    for (const mini of this.minis.values()) {
+      for (const entry of mini.buildings.values()) entry.sprite.setLod(lod);
+    }
+  }
+
+  /** Selection ring on a universe city's marker + mini relay plate border. */
+  setSelected(username: string | null): void {
+    this.selected = username;
+    this.redrawMarkers(null);
+  }
+
+  /**
+   * Full universe sync (React shell pushes the payload + viewer identity).
+   * A changed EPOCH (same universe, new ordering) glides the markers;
+   * everything else (stake set, viewer) just redraws.
+   */
+  sync(
+    payload: UniversePayload | null,
+    viewerUsername: string,
+    stakeUsernames: ReadonlyArray<string>
+  ): void {
+    const stake = new Set(stakeUsernames);
+    const stakeChanged =
+      stake.size !== this.stake.size ||
+      [...stake].some((u) => !this.stake.has(u));
+    this.stake.clear();
+    for (const u of stake) this.stake.add(u);
+
+    if (!payload || payload.cities.length === 0) {
+      this.payload = null;
+      this.epoch = "";
+      this.clearMinis();
+      this.clearMarkerChunks();
+      return;
+    }
+
+    const prevOffsets = this.payload ? this.markerOffsetsByUser() : null;
+    this.payload = payload;
+    this.viewerUsername = viewerUsername;
+    const viewerRankChanged =
+      this.viewerRank !== universeViewerRank(payload, viewerUsername);
+    this.viewerRank = universeViewerRank(payload, viewerUsername);
+
+    // Minis snap to their new anchors (rank drift of a whole city across
+    // the void would read as noise; markers glide because they're dots).
+    for (const mini of this.minis.values()) {
+      const city = payload.cities.find((c) => c.username === mini.city.username);
+      if (!city) {
+        this.destroyMini(mini.city.username);
+        continue;
+      }
+      mini.city = city;
+      mini.world = this.worldOf(city);
+      mini.container.position.set(mini.world.x, mini.world.y);
+    }
+
+    const orderChanged = payload.epoch !== this.epoch || viewerRankChanged;
+    this.epoch = payload.epoch;
+    if (orderChanged && prevOffsets && !this.reduced) {
+      const next = this.markerOffsetsByUser();
+      const moved: Array<[string, Point]> = [];
+      for (const [username, to] of next) {
+        const from = prevOffsets.get(username);
+        if (from && (from.x !== to.x || from.y !== to.y)) moved.push([username, from]);
+      }
+      if (moved.length > 0 && moved.length <= EPOCH_GLIDE_CAP) {
+        this.glide = { from: new Map(moved), start: performance.now() };
+      } else {
+        this.glide = null;
+      }
+    } else {
+      this.glide = null;
+    }
+    this.redrawMarkers(null);
+    if (stakeChanged) this.syncPlates();
+  }
+
+  /**
+   * Camera-settle hook (never per frame): when the universe is visible,
+   * ensure the nearest MINI_REQUEST_CAP cities have minis (fetching their
+   * public projections through the injected fetcher) and evict far ones
+   * beyond MINI_LIVE_CAP. The viewer + stake cities never get minis (the
+   * home city is fully rendered; stake cities live in the satellite layer).
+   */
+  onCameraSettle(centerX: number, centerY: number, zoom: number): void {
+    if (!this.payload || zoom >= 1.0 || this.visible === false) return;
+    const ranked = this.payload.cities
+      .filter(
+        (c) =>
+          c.username !== this.viewerUsername &&
+          !this.stake.has(c.username) &&
+          !this.failed.has(c.username)
+      )
+      .map((c) => {
+        const p = this.worldOf(c);
+        return { city: c, d: Math.hypot(p.x - centerX, p.y - centerY) };
+      })
+      .sort((a, b) => a.d - b.d);
+    const wanted = ranked.slice(0, MINI_REQUEST_CAP).map((r) => r.city.username);
+    for (const username of wanted) this.ensureMini(username);
+    // Evict beyond the live cap (farthest-first by LRU position).
+    while (this.miniOrder.length > MINI_LIVE_CAP) {
+      const username = this.miniOrder.shift();
+      if (username === undefined) break;
+      if (wanted.includes(username)) {
+        // keep wanted ones alive — push back to the end
+        this.miniOrder.push(username);
+        if (this.miniOrder[0] === username) break; // all wanted — stop
+        continue;
+      }
+      this.destroyMini(username);
+    }
+  }
+
+  /** Advance the epoch glide. True while animating (render loop stays on). */
+  update(now: number): boolean {
+    if (!this.glide) return false;
+    const t = (now - this.glide.start) / EPOCH_GLIDE_MS;
+    if (t >= 1) {
+      this.glide = null;
+      this.redrawMarkers(null);
+      return false;
+    }
+    this.redrawMarkers(t);
+    return true;
+  }
+
+  /**
+   * Hit-test a world point: a mini city's buildings/relay (forgiving, in
+   * the mini's local space) or a marker dot. Returns the city username.
+   */
+  pick(worldX: number, worldY: number): string | null {
+    for (const [username, mini] of this.minis) {
+      if (!mini.container.visible) continue;
+      const local = {
+        x: (worldX - mini.container.x) / MINI_CITY_SCALE,
+        y: (worldY - mini.container.y) / MINI_CITY_SCALE,
+      };
+      // Relay zone (±1.2 platforms) or any building body-rect.
+      if (Math.hypot(local.x, local.y) <= TILE_W * 0.62) return username;
+      for (const entry of mini.buildings.values()) {
+        if (
+          Math.abs(local.x - entry.sprite.x) <= TILE_W * 0.55 &&
+          local.y >= entry.sprite.y + entry.sprite.topY - 8 &&
+          local.y <= entry.sprite.y + 40
+        ) {
+          return username;
+        }
+      }
+    }
+    if (!this.payload) return null;
+    // Markers: nearest dot within its radius + slack (zoom-aware).
+    let best: { username: string; d: number } | null = null;
+    for (const city of this.payload.cities) {
+      if (city.username === this.viewerUsername) continue;
+      const p = this.worldOf(city);
+      const d = Math.hypot(worldX - p.x, worldY - p.y);
+      if (!best || d < best.d) best = { username: city.username, d };
+    }
+    if (best) {
+      const city = this.payload.cities.find((c) => c.username === best!.username)!;
+      const slack = 14;
+      if (best.d <= universeMarkerRadius(city.rank) + slack) return best.username;
+    }
+    return null;
+  }
+
+  /** Coarse culling: whole minis in/out; markers stay (batched, cheap). */
+  applyCull(rect: CullRect): void {
+    for (const mini of this.minis.values()) {
+      const half = (6.5 * TILE_W) / 2 * MINI_CITY_SCALE;
+      mini.container.visible =
+        mini.world.x + half >= rect.minX &&
+        mini.world.x - half <= rect.maxX &&
+        mini.world.y + half >= rect.minY &&
+        mini.world.y - half - MINI_ART_TOP_PX * MINI_CITY_SCALE <= rect.maxY;
+    }
+  }
+
+  /** How many cities the map holds + the viewer's rank (HUD chip source). */
+  summary(): { count: number; viewerRank: number } | null {
+    if (!this.payload) return null;
+    return { count: this.payload.cities.length, viewerRank: this.viewerRank };
+  }
+
+  // ── internals ─────────────────────────────────────────────────────────
+
+  /** World-px position of a city (translated onto the viewer's origin). */
+  private worldOf(city: Pick<UniverseCity, "rank">): Point {
+    const delta = universeCityOffset(city.rank, this.viewerRank);
+    const px = universeOffsetPx(delta);
+    return { x: this.hqWorld.x + px.x, y: this.hqWorld.y + px.y };
+  }
+
+  /** Current marker offsets (username → world px), glide-aware. */
+  private markerOffsetsByUser(): Map<string, Point> {
+    const out = new Map<string, Point>();
+    if (!this.payload) return out;
+    for (const city of this.payload.cities) {
+      if (city.username === this.viewerUsername) continue;
+      out.set(city.username, this.worldOf(city));
+    }
+    return out;
+  }
+
+  /**
+   * Redraw the batched marker chunks. `glideT` (0..1) interpolates each
+   * moved marker from its pre-epoch anchor toward the current one; null
+   * draws the resting state.
+   */
+  private redrawMarkers(glideT: number | null): void {
+    if (!this.payload) {
+      this.clearMarkerChunks();
+      return;
+    }
+    while (this.markerChunks.length < 4) {
+      const g = new Graphics();
+      this.markerChunks.push(g);
+      this.addChild(g);
+    }
+    const e =
+      glideT === null
+        ? null
+        : glideT < 0.5
+          ? 2 * glideT * glideT
+          : 1 - (-2 * glideT + 2) ** 2 / 2;
+    let drawn = 0;
+    this.payload.cities.forEach((city, i) => {
+      if (city.username === this.viewerUsername) return;
+      const g = this.markerChunks[Math.floor(drawn / MARKER_CHUNK)];
+      const to = this.worldOf(city);
+      let x = to.x;
+      let y = to.y;
+      if (e !== null && this.glide) {
+        const from = this.glide.from.get(city.username);
+        if (from) {
+          x = from.x + (to.x - from.x) * e;
+          y = from.y + (to.y - from.y) * e;
+        }
+      }
+      const r = universeMarkerRadius(city.rank, this.payload!.cities.length);
+      const isStake = this.stake.has(city.username);
+      const isSel = this.selected === city.username;
+      if (i < 3) {
+        g.circle(x, y, r).fill({ color: TOP_RANK_FILL, alpha: 0.85 });
+        g.circle(x, y, r + 2.5).stroke({ color: 0xfff3d0, alpha: 0.5, width: 1 });
+      } else {
+        g.circle(x, y, r).fill({
+          color: isStake ? STAKE_ACCENT : UNIVERSE_TINT,
+          alpha: isStake ? 0.9 : 0.42,
+        });
+      }
+      if (isSel) {
+        g.circle(x, y, r + 4).stroke({ color: 0x9be8ff, alpha: 0.95, width: 2 });
+      }
+      drawn++;
+    });
+    // Trailing chunks from a smaller universe disappear.
+    for (
+      let c = Math.ceil(drawn / MARKER_CHUNK);
+      c < this.markerChunks.length;
+      c++
+    ) {
+      this.markerChunks[c].clear();
+    }
+  }
+
+  private clearMarkerChunks(): void {
+    for (const g of this.markerChunks) g.clear();
+  }
+
+  /** Load (or touch) the mini city for a username via the injected fetcher. */
+  private ensureMini(username: string): void {
+    const existing = this.minis.get(username);
+    if (existing) {
+      const i = this.miniOrder.indexOf(username);
+      if (i >= 0) this.miniOrder.splice(i, 1);
+      this.miniOrder.push(username);
+      return;
+    }
+    const city = this.payload?.cities.find((c) => c.username === username);
+    if (!city || !this.fetchCityDetail) return;
+    this.fetchCityDetail(username)
+      .then((projection) => {
+        if (!projection || this.destroyed) return;
+        if (!this.payload?.cities.some((c) => c.username === username)) return;
+        this.buildMini(city, projection);
+      })
+      .catch(() => {
+        this.failed.add(username);
+      });
+  }
+
+  /** Build one lazy mini city from its public projection (home-city shape). */
+  private buildMini(city: UniverseCity, projection: UniverseCityProjection): void {
+    if (this.minis.has(city.username)) return;
+    const container = new Container();
+    const cityBox = new Container();
+    cityBox.sortableChildren = true;
+    cityBox.scale.set(MINI_CITY_SCALE);
+    container.addChild(cityBox);
+
+    // Pad: same violet-family skirt as satellites, slightly cooler.
+    const pad = new Graphics();
+    const e = 6.5;
+    pad
+      .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
+      .fill({ color: 0x0a0e1a, alpha: 0.5 });
+    pad
+      .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
+      .stroke({ width: 1.25, color: UNIVERSE_TINT, alpha: 0.22 });
+    cityBox.addChild(pad);
+
+    // The Six mini monuments — owned flags from that city's landmarks.
+    const ownedFlags = new Set(
+      projection.landmarks.filter((l) => l.owned).map((l) => l.username)
+    );
+    const monuments: LandmarkSprite[] = [];
+    for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
+      const monument = new LandmarkSprite(i, ownedFlags.has(GODDESS_USERNAMES[i]));
+      monument.tint = UNIVERSE_TINT;
+      const lt = landmarkTile(i);
+      const local = tileToScreen(lt.x - HQ_TILE.x, lt.y - HQ_TILE.y);
+      monument.position.set(local.x, local.y);
+      monument.zIndex = local.x + local.y + 100_000;
+      cityBox.addChild(monument);
+      monuments.push(monument);
+    }
+
+    // Relay core (that city's own HQ).
+    const relay = new HqSprite(projection.owner.profession);
+    relay.setTag("");
+    relay.tint = UNIVERSE_TINT;
+    relay.zIndex = 900_000;
+    cityBox.addChild(relay);
+
+    // Top buildings by value on the orbit rings (display-only ordering of
+    // server values — the same policy the satellite mini cities use).
+    const all: CityBuilding[] = [];
+    for (const family of projection.families) {
+      for (const b of family.buildings) all.push(b);
+    }
+    all.sort((a, b) => b.value - a.value || a.cardId - b.cardId);
+    const buildings = new Map<number, MiniBuildingEntry>();
+    const tiles = satelliteClusterTiles({ x: 0, y: 0 }, Math.min(12, all.length));
+    all.slice(0, 12).forEach((building, i) => {
+      const tile = tiles[i];
+      if (!tile) return;
+      const sprite = new BuildingSprite(building);
+      sprite.tint = UNIVERSE_TINT;
+      sprite.setLod(this.lod);
+      const local = tileToScreen(tile.gx, tile.gy);
+      sprite.position.set(local.x, local.y);
+      sprite.zIndex = local.x + local.y;
+      cityBox.addChild(sprite);
+      buildings.set(building.cardId, { sprite, gx: tile.gx, gy: tile.gy });
+    });
+
+    const world = this.worldOf(city);
+    container.position.set(world.x, world.y);
+    this.addChild(container);
+    this.minis.set(city.username, {
+      city,
+      container,
+      cityBox,
+      relay,
+      monuments,
+      buildings,
+      plate: null,
+      plateKey: "",
+      world,
+    });
+    this.miniOrder.push(city.username);
+    this.syncPlates();
+  }
+
+  private destroyMini(username: string): void {
+    const mini = this.minis.get(username);
+    if (!mini) return;
+    this.removeChild(mini.container);
+    mini.container.destroy({ children: true });
+    this.minis.delete(username);
+    const i = this.miniOrder.indexOf(username);
+    if (i >= 0) this.miniOrder.splice(i, 1);
+  }
+
+  private clearMinis(): void {
+    for (const username of [...this.minis.keys()]) this.destroyMini(username);
+    this.miniOrder.length = 0;
+  }
+
+  /** Identity plates over live minis (locale changes rebuild). */
+  private syncPlates(): void {
+    for (const mini of this.minis.values()) {
+      if (!this.displayName) continue;
+      const name = this.displayName(mini.city.username);
+      const key = name;
+      if (key === mini.plateKey && mini.plate) continue;
+      mini.plateKey = key;
+      if (mini.plate) {
+        mini.container.removeChild(mini.plate);
+        mini.plate.destroy({ children: true });
+        mini.plate = null;
+      }
+      const plate = makeTextChip(name, { fontSize: 12 });
+      plate.position.set(0, -188);
+      mini.container.addChild(plate);
+      mini.plate = plate;
+    }
+  }
+
+  destroy(): void {
+    this.clearMinis();
+    this.clearMarkerChunks();
+    super.destroy();
+  }
+}

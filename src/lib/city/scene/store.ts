@@ -43,8 +43,21 @@ export interface CityWorldState {
    * set and vice versa (same rule the landmark selection follows).
    */
   selectedForeign: { owner: number; cardId: number } | null;
-  /** Selected goddess landmark index 0..5 (power panel, Phase E). */
+  /** Selected goddess landmark index 0..5 (power panel). */
   selectedLandmark: number | null;
+  /**
+   * Selected UNIVERSE city username (2026-09-28): tapping a marker or lazy
+   * mini city on the shared map selects it for the HUD chip + visit link.
+   * Mutually exclusive with building/foreign/landmark selection (enforced
+   * centrally in the actions below).
+   */
+  selectedUniverseCity: string | null;
+  /**
+   * Universe summary for the HUD chip (set by the scene on universe sync):
+   * how many cities the shared map holds + the viewer's rank (null when
+   * beyond the mapped cap).
+   */
+  universeSummary: { count: number; myRank: number | null } | null;
   /** prefers-reduced-motion, resolved by the React shell. */
   reducedMotion: boolean;
   /**
@@ -62,6 +75,8 @@ export interface CityWorldState {
   select: (cardId: number | null) => void;
   selectForeign: (sel: { owner: number; cardId: number } | null) => void;
   selectLandmark: (index: number | null) => void;
+  selectUniverseCity: (username: string | null) => void;
+  setUniverseSummary: (summary: { count: number; myRank: number | null } | null) => void;
   setReducedMotion: (reduced: boolean) => void;
   /** Full reset (world unmount / WebGL remount) so state never leaks. */
   resetWorld: () => void;
@@ -76,6 +91,8 @@ const initial = {
   selectedCardId: null as number | null,
   selectedForeign: null as { owner: number; cardId: number } | null,
   selectedLandmark: null as number | null,
+  selectedUniverseCity: null as string | null,
+  universeSummary: null as { count: number; myRank: number | null } | null,
   reducedMotion: false,
 };
 
@@ -99,9 +116,16 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
     }),
   setLockedPeek: (sector) => set({ lockedPeekSector: sector }),
   setLod: (lod) => set({ lod }),
-  select: (cardId) => set({ selectedCardId: cardId }),
-  selectForeign: (sel) => set({ selectedForeign: sel }),
-  selectLandmark: (index) => set({ selectedLandmark: index }),
+  // One inspector at a time: every selection action clears the others.
+  select: (cardId) =>
+    set({ selectedCardId: cardId, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null }),
+  selectForeign: (sel) =>
+    set({ selectedForeign: sel, selectedCardId: null, selectedLandmark: null, selectedUniverseCity: null }),
+  selectLandmark: (index) =>
+    set({ selectedLandmark: index, selectedCardId: null, selectedForeign: null, selectedUniverseCity: null }),
+  selectUniverseCity: (username) =>
+    set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null }),
+  setUniverseSummary: (summary) => set({ universeSummary: summary }),
   setReducedMotion: (reduced) => set({ reducedMotion: reduced }),
   resetWorld: () => set({ ...initial }),
 }));

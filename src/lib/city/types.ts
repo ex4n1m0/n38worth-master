@@ -135,6 +135,12 @@ export interface CityNeighbor {
   buildings: CityNeighborBuilding[];
   /** visibleOwnedCount exceeded the building budget — show "+N more". */
   truncated: boolean;
+  /**
+   * Which of the six goddesses this neighbor owns, in GODDESS_USERNAMES
+   * roster order (length 6). Drives the satellite's mini monument ring —
+   * same shape as the home city, monuments lit per actual ownership.
+   */
+  goddessOwned: boolean[];
 }
 
 /**

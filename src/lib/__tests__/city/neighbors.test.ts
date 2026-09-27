@@ -170,6 +170,46 @@ describe("assembleCityNeighbors", () => {
     );
     expect(out.map((n) => n.username)).toEqual(["b"]);
   });
+
+  it("lights the mini monument ring from per-neighbor goddess ownership", () => {
+    const out = assembleCityNeighbors(
+      [candidate(1, "a"), candidate(2, "b")],
+      new Map([
+        [1, 2],
+        [2, 1],
+      ]),
+      [row(1, 11, "a1"), row(1, 12, "a2"), row(2, 21, "b1")],
+      "owner",
+      NOW,
+      [
+        // a owns the Architect (roster 0) and the Banker (roster 5).
+        { ownerId: 1, username: GODDESS_USERNAMES[0] },
+        { ownerId: 1, username: GODDESS_USERNAMES[5] },
+        // Unknown owner and non-goddess usernames are ignored.
+        { ownerId: 99, username: GODDESS_USERNAMES[1] },
+        { ownerId: 2, username: "not_a_goddess" },
+      ]
+    );
+    expect(out.map((n) => n.username)).toEqual(["a", "b"]);
+    const flags = (u: string) => out.find((n) => n.username === u)!.goddessOwned;
+    expect(flags("a")).toHaveLength(GODDESS_USERNAMES.length);
+    expect(flags("a")[0]).toBe(true);
+    expect(flags("a")[5]).toBe(true);
+    expect(flags("a").filter(Boolean)).toHaveLength(2);
+    expect(flags("b").every((f) => f === false)).toBe(true);
+  });
+
+  it("defaults to an all-dormant monument ring without goddess rows", () => {
+    const out = assembleCityNeighbors(
+      [candidate(1, "a")],
+      new Map([[1, 1]]),
+      [row(1, 11, "a1")],
+      "owner",
+      NOW
+    );
+    expect(out[0].goddessOwned).toHaveLength(GODDESS_USERNAMES.length);
+    expect(out[0].goddessOwned.every((f) => f === false)).toBe(true);
+  });
 });
 
 describe("makeFixtureNeighbors (dev-only QA satellites)", () => {

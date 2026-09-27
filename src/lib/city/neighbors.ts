@@ -49,22 +49,39 @@ export interface NeighborOwnedRow {
   ownedByCityOwner: boolean;
 }
 
+/** One goddess-ownership row of a candidate (username ∈ GODDESS_USERNAMES). */
+export interface NeighborGoddessRow {
+  ownerId: number;
+  username: string;
+}
+
 /**
  * Assemble the bounded satellite list. `candidates` MUST arrive in the
  * projection's canonical order (value desc, cardId asc — the route passes
  * the detailed rows in fetch order); the first NEIGHBOR_CITY_LIMIT
  * goddess-free candidates with ≥1 visible owned card win. `rows` may arrive
  * in any order (defensive re-sort). The city owner's own card never renders
- * inside a satellite (it is the HQ of the home city already).
+ * inside a satellite (it is the HQ of the home city already). `goddessRows`
+ * (optional — empty means "owns none") lights the satellite's mini monument
+ * ring: same six places as the home city, owned flags per neighbor.
  */
 export function assembleCityNeighbors(
   candidates: readonly NeighborCandidate[],
   visibleOwnedCounts: ReadonlyMap<number, number>,
   rows: readonly NeighborOwnedRow[],
   cityOwnerUsername: string,
-  now: Date
+  now: Date,
+  goddessRows: readonly NeighborGoddessRow[] = []
 ): CityNeighbor[] {
   const goddessSet = new Set(GODDESS_USERNAMES);
+
+  const goddessesByOwner = new Map<number, Set<string>>();
+  for (const row of goddessRows) {
+    if (!goddessSet.has(row.username)) continue;
+    const set = goddessesByOwner.get(row.ownerId);
+    if (set) set.add(row.username);
+    else goddessesByOwner.set(row.ownerId, new Set([row.username]));
+  }
 
   const chosen = candidates
     .filter(
@@ -109,6 +126,7 @@ export function assembleCityNeighbors(
     }));
 
     const visibleOwnedCount = visibleOwnedCounts.get(candidate.cardId) ?? buildings.length;
+    const ownedGods = goddessesByOwner.get(candidate.cardId);
     neighbors.push({
       cardId: candidate.cardId,
       username: candidate.username,
@@ -117,6 +135,7 @@ export function assembleCityNeighbors(
       visibleOwnedCount,
       buildings,
       truncated: visibleOwnedCount > buildings.length,
+      goddessOwned: GODDESS_USERNAMES.map((name) => ownedGods?.has(name) === true),
     });
   }
   return neighbors;

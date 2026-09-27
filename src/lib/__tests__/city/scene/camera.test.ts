@@ -6,7 +6,6 @@ import {
   ZOOM_MAX,
   ZOOM_MIN,
   approachCamera,
-  cameraPanBounds,
   clampCamera,
   clampZoom,
   fitCameraToBounds,
@@ -17,44 +16,40 @@ import {
   zoomAt,
 } from "@/lib/city/scene/camera";
 
-const WORLD = { minX: -2048, minY: -1024, maxX: 2048, maxY: 1024 };
 const VIEW = { width: 800, height: 600 };
 
 describe("camera zoom clamp", () => {
-  it("clamps into [0.32, 2.5] and survives NaN", () => {
-    expect(ZOOM_MIN).toBe(0.32);
+  it("clamps into [0.001, 2.5] and survives NaN", () => {
+    expect(ZOOM_MIN).toBe(0.001);
     expect(ZOOM_MAX).toBe(2.5);
-    expect(clampZoom(0.1)).toBe(0.32);
     expect(clampZoom(9)).toBe(2.5);
     expect(clampZoom(1.3)).toBe(1.3);
     expect(clampZoom(Number.NaN)).toBe(ZOOM_DEFAULT);
   });
-});
 
-describe("camera pan bounds", () => {
-  it("keeps the visible rect inside the world", () => {
-    const b = cameraPanBounds(WORLD, VIEW, 1);
-    expect(b.minX).toBe(WORLD.minX + VIEW.width / 2);
-    expect(b.maxX).toBe(WORLD.maxX - VIEW.width / 2);
-  });
-
-  it("degenerates to the center when the viewport exceeds the world", () => {
-    const tiny = { minX: 0, minY: 0, maxX: 100, maxY: 100 };
-    const b = cameraPanBounds(tiny, VIEW, 1);
-    expect(b.minX).toBeGreaterThan(b.maxX); // caller collapses via clampCamera
-    const cam = clampCamera({ x: 10_000, y: -10_000, zoom: 1 }, tiny, VIEW);
-    expect(cam.x).toBe(50); // world center, not a bound
-    expect(cam.y).toBe(50);
+  it("zoom-out is effectively unbounded (sub-pixel floor only)", () => {
+    // The free camera (2026-09-28): zooming out never hits a framing limit —
+    // only a degenerate-math epsilon far below any visible scale.
+    expect(clampZoom(0.01)).toBe(0.01);
+    expect(clampZoom(0.002)).toBe(0.002);
+    expect(clampZoom(0)).toBe(ZOOM_MIN);
+    expect(clampZoom(-5)).toBe(ZOOM_MIN);
   });
 });
 
-describe("clampCamera", () => {
-  it("clamps position and zoom together", () => {
-    const cam = clampCamera({ x: 99_999, y: -99_999, zoom: 99 }, WORLD, VIEW);
-    expect(cam.zoom).toBe(ZOOM_MAX);
-    const b = cameraPanBounds(WORLD, VIEW, ZOOM_MAX);
-    expect(cam.x).toBe(b.maxX);
-    expect(cam.y).toBe(b.minY);
+describe("free camera (unbounded pan)", () => {
+  it("clampCamera passes position through untouched", () => {
+    const cam = clampCamera({ x: 99_999, y: -99_999, zoom: 0.5 });
+    expect(cam).toEqual({ x: 99_999, y: -99_999, zoom: 0.5 });
+  });
+
+  it("panBy moves against the drag delta, scaled by zoom, without limits", () => {
+    const next = panBy({ x: 0, y: 0, zoom: 2 }, 100, 50);
+    expect(next.x).toBeCloseTo(-50, 8);
+    expect(next.y).toBeCloseTo(-25, 8);
+    const far = panBy({ x: 0, y: 0, zoom: 1 }, -1e7, 1e7);
+    expect(far.x).toBe(1e7);
+    expect(far.y).toBe(-1e7);
   });
 });
 
@@ -80,32 +75,23 @@ describe("zoomAt (cursor-anchored zoom)", () => {
     const sx = 613;
     const sy = 217;
     const before = screenToWorld(cam, VIEW, sx, sy);
-    const next = zoomAt(cam, WORLD, VIEW, sx, sy, 2.2);
+    const next = zoomAt(cam, VIEW, sx, sy, 2.2);
     const after = screenToWorld(next, VIEW, sx, sy);
     expect(after.x).toBeCloseTo(before.x, 6);
     expect(after.y).toBeCloseTo(before.y, 6);
   });
 
-  it("clamps the resulting camera into the pan bounds", () => {
-    const cam = { x: 0, y: 0, zoom: ZOOM_MIN };
-    const next = zoomAt(cam, WORLD, VIEW, 0, 0, ZOOM_MAX);
-    const b = cameraPanBounds(WORLD, VIEW, ZOOM_MAX);
-    expect(next.x).toBeGreaterThanOrEqual(b.minX);
-    expect(next.x).toBeLessThanOrEqual(b.maxX);
-    expect(next.y).toBeGreaterThanOrEqual(b.minY);
-    expect(next.y).toBeLessThanOrEqual(b.maxY);
+  it("clamps only the zoom — the cursor anchor is preserved, pan is free", () => {
+    const cam = { x: 0, y: 0, zoom: 0.5 };
+    const sx = 120;
+    const sy = 90;
+    const before = screenToWorld(cam, VIEW, sx, sy);
+    const next = zoomAt(cam, VIEW, sx, sy, ZOOM_MAX);
     expect(next.zoom).toBe(ZOOM_MAX);
-  });
-});
-
-describe("panBy", () => {
-  it("moves the camera against the drag delta, scaled by zoom", () => {
-    const cam = { x: 0, y: 0, zoom: 2 };
-    // Huge world so the pan bounds don't clamp the result.
-    const huge = { minX: -1e6, minY: -1e6, maxX: 1e6, maxY: 1e6 };
-    const next = panBy(cam, huge, VIEW, 100, 50);
-    expect(next.x).toBeCloseTo(-50, 8);
-    expect(next.y).toBeCloseTo(-25, 8);
+    // The world point under the cursor stays put (no pan clamp fights it).
+    const after = screenToWorld(next, VIEW, sx, sy);
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.y).toBeCloseTo(before.y, 6);
   });
 });
 
@@ -144,7 +130,6 @@ describe("fitCameraToBounds (initial/reset framing)", () => {
       const cam = fitCameraToBounds(CONTENT, view);
       expect(cam.x).toBe(cx);
       expect(cam.y).toBe(cy);
-      expect(cam.zoom).toBeGreaterThanOrEqual(ZOOM_MIN);
       expect(cam.zoom).toBeLessThanOrEqual(ZOOM_DEFAULT);
     }
   });
@@ -154,7 +139,6 @@ describe("fitCameraToBounds (initial/reset framing)", () => {
     const view = { width: 800, height: 600 };
     const cam = fitCameraToBounds(small, view);
     expect(cam.zoom).toBe(ZOOM_DEFAULT); // fit > 1 → capped at the default
-    // Viewport exceeds the world → camera parks at the world center.
     expect(cam.x).toBe(200);
     expect(cam.y).toBe(100);
   });
@@ -169,11 +153,14 @@ describe("fitCameraToBounds (initial/reset framing)", () => {
     expect(cam.y).toBe(250);
   });
 
-  it("never leaves the zoom band, even for a huge city in a narrow viewport", () => {
+  it("centers huge content without a zoom floor fight (free camera)", () => {
+    // Content that cannot fit even at a readable zoom just centers — no
+    // pan clamp parks or fights the framing anymore.
     const huge = { minX: -4096, minY: -2048, maxX: 4096, maxY: 2048 };
     const portrait = { width: 390, height: 844 };
     const cam = fitCameraToBounds(huge, portrait);
-    expect(cam.zoom).toBe(ZOOM_MIN); // fit ≈ 0.09 → clamped to the band
+    expect(cam.zoom).toBeGreaterThan(0);
+    expect(cam.zoom).toBeLessThan(0.1); // far out, but never floored
     expect(cam.x).toBe(0);
     expect(cam.y).toBe(0);
   });

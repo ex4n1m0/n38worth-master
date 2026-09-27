@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 import type { CityProjection } from "@/lib/city/types";
+import type { UniversePayload } from "@/lib/city/universe";
 import { cityWorldStore } from "@/lib/city/scene/store";
 import type { CityScene } from "./scene/CityScene";
 import { CitySceneHost } from "./CitySceneHost";
@@ -45,6 +47,21 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
   // re-push its current state into the fresh instance.
   const [sceneEpoch, setSceneEpoch] = useState(0);
 
+  // Shared universe map (2026-09-28): identical payload for every viewer
+  // (CDN-cached on the server route), 5-min refresh — the client-side rank
+  // orbits re-derive per viewer. Null while loading / on failure (the
+  // universe simply doesn't render).
+  const universeQuery = useQuery({
+    queryKey: ["city-universe"],
+    queryFn: async (): Promise<UniversePayload | null> => {
+      const res = await fetch("/api/city/universe");
+      if (!res.ok) return null;
+      return (await res.json()) as UniversePayload;
+    },
+    staleTime: 60_000,
+    refetchInterval: 300_000,
+  });
+
   const hudActions = useMemo<CityHudActions>(
     () => ({
       zoomIn: () => sceneRef.current?.zoomBy(0.2),
@@ -65,6 +82,7 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
       <div className="city-world-stage">
         <CitySceneHost
           projection={projection}
+          universe={universeQuery.data ?? null}
           onSceneReady={(scene) => {
             sceneRef.current = scene;
             setSceneEpoch((e) => e + 1);

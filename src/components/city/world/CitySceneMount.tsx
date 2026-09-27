@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { cityWorldStore } from "@/lib/city/scene/store";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
@@ -11,10 +11,13 @@ import {
   missionLabel,
 } from "@/lib/missions-data";
 import { formatCompact } from "@/lib/utils";
+import type { UniversePayload } from "@/lib/city/universe";
 import { CityScene, type CitySceneProjection, type CitySceneStrings } from "./scene/CityScene";
 
 interface CitySceneMountProps {
   projection: CitySceneProjection;
+  /** Shared universe map payload (null while loading / on failure). */
+  universe: UniversePayload | null;
   onSceneReady: (scene: CityScene) => void;
   onContextLost: () => void;
   /** Mount-time failure (WebGL unavailable, chunk error, init throw). */
@@ -32,10 +35,13 @@ interface CitySceneMountProps {
  * - locale-aware FX/HQ strings (i18n resolved HERE, scene gets plain text)
  *
  * Data flows DOWN only: every sync comes from react-query data via props —
- * the scene never fetches and never mutates.
+ * the scene never mutates. The ONE fetch-shaped exception is the universe's
+ * lazy city detail: the shell injects a read-only fetcher callback
+ * (public /api/city/[username]) so the scene still owns no fetching logic.
  */
 export default function CitySceneMount({
   projection,
+  universe,
   onSceneReady,
   onContextLost,
   onError,
@@ -78,13 +84,29 @@ export default function CitySceneMount({
     }),
     [t, locale]
   );
-  const latest = useRef({ projection, strings });
+  const latest = useRef({ projection, strings, universe });
 
   // Latest-props ref for the mount-once create effect (ref writes belong
   // in effects, not render — react-hooks/refs).
   useEffect(() => {
-    latest.current = { projection, strings };
+    latest.current = { projection, strings, universe };
   });
+
+  // Read-only city-detail fetcher for the universe's lazy mini cities:
+  // public CDN-cached /api/city/[username]; null on any failure (the
+  // universe layer marks that city failed and never retries this session).
+  const fetchCityDetail = useCallback(
+    async (username: string): Promise<CitySceneProjection | null> => {
+      try {
+        const res = await fetch(`/api/city/${encodeURIComponent(username)}`);
+        if (!res.ok) return null;
+        return (await res.json()) as CitySceneProjection;
+      } catch {
+        return null;
+      }
+    },
+    []
+  );
 
   // ── scene lifecycle (mount once per Mount instance) ──
   useEffect(() => {
@@ -114,7 +136,9 @@ export default function CitySceneMount({
         scene = created;
         sceneRef.current = created;
         created.setStrings(latest.current.strings);
+        created.setCityDetailFetcher(fetchCityDetail);
         created.sync(latest.current.projection);
+        created.syncUniverse(latest.current.universe, latest.current.projection.owner.username);
         onSceneReady(created);
       } catch (err) {
         console.error("[city] scene init failed:", err);
@@ -146,6 +170,11 @@ export default function CitySceneMount({
     sceneRef.current?.sync(projection);
   }, [projection]);
 
+  // ── shared universe map → scene (rank orbits around the viewed city) ──
+  useEffect(() => {
+    sceneRef.current?.syncUniverse(universe, projection.owner.username);
+  }, [universe, projection.owner.username]);
+
   // ── store → scene ──
   useEffect(() => {
     const unsubscribe = cityWorldStore.subscribe((state, prev) => {
@@ -159,6 +188,9 @@ export default function CitySceneMount({
       }
       if (state.selectedLandmark !== prev.selectedLandmark) {
         scene.setSelectedLandmark(state.selectedLandmark);
+      }
+      if (state.selectedUniverseCity !== prev.selectedUniverseCity) {
+        scene.setSelectedUniverseCity(state.selectedUniverseCity);
       }
       if (state.reducedMotion !== prev.reducedMotion) {
         scene.setReducedMotion(state.reducedMotion);

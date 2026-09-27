@@ -63,5 +63,10 @@
   "cityStealHardLockNote": "硬锁生效中 — 无法雇佣",
   "stolenToast": "花费 {value}¢ 挖角了 {name}",
   "cityInspectorSatelliteOf": "隶属卫星城",
-  "cityInspectorForeignCity": "{name} 的卫星城"
+  "cityInspectorForeignCity": "{name} 的卫星城",
+  "cityUniverseChip": "宇宙 · {count} 座城市 · 我的排位 #{rank}",
+  "cityUniverseChipUnranked": "宇宙 · {count} 座城市",
+  "cityUniverseVisit": "查看城市",
+  "cityUniverseSummaryLabel": "共享宇宙",
+  "cityUniverseSelected": "{name} 的城市"
 }

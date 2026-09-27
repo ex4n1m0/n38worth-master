@@ -1,23 +1,28 @@
 /**
  * Mainframe City — satellite-city geometry (pure, node-safe, no Pixi).
  *
- * Satellite cities (owned cards that own cards) render OUTSIDE the 3×3
- * sector macro grid, far enough that they can never overlap the home city
- * (all 9 sector pads — including locked ones — always draw, so the anchor
- * ring clears the FULL macro footprint, not just the unlocked part) and
- * never overlap each other. Anchors sit on the octants of a Chebyshev ring
- * around the macro center — 8 slots, one per satellite (the assembler caps
- * neighbors at exactly that count).
+ * Satellite cities (owned cards that own cards) render OUTSIDE the city's
+ * UNLOCKED sector pads on the octants of a Chebyshev ring around the macro
+ * center — 8 slots, one per satellite (the assembler caps neighbors at
+ * exactly that count).
+ *
+ * DYNAMIC DISTANCE (2026-09-28 user ruling): the anchor ring is sized per
+ * AXIS from what the city actually occupies — unlocked-sector half-extent +
+ * a small margin — floored at the pairwise-separation minimum. A Boot-only
+ * city pulls its satellites in close (no vast void); unlocking far sectors
+ * pushes only the affected axis out. Locked pads are near-invisible chrome,
+ * so clusters may hover over them — overlap with LIVE pads stays impossible.
  *
  * Each cluster is a compact diamond: a mini relay HQ at the anchor tile
  * plus buildings on clockwise mini-rings (ringTiles) out to
  * SATELLITE_CLUSTER_RADIUS — the value-orbit rule in miniature (priciest
- * nearest the relay).
+ * nearest the relay), mirroring the home city's core-middle layout.
  */
 
 import { GRID_SIZE } from "./layout-schema";
-import { ringTiles } from "./rings";
+import { ORBIT_START_RING, ringTiles } from "./rings";
 import {
+  SECTOR_MACRO,
   TILE_H,
   TILE_W,
   macroStride,
@@ -26,14 +31,33 @@ import {
 } from "./scene/iso";
 
 /**
- * Clear tiles between the macro footprint edge and the anchor ring. 6 keeps
- * a visible screen gap (≥ ~3 building tiles) while staying reachable at
- * world LOD; pinned by tests (scene/satellites).
+ * Clear tiles between the unlocked pad edge and the anchor ring, per axis.
+ * Keeps a visible screen gap (≥ ~2 building tiles) while staying reachable
+ * at world LOD; pinned by tests (scene/satellites). Full 3×3 cities keep
+ * the exact pre-2026-09-28 geometry (margin 6 beyond the full footprint).
  */
 export const SATELLITE_MARGIN_TILES = 6;
 
-/** Chebyshev radius of one cluster around its anchor (mini-orbit extent). */
-export const SATELLITE_CLUSTER_RADIUS = 3;
+/**
+ * Per-axis floor for the anchor ring: adjacent octant anchors sit `r` tiles
+ * apart on each axis, and two full clusters (radius + pad skirt ≈ 6.5 each)
+ * must never touch — 14 tiles is the minimum comfortable separation.
+ */
+export const SATELLITE_MIN_RING_TILES = 14;
+
+/**
+ * Chebyshev radius of one cluster around its anchor. Since 2026-09-28 the
+ * cluster MIRRORS the home city shape (relay core, six mini monuments on
+ * the landmark hexagon, buildings from ORBIT_START_RING out), so the extent
+ * matches the home orbit's outer ring.
+ */
+export const SATELLITE_CLUSTER_RADIUS = ORBIT_START_RING;
+
+/**
+ * First mini-ring satellite buildings may occupy — the same ORBIT_START_RING
+ * the home orbit uses, keeping the mini goddess hexagon + moat clear.
+ */
+export const SATELLITE_ORBIT_START_RING = ORBIT_START_RING;
 
 export interface WorldBounds {
   minX: number;
@@ -53,9 +77,48 @@ export function macroHalfExtent(gridSize: number = GRID_SIZE): number {
   return (2 * macroStride(gridSize) + gridSize) / 2;
 }
 
-/** Anchor ring radius (macro half-extent + clear margin), in tiles. */
-export function satelliteRingRadius(gridSize: number = GRID_SIZE): number {
-  return macroHalfExtent(gridSize) + SATELLITE_MARGIN_TILES;
+/**
+ * Per-axis Chebyshev half-extents (tiles, from the macro center) of the
+ * union of the FIRST `sectorCount` sector grids — the ground the city
+ * actually occupies (live pads; locked pads don't push satellites away).
+ */
+export function unlockedHalfExtents(
+  sectorCount: number,
+  gridSize: number = GRID_SIZE
+): { ex: number; ey: number } {
+  const count = Math.max(1, Math.min(SECTOR_MACRO.length, sectorCount));
+  const stride = macroStride(gridSize);
+  const c = macroCenter(gridSize);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let s = 0; s < count; s++) {
+    const m = SECTOR_MACRO[s];
+    minX = Math.min(minX, m.x * stride);
+    maxX = Math.max(maxX, m.x * stride + gridSize);
+    minY = Math.min(minY, m.y * stride);
+    maxY = Math.max(maxY, m.y * stride + gridSize);
+  }
+  return {
+    ex: Math.max(Math.abs(minX - c.x), Math.abs(maxX - c.x)),
+    ey: Math.max(Math.abs(minY - c.y), Math.abs(maxY - c.y)),
+  };
+}
+
+/**
+ * Anchor ring radii per axis (tiles): unlocked extent + margin, floored at
+ * the pairwise-separation minimum. Full 3×3 cities match the old fixed ring.
+ */
+export function satelliteRingRadii(
+  sectorCount: number,
+  gridSize: number = GRID_SIZE
+): { rx: number; ry: number } {
+  const { ex, ey } = unlockedHalfExtents(sectorCount, gridSize);
+  return {
+    rx: Math.max(SATELLITE_MIN_RING_TILES, ex + SATELLITE_MARGIN_TILES),
+    ry: Math.max(SATELLITE_MIN_RING_TILES, ey + SATELLITE_MARGIN_TILES),
+  };
 }
 
 /** Octant walk, CLOCKWISE on screen starting screen-north (rings.ts rule). */
@@ -70,12 +133,19 @@ const OCTANTS: ReadonlyArray<readonly [number, number]> = [
   [-1, -1], // NW
 ];
 
-/** Global-tile anchor of satellite slot `index` (0..7, wraps). */
-export function satelliteAnchor(index: number, gridSize: number = GRID_SIZE): Point {
+/**
+ * Global-tile anchor of satellite slot `index` (0..7, wraps) for a city with
+ * `sectorCount` unlocked sectors (default 9 = the full macro grid).
+ */
+export function satelliteAnchor(
+  index: number,
+  gridSize: number = GRID_SIZE,
+  sectorCount: number = SECTOR_MACRO.length
+): Point {
   const c = macroCenter(gridSize);
-  const r = satelliteRingRadius(gridSize);
+  const { rx, ry } = satelliteRingRadii(sectorCount, gridSize);
   const [dx, dy] = OCTANTS[((index % OCTANTS.length) + OCTANTS.length) % OCTANTS.length];
-  return { x: Math.round(c.x + dx * r), y: Math.round(c.y + dy * r) };
+  return { x: Math.round(c.x + dx * rx), y: Math.round(c.y + dy * ry) };
 }
 
 export interface SatelliteTile {
@@ -87,17 +157,19 @@ export interface SatelliteTile {
 
 /**
  * The first `count` cluster tiles: clockwise mini-rings around the anchor
- * (ring 1 first — priciest building nearest the relay, matching the home
- * value-orbit rule). Exactly `count` tiles (capacity 49 ≥ the 12-building
- * budget), no duplicates, all within SATELLITE_CLUSTER_RADIUS.
+ * starting at `fromRing` (default ORBIT_START_RING — priciest building
+ * nearest the core plaza, matching the home value-orbit rule and keeping
+ * the mini goddess hexagon + moat clear). Exactly `count` tiles (capacity
+ * 8·radius ≥ the 12-building budget), no duplicates, all within `radius`.
  */
 export function satelliteClusterTiles(
   anchor: Point,
   count: number,
-  radius: number = SATELLITE_CLUSTER_RADIUS
+  radius: number = SATELLITE_CLUSTER_RADIUS,
+  fromRing: number = SATELLITE_ORBIT_START_RING
 ): SatelliteTile[] {
   const out: SatelliteTile[] = [];
-  for (let r = 1; r <= radius && out.length < count; r++) {
+  for (let r = Math.max(1, fromRing); r <= radius && out.length < count; r++) {
     for (const { gx, gy } of ringTiles(anchor.x, anchor.y, r)) {
       out.push({ gx, gy, ring: r });
       if (out.length >= count) break;

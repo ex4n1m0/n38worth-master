@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { CityScene, CitySceneProjection } from "./scene/CityScene";
+import type { UniversePayload } from "@/lib/city/universe";
 import { DistrictOverview, SceneErrorBoundary } from "./SceneErrorBoundary";
 
 /** pixi.js chunk — client-only, never in the server bundle (ADR §D1). */
@@ -13,6 +14,8 @@ const CitySceneMount = dynamic(() => import("./CitySceneMount"), {
 
 interface CitySceneHostProps {
   projection: CitySceneProjection;
+  /** Shared universe map payload (null while loading / on failure). */
+  universe: UniversePayload | null;
   onSceneReady: (scene: CityScene) => void;
 }
 
@@ -25,6 +28,7 @@ interface CitySceneHostProps {
  */
 export function CitySceneHost({
   projection,
+  universe,
   onSceneReady,
 }: CitySceneHostProps) {
   const [attempt, setAttempt] = useState(0);
@@ -49,6 +53,7 @@ export function CitySceneHost({
       <CitySceneMount
         key={attempt}
         projection={projection}
+        universe={universe}
         onSceneReady={onSceneReady}
         onContextLost={onContextLost}
         onError={onError}

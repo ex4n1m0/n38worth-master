@@ -2,17 +2,24 @@
  * Mainframe City — camera math (pure, node-safe, no Pixi).
  *
  * The camera is the WORLD PIXEL at the viewport center plus a zoom factor.
- * `x`/`y`/`zoom` are the only state; every transform (pan clamping, zoom at
- * cursor, reset-to-HQ, lerp-or-snap) is a pure function so the vitest suite
- * can pin the clamp and anchor behaviour without a canvas.
+ * `x`/`y`/`zoom` are the only state; every transform (zoom at cursor,
+ * reset-to-HQ, lerp-or-snap) is a pure function so the vitest suite can pin
+ * the behaviour without a canvas.
  *
- * Zoom band [0.32, 2.5] feeds the LOD bands in lod.ts (world/district/
- * close). 0.32 (not 0.5) so narrow phone viewports — whose canvas host is
- * further inset by page padding — can fit the full landmark ring including
- * monument art at the home framing (CityScene.homeCamera).
+ * FREE CAMERA (2026-09-28 user ruling): panning is UNBOUNDED (drag/keys can
+ * travel arbitrarily far in every direction — the void is infinite) and zoom
+ * has no practical lower bound (ZOOM_MIN is a sub-pixel epsilon that only
+ * guards degenerate math, not a framing decision). Only the upper zoom bound
+ * remains a real limit. The removed pan-bounds clamp used to park the camera
+ * on the world center once the viewport outgrew the city; the home framing
+ * and fit helpers now just center, with no clamping pass.
+ *
+ * Zoom ceiling feeds the LOD bands in lod.ts (world/district/close); the
+ * world band extends downward without limit.
  */
 
-export const ZOOM_MIN = 0.32;
+/** Sub-pixel floor only — the city may shrink to a dot, never to 0/NaN. */
+export const ZOOM_MIN = 0.001;
 export const ZOOM_MAX = 2.5;
 export const ZOOM_DEFAULT = 1;
 
@@ -29,57 +36,14 @@ export interface Viewport {
   height: number;
 }
 
-export interface WorldBounds {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-}
-
 export function clampZoom(zoom: number): number {
   if (Number.isNaN(zoom)) return ZOOM_DEFAULT;
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 }
 
-function clampRange(value: number, min: number, max: number): number {
-  // Degenerate (inverted) range → snap to its midpoint instead of a bound.
-  if (min > max) return (min + max) / 2;
-  return Math.min(max, Math.max(min, value));
-}
-
-/**
- * The range the camera CENTER may occupy so the visible rect stays inside
- * `world`. When the viewport (at this zoom) is larger than the world, the
- * range collapses to the world center (camera parks, no rubber-banding).
- */
-export function cameraPanBounds(
-  world: WorldBounds,
-  viewport: Viewport,
-  zoom: number
-): WorldBounds {
-  const halfW = viewport.width / (2 * zoom);
-  const halfH = viewport.height / (2 * zoom);
-  return {
-    minX: world.minX + halfW,
-    maxX: world.maxX - halfW,
-    minY: world.minY + halfH,
-    maxY: world.maxY - halfH,
-  };
-}
-
-/** Clamp a camera into its pan bounds (keeps zoom as-is, clamped). */
-export function clampCamera(
-  camera: CameraState,
-  world: WorldBounds,
-  viewport: Viewport
-): CameraState {
-  const zoom = clampZoom(camera.zoom);
-  const b = cameraPanBounds(world, viewport, zoom);
-  return {
-    zoom,
-    x: clampRange(camera.x, b.minX, b.maxX),
-    y: clampRange(camera.y, b.minY, b.maxY),
-  };
+/** Clamp a camera's zoom; x/y pass through untouched (free pan). */
+export function clampCamera(camera: CameraState): CameraState {
+  return { x: camera.x, y: camera.y, zoom: clampZoom(camera.zoom) };
 }
 
 /** Screen (canvas CSS px) → world px. */
@@ -110,11 +74,10 @@ export function worldToScreen(
 
 /**
  * Zoom keeping the world point under (sx, sy) anchored (cursor-anchored
- * wheel zoom / pinch). Pure: clamps zoom + pan bounds in one pass.
+ * wheel zoom / pinch). Pure: clamps zoom in one pass; pan stays free.
  */
 export function zoomAt(
   camera: CameraState,
-  world: WorldBounds,
   viewport: Viewport,
   sx: number,
   sy: number,
@@ -122,34 +85,24 @@ export function zoomAt(
 ): CameraState {
   const anchored = screenToWorld(camera, viewport, sx, sy);
   const zoom = clampZoom(nextZoom);
-  return clampCamera(
-    {
-      zoom,
-      x: anchored.x - (sx - viewport.width / 2) / zoom,
-      y: anchored.y - (sy - viewport.height / 2) / zoom,
-    },
-    world,
-    viewport
-  );
+  return clampCamera({
+    zoom,
+    x: anchored.x - (sx - viewport.width / 2) / zoom,
+    y: anchored.y - (sy - viewport.height / 2) / zoom,
+  });
 }
 
-/** Pan by a screen-space delta (drag), clamped into the pan bounds. */
+/** Pan by a screen-space delta (drag) — unbounded. */
 export function panBy(
   camera: CameraState,
-  world: WorldBounds,
-  viewport: Viewport,
   dxScreen: number,
   dyScreen: number
 ): CameraState {
-  return clampCamera(
-    {
-      ...camera,
-      x: camera.x - dxScreen / camera.zoom,
-      y: camera.y - dyScreen / camera.zoom,
-    },
-    world,
-    viewport
-  );
+  return clampCamera({
+    ...camera,
+    x: camera.x - dxScreen / camera.zoom,
+    y: camera.y - dyScreen / camera.zoom,
+  });
 }
 
 /**
@@ -176,14 +129,14 @@ export const FIT_CONTENT_MAX_ZOOM = 1.4;
 /**
  * Fit-to-view framing (initial camera + Reset): center the CONTENT bounding
  * box in the viewport at the largest zoom (≤ maxZoom) that still shows all of
- * it, clamped into the zoom band. Orientation-agnostic — it measures the
- * viewport, so portrait and landscape both center instead of clipping one
- * edge. When the content cannot fit even at ZOOM_MIN, clampCamera parks the
- * camera on the bounds center (degenerate pan range → midpoint), which is
- * exactly the "centered, clipped symmetrically" fallback we want.
+ * it. Orientation-agnostic — it measures the viewport, so portrait and
+ * landscape both center instead of clipping one edge. When the content
+ * cannot fit even near the zoom floor it still centers (free camera — no
+ * clamping pass), which is exactly the "centered, clipped symmetrically"
+ * fallback we want.
  */
 export function fitCameraToBounds(
-  world: WorldBounds,
+  world: { minX: number; minY: number; maxX: number; maxY: number },
   viewport: Viewport,
   maxZoom: number = ZOOM_DEFAULT
 ): CameraState {
@@ -196,7 +149,7 @@ export function fitCameraToBounds(
     (viewport.height * FIT_MARGIN) / bh
   );
   const zoom = clampZoom(Math.min(maxZoom, fit));
-  return clampCamera({ x: cx, y: cy, zoom }, world, viewport);
+  return { x: cx, y: cy, zoom };
 }
 
 /**
