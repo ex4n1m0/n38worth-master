@@ -59,3 +59,4 @@ public/tmp-*.png
 n38worth-zcode/
 .qa/
 scripts/_tmp-*
+src/app/dev-catalog/
