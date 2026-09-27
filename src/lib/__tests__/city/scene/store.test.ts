@@ -12,8 +12,8 @@ describe("city world store", () => {
     expect(s.cameraSector).toBe(0);
     expect(s.lod).toBe("district");
     expect(s.selectedCardId).toBeNull();
-    expect(s.placeMode).toBeNull();
-    expect(s.buildMode).toBe(false);
+    expect(s.selectedForeign).toBeNull();
+    expect(s.selectedLandmark).toBeNull();
     expect(s.reducedMotion).toBe(false);
   });
 
@@ -31,32 +31,24 @@ describe("city world store", () => {
     expect(cityWorldStore.getState().selectedCardId).toBeNull();
   });
 
-  it("manages the ghost placement lifecycle", () => {
-    const s = cityWorldStore.getState();
-    s.startPlaceMode(7, { sector: "s0", x: 3, y: 4 });
-    let state = cityWorldStore.getState();
-    expect(state.placeMode).toEqual({ cardId: 7, tile: { sector: "s0", x: 3, y: 4 } });
-    expect(state.selectedCardId).toBeNull();
-
-    state.moveGhost(10, -10);
-    expect(cityWorldStore.getState().placeMode?.tile).toEqual({ sector: "s0", x: 13, y: 0 });
-
-    cityWorldStore.getState().setGhostTile({ sector: "s1", x: 1, y: 1 });
-    expect(cityWorldStore.getState().placeMode?.tile).toEqual({ sector: "s1", x: 1, y: 1 });
-
-    cityWorldStore.getState().setGhostValidity("occupied");
-    expect(cityWorldStore.getState().placeIssue).toBe("occupied");
-
-    cityWorldStore.getState().endPlaceMode();
-    state = cityWorldStore.getState();
-    expect(state.placeMode).toBeNull();
-    expect(state.placeIssue).toBeNull();
-    expect(state.hoverTile).toBeNull();
+  it("selects goddess landmarks (one inspector at a time is scene-side)", () => {
+    cityWorldStore.getState().selectLandmark(3);
+    expect(cityWorldStore.getState().selectedLandmark).toBe(3);
+    cityWorldStore.getState().selectLandmark(null);
+    expect(cityWorldStore.getState().selectedLandmark).toBeNull();
   });
 
-  it("ignores ghost moves when no placement is active", () => {
-    cityWorldStore.getState().moveGhost(1, 1);
-    expect(cityWorldStore.getState().placeMode).toBeNull();
+  it("selects satellite buildings by stable owner+card identity", () => {
+    const sel = { owner: 9001, cardId: 42 };
+    cityWorldStore.getState().selectForeign(sel);
+    expect(cityWorldStore.getState().selectedForeign).toEqual(sel);
+    // Replaced wholesale (stable-ref rule — no in-place mutation).
+    const next = { owner: 9002, cardId: 43 };
+    cityWorldStore.getState().selectForeign(next);
+    expect(cityWorldStore.getState().selectedForeign).toEqual(next);
+    expect(cityWorldStore.getState().selectedForeign).not.toBe(sel);
+    cityWorldStore.getState().selectForeign(null);
+    expect(cityWorldStore.getState().selectedForeign).toBeNull();
   });
 
   it("stores camera snapshots with a copied camera object", () => {
@@ -84,12 +76,9 @@ describe("city world store", () => {
     expect(cityWorldStore.getState().lockedPeekSector).toBeNull();
   });
 
-  it("toggles reduced motion and build mode", () => {
+  it("toggles reduced motion", () => {
     cityWorldStore.getState().setReducedMotion(true);
-    cityWorldStore.getState().setBuildMode(true);
-    const s = cityWorldStore.getState();
-    expect(s.reducedMotion).toBe(true);
-    expect(s.buildMode).toBe(true);
+    expect(cityWorldStore.getState().reducedMotion).toBe(true);
   });
 
   it("notifies subscribers on state changes", () => {

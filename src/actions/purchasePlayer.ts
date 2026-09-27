@@ -181,12 +181,18 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       // Onboarding columns may not exist — ignore
     }
 
-    if (
-      currentOwner?.blockSellUntil &&
-      new Date(currentOwner.blockSellUntil) > new Date() &&
-      !isOnboardingNpc
-    ) {
-      const expiresAt = new Date(currentOwner.blockSellUntil);
+    // Mirrors buyPlayerCore: an active firewall (blockSellUntil) OR hard
+    // lock (permBlockUntil) on the current owner's row blocks the hire —
+    // hard locks are unbreakable by design, so no flow may buy through
+    // them. Onboarding starter NPCs keep their stale-block exception.
+    const currentBlockEnd = currentOwner?.blockSellUntil
+      ? new Date(currentOwner.blockSellUntil).getTime()
+      : 0;
+    const permBlockEnd = currentOwner?.permBlockUntil
+      ? new Date(currentOwner.permBlockUntil).getTime()
+      : 0;
+    if ((currentBlockEnd > Date.now() || permBlockEnd > Date.now()) && !isOnboardingNpc) {
+      const expiresAt = new Date(Math.max(currentBlockEnd, permBlockEnd));
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
       return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }

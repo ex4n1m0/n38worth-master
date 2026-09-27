@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import type { CityBuilding } from "@/lib/city/types";
 import type { CityScene, CitySceneProjection } from "./scene/CityScene";
 import { DistrictOverview, SceneErrorBoundary } from "./SceneErrorBoundary";
 
@@ -14,9 +13,7 @@ const CitySceneMount = dynamic(() => import("./CitySceneMount"), {
 
 interface CitySceneHostProps {
   projection: CitySceneProjection;
-  queue: readonly CityBuilding[] | null;
   onSceneReady: (scene: CityScene) => void;
-  onRelocate: (cardId: number) => void;
 }
 
 /**
@@ -28,9 +25,7 @@ interface CitySceneHostProps {
  */
 export function CitySceneHost({
   projection,
-  queue,
   onSceneReady,
-  onRelocate,
 }: CitySceneHostProps) {
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
@@ -54,11 +49,9 @@ export function CitySceneHost({
       <CitySceneMount
         key={attempt}
         projection={projection}
-        queue={queue}
         onSceneReady={onSceneReady}
         onContextLost={onContextLost}
         onError={onError}
-        onRelocate={onRelocate}
       />
     </SceneErrorBoundary>
   );

@@ -2,10 +2,11 @@
  * Mainframe City — aggregate skyline blocks (client-only Pixi).
  *
  * Buildings beyond the detailed-display limit (family.aggregated) render as
- * a bounded cluster of low skyline slabs at the RIM of the family's
- * district — density at a glance without materialising thousands of
- * sprites. Block count is capped per LOD (lod.ts budget); heights vary
- * deterministically from the family total (hash, not economy math).
+ * a bounded cluster of low skyline slabs continuing the VALUE-ORBIT beyond
+ * the outermost detailed ring — density at a glance without materialising
+ * thousands of sprites. Block count is capped per LOD (lod.ts budget);
+ * heights vary deterministically from the family total (hash, not economy
+ * math).
  *
  * Phase D:
  * - LOD-swap CROSSFADE — the per-LOD block budget changes wholesale between
@@ -18,12 +19,12 @@
  */
 
 import { Container, Graphics } from "pixi.js";
-import { GRID_SIZE } from "@/lib/city/layout-schema";
 import { UNASSIGNED_FAMILY, type CityFamily } from "@/lib/city/types";
 import { aggregateBlockBudget, type Lod } from "@/lib/city/scene/lod";
 import { clamp01, easeOutCubic } from "@/lib/city/scene/motion";
 import { pointVisible, type CullRect } from "@/lib/city/scene/culling";
-import { familySector, tileFillOrder, tileRefKey } from "@/lib/city/placement";
+import { tileRefKey } from "@/lib/city/placement";
+import { hqGlobalTile, orbitOrder } from "@/lib/city/rings";
 import { worldPointOfTile } from "./IsoWorld";
 import { drawIsoBox, professionMass, professionNeon, shade } from "./art";
 
@@ -51,23 +52,27 @@ export class AggregateBlocks extends Container {
 
   /**
    * Rebuild the skyline when families, sector count, or LOD budget change.
-   * `isFree` reports tiles the buildings/HQ/landmarks already own; slabs
-   * prefer the sector rim (reverse fill order). `fadeMs` > 0 crossfades the
-   * swap (LOD-budget changes); 0 swaps instantly (data-only changes).
+   * Slabs continue the building VALUE-ORBIT outward from `startRing` (the
+   * outermost detailed-building ring) — the cheap sprawl physically sits at
+   * the rim, same ranking rule as the buildings themselves. `isFree` reports
+   * tiles the buildings/HQ/landmarks already own; the walk skips them.
+   * `fadeMs` > 0 crossfades the swap (LOD-budget changes); 0 swaps
+   * instantly (data-only changes).
    */
   sync(
     families: readonly CityFamily[],
     sectorCount: number,
+    startRing: number,
     isFree: (key: string) => boolean,
     lod: Lod,
     fadeMs = 0
   ): void {
     const budget = aggregateBlockBudget(lod);
-    const key = `${families.map((f) => `${f.profession}:${f.aggregated}`).join("|")}#${sectorCount}#${budget}`;
+    const key = `${families.map((f) => `${f.profession}:${f.aggregated}`).join("|")}#${sectorCount}#${startRing}#${budget}`;
     if (key === this.drawnKey) return;
     this.drawnKey = key;
 
-    const next = this.buildBlocks(families, sectorCount, isFree, budget);
+    const next = this.buildBlocks(families, sectorCount, startRing, isFree, budget);
     if (fadeMs > 0 && this.current && this.current.children.length > 0) {
       // Crossfade: keep the old set visible while the new one fades in.
       this.outgoing?.destroy({ children: true });
@@ -90,16 +95,21 @@ export class AggregateBlocks extends Container {
   private buildBlocks(
     families: readonly CityFamily[],
     sectorCount: number,
+    startRing: number,
     isFree: (key: string) => boolean,
     budget: number
   ): Container {
     const root = new Container();
-    const rim = [...tileFillOrder(GRID_SIZE)].reverse();
-    const used = new Set<string>();
+    // One shared orbit stream (clockwise rings outward): the biggest family
+    // takes the innermost slab tiles, the next family continues after it —
+    // density reads as a single graded rim instead of per-district clusters.
+    const orbit = orbitOrder(hqGlobalTile(), startRing, sectorCount, undefined, (t) =>
+      isFree(tileRefKey(t))
+    );
+    let cursor = 0;
 
     for (const family of families) {
       if (family.aggregated <= 0) continue;
-      const sectorIndex = familySector(family.profession, sectorCount);
       const blocks = Math.max(1, Math.min(budget, Math.ceil(family.aggregated / 25)));
       const profession = family.profession === UNASSIGNED_FAMILY ? null : family.profession;
       const mass = professionMass(profession);
@@ -107,12 +117,8 @@ export class AggregateBlocks extends Container {
       const seed = hash32(family.profession);
 
       let placedBlocks = 0;
-      for (const { x, y } of rim) {
-        if (placedBlocks >= blocks) break;
-        const tileKey = tileRefKey({ sector: `s${sectorIndex}`, x, y });
-        if (!isFree(tileKey) || used.has(tileKey)) continue;
-        used.add(tileKey);
-
+      while (placedBlocks < blocks && cursor < orbit.length) {
+        const tile = orbit[cursor++];
         const slab = new Graphics();
         const variant = (seed >>> (placedBlocks * 3)) & 3;
         const h = 10 + variant * 6;
@@ -129,7 +135,7 @@ export class AggregateBlocks extends Container {
             alpha: 0.9,
           });
         }
-        const p = worldPointOfTile({ sector: `s${sectorIndex}`, x, y });
+        const p = worldPointOfTile({ sector: tile.sector, x: tile.x, y: tile.y });
         slab.position.set(p.x, p.y);
         root.addChild(slab);
         placedBlocks += 1;

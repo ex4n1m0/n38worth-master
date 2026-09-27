@@ -20,6 +20,7 @@ import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { PROFESSIONS } from "@/lib/professions";
 import type {
   CityAggregates,
+  CityNeighbor,
   CityOwnedCard,
   CityOwnerProfile,
 } from "./types";
@@ -170,4 +171,53 @@ export function makeCityFixture(
   }
 
   return { profile, ownedCards: cards, aggregates };
+}
+
+/**
+ * Deterministic fixture satellites (dev-only QA for the steal surface):
+ * the first 3 non-goddess cards become neighbor owners, each with 5
+ * synthesized buildings (values descending, professions cycling). Coverage
+ * baked in: one FIREWALLED building (future blockSellUntil relative to
+ * FIXTURE_NOW), one EXPIRED block, and one building flagged co-owned by the
+ * city owner (steal hidden). Card ids live in a disjoint 900k range so they
+ * can never collide with home-orbit ids (100k range).
+ */
+export function makeFixtureNeighbors(
+  ownedCards: CityOwnedCard[]
+): CityNeighbor[] {
+  const owners = ownedCards
+    .filter((c) => !GODDESS_USERNAMES.includes(c.username))
+    .slice(0, 3);
+  const neighbors: CityNeighbor[] = [];
+  owners.forEach((owner, oi) => {
+    const buildings = Array.from({ length: 5 }, (_, i) => {
+      const valueFloor = 2_000;
+      const playerValue = Math.round(valueFloor * Math.pow(2, 4 - i));
+      return {
+        cardId: 900_000 + oi * 10 + i,
+        username: `sat_${oi}_${i}`,
+        profession: i === 4 ? null : PROFESSIONS[(oi * 2 + i) % PROFESSIONS.length].name,
+        isNpc: 1,
+        tier: (1 + Math.max(0, 4 - i)) as CityNeighbor["buildings"][number]["tier"],
+        value: playerValue,
+        protection:
+          oi === 0 && i === 1
+            ? ("firewall" as const)
+            : oi === 1 && i === 2
+              ? ("hardlock" as const)
+              : null,
+        ownedByCityOwner: oi === 2 && i === 0,
+      };
+    });
+    neighbors.push({
+      cardId: owner.cardId,
+      username: owner.username,
+      profession: owner.profession,
+      isNpc: owner.isNpc,
+      visibleOwnedCount: 7,
+      buildings,
+      truncated: true,
+    });
+  });
+  return neighbors;
 }

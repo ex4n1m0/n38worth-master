@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { cityWorldStore } from "@/lib/city/scene/store";
-import type { CityBuilding } from "@/lib/city/types";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { cardDisplayName } from "@/lib/display-names";
@@ -16,13 +15,10 @@ import { CityScene, type CitySceneProjection, type CitySceneStrings } from "./sc
 
 interface CitySceneMountProps {
   projection: CitySceneProjection;
-  queue: readonly CityBuilding[] | null;
   onSceneReady: (scene: CityScene) => void;
   onContextLost: () => void;
   /** Mount-time failure (WebGL unavailable, chunk error, init throw). */
   onError: () => void;
-  /** Build-mode tap on a placed building → start relocating it. */
-  onRelocate: (cardId: number) => void;
 }
 
 /**
@@ -31,8 +27,7 @@ interface CitySceneMountProps {
  * CityScene lifecycle plus the store↔scene wiring:
  *
  * - store.selectedCardId → scene selection visuals + floating name chip
- * - store.placeMode → ghost begin/move/end (+ PREVIEW validity reports)
- * - store.reducedMotion → motion policy swap
+ * - store.reducedMotion → motion policy swap (glides/fades snap off)
  * - scene taps → selection callback into the store
  * - locale-aware FX/HQ strings (i18n resolved HERE, scene gets plain text)
  *
@@ -41,11 +36,9 @@ interface CitySceneMountProps {
  */
 export default function CitySceneMount({
   projection,
-  queue,
   onSceneReady,
   onContextLost,
   onError,
-  onRelocate,
 }: CitySceneMountProps) {
   const { t, locale } = useLanguage();
   const { play } = useSound();
@@ -64,6 +57,9 @@ export default function CitySceneMount({
           .replace("{tier}", String(tier))
           .replace("{value}", `${formatCompact(value)}¢`),
       displayName: (username) => cardDisplayName(username, locale),
+      // Satellite "+N more" plate (pre-localized count text).
+      satelliteMoreLabel: (count) =>
+        t.citySatelliteMore.replace("{count}", String(count)),
       // Sector identity (Phase D): Boot keeps its fixed label; every other
       // sector is named by the mission whose completion OPENS it — the
       // server's missionTier is the mission LEVEL (= mission index + 1), so
@@ -82,12 +78,12 @@ export default function CitySceneMount({
     }),
     [t, locale]
   );
-  const latest = useRef({ projection, queue, onRelocate, strings });
+  const latest = useRef({ projection, strings });
 
   // Latest-props ref for the mount-once create effect (ref writes belong
   // in effects, not render — react-hooks/refs).
   useEffect(() => {
-    latest.current = { projection, queue, onRelocate, strings };
+    latest.current = { projection, strings };
   });
 
   // ── scene lifecycle (mount once per Mount instance) ──
@@ -108,7 +104,6 @@ export default function CitySceneMount({
               cityWorldStore.getState().select(cardId);
               if (cardId !== null) play("buttons");
             },
-            onPickup: (cardId) => latest.current.onRelocate(cardId),
             onContextLost: () => onContextLost(),
           },
         });
@@ -119,7 +114,7 @@ export default function CitySceneMount({
         scene = created;
         sceneRef.current = created;
         created.setStrings(latest.current.strings);
-        created.sync(latest.current.projection, latest.current.queue);
+        created.sync(latest.current.projection);
         onSceneReady(created);
       } catch (err) {
         console.error("[city] scene init failed:", err);
@@ -148,8 +143,8 @@ export default function CitySceneMount({
 
   // ── data → scene ──
   useEffect(() => {
-    sceneRef.current?.sync(projection, queue);
-  }, [projection, queue]);
+    sceneRef.current?.sync(projection);
+  }, [projection]);
 
   // ── store → scene ──
   useEffect(() => {
@@ -159,18 +154,11 @@ export default function CitySceneMount({
       if (state.selectedCardId !== prev.selectedCardId) {
         scene.setSelected(state.selectedCardId);
       }
+      if (state.selectedForeign !== prev.selectedForeign) {
+        scene.setSelectedForeign(state.selectedForeign);
+      }
       if (state.selectedLandmark !== prev.selectedLandmark) {
         scene.setSelectedLandmark(state.selectedLandmark);
-      }
-      if (state.placeMode !== prev.placeMode) {
-        if (!state.placeMode) scene.endPlacement();
-        else scene.beginPlacement(state.placeMode.cardId, state.placeMode.tile);
-      } else if (
-        state.placeMode &&
-        prev.placeMode &&
-        state.placeMode.tile !== prev.placeMode.tile
-      ) {
-        scene.updateGhost(state.placeMode.tile);
       }
       if (state.reducedMotion !== prev.reducedMotion) {
         scene.setReducedMotion(state.reducedMotion);

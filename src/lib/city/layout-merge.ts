@@ -89,6 +89,7 @@ export function toQueueBuilding(card: CityOwnedCard, now: Date): CityBuilding {
     cardId: card.cardId,
     username: card.username,
     profession: card.profession,
+    isNpc: card.isNpc,
     tier: buildingTier(card.playerValue, card.valueFloor),
     value: card.playerValue,
     protection: protectionState(card, now),

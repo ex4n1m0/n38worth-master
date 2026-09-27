@@ -61,6 +61,8 @@ export interface CityBuilding {
   cardId: number;
   username: string;
   profession: string | null;
+  /** 1 = NPC card (profession assignable by the owner), 0 = human card. */
+  isNpc: number;
   tier: BuildingTier;
   value: number;
   /** Hard lock outranks firewall when both are active. */
@@ -103,6 +105,39 @@ export interface CityLandmark {
 }
 
 /**
+ * A building inside a SATELLITE city (2026-09-27 "neighbor cities"): an
+ * owned card of one of the owner's owned cards. Same visual contract as
+ * CityBuilding (tier/protection derived server-side exactly like the home
+ * orbit) plus the steal-relevant flags. The card may be co-owned by the
+ * city owner — the steal action is then hidden (the purchase API would
+ * reject it with "You already own this player").
+ */
+export interface CityNeighborBuilding extends CityBuilding {
+  /** The CITY OWNER also holds this card — steal disabled. */
+  ownedByCityOwner: boolean;
+}
+
+/**
+ * One satellite city: an owned card that itself owns visible cards, plus the
+ * (bounded) top of those cards by value. `visibleOwnedCount` is the SQL count
+ * of the neighbor's visible owned cards — `buildings` is capped, so the gap
+ * is surfaced as `truncated` for the "+N more" plate.
+ */
+export interface CityNeighbor {
+  /** The neighbor card's OWN user id (a detailed building of the home city). */
+  cardId: number;
+  username: string;
+  profession: string | null;
+  isNpc: number;
+  /** Visible owned count (goddesses included — they are filtered out of buildings). */
+  visibleOwnedCount: number;
+  /** Top buildings by value, bounded by NEIGHBOR_BUILDING_LIMIT. */
+  buildings: CityNeighborBuilding[];
+  /** visibleOwnedCount exceeded the building budget — show "+N more". */
+  truncated: boolean;
+}
+
+/**
  * Server-computed sector descriptor (§D3). Thresholds ONLY — ladder constants
  * plus the dynamic final-mission value — so the public route can never leak
  * live progress (hidden-card) state. The client maps sector identities to
@@ -140,6 +175,13 @@ export interface CityProjection {
   /** Number of buildings folded into aggregate density blocks. */
   aggregatedCount: number;
   landmarks: CityLandmark[];
+  /**
+   * Satellite cities (owned cards that own cards), value order, bounded by
+   * NEIGHBOR_CITY_LIMIT. Their buildings are hireable (steal) by the city
+   * OWNER via the ordinary /api/game/purchase flow; visitors see them
+   * read-only like the rest of the public projection.
+   */
+  neighbors: CityNeighbor[];
   /** True when all six goddesses are owned (Root Sequence eligibility). */
   rootSequenceEligible: boolean;
   /** Owner's current layout epoch (city_layout_meta), when layout was joined. */

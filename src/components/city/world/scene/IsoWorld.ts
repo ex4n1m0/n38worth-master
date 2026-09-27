@@ -9,7 +9,7 @@
  *   world only renders what sectorInfo/sectorsUnlocked say;
  * - ONE identity label chip per UNLOCKED sector pad (world/district LOD;
  *   text resolved by the React shell — never i18n in the scene);
- * - the tile occupancy map (persisted placements + visual auto-tiles);
+ * - the tile occupancy map (derived value-orbit placements, rings.ts);
  * - the buildings layer, depth-sorted by global (x + y) on layout change;
  * - the HQ core (sector 0 center, §D4) and the six goddess landmark pylons
  *   at fixed ring tiles (§D7 — landmarks are never layout rows);
@@ -33,12 +33,7 @@ import {
   pickTile,
   tileToScreen,
 } from "@/lib/city/scene/iso";
-import {
-  familySector,
-  tileRefKey,
-  tileSpreadOrder,
-  type TileRef,
-} from "@/lib/city/placement";
+import { tileRefKey, type TileRef } from "@/lib/city/placement";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
 import { drawDashedLine, drawLockMarker, makeTextChip } from "./art";
@@ -520,50 +515,3 @@ export class IsoWorld extends Container {
   }
 }
 
-/**
- * Visual auto-arrangement: assign tiles to buildings that have NO persisted
- * placement (D7 — hire creates no layout row). Deterministic: families map
- * to profession districts (familySector), tiles fill via tileSpreadOrder
- * (stride-2 lattice first, center-out — early buildings keep a real
- * screen-space moat so the city reads scattered, not blobbed) skipping
- * occupied + reserved tiles.
- * Purely cosmetic — nothing is written anywhere until the owner explicitly
- * places a card.
- */
-export function autoArrangeTiles(
-  placed: ReadonlyArray<{ building: CityBuilding; placement: NonNullable<CityBuilding["placement"]> }>,
-  unplaced: readonly CityBuilding[],
-  sectorCount: number,
-  isReserved: (key: string) => boolean
-): SceneBuildingEntry[] {
-  const entries: SceneBuildingEntry[] = placed.map(({ building, placement }) => ({
-    building,
-    tile: { sector: placement.sector, x: placement.x, y: placement.y },
-  }));
-  const taken = new Set(entries.map((e) => tileRefKey(e.tile)));
-
-  const cursors = new Map<number, number>();
-  const order = tileSpreadOrder(GRID_SIZE);
-  for (const building of unplaced) {
-    const sectorIndex = familySector(building.profession, sectorCount);
-    let cursor = cursors.get(sectorIndex) ?? 0;
-    let tile: TileRef | null = null;
-    while (cursor < order.length) {
-      const candidate: TileRef = {
-        sector: `s${sectorIndex}`,
-        x: order[cursor].x,
-        y: order[cursor].y,
-      };
-      cursor += 1;
-      const key = tileRefKey(candidate);
-      if (taken.has(key) || isReserved(key)) continue;
-      tile = candidate;
-      break;
-    }
-    if (!tile) tile = { sector: `s${sectorIndex}`, x: 0, y: 0 }; // grid full — server arbitrates
-    cursors.set(sectorIndex, cursor);
-    taken.add(tileRefKey(tile));
-    entries.push({ building, tile });
-  }
-  return entries;
-}

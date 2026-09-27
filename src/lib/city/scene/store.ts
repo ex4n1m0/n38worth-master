@@ -2,32 +2,28 @@
  * Mainframe City — world UI store (zustand VANILLA, node-safe).
  *
  * A single module-level store shared by the React shell (HUD / inspector /
- * queue / mirror list) and the imperative Pixi scene (which pushes camera
- * snapshots and ghost-validity reports into it). Vanilla `createStore` keeps
- * this importable from the node-env vitest suite; the typed React binding
- * lives in src/hooks/useCityWorldStore.ts.
+ * mirror list) and the imperative Pixi scene (which pushes camera snapshots
+ * into it). Vanilla `createStore` keeps this importable from the node-env
+ * vitest suite; the typed React binding lives in
+ * src/hooks/useCityWorldStore.ts.
  *
  * SELECTOR RULE (project gotcha): selectors must return STABLE references
  * (primitives or refs the store replaces wholesale, like `camera`) — never
  * fresh arrays/objects, or useSyncExternalStore will loop. Derive composite
  * values with useMemo at the call site.
+ *
+ * Placement state is GONE (2026-09-27): building tiles are derived from
+ * live value order (rankArrangeTiles) and recomputed on every projection
+ * sync, so there is no ghost, no build mode, and no queue left to track.
  */
 
 import { createStore } from "zustand/vanilla";
-import type { PlacementIssue, TileRef } from "../placement";
-import { stepGhostTile } from "../placement";
 import { LOD_DISTRICT, type Lod } from "./lod";
 
 export interface CityCameraSnapshot {
   x: number;
   y: number;
   zoom: number;
-}
-
-/** Building placement in progress (ghost tile). */
-export interface PlaceMode {
-  cardId: number;
-  tile: TileRef;
 }
 
 export interface CityWorldState {
@@ -39,18 +35,18 @@ export interface CityWorldState {
   lod: Lod;
   /** Currently selected building cardId (inspector). */
   selectedCardId: number | null;
+  /**
+   * Selected SATELLITE building (steal surface): the neighbor is identified
+   * by its OWN card id (stable across value re-ordering of the neighbors
+   * array), the building by its card id. One inspector at a time — the
+   * scene/canvas taps clear selectedCardId/selectedLandmark when this is
+   * set and vice versa (same rule the landmark selection follows).
+   */
+  selectedForeign: { owner: number; cardId: number } | null;
   /** Selected goddess landmark index 0..5 (power panel, Phase E). */
   selectedLandmark: number | null;
-  /** Active ghost placement, or null. */
-  placeMode: PlaceMode | null;
-  /** Current ghost validity (null = valid) — computed by the scene. */
-  placeIssue: PlacementIssue | null;
-  /** Tile under the pointer while a world mode is active. */
-  hoverTile: TileRef | null;
   /** prefers-reduced-motion, resolved by the React shell. */
   reducedMotion: boolean;
-  /** Build mode: tapping a placed building picks it back into the queue. */
-  buildMode: boolean;
   /**
    * Sector index the player TAPPED while locked (peek). Pan bounds keep the
    * camera centered on unlocked sectors, so a locked sector can never be the
@@ -64,15 +60,9 @@ export interface CityWorldState {
   setLockedPeek: (sector: number | null) => void;
   setLod: (lod: Lod) => void;
   select: (cardId: number | null) => void;
+  selectForeign: (sel: { owner: number; cardId: number } | null) => void;
   selectLandmark: (index: number | null) => void;
-  startPlaceMode: (cardId: number, tile: TileRef) => void;
-  moveGhost: (dx: number, dy: number) => void;
-  setGhostTile: (tile: TileRef) => void;
-  setGhostValidity: (issue: PlacementIssue | null) => void;
-  setHoverTile: (tile: TileRef | null) => void;
-  endPlaceMode: () => void;
   setReducedMotion: (reduced: boolean) => void;
-  setBuildMode: (on: boolean) => void;
   /** Full reset (world unmount / WebGL remount) so state never leaks. */
   resetWorld: () => void;
 }
@@ -84,12 +74,9 @@ const initial = {
   // Initial framing is the HOME_ZOOM district view — matches CityScene.
   lod: LOD_DISTRICT as Lod,
   selectedCardId: null as number | null,
+  selectedForeign: null as { owner: number; cardId: number } | null,
   selectedLandmark: null as number | null,
-  placeMode: null as PlaceMode | null,
-  placeIssue: null as PlacementIssue | null,
-  hoverTile: null as TileRef | null,
   reducedMotion: false,
-  buildMode: false,
 };
 
 export const cityWorldStore = createStore<CityWorldState>()((set) => ({
@@ -113,24 +100,11 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
   setLockedPeek: (sector) => set({ lockedPeekSector: sector }),
   setLod: (lod) => set({ lod }),
   select: (cardId) => set({ selectedCardId: cardId }),
+  selectForeign: (sel) => set({ selectedForeign: sel }),
   selectLandmark: (index) => set({ selectedLandmark: index }),
-  startPlaceMode: (cardId, tile) =>
-    set({ placeMode: { cardId, tile: { ...tile } }, placeIssue: null, selectedCardId: null }),
-  moveGhost: (dx, dy) =>
-    set((s) =>
-      s.placeMode
-        ? { placeMode: { ...s.placeMode, tile: stepGhostTile(s.placeMode.tile, dx, dy) } }
-        : s
-    ),
-  setGhostTile: (tile) =>
-    set((s) => (s.placeMode ? { placeMode: { ...s.placeMode, tile: { ...tile } } } : s)),
-  setGhostValidity: (issue) => set({ placeIssue: issue }),
-  setHoverTile: (tile) => set({ hoverTile: tile ? { ...tile } : null }),
-  endPlaceMode: () => set({ placeMode: null, placeIssue: null, hoverTile: null }),
   setReducedMotion: (reduced) => set({ reducedMotion: reduced }),
-  setBuildMode: (on) => set({ buildMode: on }),
   resetWorld: () => set({ ...initial }),
 }));
 
 /** Type-only re-export for the hook file (no React import here). */
-export type { PlacementIssue, TileRef } from "../placement";
+export type { TileRef } from "../placement";

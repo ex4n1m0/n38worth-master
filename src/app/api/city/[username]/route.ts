@@ -1,18 +1,22 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership, cityLayout, cityLayoutMeta } from "@/db/schema";
-import { eq, sql, and, desc, asc, inArray } from "drizzle-orm";
+import { users, ownership } from "@/db/schema";
+import { eq, sql, and, desc, asc, inArray, lte } from "drizzle-orm";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getGameWinCount } from "@/lib/game-wins";
 import { DETAILED_LIMIT, projectCity } from "@/lib/city/projection";
-import { mergePlacements } from "@/lib/city/layout-merge";
-import { FIXTURE_NOW, makeCityFixture } from "@/lib/city/fixtures";
+import { FIXTURE_NOW, makeCityFixture, makeFixtureNeighbors } from "@/lib/city/fixtures";
+import {
+  NEIGHBOR_BUILDING_LIMIT,
+  NEIGHBOR_CITY_LIMIT,
+  assembleCityNeighbors,
+} from "@/lib/city/neighbors";
 import {
   UNASSIGNED_FAMILY,
   type CityAggregates,
+  type CityNeighbor,
   type CityOwnedCard,
-  type CityPlacement,
 } from "@/lib/city/types";
 
 /**
@@ -46,12 +50,12 @@ export async function GET(
   // 1000/5000 cards, NO DB read. Double-gated (NODE_ENV + CITY_FIXTURES) so
   // it is unreachable in production. Always no-store — fixtures are not
   // real viewer-independent city data and must never reach the CDN cache.
-  // Same pipeline as real cities: projectCity + placement fold-in (empty
-  // placements → every building queued, layoutVersion 0) + this route's
-  // response extras. FIXTURE_NOW (not the wall clock) keeps the fixture's
-  // protection windows deterministically "active" for visual QA.
-  // "fixture-six" (Phase E): 100 cards with ALL SIX goddesses owned — the
-  // landmark/Root-Sequence beam QA state (seed 42 otherwise yields 4).
+  // Same pipeline as real cities: projectCity (placement is DERIVED
+  // client-side from value order — the city_layout table is no longer read).
+  // FIXTURE_NOW (not the wall clock) keeps the fixture's protection windows
+  // deterministically "active" for visual QA. "fixture-six" (Phase E): 100
+  // cards with ALL SIX goddesses owned — the landmark/Root-Sequence beam QA
+  // state (seed 42 otherwise yields 4).
   if (
     process.env.NODE_ENV === "development" &&
     process.env.CITY_FIXTURES === "1" &&
@@ -64,17 +68,20 @@ export async function GET(
       FIXTURE_NOW,
       isSix ? 6 : undefined
     );
-    const city = mergePlacements(
-      projectCity(profile, ownedCards, FIXTURE_NOW, aggregates),
-      new Map(),
-      0
+    // Fixture satellites (QA for the steal surface): 3 deterministic
+    // neighbor clusters with a firewall + a co-owned building in the mix.
+    const neighbors = makeFixtureNeighbors(ownedCards);
+    const city = projectCity(
+      profile,
+      ownedCards,
+      FIXTURE_NOW,
+      aggregates,
+      0,
+      undefined,
+      neighbors
     );
-    const familyPlaced: Record<string, number> = {};
-    for (const key of Object.keys(aggregates.familyTotals)) {
-      familyPlaced[key] = 0;
-    }
     return NextResponse.json(
-      { ...city, owner: { ...city.owner, profession: null }, familyPlaced },
+      { ...city, owner: { ...city.owner, profession: null } },
       { headers: { "Cache-Control": "no-store" } }
     );
   }
@@ -125,10 +132,9 @@ export async function GET(
 
     // Detailed buildings: top N visible owned cards by value (goddesses
     // included — the projection routes them to landmarks, not buildings).
-    // Placement fold-in (§D5/TH-01): city_layout is ONLY ever read through
-    // this ownership+visibleSql join — never standalone — so orphaned rows
-    // are invisible and hidden cards never leak placements. LEFT JOIN: an
-    // unplaced building simply has NULL placement columns.
+    // Building TILES are no longer fetched: placement is derived on the
+    // client from live value order (value-orbit rings), so the city_layout
+    // join is gone from this hot CDN-cached path.
     // NOTE: avatar URLs are deliberately NOT selected — legacy NPC rows carry
     // multi-hundred-KB `data:` URI avatars that blew the response up to MBs
     // and killed the Neon HTTP socket mid-transfer. The client lazy-loads
@@ -143,21 +149,9 @@ export async function GET(
         isNpc: users.isNpc,
         blockSellUntil: ownership.blockSellUntil,
         permBlockUntil: ownership.permBlockUntil,
-        placementSector: cityLayout.sectorKey,
-        placementX: cityLayout.tileX,
-        placementY: cityLayout.tileY,
-        placementRotation: cityLayout.rotation,
-        placementVariant: cityLayout.variant,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
-      .leftJoin(
-        cityLayout,
-        and(
-          eq(cityLayout.ownerUserId, owner.id),
-          eq(cityLayout.ownedPlayerId, users.id)
-        )
-      )
       .where(and(eq(ownership.ownerId, owner.id), visibleSql))
       .orderBy(desc(users.playerValue), asc(users.id))
       .limit(DETAILED_LIMIT);
@@ -174,9 +168,7 @@ export async function GET(
     }));
 
     // SQL-side aggregates for portfolios larger than the detailed fetch:
-    // per-family visible non-goddess owned counts (goddesses are landmarks),
-    // plus a placed-count per family on the same visible basis (LEFT JOIN
-    // keeps unplaced rows in COUNT(*) while COUNT(cl.id) counts placed only).
+    // per-family visible non-goddess owned counts (goddesses are landmarks).
     const goddessNamesSql = sql.join(
       GODDESS_USERNAMES.map((name) => sql`${name}`),
       sql`, `
@@ -185,17 +177,9 @@ export async function GET(
       .select({
         profession: users.profession,
         count: sql<number>`COUNT(*)`,
-        placed: sql<number>`COUNT(${cityLayout.id})`,
       })
       .from(ownership)
       .innerJoin(users, eq(ownership.ownedId, users.id))
-      .leftJoin(
-        cityLayout,
-        and(
-          eq(cityLayout.ownerUserId, owner.id),
-          eq(cityLayout.ownedPlayerId, users.id)
-        )
-      )
       .where(
         and(
           eq(ownership.ownerId, owner.id),
@@ -206,16 +190,10 @@ export async function GET(
       .groupBy(users.profession);
 
     const familyTotals: Record<string, number> = {};
-    // Sibling structure to CityFamily (types.ts is owned by the parallel
-    // types agent — placed counts live HERE until the type grows a field):
-    // top-level `familyPlaced: Record<familyKey, placedCount>`, keys on the
-    // same DB-profession / UNASSIGNED_FAMILY basis as familyTotals.
-    const familyPlaced: Record<string, number> = {};
     let totalBuildings = 0;
     for (const row of familyRows) {
       const key = row.profession ?? UNASSIGNED_FAMILY;
       familyTotals[key] = Number(row.count);
-      familyPlaced[key] = Number(row.placed);
       totalBuildings += Number(row.count);
     }
     const aggregates: CityAggregates = { totalBuildings, familyTotals };
@@ -243,6 +221,84 @@ export async function GET(
       );
     const goddessOwned = new Set(goddessRows.map((r) => r.username));
 
+    // ── Satellite cities (2026-09-27) ────────────────────────────────────
+    // Owned cards that themselves own visible cards render as FOREIGN mini
+    // clusters outside the macro grid; their buildings are stealable via the
+    // ordinary purchase flow. Two bounded queries: (1) per-candidate visible
+    // owned counts (cheap GROUP BY over ≤ DETAILED_LIMIT ids), (2) the top
+    // NEIGHBOR_BUILDING_LIMIT cards per CHOSEN neighbor (≤ 8 — window-ranked,
+    // hard LIMIT 96 rows). `ownedByCityOwner` is an EXISTS on the CITY
+    // OWNER's ownership (public data — same basis as the rest of the
+    // projection; NOT viewer-specific, so CDN safety holds).
+    let neighbors: CityNeighbor[] = [];
+    const candidateIds = detailedRows.map((r) => r.cardId);
+    let visibleOwnedCounts = new Map<number, number>();
+    if (candidateIds.length > 0) {
+      const ownedCountRows = await db
+        .select({ ownerId: ownership.ownerId, count: sql<number>`COUNT(*)` })
+        .from(ownership)
+        .innerJoin(users, eq(ownership.ownedId, users.id))
+        .where(and(inArray(ownership.ownerId, candidateIds), visibleSql))
+        .groupBy(ownership.ownerId);
+      visibleOwnedCounts = new Map<number, number>(
+        ownedCountRows.map((r) => [Number(r.ownerId), Number(r.count)])
+      );
+    }
+    const chosenNeighborIds = detailedRows
+      .filter(
+        (r) =>
+          !GODDESS_USERNAMES.includes(r.username) &&
+          (visibleOwnedCounts.get(r.cardId) ?? 0) > 0
+      )
+      .slice(0, NEIGHBOR_CITY_LIMIT)
+      .map((r) => r.cardId);
+    if (chosenNeighborIds.length > 0) {
+      // Subquery + SQL-side rn filter: a single flat LIMIT would let the
+      // first owner id consume the whole row budget and silently starve the
+      // later satellites. Filtering rn ≤ 12 in SQL first means 8 owners ×
+      // 12 rows exactly fit the outer LIMIT.
+      const windowed = db
+        .select({
+          rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${ownership.ownerId} ORDER BY ${users.playerValue} DESC, ${users.id} ASC)`.as("rn"),
+          ownerId: ownership.ownerId,
+          cardId: users.id,
+          username: users.username,
+          profession: users.profession,
+          playerValue: users.playerValue,
+          valueFloor: users.valueFloor,
+          isNpc: users.isNpc,
+          blockSellUntil: ownership.blockSellUntil,
+          permBlockUntil: ownership.permBlockUntil,
+          ownedByCityOwner: sql<number>`EXISTS(SELECT 1 FROM ownership o5 WHERE o5.owner_id = ${owner.id} AND o5.owned_id = ${users.id})`.as("owned_by_city_owner"),
+        })
+        .from(ownership)
+        .innerJoin(users, eq(ownership.ownedId, users.id))
+        .where(
+          and(
+            inArray(ownership.ownerId, chosenNeighborIds),
+            visibleSql,
+            sql`"users"."username" NOT IN (${goddessNamesSql})`
+          )
+        )
+        .as("city_rows");
+      const cityRows = await db
+        .select()
+        .from(windowed)
+        .where(lte(windowed.rn, NEIGHBOR_BUILDING_LIMIT))
+        .orderBy(asc(windowed.ownerId), desc(windowed.playerValue))
+        .limit(NEIGHBOR_CITY_LIMIT * NEIGHBOR_BUILDING_LIMIT);
+      neighbors = assembleCityNeighbors(
+        detailedRows,
+        visibleOwnedCounts,
+        cityRows.map((r) => ({
+          ...r,
+          ownedByCityOwner: Number(r.ownedByCityOwner) === 1,
+        })),
+        owner.username,
+        new Date()
+      );
+    }
+
     const city = projectCity(
       {
         username: owner.username,
@@ -254,45 +310,12 @@ export async function GET(
       new Date(),
       aggregates,
       gameWinCount,
-      goddessOwned
-    );
-
-    // Fold placements into detailed buildings + stamp the layout epoch (the
-    // merge also runs the §D7 same-tile demotion safety net). layoutVersion
-    // is 0 for owners who never saved a layout.
-    const placements = new Map<number, CityPlacement>();
-    for (const row of detailedRows) {
-      if (
-        row.placementSector === null ||
-        row.placementX === null ||
-        row.placementY === null
-      ) {
-        continue;
-      }
-      placements.set(row.cardId, {
-        sector: row.placementSector,
-        x: row.placementX,
-        y: row.placementY,
-        rotation: row.placementRotation ?? 0,
-        variant: row.placementVariant ?? 0,
-      });
-    }
-    const [layoutMetaRow] = await db
-      .select({ layoutVersion: cityLayoutMeta.layoutVersion })
-      .from(cityLayoutMeta)
-      .where(eq(cityLayoutMeta.ownerUserId, owner.id));
-    const cityWithLayout = mergePlacements(
-      city,
-      placements,
-      layoutMetaRow?.layoutVersion ?? 0
+      goddessOwned,
+      neighbors
     );
 
     return NextResponse.json(
-      {
-        ...cityWithLayout,
-        owner: { ...cityWithLayout.owner, profession: owner.profession },
-        familyPlaced,
-      },
+      { ...city, owner: { ...city.owner, profession: owner.profession } },
       {
         headers: {
           "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",

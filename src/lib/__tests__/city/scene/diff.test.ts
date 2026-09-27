@@ -11,6 +11,7 @@ function b(
     cardId,
     username: `u${cardId}`,
     profession: "Overclocker",
+    isNpc: 1,
     tier,
     value: 1000 * cardId,
     protection: null,

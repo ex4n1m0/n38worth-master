@@ -94,11 +94,9 @@ interface MirrorRow {
  */
 export function BuildingMirrorList({
   projection,
-  queue,
   onFocusCard,
 }: {
   projection: CityProjection;
-  queue: readonly CityBuilding[] | null;
   onFocusCard: (cardId: number) => void;
 }) {
   const { t, locale } = useLanguage();
@@ -110,7 +108,6 @@ export function BuildingMirrorList({
     const budget = mirrorNodeBudget(lodFor(zoom));
     const out: MirrorRow[] = [];
 
-    const seen = new Set<number>();
     for (const family of projection.families) {
       const familyLabel =
         family.profession === UNASSIGNED_FAMILY
@@ -118,7 +115,6 @@ export function BuildingMirrorList({
           : professionName(family.profession, locale);
       for (const building of family.buildings) {
         if (out.length >= budget) return out;
-        seen.add(building.cardId);
         out.push({
           kind: "building",
           cardId: building.cardId,
@@ -127,17 +123,6 @@ export function BuildingMirrorList({
           familyLabel,
         });
       }
-    }
-    for (const q of queue ?? []) {
-      if (seen.has(q.cardId)) continue;
-      if (out.length >= budget) return out;
-      out.push({
-        kind: "building",
-        cardId: q.cardId,
-        username: q.username,
-        building: q,
-        familyLabel: t.cityQueueTitle,
-      });
     }
     for (const family of projection.families) {
       if (out.length >= budget) break;
@@ -152,7 +137,7 @@ export function BuildingMirrorList({
       });
     }
     return out;
-  }, [projection.families, queue, zoom, t, locale]);
+  }, [projection.families, zoom, t, locale]);
 
   const activeIndex = Math.min(focusIndex, rows.length - 1);
 
@@ -175,7 +160,7 @@ export function BuildingMirrorList({
         </span>
       </header>
       {rows.length === 0 ? (
-        <p className="px-1 py-2 text-xs text-gray-500">{t.cityQueueEmpty}</p>
+        <p className="px-1 py-2 text-xs text-gray-500">{t.cityMirrorEmpty}</p>
       ) : (
         <div role="grid" aria-label={t.cityMirrorLabel} onKeyDown={handleKeyDown}>
           <div ref={listRef} role="row" className="city-world-mirror-list">

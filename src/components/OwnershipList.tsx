@@ -350,6 +350,10 @@ function OwnershipCard({
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["ownership"] }),
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        // Overclock doubles the card's value — the value-orbit city must
+        // re-rank (the building drifts toward the core) without waiting for
+        // the 120s poll. Same finding PlayerCard's pump already fixed.
+        queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
       ]);
     },
   });

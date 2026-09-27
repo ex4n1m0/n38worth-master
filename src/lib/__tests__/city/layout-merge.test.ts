@@ -179,6 +179,7 @@ describe("toQueueBuilding", () => {
       cardId: 5,
       username: "npc_1",
       profession: "Overclocker",
+      isNpc: 1,
       tier: 3, // 4× → 1 + 2
       value: 400,
       protection: "hardlock",

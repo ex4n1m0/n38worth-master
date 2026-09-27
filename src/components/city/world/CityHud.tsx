@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Hammer, LocateFixed, Lock, Minus, Plus, X } from "lucide-react";
+import { LocateFixed, Lock, Minus, Plus } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
-import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
+import { useCityWorldStore } from "@/hooks/useCityWorldStore";
 import type { CitySectorInfo } from "@/lib/city/types";
 
 /** Stable action bundle backed by the live scene (CityWorld provides it). */
@@ -14,36 +14,24 @@ export interface CityHudActions {
 }
 
 /**
- * DOM HUD over the canvas world: camera controls, sector label, build-mode
- * toggle + indicator, and the live place-mode status (valid/invalid +
- * reason — the PREVIEW predicate's verdict, server stays authoritative).
+ * DOM HUD over the canvas world: camera controls + the live sector label.
  * When the camera centers on a LOCKED sector (Phase D), the sector chip is
  * followed by the server-computed unlock threshold. Real focusable buttons
- * with visible focus rings; canvas stays aria-hidden.
+ * with visible focus rings; canvas stays aria-hidden. (The build-mode /
+ * place-mode cluster is gone — placement is derived from live value order.)
  */
 export function CityHud({
   actions,
-  onCommitPlacement,
-  placementPending,
   sectorInfo,
-  readOnly = false,
 }: {
   actions: CityHudActions;
-  /** Enter/tap commit path shared with the keyboard layer. */
-  onCommitPlacement: () => void;
-  placementPending: boolean;
   /** Server sector descriptors (locked threshold line). */
   sectorInfo: readonly CitySectorInfo[];
-  /** Visitors (Phase F public cities) get no build-mode entry point. */
-  readOnly?: boolean;
 }) {
   const { t } = useLanguage();
   const { play } = useSound();
   const cameraSector = useCityWorldStore((s) => s.cameraSector);
   const lockedPeekSector = useCityWorldStore((s) => s.lockedPeekSector);
-  const buildMode = useCityWorldStore((s) => s.buildMode);
-  const placeMode = useCityWorldStore((s) => s.placeMode);
-  const placeIssue = useCityWorldStore((s) => s.placeIssue);
 
   const sectorLabel =
     cameraSector === -1
@@ -84,7 +72,6 @@ export function CityHud({
           }}
           aria-label={t.cityHudZoomOut}
           className="city-world-btn"
-          disabled={placementPending}
         >
           <Minus className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -96,7 +83,6 @@ export function CityHud({
           }}
           aria-label={t.cityHudZoomIn}
           className="city-world-btn"
-          disabled={placementPending}
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -108,26 +94,9 @@ export function CityHud({
           }}
           aria-label={t.cityHudResetCamera}
           className="city-world-btn"
-          disabled={placementPending}
         >
           <LocateFixed className="h-4 w-4" aria-hidden="true" />
         </button>
-        {readOnly ? null : (
-          <button
-            type="button"
-            onClick={() => {
-              play("toggle");
-              getCityWorldStore().setBuildMode(!buildMode);
-            }}
-            aria-pressed={buildMode}
-            aria-label={t.cityHudBuildMode}
-            title={buildMode ? t.cityHudBuildModeOn : t.cityHudBuildModeOff}
-            className={`city-world-btn ${buildMode ? "city-world-btn-active" : ""}`}
-            disabled={placementPending}
-          >
-            <Hammer className="h-4 w-4" aria-hidden="true" />
-          </button>
-        )}
         <span className="city-world-sector-chip" aria-live="polite">
           {sectorLabel}
         </span>
@@ -142,56 +111,6 @@ export function CityHud({
               lockedThreshold.toLocaleString("en-US")
             )}
           </span>
-        </div>
-      ) : null}
-
-      {placeMode ? (
-        <div className="city-world-place-status" role="status">
-          <span
-            className={`city-world-place-dot ${placeIssue ? "city-world-place-dot-invalid" : ""}`}
-            aria-hidden="true"
-          />
-          <span className="city-world-place-text">
-            {placeIssue
-              ? placeIssue === "occupied"
-                ? t.cityPlaceInvalidOccupied
-                : placeIssue === "sector-locked"
-                  ? t.cityPlaceInvalidSector
-                  : placeIssue === "reserved"
-                    ? t.cityPlaceInvalidReserved
-                    : t.cityPlaceInvalidBounds
-              : t.cityPlaceValid}
-          </span>
-          <span className="city-world-place-hint">{t.cityPlaceHint}</span>
-          <button
-            type="button"
-            onClick={() => {
-              play("confirm");
-              onCommitPlacement();
-            }}
-            disabled={placementPending || !!placeIssue}
-            className="city-world-btn city-world-btn-primary"
-          >
-            <Check className="h-4 w-4" aria-hidden="true" />
-            {t.cityPlaceCommit}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              play("close");
-              getCityWorldStore().endPlaceMode();
-            }}
-            aria-label={t.cityPlaceCancel}
-            className="city-world-btn"
-            disabled={placementPending}
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
-        </div>
-      ) : buildMode ? (
-        <div className="city-world-place-status" role="status">
-          <Hammer className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" />
-          <span className="city-world-place-text">{t.cityHudPickupHint}</span>
         </div>
       ) : null}
     </div>

@@ -17,8 +17,10 @@
  *   sector-unlock FX, viewport culling on camera-settle/sync, LOD-swap
  *   crossfades (aggregate skyline + sprite detail), and the LOD band
  *   pushed into the world store for the DOM world summary.
- * - Placement ghost rendering + PREVIEW-ONLY validity (placement.ts),
- *   pushed into the world store for the HUD.
+ * - VALUE-ORBIT placement (2026-09-27): rankArrangeTiles derives every
+ *   building's tile from live value order — landmarks + HQ hold the
+ *   center, priciest buildings ring them, cheapest sprawl the rim — and
+ *   re-ranked buildings GLIDE to their new ring (reduced motion: snap).
  * - Tap picking (iso math), selection visuals + floating name chip, camera
  *   focus for the a11y mirror list.
  * - Locale-aware STRINGS (tier-up flash, lost-signal chip, HQ CORE tag,
@@ -48,12 +50,8 @@ import {
 import { clampCamera, ZOOM_MIN, type CameraState } from "@/lib/city/scene/camera";
 import { visibleWorldRect } from "@/lib/city/scene/culling";
 import { pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
-import {
-  ghostStartTile,
-  previewPlacement,
-  tileRefKey,
-  type TileRef,
-} from "@/lib/city/placement";
+import { unionBounds } from "@/lib/city/satellites";
+import { rankArrangeTiles, type TileRef } from "@/lib/city/placement";
 import {
   districtRepresentatives,
   districtsFromFamilies,
@@ -64,11 +62,9 @@ import {
   HQ_TILE,
   IsoWorld,
   LANDMARK_RING_SPAN_PX,
-  autoArrangeTiles,
   landmarkIndexOfTile,
   landmarkTile,
   worldPointOfTile,
-  type SceneBuildingEntry,
 } from "./IsoWorld";
 import { AggregateBlocks } from "./AggregateBlocks";
 import { DistrictLinks, type LinkAnchor } from "./DistrictLinks";
@@ -76,7 +72,8 @@ import { PathLayer } from "./PathLayer";
 import { RootSequenceLayer, ROOT_PHASE_COLORS } from "./RootSequenceLayer";
 import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
-import { drawGhostTile, mulberry32 } from "./art";
+import { SatelliteLayer } from "./SatelliteLayer";
+import { mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
 export type CitySceneProjection = CityProjection & {
@@ -96,6 +93,8 @@ export interface CitySceneStrings {
   tierUpLabel: (tier: number, value: number) => string;
   /** Display name resolver (cardDisplayName, zh/en). */
   displayName: (username: string) => string;
+  /** Satellite "+N more" plate text, pre-localized. */
+  satelliteMoreLabel: (count: number) => string;
   /** Sector identity resolver — Boot → cityBootSector, others →
    *  missionLabel/finalGoddessLabel (locale resolved in React land). */
   sectorLabel: (info: CitySectorInfo) => string;
@@ -106,12 +105,12 @@ const DEFAULT_STRINGS: CitySceneStrings = {
   lostSignalLabel: "SIGNAL LOST",
   tierUpLabel: (tier) => `T${tier}`,
   displayName: (username) => username,
+  satelliteMoreLabel: (count) => `+${count}`,
   sectorLabel: (info) => (info.index === 0 ? "BOOT" : ""),
 };
 
 export interface CitySceneCallbacks {
   onSelectCard: (cardId: number | null) => void;
-  onPickup: (cardId: number) => void;
   onContextLost: () => void;
 }
 
@@ -216,6 +215,11 @@ const HOME_ZOOM = 0.75;
  */
 const NAME_CHIP_CAP = 12;
 
+/** Re-rank glide duration (value change → drift to the new ring). */
+const MOVE_GLIDE_MS = 460;
+/** Max simultaneous glides — past this (mass re-rank) the rest snap. */
+const MOVE_GLIDE_CAP = 96;
+
 export class CityScene {
   private readonly app: Application;
   private readonly host: HTMLElement;
@@ -245,11 +249,11 @@ export class CityScene {
   private lastRenderAt = 0;
   private readonly world: IsoWorld;
   private readonly aggregate: AggregateBlocks;
+  private readonly satellites = new SatelliteLayer();
   private readonly paths = new PathLayer();
   private readonly links: DistrictLinks;
   private readonly rootLayer: RootSequenceLayer;
   private readonly fx: FxLayer;
-  private readonly ghostLayer = new Container();
   private rig!: CameraRig;
   private ro!: ResizeObserver;
   private readonly callbacks: CitySceneCallbacks;
@@ -266,12 +270,21 @@ export class CityScene {
   private lastRootState: RootSequenceVisualState = { active: false };
   private lastRootKey = rootSequenceKey(this.lastRootState);
   private lastProjection: CitySceneProjection | null = null;
-  private lastQueue: readonly CityBuilding[] | null = null;
   private lastTiles: readonly TileRef[] = [];
   private readonly cardTiles = new Map<number, TileRef>();
   private readonly buildingsById = new Map<number, CityBuilding>();
   private selectedCardId: number | null = null;
-  private ghost: { sprite: BuildingSprite; tile: Graphics; cardId: number } | null = null;
+  /** Ring the aggregate slabs resume the orbit at (outermost building ring). */
+  private aggregateStartRing = 7;
+  /** In-flight re-rank glides (value orbits), drained by updateMoves. */
+  private readonly moving: Array<{
+    sprite: BuildingSprite;
+    fromX: number;
+    fromY: number;
+    toX: number;
+    toY: number;
+    start: number;
+  }> = [];
   /** LOD-swap detail fade (windows/identity), one tween for ALL sprites. */
   private detailFadeActive = false;
   private detailFadeStart = 0;
@@ -349,12 +362,14 @@ export class CityScene {
     scene.syncBloom();
 
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
-    // beneath paths/buildings as a ground-level wash.
+    // beneath paths/buildings as a ground-level wash. Satellite cities join
+    // above the aggregate skyline — they live far outside the macro grid, so
+    // they never depth-sort against the home city's layers.
     scene.worldContainer.addChild(
       scene.world,
       scene.aggregate,
+      scene.satellites,
       scene.rootLayer.beams,
-      scene.ghostLayer,
       scene.fx
     );
     // Ground-level overlays (root veil → paths + district links) sit
@@ -367,8 +382,7 @@ export class CityScene {
     scene.updateVeilBounds();
 
     const viewport = () => scene.viewportSize();
-    const worldBounds = () =>
-      sectorWorldBounds(scene.world.sectorCount, GRID_SIZE);
+    const worldBounds = () => scene.worldBoundsWithSatellites();
 
     const rig = new CameraRig(
       {
@@ -418,15 +432,18 @@ export class CityScene {
         this.lastProjection.landmarks,
         this.strings.displayName
       );
+      this.satellites.setLabels(
+        this.strings.displayName,
+        this.strings.satelliteMoreLabel
+      );
     }
     this.updateNameChips();
     this.requestRender();
   }
 
-  sync(projection: CitySceneProjection, queue: readonly CityBuilding[] | null): void {
+  sync(projection: CitySceneProjection): void {
     if (this.destroyed) return;
     this.lastProjection = projection;
-    this.lastQueue = queue;
 
     const sectorCount = Math.max(
       1,
@@ -455,37 +472,39 @@ export class CityScene {
     }
     this.prevSectorCount = sectorCount;
 
-    // Merge detailed (visible) buildings with owner-queue extras by cardId —
-    // queue items reuse the building shape and may include hidden cards.
+    // Detailed (visible) buildings. The placement queue is retired: with
+    // derived value-orbit placement every owned card always has a tile, and
+    // hidden-card queue extras no longer render anywhere (the public
+    // projection stays the single source of visible buildings).
     const byId = new Map<number, CityBuilding>();
     for (const family of projection.families) {
       for (const b of family.buildings) byId.set(b.cardId, b);
     }
-    for (const q of queue ?? []) {
-      if (!byId.has(q.cardId)) byId.set(q.cardId, q);
-    }
     const all = [...byId.values()];
 
-    const placed = all
-      .filter((b) => b.placement)
-      .map((b) => ({
-        building: b,
-        placement: b.placement as NonNullable<CityBuilding["placement"]>,
-      }));
-    const unplaced = all.filter((b) => !b.placement);
-    const entries: SceneBuildingEntry[] = autoArrangeTiles(
-      placed,
-      unplaced,
+    // Pre-sync sprite positions: a building whose RING changed (its value
+    // crossed another's) glides from its old tile to the new one instead
+    // of teleporting — the "gains value → moves toward the core" read.
+    const prevPositions = new Map<number, { x: number; y: number }>();
+    for (const cardId of this.cardTiles.keys()) {
+      const s = this.world.spriteFor(cardId);
+      if (s) prevPositions.set(cardId, { x: s.x, y: s.y });
+    }
+
+    // VALUE-ORBIT arrangement (placement.ts/rings.ts): priciest innermost,
+    // clockwise rings outward; HQ + landmark reservations and the monument
+    // moat stay clear so the core plaza reads.
+    const { entries, resumeRing } = rankArrangeTiles(
+      all,
       sectorCount,
-      // Auto-arrange keeps a one-tile moat around the monuments so their
-      // silhouettes read (player placements are unrestricted outside the
-      // truly reserved ring/HQ tiles).
       (key) => this.world.reserved.has(key) || this.world.landmarkMoat.has(key)
     );
+    this.aggregateStartRing = resumeRing;
 
     const diff = diffBuildings(this.prevDetailed, all);
     const tileOf = new Map(entries.map((e) => [e.building.cardId, e.tile]));
     const { removed } = this.world.syncBuildings(entries);
+    this.beginMoves(entries, prevPositions);
 
     if (!diff.seeded) {
       for (const b of diff.entered) {
@@ -533,12 +552,30 @@ export class CityScene {
     this.aggregate.sync(
       projection.families,
       sectorCount,
-      // Aggregate blocks also keep the monument moat clear (same visual
-      // legibility rule as autoArrangeTiles).
+      this.aggregateStartRing,
+      // Aggregate slabs continue the SAME orbit beyond the outermost
+      // building ring (cheap sprawl at the rim) and keep the monument moat
+      // clear (same legibility rule as the building rings).
       (key) =>
         !this.world.isTileOccupied(key) && !this.world.landmarkMoat.has(key),
       this.lod
     );
+
+    // Satellite cities (owned cards that own cards): sync the foreign
+    // clusters + their home↔satellite data-links, then play construct/loss
+    // FX at their world positions (the seeded first sync stays silent,
+    // reduced-motion safe via the FX policy — same rules as the home orbit).
+    const satFx = this.satellites.sync(
+      projection.neighbors ?? [],
+      (cardId) => tileOf.get(cardId),
+      this.lod
+    );
+    if (!satFx.seeded) {
+      for (const p of satFx.added) this.fx.playConstruct(p.x, p.y);
+      for (const p of satFx.removed) {
+        this.fx.playLoss(p.x, p.y);
+      }
+    }
     const landmarkOwned = this.world.syncLandmarks(
       projection.landmarks,
       this.strings.displayName
@@ -574,7 +611,6 @@ export class CityScene {
     }
     this.prevDetailed = all;
 
-    if (this.ghost) this.refreshGhost(this.ghostTile());
     this.updateNameChips();
     this.updateCulling();
     this.requestRender();
@@ -593,13 +629,21 @@ export class CityScene {
     this.requestRender();
   }
 
+  /** Foreign (satellite) selection visuals — mirrors setSelected. */
+  setSelectedForeign(sel: { owner: number; cardId: number } | null): void {
+    this.satellites.setSelected(sel);
+    this.requestRender();
+  }
+
   setReducedMotion(reduced: boolean): void {
     this.policy = resolveMotion(reduced);
     this.fx.setPolicy(this.policy);
     this.links.setPolicy(this.policy);
     this.rootLayer.setPolicy(this.policy);
     if (this.policy.reduced) {
-      // In-flight LOD fades snap to their terminal state.
+      // In-flight LOD fades and re-rank glides snap to their terminal state.
+      for (const m of this.moving) m.sprite.position.set(m.toX, m.toY);
+      this.moving.length = 0;
       this.detailFadeActive = false;
       this.detailAlpha = 1;
       this.world.setDetailAlpha(1);
@@ -614,6 +658,7 @@ export class CityScene {
     const wasClose = this.lod === "close";
     this.lod = lod;
     this.world.setLod(lod);
+    this.satellites.setLod(lod);
     this.paths.sync(this.lastTiles, HQ_TILE, lod);
     this.links.setLod(lod);
     this.syncBloom(); // world-LOD massing views skip the filter pass
@@ -627,7 +672,9 @@ export class CityScene {
       this.aggregate.sync(
         this.lastProjection.families,
         this.world.sectorCount,
-        (key) => !this.world.isTileOccupied(key),
+        this.aggregateStartRing,
+        (key) =>
+          !this.world.isTileOccupied(key) && !this.world.landmarkMoat.has(key),
         lod,
         this.policy.lodFadeMs
       );
@@ -653,25 +700,25 @@ export class CityScene {
     this.rig.focusWorldPoint(p.x, p.y - 48);
   }
 
+  /** Side-panel focus → glide (or snap) the camera onto a satellite city. */
+  focusSatellite(slot: number): void {
+    const p = this.satellites.anchorPointOf(slot);
+    if (!p) return;
+    this.rig.animateTo(
+      clampCamera(
+        { x: p.x, y: p.y - 30, zoom: Math.max(this.rig.state.zoom, 0.7) },
+        this.worldBoundsWithSatellites(),
+        this.viewportSize()
+      )
+    );
+  }
+
   zoomBy(delta: number): void {
     this.rig.zoomBy(delta);
   }
 
   resetCamera(): void {
     this.rig.reset();
-  }
-
-  /**
-   * Just-placed spawn marker (Phase C polish d): the layout POST SUCCEEDED
-   * (server confirmed the placement) — celebrate at the committed tile with
-   * a one-shot green ring. The building itself still only appears via the
-   * refetched projection; nothing here is optimistic.
-   */
-  celebratePlacement(tile: TileRef): void {
-    if (this.destroyed) return;
-    const p = worldPointOfTile(tile);
-    this.fx.playSpawnRing(p.x, p.y);
-    this.requestRender();
   }
 
   // ── Root Sequence + landmarks (Phase E) ────────────────────────────────
@@ -712,10 +759,16 @@ export class CityScene {
     this.rig.animateTo(
       clampCamera(
         { x: tx, y: ty, zoom: Math.max(this.rig.state.zoom, 0.8) },
-        sectorWorldBounds(this.world.sectorCount, GRID_SIZE),
+        this.worldBoundsWithSatellites(),
         this.viewportSize()
       )
     );
+  }
+
+  /** Camera pan bounds: the macro grid ∪ the satellite clusters (when any). */
+  private worldBoundsWithSatellites() {
+    const base = sectorWorldBounds(this.world.sectorCount, GRID_SIZE);
+    return unionBounds(base, this.satellites.worldBounds()) ?? base;
   }
 
   /** Redraw the root visuals from the last pushed state. */
@@ -757,92 +810,60 @@ export class CityScene {
     );
   }
 
-  // ── placement ghost (PREVIEW-ONLY) ────────────────────────────────────
+  // ── re-rank glide (value-orbit placement) ─────────────────────────────
 
   /**
-   * Enter place mode for a card (queue button / build-mode relocate):
-   * derive a free start tile in the family's district, then push
-   * startPlaceMode into the store — the Mount's subscription calls back
-   * into beginPlacement, which renders the ghost and starts reporting
-   * PREVIEW validity for the HUD.
+   * Buildings whose derived tile CHANGED between syncs (a value crossed
+   * another's — overclocks, poaches, boss tax) drift from their previous
+   * position to the new one instead of teleporting. Skipped under reduced
+   * motion; capped so a mass re-rank snaps the tail instead of tweening a
+   * hundred sprites at once. Called AFTER syncBuildings placed the sprites
+   * at their new tiles; each glide re-seeds the sprite at its old position.
    */
-  startPlacement(cardId: number): void {
-    const building = this.buildingsById.get(cardId);
-    if (!building) return;
-    const tile = ghostStartTile(building.profession, this.world.sectorCount, (t) =>
-      !this.world.isTileOccupied(tileRefKey(t))
-    );
-    cityWorldStore.getState().startPlaceMode(cardId, tile);
-  }
-
-  beginPlacement(cardId: number, tile: TileRef): void {
-    this.endPlacement();
-    const building = this.buildingsById.get(cardId);
-    if (!building) return;
-    const sprite = new BuildingSprite(building);
-    sprite.setGhostAlpha();
-    const tileGfx = new Graphics();
-    this.ghostLayer.addChild(tileGfx, sprite);
-    this.ghost = { sprite, tile: tileGfx, cardId };
-    this.refreshGhost(tile);
-    // Auto-frame the ghost: its start tile can be off-screen (family
-    // district free tile), and tall towers otherwise leave the footprint
-    // diamond below the fold. Aim between the tile and the body mid-height.
-    const p = worldPointOfTile(tile);
-    this.rig.animateTo(
-      clampCamera(
-        {
-          x: p.x,
-          y: p.y - 70,
-          zoom: Math.max(this.rig.state.zoom, 0.9),
-        },
-        sectorWorldBounds(this.world.sectorCount, GRID_SIZE),
-        this.viewportSize()
-      )
-    );
-  }
-
-  updateGhost(tile: TileRef): void {
-    if (!this.ghost) return;
-    this.refreshGhost(tile);
-  }
-
-  endPlacement(): void {
-    if (!this.ghost) return;
-    this.ghostLayer.removeChildren();
-    this.ghost.sprite.destroy({ children: true });
-    this.ghost.tile.destroy();
-    this.ghost = null;
-    this.requestRender();
-  }
-
-  private ghostTile(): TileRef {
-    const place = cityWorldStore.getState().placeMode;
-    return place?.tile ?? HQ_TILE;
-  }
-
-  private refreshGhost(tile: TileRef): void {
-    if (!this.ghost || !this.lastProjection) return;
-    const sectorCount = this.world.sectorCount;
-    const occupied = new Set(this.world.occupancySnapshot().keys());
-    // The ghost's own card does not block its own preview.
-    for (const [key, cardId] of this.world.occupancySnapshot()) {
-      if (cardId === this.ghost.cardId) occupied.delete(key);
+  private beginMoves(
+    entries: ReadonlyArray<{ building: CityBuilding }>,
+    prevPositions: ReadonlyMap<number, { x: number; y: number }>
+  ): void {
+    this.moving.length = 0;
+    if (this.policy.reduced) return;
+    for (const entry of entries) {
+      const from = prevPositions.get(entry.building.cardId);
+      if (!from) continue;
+      const sprite = this.world.spriteFor(entry.building.cardId);
+      if (!sprite) continue;
+      if (sprite.x === from.x && sprite.y === from.y) continue;
+      if (this.moving.length >= MOVE_GLIDE_CAP) break;
+      this.moving.push({
+        sprite,
+        fromX: from.x,
+        fromY: from.y,
+        toX: sprite.x,
+        toY: sprite.y,
+        start: performance.now(),
+      });
+      sprite.position.set(from.x, from.y);
     }
-    const preview = previewPlacement({
-      tile,
-      sectorCount,
-      occupied,
-      reserved: this.world.reserved,
-    });
-    cityWorldStore.getState().setGhostValidity(preview.issue);
+  }
 
-    const p = worldPointOfTile(tile);
-    this.ghost.sprite.position.set(p.x, p.y);
-    this.ghost.tile.position.set(p.x, p.y);
-    this.ghost.tile.clear();
-    drawGhostTile(this.ghost.tile, preview.valid);
-    this.requestRender();
+  /** Advance the glides. True while any is in flight (keeps the ticker on). */
+  private updateMoves(now: number): boolean {
+    for (const m of this.moving) {
+      const p = clamp01((now - m.start) / MOVE_GLIDE_MS);
+      // smoothstep — deliberate ease-in/out for a readable drift.
+      const e = p < 0.5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      m.sprite.position.set(
+        m.fromX + (m.toX - m.fromX) * e,
+        m.fromY + (m.toY - m.fromY) * e
+      );
+    }
+    for (let i = this.moving.length - 1; i >= 0; i--) {
+      const m = this.moving[i];
+      if (now - m.start >= MOVE_GLIDE_MS) {
+        m.sprite.position.set(m.toX, m.toY);
+        this.moving.splice(i, 1);
+      }
+    }
+    return this.moving.length > 0;
   }
 
   // ── internals ─────────────────────────────────────────────────────────
@@ -1018,15 +1039,25 @@ export class CityScene {
 
   private onTap(worldX: number, worldY: number): void {
     const state = cityWorldStore.getState();
-    if (state.placeMode) {
-      // Place mode: tap re-positions the ghost (preview-only).
-      const picked = pickTile(worldX, worldY, GRID_SIZE);
-      if (picked) {
-        state.setGhostTile({ sector: `s${picked.sector}`, x: picked.x, y: picked.y });
-      }
-      return;
-    }
     const hit = this.world.pickBuilding(worldX, worldY);
+    if (!hit) {
+      // Satellite cities live outside the macro grid, where pickTile cannot
+      // address tiles — the layer hit-tests its own clusters instead.
+      const sat = this.satellites.pick(worldX, worldY);
+      if (sat) {
+        if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
+        if (state.selectedLandmark !== null) state.selectLandmark(null);
+        if (sat.kind === "hq") {
+          // The relay IS a home-orbit building of this city — open the
+          // normal inspector (overclock / profession) for it.
+          state.selectForeign(null);
+          this.callbacks.onSelectCard(sat.ownerCardId);
+        } else {
+          state.selectForeign({ owner: sat.ownerCardId, cardId: sat.cardId });
+        }
+        return;
+      }
+    }
     if (!hit || hit.cardId === null) {
       const picked = pickTile(worldX, worldY, GRID_SIZE);
       if (picked) {
@@ -1051,14 +1082,13 @@ export class CityScene {
       }
       if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
       if (state.selectedLandmark !== null) state.selectLandmark(null);
+      state.selectForeign(null);
       return;
     }
-    // Selecting a building clears any landmark selection (one inspector).
+    // Selecting a building clears any landmark/foreign selection (one
+    // inspector at a time).
     if (state.selectedLandmark !== null) state.selectLandmark(null);
-    if (state.buildMode) {
-      this.callbacks.onPickup(hit.cardId);
-      return;
-    }
+    state.selectForeign(null);
     this.callbacks.onSelectCard(hit.cardId);
   }
 
@@ -1095,6 +1125,7 @@ export class CityScene {
     const rect = visibleWorldRect(this.rig.state, this.viewportSize());
     this.world.applyCull(rect);
     this.aggregate.applyCull(rect);
+    this.satellites.applyCull(rect);
   }
 
   /** Start the LOD-swap detail fade-in (reduced motion: instant). */
@@ -1136,6 +1167,7 @@ export class CityScene {
     if (this.links.update(performance.now())) busy = true;
     if (this.rootLayer.update(performance.now())) busy = true;
     if (this.aggregate.update(performance.now())) busy = true;
+    if (this.updateMoves(performance.now())) busy = true;
     if (this.updateDetailFade(performance.now())) busy = true;
     if (this.dirty || busy) {
       this.dirty = false;

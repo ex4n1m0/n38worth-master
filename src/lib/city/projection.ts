@@ -25,6 +25,7 @@ import {
   type CityBuilding,
   type CityFamily,
   type CityLandmark,
+  type CityNeighbor,
   type CityOwnedCard,
   type CityOwnerProfile,
   type CityProjection,
@@ -166,7 +167,8 @@ export function projectCity(
   now: Date,
   aggregates?: CityAggregates,
   gameWinCount = 0,
-  goddessOwned?: ReadonlySet<string>
+  goddessOwned?: ReadonlySet<string>,
+  neighbors?: readonly CityNeighbor[]
 ): CityProjection {
   const goddessSet = new Set(GODDESS_USERNAMES);
 
@@ -211,6 +213,7 @@ export function projectCity(
         cardId: card.cardId,
         username: card.username,
         profession: card.profession,
+        isNpc: card.isNpc,
         tier: buildingTier(card.playerValue, card.valueFloor),
         value: card.playerValue,
         protection: protectionState(card, now),
@@ -230,6 +233,7 @@ export function projectCity(
         cardId: card.cardId,
         username: card.username,
         profession: card.profession,
+        isNpc: card.isNpc,
         tier: buildingTier(card.playerValue, card.valueFloor),
         value: card.playerValue,
         protection: protectionState(card, now),
@@ -260,6 +264,9 @@ export function projectCity(
       ? Math.max(0, aggregates.totalBuildings - detailedCards.length)
       : buildingCards.length - detailedCards.length,
     landmarks,
+    // Satellite cities pass through untouched (shaped/bounded by the
+    // assembler in neighbors.ts — pure data, never derived here).
+    neighbors: neighbors ? [...neighbors] : [],
     rootSequenceEligible: landmarks.every((l) => l.owned),
   };
 }

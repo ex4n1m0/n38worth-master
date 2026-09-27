@@ -1,58 +1,428 @@
 "use client";
 
-import { ExternalLink, ShieldCheck, X } from "lucide-react";
+import { ExternalLink, Loader2, ShieldCheck, X, Zap } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "@/lib/event-feed";
 import { useLanguage } from "@/components/LanguageContext";
+import { useCredits } from "@/hooks/useCredits";
+import { useSound } from "@/hooks/useSound";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
+import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
 import { formatCompact } from "@/lib/utils";
-import { UNASSIGNED_FAMILY, type CityBuilding } from "@/lib/city/types";
+import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
+import {
+  UNASSIGNED_FAMILY,
+  type CityBuilding,
+  type CityNeighbor,
+} from "@/lib/city/types";
 
-/** All buildings the inspector can resolve: visible detail + owner queue. */
+/** All buildings the inspector can resolve: every visible detailed card. */
 function indexBuildings(
-  families: readonly { buildings: readonly CityBuilding[] }[],
-  queue: readonly CityBuilding[] | null
+  families: readonly { buildings: readonly CityBuilding[] }[]
 ): Map<number, CityBuilding> {
   const map = new Map<number, CityBuilding>();
   for (const family of families) {
     for (const b of family.buildings) map.set(b.cardId, b);
   }
-  for (const q of queue ?? []) {
-    if (!map.has(q.cardId)) map.set(q.cardId, q);
-  }
   return map;
 }
 
+/** Value rank across the whole city (the orbit rule made explicit): the
+ *  projection's canonical order (value desc, cardId asc) — rank 1 is the
+ *  innermost ring. Recomputed per render, only while a card is selected. */
+function valueRanks(
+  families: readonly { buildings: readonly CityBuilding[] }[]
+): Map<number, number> {
+  const ranked = new Map<number, number>();
+  const all = families.flatMap((f) => f.buildings);
+  all
+    .slice()
+    .sort((a, b) => b.value - a.value || a.cardId - b.cardId)
+    .forEach((b, i) => ranked.set(b.cardId, i + 1));
+  return ranked;
+}
+
+/** Total detailed buildings (rank "{rank} of {total}" denominator). */
+function rankTotal(
+  families: readonly { buildings: readonly CityBuilding[] }[]
+): number {
+  let n = 0;
+  for (const family of families) n += family.buildings.length;
+  return n;
+}
+
+/** Resolve the selected satellite building against the neighbors payload. */
+function findForeign(
+  neighbors: readonly CityNeighbor[],
+  sel: { owner: number; cardId: number }
+): { neighbor: CityNeighbor; building: CityNeighbor["buildings"][number] } | null {
+  for (const neighbor of neighbors) {
+    if (neighbor.cardId !== sel.owner) continue;
+    const building = neighbor.buildings.find((b) => b.cardId === sel.cardId);
+    if (building) return { neighbor, building };
+  }
+  return null;
+}
+
 /**
- * DOM inspector for the selected building. SERVER-SENT state only: tier,
- * value, and protection render exactly as /api/city/[username] (plus the
- * owner-only queue route) reported them. Existing card actions live on the
- * player profile — linked out, never duplicated here.
+ * DOM inspector for the selected building — a short avatar profile with the
+ * OWNER ACTIONS from the Avatars tab: OVERCLOCK (costs 100% of the card's
+ * value, doubles it → the building re-ranks toward the core on the next
+ * projection) and, for NPC cards, assign/change profession (resets the card
+ * to its value floor → the building sinks outward). Visitors of a public
+ * city get the read-only profile only. SERVER-SENT state only: tier, value,
+ * and protection render exactly as /api/city/[username] reported them;
+ * actions reuse the same /api/game endpoints the Avatars tab calls.
+ *
+ * SATELLITE buildings (cards owned by one of the owner's owned cards) get
+ * the STEAL action instead — the exact /api/game/purchase call the Avatars
+ * tab makes (firewalls, slots, credits, mission locks all enforced
+ * server-side); on success the projection refetch pulls the card out of the
+ * satellite and into the home orbit.
  */
 export function BuildingInspector({
   families,
-  queue,
+  neighbors,
+  isOwner,
 }: {
   families: readonly { profession: string; buildings: readonly CityBuilding[] }[];
-  queue: readonly CityBuilding[] | null;
+  /** Satellite cities from the projection (steal surface). */
+  neighbors?: readonly CityNeighbor[];
+  /** Viewer === city owner: only then are card actions offered. */
+  isOwner?: boolean;
 }) {
   const { t, locale } = useLanguage();
+  const { play } = useSound();
+  const queryClient = useQueryClient();
+  const { data: myCredits } = useCredits();
   const selectedCardId = useCityWorldStore((s) => s.selectedCardId);
+  const selectedForeign = useCityWorldStore((s) => s.selectedForeign);
 
-  if (selectedCardId === null) return null;
+  const foreign =
+    selectedForeign !== null && neighbors && neighbors.length > 0
+      ? findForeign(neighbors, selectedForeign)
+      : null;
 
-  // Rebuilt per render is fine at ≤200 detailed + queue rows, but only when
-  // a selection exists (the common path stays map-free).
-  const building = indexBuildings(families, queue).get(selectedCardId);
+  const pumpCost = selectedCardId !== null
+    ? indexBuildings(families).get(selectedCardId)?.value ?? null
+    : null;
+  const canAffordPump = pumpCost !== null && (myCredits ?? 0) >= pumpCost;
+
+  // OVERCLOCK — same endpoint/shape as the Avatars tab (OwnershipList/
+  // PlayerCard): targetId = the card's user id; optimistic credits debit,
+  // server is the authority. Success invalidates ["city"] so the doubled
+  // value re-ranks the orbit and the building GLIDES toward the core.
+  const pumpMutation = useMutation({
+    mutationFn: async (targetId: number) => {
+      const res = await fetch("/api/game/pump", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t.overclockFailed);
+      return data as { newValue: number; cost: number };
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined && pumpCost !== null ? old - pumpCost : undefined
+      );
+      return { previousCredits };
+    },
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
+      play("error");
+      toast.error(err.message);
+    },
+    onSuccess: async (data, targetId) => {
+      const building = indexBuildings(families).get(targetId);
+      toast.success(
+        t.overclockedToast
+          .replace(
+            "{name}",
+            cardDisplayName(building?.username ?? "", locale)
+          )
+          .replace("{value}", formatCompact(data.newValue))
+          .replace("{cost}", formatCompact(data.cost))
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["player"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        // Doubled value → the orbit re-ranks and the building drifts inward.
+        queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
+      ]);
+    },
+  });
+
+  // STEAL (satellite buildings) — the Avatars tab's hire call verbatim
+  // (targetId = the card's user id; blockDurationHours left at its default
+  // so cost = value). Every guard is server-side; the disabled states below
+  // only mirror the predictable rejections (credits, co-ownership, an
+  // ACTIVE firewall on the neighbor's ownership row).
+  const stealCost = foreign?.building.value ?? null;
+  const canAffordSteal = stealCost !== null && (myCredits ?? 0) >= stealCost;
+
+  const stealMutation = useMutation({
+    mutationFn: async (targetId: number) => {
+      const res = await fetch("/api/game/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t.purchaseFailed);
+      return data as {
+        newValue?: number;
+        needsProfession?: boolean;
+        targetId?: number;
+        targetUsername?: string;
+        countdownStarted?: boolean;
+      };
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["credits"] });
+      const previousCredits = queryClient.getQueryData<number>(["credits"]);
+      queryClient.setQueryData(["credits"], (old: number | undefined) =>
+        old !== undefined && stealCost !== null ? old - stealCost : undefined
+      );
+      return { previousCredits };
+    },
+    onError: (err: Error, _, context) => {
+      if (context?.previousCredits !== undefined) {
+        queryClient.setQueryData(["credits"], context.previousCredits);
+      }
+      play("error");
+      toast.error(err.message);
+    },
+    onSuccess: async (data) => {
+      if (data.needsProfession && data.targetId !== undefined) {
+        useForcedProfessionStore.getState().require({
+          targetId: data.targetId,
+          targetUsername: data.targetUsername ?? "",
+        });
+      }
+      if (data.countdownStarted) {
+        play("win");
+        toast.success(t.countdownStartedTitle, {
+          description: t.countdownStartedDesc,
+          duration: 15000,
+        });
+        await queryClient.invalidateQueries();
+        return;
+      }
+      toast.success(
+        t.stolenToast
+          .replace("{name}", cardDisplayName(foreign?.building.username ?? "", locale))
+          .replace("{value}", formatCompact(stealCost ?? 0))
+      );
+      // Hire changed the owned-card count → the navbar mission progress and
+      // slots counters must refresh (AGENTS.md instant-update rule), and the
+      // ["city"] refetch moves the card into the home orbit (the satellite
+      // loses it, with loss/construct FX from the diff).
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credits"] }),
+        queryClient.invalidateQueries({ queryKey: ["player"] }),
+        queryClient.invalidateQueries({ queryKey: ["players"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership"] }),
+        queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["missions"] }),
+        queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
+        queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
+      ]);
+    },
+  });
+
+  if (selectedCardId === null && foreign === null) return null;
+
+  // ── satellite (foreign) building: profile + steal ──────────────────────
+  if (foreign) {
+    const { neighbor, building } = foreign;
+    const displayName = cardDisplayName(building.username, locale);
+    const neighborName = cardDisplayName(neighbor.username, locale);
+    const professionLabel =
+      building.profession && building.profession !== UNASSIGNED_FAMILY
+        ? professionName(building.profession, locale)
+        : t.cityUnassignedFamily;
+    const protectionName =
+      building.protection === "hardlock"
+        ? t.cityHardLock
+        : building.protection === "firewall"
+          ? t.cityFirewall
+          : null;
+    const avatarRing =
+      building.protection === "hardlock"
+        ? "ring-amber-500"
+        : building.protection === "firewall"
+          ? "ring-cyan-400"
+          : "ring-gray-700";
+    return (
+      <aside
+        className="city-world-inspector"
+        role="region"
+        aria-label={t.cityInspectorTitle}
+      >
+        <header className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
+                route, not a static asset; next/image adds nothing here. */}
+            <img
+              src={`/api/avatar/${encodeURIComponent(building.username)}`}
+              alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
+              width={44}
+              height={44}
+              loading="lazy"
+              decoding="async"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (img.dataset.fallbackApplied) return;
+                img.dataset.fallbackApplied = "1";
+                img.src = "/NEW_HIDDEN.webp";
+              }}
+              className={`h-11 w-11 shrink-0 rounded-lg object-cover ring-2 ${avatarRing}`}
+            />
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-white">{displayName}</h3>
+              <p className="truncate text-[11px] text-gray-500">
+                {professionLabel} · @{building.username}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => getCityWorldStore().selectForeign(null)}
+            aria-label={t.cityInspectorClose}
+            className="city-world-btn shrink-0"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dt className="font-semibold text-gray-500">{t.cityInspectorSatelliteOf}</dt>
+          <dd className="truncate font-bold text-purple-300">
+            {t.cityInspectorForeignCity.replace("{name}", neighborName)}
+            <span className="ml-1 font-semibold text-gray-500">
+              ({formatCompact(neighbor.visibleOwnedCount)})
+            </span>
+          </dd>
+          <dt className="font-semibold text-gray-500">{t.cityInspectorTier}</dt>
+          <dd className="font-bold tabular-nums text-cyan-300">
+            {t.cityInspectorTierValue.replace("{tier}", String(building.tier))}
+          </dd>
+          <dt className="font-semibold text-gray-500">{t.cityInspectorValue}</dt>
+          <dd className="font-bold tabular-nums text-white">
+            {`${formatCompact(building.value)}¢`}
+          </dd>
+          <dt className="font-semibold text-gray-500">{t.cityInspectorProtection}</dt>
+          <dd
+            className={`flex items-center gap-1 font-semibold ${
+              building.protection === "hardlock"
+                ? "text-amber-400"
+                : building.protection === "firewall"
+                  ? "text-cyan-400"
+                  : "text-gray-500"
+            }`}
+          >
+            {building.protection ? (
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            ) : null}
+            {protectionName ?? t.cityInspectorNone}
+          </dd>
+        </dl>
+
+        {isOwner === true ? (
+          <div className="mt-3">
+            {building.ownedByCityOwner ? (
+              <p className="rounded-md border border-gray-700 px-2 py-1.5 text-[11px] font-bold text-gray-400">
+                {t.cityStealOwnedNote}
+              </p>
+            ) : building.protection === "firewall" ? (
+              <p className="rounded-md border border-cyan-900 px-2 py-1.5 text-[11px] font-bold text-cyan-300">
+                {t.cityStealFirewallNote}
+              </p>
+            ) : building.protection === "hardlock" ? (
+              // Market parity: hard-locked cards are locked everywhere
+              // (buyPlayerCore AND purchasePlayer reject permBlockUntil).
+              <p className="rounded-md border border-amber-900 px-2 py-1.5 text-[11px] font-bold text-amber-300">
+                {t.cityStealHardLockNote}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  play("hire");
+                  stealMutation.mutate(building.cardId);
+                }}
+                disabled={!canAffordSteal || stealMutation.isPending}
+                className={`flex w-full items-center justify-center gap-1 rounded-md border-2 px-1.5 py-1 text-[11px] font-bold transition-colors ${
+                  canAffordSteal
+                    ? "border-purple-500 bg-transparent text-white hover:bg-purple-500/15"
+                    : "cursor-not-allowed border-gray-700 bg-transparent text-gray-500"
+                }`}
+              >
+                {stealMutation.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Zap className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                )}
+                {t.citySteal}
+                <span className="tabular-nums">{formatCompact(building.value)}¢</span>
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        <a
+          href={`/players/${encodeURIComponent(building.username)}`}
+          className="city-world-link mt-3"
+        >
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          {t.cityInspectorOpenProfile}
+        </a>
+      </aside>
+    );
+  }
+
+  // ── home-orbit building: existing profile + overclock/assign ───────────
+  // Rebuilt per render is fine at ≤200 detailed rows, but only when a
+  // selection exists (the common path stays map-free).
+  const building = selectedCardId !== null
+    ? indexBuildings(families).get(selectedCardId)
+    : undefined;
   if (!building) return null;
+  const rank = valueRanks(families).get(selectedCardId!) ?? null;
 
   const displayName = cardDisplayName(building.username, locale);
+  const professionLabel =
+    building.profession && building.profession !== UNASSIGNED_FAMILY
+      ? professionName(building.profession, locale)
+      : t.cityUnassignedFamily;
   const protectionName =
     building.protection === "hardlock"
       ? t.cityHardLock
       : building.protection === "firewall"
         ? t.cityFirewall
         : null;
+  // Avatar ring mirrors the in-world protection visual (cyan firewall,
+  // amber hard lock) so the popup and the building read as one object.
+  const avatarRing =
+    building.protection === "hardlock"
+      ? "ring-amber-500"
+      : building.protection === "firewall"
+        ? "ring-cyan-400"
+        : "ring-gray-700";
+  // Owner actions exist only on the viewer's OWN city (session username ===
+  // city owner), never on public visits.
+  const ownerActions = isOwner === true;
 
   return (
     <aside
@@ -61,13 +431,35 @@ export function BuildingInspector({
       aria-label={t.cityInspectorTitle}
     >
       <header className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-bold text-white">{displayName}</h3>
-          <p className="text-[11px] text-gray-500">
-            {building.profession && building.profession !== UNASSIGNED_FAMILY
-              ? professionName(building.profession, locale)
-              : t.cityUnassignedFamily}
-          </p>
+        <div className="flex min-w-0 items-center gap-2.5">
+          {/* Avatar lazy-loads from the CDN-cached /api/avatar/[username]
+              route — the city payload intentionally carries no avatar URLs
+              (legacy data: URI rows made inline payloads unusably large). A
+              failed load (fixture NPCs, retired rows) falls back to the
+              masked-placeholder art once. */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
+              route, not a static asset; next/image adds nothing here. */}
+          <img
+            src={`/api/avatar/${encodeURIComponent(building.username)}`}
+            alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
+            width={44}
+            height={44}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => {
+              const img = e.currentTarget;
+              if (img.dataset.fallbackApplied) return;
+              img.dataset.fallbackApplied = "1";
+              img.src = "/NEW_HIDDEN.webp";
+            }}
+            className={`h-11 w-11 shrink-0 rounded-lg object-cover ring-2 ${avatarRing}`}
+          />
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-bold text-white">{displayName}</h3>
+            <p className="truncate text-[11px] text-gray-500">
+              {professionLabel} · @{building.username}
+            </p>
+          </div>
         </div>
         <button
           type="button"
@@ -80,6 +472,14 @@ export function BuildingInspector({
       </header>
 
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dt className="font-semibold text-gray-500">{t.cityInspectorRank}</dt>
+        <dd className="font-bold tabular-nums text-white">
+          {rank !== null
+            ? t.cityInspectorRankValue
+                .replace("{rank}", String(rank))
+                .replace("{total}", formatCompact(rankTotal(families)))
+            : "—"}
+        </dd>
         <dt className="font-semibold text-gray-500">{t.cityInspectorTier}</dt>
         <dd className="font-bold tabular-nums text-cyan-300">
           {t.cityInspectorTierValue.replace("{tier}", String(building.tier))}
@@ -104,6 +504,44 @@ export function BuildingInspector({
           {protectionName ?? t.cityInspectorNone}
         </dd>
       </dl>
+
+      {ownerActions ? (
+        <div className="mt-3 flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              play("confirm");
+              pumpMutation.mutate(building.cardId);
+            }}
+            disabled={!canAffordPump || pumpMutation.isPending}
+            className={`flex flex-1 items-center justify-center gap-1 rounded-md border-2 px-1.5 py-1 text-[11px] font-bold transition-colors ${
+              canAffordPump
+                ? "border-fuchsia-500 bg-transparent text-white hover:bg-fuchsia-500/15"
+                : "cursor-not-allowed border-gray-700 bg-transparent text-gray-500"
+            }`}
+          >
+            {pumpMutation.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Zap className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            )}
+            {t.landChipOverclock}
+            <span className="tabular-nums">{formatCompact(building.value)}¢</span>
+          </button>
+          {building.isNpc === 1 ? (
+            <AssignProfessionDialog
+              targetId={building.cardId}
+              targetUsername={building.username}
+              currentProfession={
+                building.profession && building.profession !== UNASSIGNED_FAMILY
+                  ? building.profession
+                  : null
+              }
+              triggerClassName="flex-1 justify-center rounded-md border border-purple-800 bg-transparent px-1.5 py-1 text-[11px] font-bold text-purple-200 hover:bg-purple-900/30 hover:text-white h-auto"
+            />
+          ) : null}
+        </div>
+      ) : null}
 
       <a
         href={`/players/${encodeURIComponent(building.username)}`}

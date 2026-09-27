@@ -154,6 +154,9 @@ export function AssignProfessionDialog({
         queryClient.invalidateQueries({ queryKey: ["players"] }),
         queryClient.invalidateQueries({ queryKey: ["player"] }),
         queryClient.invalidateQueries({ queryKey: ["owned-player-ids"] }),
+        // Assignment resets the NPC to its value floor — the city building
+        // re-ranks (sinks outward) on the next projection.
+        queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
       ]);
       if (forced) {
         onForcedAssigned?.();

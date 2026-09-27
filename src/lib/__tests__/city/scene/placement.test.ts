@@ -1,174 +1,218 @@
 import { describe, expect, it } from "vitest";
-import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
-import { PROFESSIONS } from "@/lib/professions";
+import { GRID_SIZE } from "@/lib/city/layout-schema";
+import { tileRefKey, rankArrangeTiles } from "@/lib/city/placement";
 import {
-  familySector,
-  ghostStartTile,
-  previewPlacement,
-  sectorKeyFor,
-  stepGhostTile,
-  tileFillOrder,
-  tileRefKey,
-  tileSpreadOrder,
-  type TileRef,
-} from "@/lib/city/placement";
+  ORBIT_START_RING,
+  hqGlobalTile,
+  orbitOrder,
+  ringTiles,
+} from "@/lib/city/rings";
+import { macroStride, tileToScreen } from "@/lib/city/scene/iso";
+import type { CityBuilding } from "@/lib/city/types";
 
-describe("placement preview (PREVIEW-ONLY predicate)", () => {
-  const occupied = new Set(["s0:5:5"]);
-  const reserved = new Set(["s0:16:16"]);
+/** Minimal CityBuilding factory (tier/protection irrelevant to placement). */
+function b(cardId: number, value: number): CityBuilding {
+  return {
+    cardId,
+    username: `npc_${cardId}`,
+    profession: null,
+    isNpc: 1,
+    tier: 1,
+    value,
+    protection: null,
+  };
+}
 
-  it("accepts a free, unlocked, in-bounds tile", () => {
-    expect(
-      previewPlacement({ tile: { sector: "s0", x: 4, y: 4 }, sectorCount: 1, occupied, reserved })
-    ).toEqual({ valid: true, issue: null });
-  });
+describe("ringTiles (clockwise square rings)", () => {
+  const cx = 50;
+  const cy = 50;
 
-  it("rejects out-of-bounds coordinates", () => {
-    for (const tile of [
-      { sector: "s0", x: GRID_SIZE, y: 0 },
-      { sector: "s0", x: 0, y: -1 },
-      { sector: "s0", x: 1.5, y: 0 },
-    ]) {
-      expect(previewPlacement({ tile, sectorCount: 9, occupied, reserved })).toEqual({
-        valid: false,
-        issue: "out-of-bounds",
-      });
+  it("visits exactly 8r tiles with no duplicates", () => {
+    for (const r of [1, 2, 7, 16]) {
+      const tiles = ringTiles(cx, cy, r);
+      expect(tiles).toHaveLength(8 * r);
+      expect(new Set(tiles.map((t) => `${t.gx},${t.gy}`)).size).toBe(8 * r);
     }
   });
 
-  it("rejects locked sectors using the payload's sector count", () => {
-    expect(
-      previewPlacement({ tile: { sector: "s2", x: 0, y: 0 }, sectorCount: 2, occupied, reserved })
-    ).toEqual({ valid: false, issue: "sector-locked" });
-    expect(
-      previewPlacement({ tile: { sector: "s2", x: 0, y: 0 }, sectorCount: 3, occupied, reserved })
-    ).toEqual({ valid: true, issue: null });
-    expect(
-      previewPlacement({ tile: { sector: "s99", x: 0, y: 0 }, sectorCount: 9, occupied, reserved })
-    ).toEqual({ valid: false, issue: "sector-locked" });
-  });
-
-  it("rejects occupied and reserved tiles", () => {
-    expect(
-      previewPlacement({ tile: { sector: "s0", x: 5, y: 5 }, sectorCount: 1, occupied, reserved })
-    ).toEqual({ valid: false, issue: "occupied" });
-    expect(
-      previewPlacement({ tile: { sector: "s0", x: 16, y: 16 }, sectorCount: 1, occupied, reserved })
-    ).toEqual({ valid: false, issue: "reserved" });
-  });
-});
-
-describe("ghost stepping", () => {
-  it("clamps inside the grid and never changes sector", () => {
-    const corner: TileRef = { sector: "s1", x: 0, y: GRID_SIZE - 1 };
-    expect(stepGhostTile(corner, -3, 0)).toEqual({ sector: "s1", x: 0, y: 31 });
-    expect(stepGhostTile(corner, 0, 5)).toEqual({ sector: "s1", x: 0, y: 31 });
-    expect(stepGhostTile({ sector: "s1", x: 30, y: 30 }, 4, 4)).toEqual({
-      sector: "s1",
-      x: 31,
-      y: 31,
-    });
-  });
-});
-
-describe("tile fill order (visual auto-arrangement)", () => {
-  it("is deterministic and center-first", () => {
-    const order = tileFillOrder(GRID_SIZE);
-    expect(order).toHaveLength(GRID_SIZE * GRID_SIZE);
-    // Center tie (15/16 × 15/16) resolves row-major → (15,15) first.
-    expect(order[0]).toEqual({ x: 15, y: 15 });
-    expect(order).toEqual(tileFillOrder(GRID_SIZE));
-    const dist = (t: { x: number; y: number }) =>
-      (t.x - 15.5) ** 2 + (t.y - 15.5) ** 2;
-    for (let i = 1; i < order.length; i++) {
-      expect(dist(order[i])).toBeGreaterThanOrEqual(dist(order[i - 1]) - 1e-9);
+  it("stays on the Chebyshev ring (max |dx|,|dy| == r, at least one == r)", () => {
+    for (const { gx, gy } of ringTiles(cx, cy, 5)) {
+      const dx = Math.abs(gx - cx);
+      const dy = Math.abs(gy - cy);
+      expect(Math.max(dx, dy)).toBe(5);
     }
   });
 
-  it("gives ghostStartTile the first free tile in the family's sector", () => {
-    const taken = (t: TileRef) => tileRefKey(t) !== "s0:15:15";
-    const tile = ghostStartTile("Cryptographer", 1, taken);
-    expect(tile.sector).toBe("s0");
-    expect(tile).toEqual({ sector: "s0", x: 16, y: 15 });
-    // Fully-booked grid degrades to the origin (server will reject with 409).
-    expect(ghostStartTile(null, 1, () => false)).toEqual({ sector: "s0", x: 0, y: 0 });
+  it("starts at the tile-top edge midpoint and walks clockwise on screen", () => {
+    const r = 4;
+    const tiles = ringTiles(cx, cy, r);
+    // Start tile: (cx, cy - r) — the midpoint of the tile-space top edge.
+    // In the 2:1 iso projection the tile square maps to a screen DIAMOND, so
+    // this lands on the upper-right flank (screen y above center, screen x
+    // right of center).
+    expect(tiles[0]).toEqual({ gx: cx, gy: cy - r });
+    const center = tileToScreen(cx, cy);
+    const start = tileToScreen(tiles[0].gx, tiles[0].gy);
+    expect(start.y).toBeLessThan(center.y);
+    expect(start.x).toBeGreaterThan(center.x);
+    // Clockwise on screen: from the upper-right flank the walk descends the
+    // right side (tile +x = screen down-right).
+    const second = tileToScreen(tiles[1].gx, tiles[1].gy);
+    expect(second.x).toBeGreaterThan(start.x);
+    expect(second.y).toBeGreaterThan(start.y);
+    // Corners land where the legs say: indices r, 3r, 5r, 7r sit on the four
+    // tile-space corners of the ring (the screen diamond's E, S, W, N
+    // vertices respectively — each leg pushes its own starting corner).
+    expect(tiles[r]).toEqual({ gx: cx + r, gy: cy - r }); // NE corner
+    expect(tiles[3 * r]).toEqual({ gx: cx + r, gy: cy + r }); // SE
+    expect(tiles[5 * r]).toEqual({ gx: cx - r, gy: cy + r }); // SW
+    expect(tiles[7 * r]).toEqual({ gx: cx - r, gy: cy - r }); // NW
   });
 });
 
-describe("tile spread order (spread auto-arrangement, 2026-09-27)", () => {
-  it("is a permutation of the grid — every tile exactly once", () => {
-    const spread = tileSpreadOrder(GRID_SIZE);
-    expect(spread).toHaveLength(GRID_SIZE * GRID_SIZE);
-    const seen = new Set(spread.map((t) => `${t.x}:${t.y}`));
-    expect(seen.size).toBe(GRID_SIZE * GRID_SIZE);
-  });
-
-  it("takes even×even tiles first, then odd-parity, then odd×odd", () => {
-    const spread = tileSpreadOrder(GRID_SIZE);
-    const classOf = (t: { x: number; y: number }) =>
-      t.x % 2 === 0 && t.y % 2 === 0 ? 0 : (t.x + t.y) % 2 === 1 ? 1 : 2;
-    const n0 = spread.filter((t) => classOf(t) === 0).length;
-    const n1 = spread.filter((t) => classOf(t) === 1).length;
-    for (let i = 0; i < n0; i++) expect(classOf(spread[i])).toBe(0);
-    for (let i = n0; i < n0 + n1; i++) expect(classOf(spread[i])).toBe(1);
-    for (let i = n0 + n1; i < spread.length; i++) expect(classOf(spread[i])).toBe(2);
-    expect(n0).toBe(16 * 16); // stride-2 lattice: 256 moated tiles per sector
-  });
-
-  it("is center-out within each pass (young cities spread, not corner-hug)", () => {
-    const spread = tileSpreadOrder(GRID_SIZE);
-    const dist = (t: { x: number; y: number }) =>
-      (t.x - 15.5) ** 2 + (t.y - 15.5) ** 2;
-    let runStart = 0;
-    for (let i = 1; i <= spread.length; i++) {
-      const boundary =
-        i === spread.length ||
-        (spread[i].x + spread[i].y) % 2 !== (spread[i - 1].x + spread[i - 1].y) % 2 ||
-        spread[i].x % 2 !== spread[i - 1].x % 2;
-      if (boundary) {
-        for (let j = runStart + 1; j < i; j++) {
-          expect(dist(spread[j])).toBeGreaterThanOrEqual(dist(spread[j - 1]) - 1e-9);
-        }
-        runStart = i;
+describe("orbitOrder (global orbit across unlocked sectors)", () => {
+  it("equals exactly the unlocked-sector tiles at Chebyshev ≥ fromRing", () => {
+    const center = hqGlobalTile();
+    const stride = macroStride(GRID_SIZE);
+    const order = orbitOrder(center, ORBIT_START_RING, 1); // Boot only
+    expect(order.length).toBeGreaterThan(0);
+    const expected = new Set<string>();
+    for (let gx = stride; gx < stride + GRID_SIZE; gx++) {
+      for (let gy = stride; gy < stride + GRID_SIZE; gy++) {
+        const ring = Math.max(Math.abs(gx - center.x), Math.abs(gy - center.y));
+        if (ring >= ORBIT_START_RING) expected.add(`${gx},${gy}`);
       }
     }
-  });
-
-  it("is deterministic across calls", () => {
-    expect(tileSpreadOrder(GRID_SIZE)).toEqual(tileSpreadOrder(GRID_SIZE));
-  });
-
-  it("first 32 tiles are pairwise non-adjacent (the moat guarantee)", () => {
-    const spread = tileSpreadOrder(GRID_SIZE).slice(0, 32);
-    for (let i = 0; i < spread.length; i++) {
-      for (let j = i + 1; j < spread.length; j++) {
-        const chebyshev = Math.max(
-          Math.abs(spread[i].x - spread[j].x),
-          Math.abs(spread[i].y - spread[j].y)
+    const got = new Set(
+      order.map((t) => {
+        expect(t.sector).toBe("s0");
+        expect(t.ring).toBe(
+          Math.max(
+            Math.abs(t.x + stride - center.x),
+            Math.abs(t.y + stride - center.y)
+          )
         );
-        expect(chebyshev).toBeGreaterThanOrEqual(2);
-      }
+        return `${t.x + stride},${t.y + stride}`;
+      })
+    );
+    expect(got.size).toBe(order.length); // no duplicates
+    expect(got).toEqual(expected);
+  });
+
+  it("never leaves a locked sector, opens up when one unlocks", () => {
+    const center = hqGlobalTile();
+    const one = orbitOrder(center, ORBIT_START_RING, 1);
+    const two = orbitOrder(center, ORBIT_START_RING, 2);
+    expect(one.every((t) => t.sectorIndex === 0)).toBe(true);
+    expect(two.some((t) => t.sectorIndex === 1)).toBe(true);
+    expect(two.length).toBeGreaterThan(one.length);
+  });
+
+  it("is ordered by ring (value rank = distance from the core)", () => {
+    const order = orbitOrder(hqGlobalTile(), ORBIT_START_RING, 3);
+    for (let i = 1; i < order.length; i++) {
+      expect(order[i].ring).toBeGreaterThanOrEqual(order[i - 1].ring);
     }
+  });
+
+  it("respects the allow filter (reserved/moat tiles drop out)", () => {
+    const order = orbitOrder(
+      hqGlobalTile(),
+      ORBIT_START_RING,
+      1,
+      GRID_SIZE,
+      (t) => !(t.x === 23 && t.y === 16) // one arbitrary Boot tile
+    );
+    expect(order.some((t) => t.sector === "s0" && t.x === 23 && t.y === 16)).toBe(
+      false
+    );
+  });
+
+  it("is deterministic", () => {
+    expect(orbitOrder(hqGlobalTile(), ORBIT_START_RING, 4)).toEqual(
+      orbitOrder(hqGlobalTile(), ORBIT_START_RING, 4)
+    );
   });
 });
 
-describe("family → sector mapping", () => {
-  it("spreads the six professions across unlocked sectors, Boot for unknowns", () => {
-    expect(familySector(null, 9)).toBe(0);
-    expect(familySector("__unassigned__", 9)).toBe(0);
-    expect(familySector("NotAProfession", 9)).toBe(0);
-    // With all sectors open each profession gets its own district.
-    PROFESSIONS.forEach((p, i) => expect(familySector(p.name, 9)).toBe(i === 0 ? 0 : i));
-    // With one sector everything collapses into Boot.
-    for (const p of PROFESSIONS) expect(familySector(p.name, 1)).toBe(0);
-    // Two sectors: families fold by modulo (Cache Keeper is ordinal 3).
-    expect(familySector("Cache Keeper", 2)).toBe(1);
+describe("rankArrangeTiles (derived value-orbit placement)", () => {
+  const noneBlocked = () => false;
+
+  it("orders buildings by value desc (cardId asc tie-break), innermost first", () => {
+    const { entries } = rankArrangeTiles(
+      [b(1, 300), b(2, 100), b(3, 200), b(4, 200)],
+      1,
+      noneBlocked
+    );
+    expect(entries.map((e) => e.building.cardId)).toEqual([1, 3, 4, 2]);
+    // Rank 1 gets the first orbit tile; ranks never go backward.
+    for (let i = 1; i < entries.length; i++) {
+      expect(entries[i].ring).toBeGreaterThanOrEqual(entries[i - 1].ring);
+    }
   });
 
-  it("sectorKeyFor maps indices to the schema whitelist", () => {
-    expect(sectorKeyFor(0)).toBe(SECTOR_KEYS[0]);
-    expect(sectorKeyFor(SECTOR_KEYS.length - 1)).toBe(SECTOR_KEYS[SECTOR_KEYS.length - 1]);
-    expect(sectorKeyFor(SECTOR_KEYS.length)).toBeNull();
-    expect(sectorKeyFor(-1)).toBeNull();
+  it("priciest building sits nearer the core than the cheapest", () => {
+    const { entries } = rankArrangeTiles(
+      Array.from({ length: 80 }, (_, i) => b(i + 1, (i + 1) * 10)),
+      9,
+      noneBlocked
+    );
+    const top = entries[0];
+    const bottom = entries[entries.length - 1];
+    expect(top.ring).toBe(ORBIT_START_RING);
+    expect(bottom.ring).toBeGreaterThan(top.ring);
+  });
+
+  it("a value gain re-ranks the orbit — the riser takes the inner tile", () => {
+    const buildings = [b(1, 300), b(2, 100), b(3, 200)];
+    const first = rankArrangeTiles(buildings, 1, noneBlocked);
+    const tileOf = (cardId: number) =>
+      first.entries.find((e) => e.building.cardId === cardId)!.tile;
+
+    // Building 2 (100) overvalues everyone → it becomes rank 1 and takes
+    // the tile building 1 held; the former leader is pushed one ring-slot out.
+    const boosted = [b(1, 300), b(2, 900), b(3, 200)];
+    const second = rankArrangeTiles(boosted, 1, noneBlocked);
+    const newTileOf = (cardId: number) =>
+      second.entries.find((e) => e.building.cardId === cardId)!.tile;
+    expect(second.entries[0].building.cardId).toBe(2);
+    expect(newTileOf(2)).toEqual(tileOf(1));
+    expect(newTileOf(1)).not.toEqual(tileOf(1));
+  });
+
+  it("skips blocked tiles (HQ/landmark reservations + monument moat)", () => {
+    const orbit = orbitOrder(hqGlobalTile(), ORBIT_START_RING, 1);
+    const blockedFirst = new Set([tileRefKey(orbit[0])]);
+    const { entries } = rankArrangeTiles(
+      [b(1, 100)],
+      1,
+      (key) => blockedFirst.has(key)
+    );
+    expect(entries[0].tile).not.toEqual({ sector: orbit[0].sector, x: orbit[0].x, y: orbit[0].y });
+    expect(entries[0].tile).toEqual({ sector: orbit[1].sector, x: orbit[1].x, y: orbit[1].y });
+  });
+
+  it("reports the ring aggregates should resume at", () => {
+    const empty = rankArrangeTiles([], 1, noneBlocked);
+    expect(empty.entries).toHaveLength(0);
+    expect(empty.resumeRing).toBe(ORBIT_START_RING);
+
+    // Ring 7 holds 56 tiles → 57 buildings spill into ring 8.
+    const { entries, resumeRing } = rankArrangeTiles(
+      Array.from({ length: 57 }, (_, i) => b(i + 1, 1000 - i)),
+      9,
+      noneBlocked
+    );
+    expect(entries).toHaveLength(57);
+    expect(entries[55].ring).toBe(ORBIT_START_RING);
+    expect(entries[56].ring).toBe(ORBIT_START_RING + 1);
+    expect(resumeRing).toBe(ORBIT_START_RING + 1);
+  });
+
+  it("is deterministic for a fixed input", () => {
+    const input = Array.from({ length: 40 }, (_, i) => b(i + 1, (i * 37) % 991));
+    expect(rankArrangeTiles(input, 5, noneBlocked)).toEqual(
+      rankArrangeTiles(input, 5, noneBlocked)
+    );
   });
 });

@@ -219,6 +219,17 @@ n38worth-game-systems review):
 - Owned avatar = building/module. Hire constructs; loss/poach removes;
   restore reconstructs. Building stage derives from current value relative
   to value_floor; the server computes it, the client only renders it.
+- PLACEMENT IS DERIVED (2026-09-27 "value orbits"): the HQ core + the Six
+  landmarks hold the center; every other owned building fills CLOCKWISE
+  square rings around the HQ in VALUE order (priciest innermost, cheapest
+  at the rim) — `rankArrangeTiles` (src/lib/city/placement.ts) over the
+  pure orbit walk in src/lib/city/rings.ts. A value change re-ranks the
+  whole orbit on the next projection and the scene GLIDES moved buildings
+  to their new ring. Locked sectors are skipped by the orbit walk, so the
+  mission ladder still gates city growth. The persisted city_layout
+  machinery (POST /api/city/layout, GET /api/city/my-layout,
+  layout-merge.ts) is legacy-retained but UNUSED — /api/city/[username]
+  no longer joins it, and the manual ghost/build-mode/queue UI is deleted.
 - Firewall / hard-lock authority stays in blockSellUntil / permBlockUntil
   timestamps; the city layer only adds protection VISUALS.
 - Professions set building families; owning all six professions completes a
