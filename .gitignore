@@ -60,3 +60,6 @@ n38worth-zcode/
 .qa/
 scripts/_tmp-*
 src/app/dev-catalog/
+
+.vercel
+.env*
