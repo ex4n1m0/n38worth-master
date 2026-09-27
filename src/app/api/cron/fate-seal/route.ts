@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership } from "@/db/schema";
 import { sql, eq, inArray, and } from "drizzle-orm";
-import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getGoddessPowers } from "@/lib/goddess-powers";
+import {
+  FATE_SEAL_DATE,
+  fateSealCandidateWhere,
+} from "@/lib/fate-seal";
 
 /**
  * Fate Seal cron — ensures all players owned by a Goddess of Fate (or Creation)
@@ -16,7 +19,6 @@ import { getGoddessPowers } from "@/lib/goddess-powers";
  * IMPORTANT: Goddesses themselves are NEVER sealed (their value is pinned and
  * they have their own unbreakable block during the initial 30-min window).
  */
-const FATE_SEAL_DATE = new Date("2099-12-31T23:59:59Z");
 
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -53,18 +55,13 @@ export async function GET(req: Request) {
     let sealedCount = 0;
     if (fateHolderIds.length > 0) {
       // Find ownership records that need sealing, excluding goddesses.
+      // The candidate WHERE (incl. the H2 parenthesization fix) lives in
+      // src/lib/fate-seal.ts — ONE implementation, probe-tested.
       const toSeal = await db
         .select({ id: ownership.id, ownedId: ownership.ownedId })
         .from(ownership)
         .innerJoin(users, eq(ownership.ownedId, users.id))
-        .where(
-          and(
-            inArray(ownership.ownerId, fateHolderIds),
-            sql`${ownership.blockSellUntil} IS NULL OR ${ownership.blockSellUntil} < ${FATE_SEAL_DATE}`,
-            // Exclude goddesses — never seal them
-            sql`${users.username} NOT IN (${sql.join(GODDESS_USERNAMES.map((u) => sql`${u}`), sql`, `)})`
-          )
-        );
+        .where(fateSealCandidateWhere(fateHolderIds));
 
       if (toSeal.length > 0) {
         const sealIds = toSeal.map((r) => r.id);
