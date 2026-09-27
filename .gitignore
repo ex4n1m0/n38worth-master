@@ -57,3 +57,5 @@ next-env.d.ts
 .city-dev-*.log
 public/tmp-*.png
 n38worth-zcode/
+.qa/
+scripts/_tmp-*

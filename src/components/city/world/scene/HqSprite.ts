@@ -11,10 +11,11 @@
 
 import { Container, Graphics, Text } from "pixi.js";
 import {
-  drawIsoBox,
-  professionColor,
-  shade,
   COLOR_SELECTION,
+  drawIsoBox,
+  professionMass,
+  professionNeon,
+  shade,
 } from "./art";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
 
@@ -63,36 +64,48 @@ export class HqSprite extends Container {
   }
 
   private draw(profession: string | null): void {
-    const color = professionColor(profession);
+    const neon = professionNeon(profession);
+    const mass = professionMass(profession);
     this.removeChildren();
 
-    // Wide pedestal platform (one and a half tiles across).
+    // Wide pedestal platform (one and a half tiles across) — wet slab.
     const ground = new Graphics();
     ground
       .poly([0, -TILE_H * 0.75, TILE_W * 0.75, 0, 0, TILE_H * 0.75, -TILE_W * 0.75, 0])
-      .fill({ color: 0x0d1526, alpha: 0.95 });
+      .fill({ color: 0x0a0e1a, alpha: 0.95 });
     ground
       .poly([0, -TILE_H * 0.75, TILE_W * 0.75, 0, 0, TILE_H * 0.75, -TILE_W * 0.75, 0])
-      .stroke({ width: 2, color, alpha: 0.6 });
+      .fill({ color: neon, alpha: 0.08 });
+    ground
+      .poly([0, -TILE_H * 0.75, TILE_W * 0.75, 0, 0, TILE_H * 0.75, -TILE_W * 0.75, 0])
+      .stroke({ width: 2, color: neon, alpha: 0.7 });
     this.addChild(ground);
 
-    // Central spire: three stacked boxes, profession-colored.
+    // Central spire: three stacked massing boxes, neon-rimmed.
     const core = new Graphics();
-    drawIsoBox(core, 0, 0, 44, 22, 46, color);
-    drawIsoBox(core, 0, -46, 30, 15, 34, shade(color, 1.15));
-    drawIsoBox(core, 0, -80, 16, 8, 26, shade(color, 1.3));
+    drawIsoBox(core, 0, 0, 44, 22, 46, mass, 1, neon);
+    drawIsoBox(core, 0, -46, 30, 15, 34, shade(mass, 1.5), 1, neon);
+    drawIsoBox(core, 0, -80, 16, 8, 26, shade(mass, 1.9), 1, neon);
     this.addChild(core);
+
+    // Emissive strip rows on the spire (bloom feed, the HQ's lit windows).
+    const lit = new Graphics();
+    for (let i = 0; i < 5; i++) {
+      const y = -10 - i * 16;
+      lit.rect(-26, y, 52, 2).fill({ color: shade(neon, 1.4), alpha: 0.75 });
+    }
+    this.addChild(lit);
 
     // Beacon ring at the spire tip.
     const beacon = new Graphics();
     beacon.circle(0, -112, 5).fill({ color: 0xffffff, alpha: 0.95 });
-    beacon.circle(0, -112, 9).stroke({ width: 1.5, color, alpha: 0.7 });
+    beacon.circle(0, -112, 9).stroke({ width: 1.5, color: neon, alpha: 0.8 });
     this.addChild(beacon);
 
-    // Two side pylons (server racks) — static placeholder massing.
+    // Two side pylons (server racks) — dark massing.
     const pylons = new Graphics();
-    drawIsoBox(pylons, -54, 6, 12, 6, 30, shade(color, 0.8));
-    drawIsoBox(pylons, 54, 6, 12, 6, 30, shade(color, 0.8));
+    drawIsoBox(pylons, -54, 6, 12, 6, 30, shade(mass, 0.85), 1, neon);
+    drawIsoBox(pylons, 54, 6, 12, 6, 30, shade(mass, 0.85), 1, neon);
     this.addChild(pylons);
 
     // Command ring on the platform — marks the HQ as the camera reset anchor.

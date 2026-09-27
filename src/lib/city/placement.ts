@@ -30,6 +30,7 @@ export interface TileRef {
 export type PlacementIssue = "occupied" | "sector-locked" | "out-of-bounds" | "reserved";
 
 const orderCache = new Map<number, Array<{ x: number; y: number }>>();
+const spreadCache = new Map<number, Array<{ x: number; y: number }>>();
 
 /**
  * Deterministic fill order inside one sector: tiles sorted by distance from
@@ -54,6 +55,29 @@ export function tileFillOrder(gridSize: number): ReadonlyArray<{ x: number; y: n
         a.x - b.x
     );
     orderCache.set(gridSize, order);
+  }
+  return order;
+}
+
+/**
+ * SPREAD fill order for the visual auto-arrangement (user request 2026-09-27:
+ * auto-placed buildings should breathe). Three passes over tileFillOrder:
+ * even×even tiles first — in the 2:1 iso projection same-pass tiles are
+ * always ≥2 tiles apart on an axis, so every early building keeps a real
+ * screen-space moat and a young city reads as scattered blocks instead of a
+ * dense center blob — then the odd-parity tiles (half moats), then odd×odd
+ * (full density), each pass still center-out, so large cities still fit the
+ * same grid. Cached per grid size.
+ */
+export function tileSpreadOrder(gridSize: number): ReadonlyArray<{ x: number; y: number }> {
+  let order = spreadCache.get(gridSize);
+  if (!order) {
+    const dense = tileFillOrder(gridSize);
+    const evenEven = dense.filter((t) => t.x % 2 === 0 && t.y % 2 === 0);
+    const oddParity = dense.filter((t) => (t.x + t.y) % 2 === 1);
+    const oddOdd = dense.filter((t) => t.x % 2 === 1 && t.y % 2 === 1);
+    order = [...evenEven, ...oddParity, ...oddOdd];
+    spreadCache.set(gridSize, order);
   }
   return order;
 }

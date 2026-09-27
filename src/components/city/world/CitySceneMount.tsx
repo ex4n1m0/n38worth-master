@@ -123,6 +123,12 @@ export default function CitySceneMount({
         onSceneReady(created);
       } catch (err) {
         console.error("[city] scene init failed:", err);
+        if (typeof document !== "undefined") {
+          document.documentElement.setAttribute(
+            "data-city-init-error",
+            err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+          );
+        }
         onError();
       }
     })();

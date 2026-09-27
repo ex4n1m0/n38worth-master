@@ -23,7 +23,8 @@
     "rebrand:professions": "npx tsx scripts/rebrand-professions.ts",
     "rebrand:goddess-art": "npx tsx scripts/rebrand-goddess-art.ts",
     "city:flag": "npx tsx scripts/city-flag.ts",
-    "gen:scifi-art": "npx tsx scripts/gen-scifi-art.ts"
+    "gen:scifi-art": "npx tsx scripts/gen-scifi-art.ts",
+    "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
@@ -44,6 +45,7 @@
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "next-themes": "^0.4.6",
+    "pixi-filters": "^6.1.5",
     "pixi.js": "^8.21.0",
     "pusher": "^5.3.2",
     "pusher-js": "^8.4.0",

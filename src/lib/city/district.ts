@@ -38,12 +38,51 @@ export const FAMILY_HEX: Readonly<Record<string, string>> = Object.freeze({
   "Bot Herder": "#fbbf24",
 });
 
+/**
+ * NIGHT MASS palette (CITY_VISUALS_STUDY §A1): the reference look is 80%
+ * near-black blue surfaces with the family hue carried by EMISSIVES only.
+ * Bodies render in these blue-black masses; FAMILY_HEX above stays the
+ * accent source for the DOM panel, and FAMILY_NEON_HEX below is the
+ * saturated emissive accent the Pixi scene lights windows/neon/edges with.
+ * Same hue family per row → the audited hue spread is preserved.
+ */
+export const FAMILY_MASS_HEX: Readonly<Record<string, string>> = Object.freeze({
+  Cryptographer: "#151327", // violet-black
+  "Zero-Day": "#1f1216", // red-black
+  Overclocker: "#131a12", // green-black
+  "Cache Keeper": "#0f1a18", // mint-black
+  "Server Marshal": "#101722", // blue-black
+  "Bot Herder": "#1c1710", // amber-black
+});
+
+/** Emissive accents (windows / neon edges / beacons) per family. */
+export const FAMILY_NEON_HEX: Readonly<Record<string, string>> = Object.freeze({
+  Cryptographer: "#b491ff",
+  "Zero-Day": "#ff4a5e",
+  Overclocker: "#b7ff4a",
+  "Cache Keeper": "#3ddc97",
+  "Server Marshal": "#6fc6ff",
+  "Bot Herder": "#ffb547",
+});
+
 /** Neutral accent for profession-less (unassigned) buildings. */
 export const UNASSIGNED_HEX = "#9ca3af";
+export const UNASSIGNED_MASS_HEX = "#141821";
+export const UNASSIGNED_NEON_HEX = "#9ca3af";
 
 export function familyHex(profession: string | null): string {
   if (!profession || profession === UNASSIGNED_FAMILY) return UNASSIGNED_HEX;
   return FAMILY_HEX[profession] ?? UNASSIGNED_HEX;
+}
+
+export function familyMassHex(profession: string | null): string {
+  if (!profession || profession === UNASSIGNED_FAMILY) return UNASSIGNED_MASS_HEX;
+  return FAMILY_MASS_HEX[profession] ?? UNASSIGNED_MASS_HEX;
+}
+
+export function familyNeonHex(profession: string | null): string {
+  if (!profession || profession === UNASSIGNED_FAMILY) return UNASSIGNED_NEON_HEX;
+  return FAMILY_NEON_HEX[profession] ?? UNASSIGNED_NEON_HEX;
 }
 
 /** Roster order (PROFESSIONS) as the stable district display order. */

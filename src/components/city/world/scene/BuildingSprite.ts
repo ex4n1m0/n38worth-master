@@ -6,21 +6,23 @@
  * recomputation (AGENTS.md §"Mainframe City building layer").
  *
  * Layers (each a child display object so LOD toggling and FX stay cheap):
- *   1 platform      flat inset diamond + family rim
+ *   1 platform      wet slab + neon wash + reflection streak
  *   2 silhouette    tier-1 family silhouette (art.ts manifest)
  *   3 tierExt       tier 2..7 modular floors + shared tier features
- *   4 windows       lit window mask (close LOD only)
- *   5 identity      profession sigil (close LOD only)
- *   6 status        firewall cyan ring / hard-lock amber (DOM-tile colors)
- *   7 selection     corner brackets + emissive body edge
- *   8 label         floating name chip while selected (Phase C polish c)
- *   9 fx            slot owned by FxLayer one-shots
+ *   4 emissive      family lights (coils, beacons, LED strips) — bloom feed
+ *   5 windows       seeded facade window grid (close LOD only)
+ *   6 identity      profession sigil (close LOD only)
+ *   7 status        firewall cyan ring / hard-lock amber (DOM-tile colors)
+ *   8 selection     corner brackets + emissive body edge
+ *   9 label         floating name chip while selected (Phase C polish c)
+ *  10 fx            slot owned by FxLayer one-shots
  *
  * Family + tier art comes exclusively from CITY_ART_MANIFEST via familyArt()
  * (art.ts) — future WebP atlases slot in there without touching this class.
  *
  * The sprite's origin (0,0) is the TILE CENTER; the body extends upward
- * (negative y). Depth = zIndex set by IsoWorld from the global (x+y).
+ * (negative y). Depth = zIndex set by IsoWorld from the global (x+y), which
+ * also drives the depth-fog tint (night atmosphere).
  */
 
 import { Container, Graphics, Text } from "pixi.js";
@@ -28,14 +30,15 @@ import { UNASSIGNED_FAMILY, type CityBuilding } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import {
   COLOR_SELECTION,
+  drawFacadeWindows,
   drawIdentityMarker,
+  drawMicroProps,
   drawPlatform,
   drawSelectionBrackets,
   drawStatusRing,
   drawTierFeatures,
-  drawWindows,
   familyArt,
-  professionColor,
+  professionNeon,
   tierHeight,
 } from "./art";
 
@@ -45,15 +48,17 @@ export class BuildingSprite extends Container {
   private readonly platform: Graphics = new Graphics();
   private readonly silhouette: Graphics = new Graphics();
   private readonly tierExt: Graphics = new Graphics();
+  /** Family emissives (coils/beacons/strips) — always visible, bloom feed. */
+  private readonly emissive: Graphics = new Graphics();
   private readonly windows: Graphics = new Graphics();
   private readonly identity: Graphics = new Graphics();
   private readonly status: Graphics = new Graphics();
   private readonly selection: Graphics = new Graphics();
-  /** Layer 8 — plated name chip (close-LOD ambient + the selected building). */
+  /** Layer 9 — plated name chip (close-LOD ambient + the selected building). */
   private nameChip: Container | null = null;
   /** Leader line from the building top to the SELECTED chip (strong plate). */
   private labelLeader: Graphics | null = null;
-  /** Layer 9 — FxLayer mounts one-shot effects here. */
+  /** Layer 10 — FxLayer mounts one-shot effects here. */
   readonly fxSlot: Container = new Container();
 
   private drawnKey = "";
@@ -69,6 +74,7 @@ export class BuildingSprite extends Container {
       this.platform,
       this.silhouette,
       this.tierExt,
+      this.emissive,
       this.windows,
       this.identity,
       this.status,
@@ -221,7 +227,7 @@ export class BuildingSprite extends Container {
   }
 
   private redraw(): void {
-    // Skip redundant redraws: the visual depends only on these three fields.
+    // Skip redundant redraws: the visual depends only on these fields.
     const key = `${this.building.profession ?? ""}|${this.building.tier}|${this.building.protection}`;
     if (key === this.drawnKey) return;
     this.drawnKey = key;
@@ -230,26 +236,29 @@ export class BuildingSprite extends Container {
     this.labelKey = "";
 
     const spec = familyArt(this.building.profession);
-    const color = professionColor(this.building.profession);
+    const neon = professionNeon(this.building.profession);
     const tier = this.building.tier;
     const professioned =
       !!this.building.profession && this.building.profession !== UNASSIGNED_FAMILY;
 
     this.platform.clear();
-    drawPlatform(this.platform, color, professioned);
+    drawPlatform(this.platform, neon, professioned);
 
     this.silhouette.clear();
-    spec.drawBase(this.silhouette);
+    this.emissive.clear();
+    spec.drawBase(this.silhouette, this.emissive);
 
     this.tierExt.clear();
     for (let floor = 2; floor <= tier; floor++) {
-      spec.drawFloor(this.tierExt, floor);
+      spec.drawFloor(this.tierExt, this.emissive, floor);
     }
-    drawTierFeatures(this.tierExt, this.building.profession, tier);
-    spec.drawRooftop(this.tierExt, tier);
+    drawTierFeatures(this.tierExt, this.emissive, this.building.profession, tier);
+    spec.drawRooftop(this.tierExt, this.emissive, tier);
 
     this.windows.clear();
-    drawWindows(this.windows, tier, color, this.building.profession);
+    drawFacadeWindows(this.windows, this.building.cardId, tier, this.building.profession);
+    // Rooftop clutter joins the same close-LOD layer (hidden at distance).
+    drawMicroProps(this.windows, this.building.cardId, tier, this.building.profession);
 
     this.identity.clear();
     drawIdentityMarker(this.identity, this.building.profession, tier);
@@ -268,3 +277,4 @@ export class BuildingSprite extends Container {
     return -tierHeight(this.building.tier);
   }
 }
+

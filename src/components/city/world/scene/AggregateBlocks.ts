@@ -25,7 +25,7 @@ import { clamp01, easeOutCubic } from "@/lib/city/scene/motion";
 import { pointVisible, type CullRect } from "@/lib/city/scene/culling";
 import { familySector, tileFillOrder, tileRefKey } from "@/lib/city/placement";
 import { worldPointOfTile } from "./IsoWorld";
-import { drawIsoBox, professionColor, shade } from "./art";
+import { drawIsoBox, professionMass, professionNeon, shade } from "./art";
 
 /** Deterministic small hash for per-family visual variation. */
 function hash32(value: string): number {
@@ -101,9 +101,9 @@ export class AggregateBlocks extends Container {
       if (family.aggregated <= 0) continue;
       const sectorIndex = familySector(family.profession, sectorCount);
       const blocks = Math.max(1, Math.min(budget, Math.ceil(family.aggregated / 25)));
-      const color = professionColor(
-        family.profession === UNASSIGNED_FAMILY ? null : family.profession
-      );
+      const profession = family.profession === UNASSIGNED_FAMILY ? null : family.profession;
+      const mass = professionMass(profession);
+      const neon = professionNeon(profession);
       const seed = hash32(family.profession);
 
       let placedBlocks = 0;
@@ -115,7 +115,20 @@ export class AggregateBlocks extends Container {
 
         const slab = new Graphics();
         const variant = (seed >>> (placedBlocks * 3)) & 3;
-        drawIsoBox(slab, 0, 0, 16 + variant * 3, 8 + variant * 1.5, 10 + variant * 6, shade(color, 0.85));
+        const h = 10 + variant * 6;
+        drawIsoBox(slab, 0, 0, 16 + variant * 3, 8 + variant * 1.5, h, mass, 1, neon);
+        // Tiny lit windows (deterministic per slab): the distant-skyline
+        // density cue — sparse bright dots on dark mass, bloom feed.
+        const dots = 2 + variant;
+        for (let d = 0; d < dots; d++) {
+          const r = (seed >>> (placedBlocks * 7 + d * 5)) & 15;
+          const dy = 3 + (r % Math.max(3, h - 4));
+          const dx = ((r >>> 2) % 14) - 7;
+          slab.rect(dx, -dy, 2, 2).fill({
+            color: d % 3 === 0 ? 0xffb547 : shade(neon, 1.3),
+            alpha: 0.9,
+          });
+        }
         const p = worldPointOfTile({ sector: `s${sectorIndex}`, x, y });
         slab.position.set(p.x, p.y);
         root.addChild(slab);

@@ -59,11 +59,10 @@ export function landmarkArtHeight(index: number): number {
 function drawMonumentPad(g: Graphics, color: number, owned: boolean): void {
   const hw = TILE_W * 0.62;
   const hh = TILE_H * 0.62;
-  g.poly([0, -hh, hw, 0, 0, hh, -hw, 0]).fill({
-    color: 0x0c1322,
-    alpha: owned ? 0.95 : 0.55,
-  });
-  g.poly([0, -hh, hw, 0, 0, hh, -hw, 0]).stroke({
+  const diamond = [0, -hh, hw, 0, 0, hh, -hw, 0];
+  g.poly(diamond).fill({ color: 0x0a0e1a, alpha: owned ? 0.95 : 0.55 });
+  if (owned) g.poly(diamond).fill({ color, alpha: 0.08 });
+  g.poly(diamond).stroke({
     width: owned ? 2 : 1.25,
     color: owned ? color : 0x475569,
     alpha: owned ? 0.75 : 0.4,
@@ -82,11 +81,11 @@ function drawMonumentPad(g: Graphics, color: number, owned: boolean): void {
 function drawArchitectSpire(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[0];
   const a = owned ? 1 : 0.42;
-  // Tapering spire segments.
-  drawIsoBox(g, 0, 0, 26, 13, 40, shade(color, 0.55), a);
-  drawIsoBox(g, 0, -40, 18, 9, 34, shade(color, 0.8), a);
-  drawIsoBox(g, 0, -74, 11, 6, 30, shade(color, 1.05), a);
-  drawIsoBox(g, 0, -104, 6, 3, 22, shade(color, 1.3), a);
+  // Tapering spire segments (night massing, neon-rimmed when owned).
+  drawIsoBox(g, 0, 0, 26, 13, 40, shade(color, 0.22), a, owned ? color : undefined);
+  drawIsoBox(g, 0, -40, 18, 9, 34, shade(color, 0.3), a, owned ? color : undefined);
+  drawIsoBox(g, 0, -74, 11, 6, 30, shade(color, 0.4), a, owned ? color : undefined);
+  drawIsoBox(g, 0, -104, 6, 3, 22, shade(color, 0.5), a, owned ? color : undefined);
   // Root crystal tip.
   g.poly([0, -152, 7, -134, 0, -126, -7, -134]).fill({
     color: owned ? 0xffffff : 0x334155,
@@ -106,13 +105,13 @@ function drawArchitectSpire(g: Graphics, owned: boolean): void {
 function drawLocksmithCitadel(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[1];
   const a = owned ? 1 : 0.42;
-  // Two fortress towers + connecting wall.
-  drawIsoBox(g, -20, -2, 12, 6, 62, shade(color, 0.75), a);
-  drawIsoBox(g, 20, -2, 12, 6, 62, shade(color, 0.6), a);
-  drawIsoBox(g, 0, 2, 14, 7, 34, shade(color, 0.5), a);
+  // Two fortress towers + connecting wall (night massing).
+  drawIsoBox(g, -20, -2, 12, 6, 62, shade(color, 0.3), a, owned ? color : undefined);
+  drawIsoBox(g, 20, -2, 12, 6, 62, shade(color, 0.25), a, owned ? color : undefined);
+  drawIsoBox(g, 0, 2, 14, 7, 34, shade(color, 0.2), a, owned ? color : undefined);
   // Crenellations on the near tower.
   for (let i = -1; i <= 1; i++) {
-    drawIsoBox(g, -20 + i * 8, -64, 3, 1.5, 7, shade(color, 0.9), a);
+    drawIsoBox(g, -20 + i * 8, -64, 3, 1.5, 7, shade(color, 0.38), a);
   }
   // The padlock: shackle arc + keyhole body floating between the towers.
   g.moveTo(-9, -72).arc(-0, -72, 9, Math.PI, 0).stroke({
@@ -121,7 +120,7 @@ function drawLocksmithCitadel(g: Graphics, owned: boolean): void {
     alpha: a,
   });
   g.roundRect(-12, -72, 24, 20, 4).fill({
-    color: owned ? shade(color, 1.15) : 0x1e293b,
+    color: owned ? shade(color, 0.5) : 0x1e293b,
     alpha: a,
   });
   if (owned) {
@@ -135,15 +134,15 @@ function drawLocksmithCitadel(g: Graphics, owned: boolean): void {
 function drawOracleObservatory(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[2];
   const a = owned ? 1 : 0.42;
-  // Cylinder base + dome.
+  // Cylinder base + dome (night massing).
   g.poly([-17, -46, 17, -46, 17, 0, -17, 0]).fill({
-    color: shade(color, 0.55),
+    color: shade(color, 0.25),
     alpha: a,
   });
-  g.ellipse(0, 0, 17, 8.5).fill({ color: shade(color, 0.4), alpha: a });
-  g.ellipse(0, -46, 17, 8.5).fill({ color: shade(color, 0.75), alpha: a });
-  g.ellipse(0, -54, 15, 12).fill({ color: shade(color, 0.95), alpha: a });
-  g.ellipse(0, -58, 9, 7).fill({ color: shade(color, 1.2), alpha: a });
+  g.ellipse(0, 0, 17, 8.5).fill({ color: shade(color, 0.2), alpha: a });
+  g.ellipse(0, -46, 17, 8.5).fill({ color: shade(color, 0.35), alpha: a });
+  g.ellipse(0, -54, 15, 12).fill({ color: shade(color, 0.45), alpha: a });
+  g.ellipse(0, -58, 9, 7).fill({ color: shade(color, 0.7), alpha: a });
   // Sensor aperture slit — the all-seeing eye.
   g.ellipse(0, -58, 5.5, 3.5).fill({
     color: owned ? 0xffffff : 0x334155,
@@ -168,9 +167,9 @@ function drawOracleObservatory(g: Graphics, owned: boolean): void {
 function drawClockkeeperTower(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[3];
   const a = owned ? 1 : 0.42;
-  // Tower shaft.
-  drawIsoBox(g, 0, 0, 15, 7.5, 58, shade(color, 0.6), a);
-  drawIsoBox(g, 0, -58, 18, 9, 16, shade(color, 0.85), a);
+  // Tower shaft (night massing).
+  drawIsoBox(g, 0, 0, 15, 7.5, 58, shade(color, 0.25), a, owned ? color : undefined);
+  drawIsoBox(g, 0, -58, 18, 9, 16, shade(color, 0.38), a, owned ? color : undefined);
   // Clock face — set to 11:57, three minutes to the root.
   const faceY = -66;
   g.circle(0, faceY, 13).fill({ color: 0x0b1220, alpha: a });
@@ -202,7 +201,7 @@ function drawClockkeeperTower(g: Graphics, owned: boolean): void {
 function drawWarObelisk(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[4];
   const a = owned ? 1 : 0.42;
-  const stone = owned ? shade(color, 0.45) : 0x1e293b;
+  const stone = owned ? shade(color, 0.22) : 0x1e293b;
   const glow = owned ? shade(color, 1.4) : 0x475569;
   // Main shaft.
   g.poly([-9, 0, 9, 0, 6, -86, -6, -86]).fill({ color: stone, alpha: a });
@@ -237,7 +236,8 @@ function drawWarObelisk(g: Graphics, owned: boolean): void {
 function drawBankerPyramid(g: Graphics, owned: boolean): void {
   const color = LANDMARK_COLORS[5];
   const a = owned ? 1 : 0.42;
-  // Four stepped tiers (front faces + shading), monumentally wide.
+  // Four stepped tiers (front faces + shading), monumentally wide — night
+  // massing with a bright crest stroke per step.
   const tiers: ReadonlyArray<[number, number, number]> = [
     [30, 20, 18],
     [24, 16, 18],
@@ -248,13 +248,13 @@ function drawBankerPyramid(g: Graphics, owned: boolean): void {
   for (const [halfW, halfH, h] of tiers) {
     // Front-left / front-right faces of each step (iso pyramid).
     g.poly([-halfW, y, 0, y + halfH, 0, y + halfH - h * 0.35, -halfW, y - h * 0.35])
-      .fill({ color: shade(color, 0.65), alpha: a });
+      .fill({ color: shade(color, 0.3), alpha: a });
     g.poly([halfW, y, 0, y + halfH, 0, y + halfH - h * 0.35, halfW, y - h * 0.35])
-      .fill({ color: shade(color, 0.5), alpha: a });
+      .fill({ color: shade(color, 0.24), alpha: a });
     g.moveTo(-halfW, y).lineTo(0, y - h * 0.35).lineTo(halfW, y).stroke({
       width: 1,
-      color: shade(color, 1.2),
-      alpha: a * 0.7,
+      color: owned ? shade(color, 1.3) : shade(color, 0.5),
+      alpha: a * 0.8,
     });
     y -= h * 0.65;
   }

@@ -35,8 +35,8 @@ import {
 } from "@/lib/city/scene/iso";
 import {
   familySector,
-  tileFillOrder,
   tileRefKey,
+  tileSpreadOrder,
   type TileRef,
 } from "@/lib/city/placement";
 import { HqSprite } from "./HqSprite";
@@ -131,6 +131,23 @@ export function landmarkIndexOfTile(tile: TileRef): number {
   return -1;
 }
 
+/**
+ * DEPTH FOG (night atmosphere, study §A5): iso depth = global (x + y), the
+ * same signal as zIndex. The tint is normalized over the city's OCCUPIED
+ * depth span (buildings ∪ HQ ∪ monument ring, floored at ~3 tiles) so the
+ * fade is visible even in a small single-sector city — far rows melt into
+ * the void while the near edge stays bright. Tint-only (alpha stays 1) so
+ * painter's-order overlap never double-composites.
+ */
+function fogTint(depth: number, depthMin: number, depthSpan: number): number {
+  const f = Math.max(0, Math.min(1, (depth - depthMin) / Math.max(1, depthSpan)));
+  // Dim to ~55% at the far edge, cooling slightly less in blue → bluish fog.
+  const r = Math.round(255 * (1 - 0.5 * f));
+  const g = Math.round(255 * (1 - 0.47 * f));
+  const b = Math.round(255 * (1 - 0.42 * f));
+  return (r << 16) | (g << 8) | b;
+}
+
 export class IsoWorld extends Container {
   private _sectorCount: number;
   private readonly groundLayer = new Container();
@@ -175,6 +192,10 @@ export class IsoWorld extends Container {
   get sectorCount(): number {
     return this._sectorCount;
   }
+
+  /** Occupied depth span for fog normalization (updated per sync). */
+  private depthMin = 0;
+  private depthSpan = 96;
 
   /** Sector count changed (mission completed) → rebuild the ground pads. */
   setSectorCount(count: number): void {
@@ -233,7 +254,7 @@ export class IsoWorld extends Container {
       [far.x / 2 - TILE_W / 4, far.y / 2 + TILE_H / 4],
     ];
     g.poly(corners.flat()).fill({
-      color: sectorIndex === 0 ? 0x0a1120 : 0x080d18,
+      color: sectorIndex === 0 ? 0x0a0e1a : 0x080b14,
       alpha: locked ? 0.06 : 0.9,
     });
 
@@ -336,6 +357,18 @@ export class IsoWorld extends Container {
 
     const added: BuildingSprite[] = [];
     this.occupancy.clear();
+    // Occupied depth extent (fog normalization): buildings ∪ HQ ∪ monuments.
+    let dMin = Infinity;
+    let dMax = -Infinity;
+    const noteDepth = (gx: number, gy: number) => {
+      const d = gx + gy;
+      if (d < dMin) dMin = d;
+      if (d > dMax) dMax = d;
+    };
+    for (const landmark of LANDMARK_RING) {
+      noteDepth(HQ_TILE.x + landmark.dx, HQ_TILE.y + landmark.dy);
+    }
+    noteDepth(HQ_TILE.x, HQ_TILE.y);
     for (const entry of entries) {
       const key = tileRefKey(entry.tile);
       this.occupancy.set(key, entry.building.cardId);
@@ -354,6 +387,17 @@ export class IsoWorld extends Container {
       const sectorIndex = Number(entry.tile.sector.replace(/^s/, "")) || 0;
       const g = globalTile(sectorIndex, entry.tile.x, entry.tile.y, GRID_SIZE);
       sprite.zIndex = g.x + g.y; // iso depth: painters order by (x + y)
+      noteDepth(g.x, g.y);
+    }
+    if (dMax > dMin) {
+      this.depthMin = dMin;
+      // Floor the span (~3 macro tiles) so tiny cities still get a gentle fade.
+      this.depthSpan = Math.max(48, dMax - dMin);
+    }
+    const min = this.depthMin;
+    const span = this.depthSpan;
+    for (const sprite of this.sprites.values()) {
+      sprite.tint = fogTint(sprite.zIndex, min, span);
     }
     return { added, removed };
   }
@@ -376,6 +420,7 @@ export class IsoWorld extends Container {
         sprite.position.set(p.x, p.y);
         const g = globalTile(0, landmarkTile(i).x, landmarkTile(i).y, GRID_SIZE);
         sprite.zIndex = g.x + g.y;
+        sprite.tint = fogTint(g.x + g.y, this.depthMin, this.depthSpan);
         this.landmarkSprites[i] = sprite;
         this.landmarkLayer.addChild(sprite);
       } else {
@@ -408,6 +453,7 @@ export class IsoWorld extends Container {
       this.hq.position.set(p.x, p.y);
       const g = globalTile(0, HQ_TILE.x, HQ_TILE.y, GRID_SIZE);
       this.hq.zIndex = g.x + g.y;
+      this.hq.tint = fogTint(g.x + g.y, this.depthMin, this.depthSpan);
       this.buildingsLayer.addChild(this.hq);
     } else {
       this.hq.setProfession(profession);
@@ -477,9 +523,12 @@ export class IsoWorld extends Container {
 /**
  * Visual auto-arrangement: assign tiles to buildings that have NO persisted
  * placement (D7 — hire creates no layout row). Deterministic: families map
- * to profession districts (familySector), tiles fill center-out via
- * tileFillOrder skipping occupied + reserved tiles. Purely cosmetic —
- * nothing is written anywhere until the owner explicitly places a card.
+ * to profession districts (familySector), tiles fill via tileSpreadOrder
+ * (stride-2 lattice first, center-out — early buildings keep a real
+ * screen-space moat so the city reads scattered, not blobbed) skipping
+ * occupied + reserved tiles.
+ * Purely cosmetic — nothing is written anywhere until the owner explicitly
+ * places a card.
  */
 export function autoArrangeTiles(
   placed: ReadonlyArray<{ building: CityBuilding; placement: NonNullable<CityBuilding["placement"]> }>,
@@ -494,7 +543,7 @@ export function autoArrangeTiles(
   const taken = new Set(entries.map((e) => tileRefKey(e.tile)));
 
   const cursors = new Map<number, number>();
-  const order = tileFillOrderSafe();
+  const order = tileSpreadOrder(GRID_SIZE);
   for (const building of unplaced) {
     const sectorIndex = familySector(building.profession, sectorCount);
     let cursor = cursors.get(sectorIndex) ?? 0;
@@ -517,8 +566,4 @@ export function autoArrangeTiles(
     entries.push({ building, tile });
   }
   return entries;
-}
-
-function tileFillOrderSafe(): ReadonlyArray<{ x: number; y: number }> {
-  return tileFillOrder(GRID_SIZE);
 }

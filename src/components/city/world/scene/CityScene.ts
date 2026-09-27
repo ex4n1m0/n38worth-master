@@ -29,7 +29,8 @@
  * placements all arrive via the projection and are never recomputed here.
  */
 
-import { Application, Container, Graphics } from "pixi.js";
+import { Application, Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { AdvancedBloomFilter } from "pixi-filters";
 import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import type { CityBuilding, CityProjection, CitySectorInfo } from "@/lib/city/types";
 import {
@@ -75,7 +76,7 @@ import { PathLayer } from "./PathLayer";
 import { RootSequenceLayer, ROOT_PHASE_COLORS } from "./RootSequenceLayer";
 import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
-import { drawGhostTile } from "./art";
+import { drawGhostTile, mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
 export type CitySceneProjection = CityProjection & {
@@ -123,6 +124,88 @@ export interface CitySceneInit {
 
 const MAX_DPR = 2;
 
+/** Bloom kill switch: NEXT_PUBLIC_CITY_BLOOM=off disables the filter pass. */
+const CITY_BLOOM_ENV = process.env.NEXT_PUBLIC_CITY_BLOOM !== "off";
+
+/**
+ * Night sky gradient (study §A5): vertical #05060A → #0A0E1A with a faint
+ * horizon band — generated to a texture once per size, static behind the
+ * camera (infinite-distance backdrop). A sparse seeded STARFIELD is baked
+ * into the same texture (study §Track D): zero runtime cost, and it sits
+ * behind fxRoot so stars never bloom — the backdrop stays calm while the
+ * city glows.
+ */
+function buildSkyTexture(app: Application, w: number, h: number): Texture {
+  // Normalized local gradient (0,0)→(0,1) over the full-screen rect.
+  const grad = new FillGradient({
+    type: "linear",
+    start: { x: 0, y: 0 },
+    end: { x: 0, y: 1 },
+    colorStops: [
+      { offset: 0, color: "#05060a" },
+      { offset: 0.55, color: "#0a0e1a" },
+      { offset: 0.82, color: "#111830" },
+      { offset: 1, color: "#0a0e1a" },
+    ],
+    textureSpace: "local",
+  });
+  const g = new Graphics();
+  g.rect(0, 0, w, h).fill(grad);
+  // Starfield: deterministic (fixed seed — the sky is the same city-wide),
+  // upper 55% only (below that the horizon band + city dominate).
+  const rng = mulberry32(0x517b1e);
+  const stars = Math.round((w * h) / 12000); // ~86 @1440x900 — sparse
+  for (let i = 0; i < stars; i++) {
+    const x = Math.floor(rng() * w);
+    const y = Math.floor(rng() * h * 0.55);
+    const r = rng();
+    const size = r < 0.85 ? 1 : 2;
+    const alpha = 0.12 + rng() * 0.5;
+    const color = r < 0.12 ? 0xbfd7ff : r < 0.2 ? 0xffd9a8 : 0xf2f7ff;
+    g.circle(x, y, size).fill({ color, alpha });
+  }
+  const tex = app.renderer.generateTexture(g);
+  g.destroy();
+  return tex;
+}
+
+/**
+ * Distant-skyline silhouette strip (study §Track D): procedural jagged
+ * skyline with sparse lit windows, screen-space, ~0.06× camera parallax,
+ * world-LOD only (massing views read as "a city in a world"). Built once
+ * per size like the sky; the strip is wider than the viewport so the
+ * parallax offset never reveals an edge.
+ */
+function buildSkylineTexture(app: Application, w: number, h: number): Texture {
+  const stripH = Math.max(90, Math.round(h * 0.16));
+  const width = w + SKYLINE_PARALLAX_MARGIN * 2;
+  const g = new Graphics();
+  const rng = mulberry32(0x5c17c1);
+  let x = 0;
+  while (x < width) {
+    const bw = 18 + Math.floor(rng() * 46);
+    const bh = Math.round(stripH * (0.25 + rng() * 0.75));
+    g.rect(x, stripH - bh, bw - 2, bh).fill({ color: 0x0d1322, alpha: 0.9 });
+    // Sparse lit windows — 1px dots, mostly cool with rare warm.
+    const dots = Math.floor((bw * bh) / 260);
+    for (let i = 0; i < dots; i++) {
+      if (rng() > 0.5) continue;
+      g.circle(
+        x + 2 + Math.floor(rng() * (bw - 6)),
+        stripH - bh + 3 + Math.floor(rng() * Math.max(1, bh - 6)),
+        1
+      ).fill({ color: rng() < 0.85 ? 0x8fb8e8 : 0xffb547, alpha: 0.35 + rng() * 0.4 });
+    }
+    x += bw;
+  }
+  const tex = app.renderer.generateTexture(g);
+  g.destroy();
+  return tex;
+}
+
+/** Horizontal room (px) the skyline strip keeps for parallax travel. */
+const SKYLINE_PARALLAX_MARGIN = 200;
+
 /** Initial/reset zoom: district LOD — the core + landmark ring read clearly
  *  while the wider sector grid stays in frame. */
 const HOME_ZOOM = 0.75;
@@ -137,6 +220,29 @@ export class CityScene {
   private readonly app: Application;
   private readonly host: HTMLElement;
   private readonly worldContainer = new Container();
+  /** Screen-sized filtered wrapper (bloom) around the whole world. */
+  private readonly fxRoot = new Container();
+  /** Static night-sky backdrop (behind fxRoot, never filtered). */
+  private sky!: Sprite;
+  /** Distant-skyline strip (world LOD, parallax; behind fxRoot). */
+  private skyline!: Sprite;
+  /** Resting Y of the skyline strip (parallax drifts around it). */
+  private skylineBaseY = 0;
+  /** Threshold bloom (study §Track B) — dark palette makes it selective. */
+  private readonly bloom = new AdvancedBloomFilter({
+    threshold: 0.55,
+    bloomScale: 0.85,
+    brightness: 1.0,
+    blur: 8,
+    quality: 4,
+  });
+  /** Runtime bloom state: env + WebGL2 support + frame-probe verdict. */
+  private bloomSupported = true;
+  private bloomKilledByProbe = false;
+  /** Frame-budget probe (bloom fallback, study §B3). */
+  private frameEma = 0;
+  private frameSamples = 0;
+  private lastRenderAt = 0;
   private readonly world: IsoWorld;
   private readonly aggregate: AggregateBlocks;
   private readonly paths = new PathLayer();
@@ -200,7 +306,7 @@ export class CityScene {
     await app.init({
       preference: "webgl",
       antialias: true,
-      background: 0x05070d,
+      background: 0x05060a,
       resolution: Math.min(MAX_DPR, window.devicePixelRatio || 1),
       autoDensity: true,
       width: Math.max(1, init.host.clientWidth),
@@ -225,7 +331,23 @@ export class CityScene {
       new FxLayer(policy)
     );
 
-    app.stage.addChild(scene.worldContainer);
+    // Night relight stack (study §A5/§B1): static sky behind everything, the
+    // whole world inside ONE screen-sized filtered container — with the dark
+    // night palette, a threshold bloom on that pass is effectively selective
+    // (only emissives clear the threshold) without per-building layers. The
+    // distant-skyline strip sits between sky and world (world-LOD only).
+    scene.sky = new Sprite(buildSkyTexture(app, app.renderer.width, app.renderer.height));
+    scene.skyline = new Sprite(
+      buildSkylineTexture(app, app.renderer.width, app.renderer.height)
+    );
+    scene.positionSkyline(app.renderer.width, app.renderer.height);
+    scene.skyline.alpha = 0; // home view is district LOD — fades in at world
+    scene.fxRoot.addChild(scene.worldContainer);
+    scene.fxRoot.filterArea = new Rectangle(0, 0, app.renderer.width, app.renderer.height);
+    app.stage.addChild(scene.sky, scene.skyline, scene.fxRoot);
+    scene.bloomSupported = CITY_BLOOM_ENV && scene.detectWebGL2();
+    scene.syncBloom();
+
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
     // beneath paths/buildings as a ground-level wash.
     scene.worldContainer.addChild(
@@ -494,6 +616,9 @@ export class CityScene {
     this.world.setLod(lod);
     this.paths.sync(this.lastTiles, HQ_TILE, lod);
     this.links.setLod(lod);
+    this.syncBloom(); // world-LOD massing views skip the filter pass
+    // Distant skyline reads only in world-overview framing (study §Track D).
+    this.skyline.alpha = lod === "world" ? 0.9 : 0;
     // Root beams/veil carry LOD-dependent alpha — redraw from the last state.
     this.applyRoot(false);
     if (this.lastProjection) {
@@ -722,6 +847,55 @@ export class CityScene {
 
   // ── internals ─────────────────────────────────────────────────────────
 
+  /**
+   * WebGL2 capability (bloom fallback, study §B3). The raw GL context is
+   * reached defensively — if it cannot be found, assume a modern device
+   * rather than silently degrading everyone.
+   */
+  private detectWebGL2(): boolean {
+    if (typeof WebGL2RenderingContext === "undefined") return false;
+    const renderer = this.app.renderer as unknown as {
+      gl?: unknown;
+      ctx?: { gl?: unknown };
+    };
+    const gl = renderer.gl ?? renderer.ctx?.gl;
+    return !gl || gl instanceof WebGL2RenderingContext;
+  }
+
+  /** Attach/detach the bloom pass (env + capability + LOD + probe gates). */
+  private syncBloom(): void {
+    const on =
+      this.bloomSupported &&
+      !this.bloomKilledByProbe &&
+      this.lod !== "world";
+    this.fxRoot.filters = on ? [this.bloom] : [];
+  }
+
+  /**
+   * Frame-budget probe (study §B3): during CONTINUOUS render streaks (camera
+   * moves, FX, fades), an EMA of the rAF interval above ~21ms means the
+   * scene cannot hold ~45fps with the filter attached — drop bloom for the
+   * session. Gaps >120ms (idle render-on-demand) reset the streak so sparse
+   * renders never sample scheduling jitter.
+   */
+  private updateFrameProbe(now: number): void {
+    if (!this.bloomSupported || this.bloomKilledByProbe) return;
+    if (this.lastRenderAt > 0 && now - this.lastRenderAt < 120) {
+      const dt = now - this.lastRenderAt;
+      this.frameEma = this.frameEma > 0 ? this.frameEma * 0.9 + dt * 0.1 : dt;
+      this.frameSamples += 1;
+      if (this.frameSamples > 120 && this.frameEma > 21 && this.fxRoot.filters.length > 0) {
+        this.bloomKilledByProbe = true;
+        this.syncBloom();
+        console.info("[city] bloom disabled by frame-budget probe");
+      }
+    } else {
+      this.frameEma = 0;
+      this.frameSamples = 0;
+    }
+    this.lastRenderAt = now;
+  }
+
   private viewportSize() {
     return {
       width: Math.max(1, this.host.clientWidth),
@@ -809,7 +983,25 @@ export class CityScene {
     const h = Math.max(1, this.host.clientHeight);
     this.worldContainer.scale.set(cam.zoom);
     this.worldContainer.position.set(w / 2 - cam.x * cam.zoom, h / 2 - cam.y * cam.zoom);
+    // Distant-skyline parallax: the strip drifts against the pan at a fixed
+    // fraction of camera travel, clamped to the baked margin so no edge ever
+    // shows. Screen-space (never zoomed) — infinite-distance illusion.
+    if (this.skyline) {
+      const parallax = -cam.x * 0.06;
+      this.skyline.x = Math.max(
+        -SKYLINE_PARALLAX_MARGIN * 2,
+        Math.min(0, -SKYLINE_PARALLAX_MARGIN + parallax)
+      );
+      this.skyline.y = this.skylineBaseY - Math.max(-24, Math.min(24, cam.y * 0.02));
+    }
     this.dirty = true;
+  }
+
+  /** Park the freshly (re)built skyline strip: centered, horizon-anchored. */
+  private positionSkyline(w: number, h: number): void {
+    this.skyline.x = -SKYLINE_PARALLAX_MARGIN;
+    this.skylineBaseY = Math.round(h * 0.58) - this.skyline.texture.height;
+    this.skyline.y = this.skylineBaseY;
   }
 
   private onCameraSettled(cam: { x: number; y: number; zoom: number }): void {
@@ -875,6 +1067,15 @@ export class CityScene {
     const w = Math.max(1, this.host.clientWidth);
     const h = Math.max(1, this.host.clientHeight);
     this.app.renderer.resize(w, h);
+    this.fxRoot.filterArea = new Rectangle(0, 0, w, h);
+    this.sky.destroy({ texture: true });
+    this.sky = new Sprite(buildSkyTexture(this.app, w, h));
+    this.app.stage.addChildAt(this.sky, 0);
+    this.skyline.destroy({ texture: true });
+    this.skyline = new Sprite(buildSkylineTexture(this.app, w, h));
+    this.positionSkyline(w, h);
+    // Resize never changes the LOD band, so keep the strip's current alpha.
+    this.app.stage.addChildAt(this.skyline, 1);
     this.rig.onResize();
     this.requestRender();
   }
@@ -938,6 +1139,7 @@ export class CityScene {
     if (this.updateDetailFade(performance.now())) busy = true;
     if (this.dirty || busy) {
       this.dirty = false;
+      this.updateFrameProbe(performance.now());
       this.app.render();
     }
     if (busy) this.requestRender();
@@ -950,6 +1152,7 @@ export class CityScene {
     this.ro.disconnect();
     this.rig.destroy();
     this.fx.clearShots();
+    this.fxRoot.filters = []; // release the bloom framebuffers first
     this.app.canvas.removeEventListener("webglcontextlost", this.onContextLost);
     this.app.destroy({ removeView: true }, { children: true, texture: true });
   }

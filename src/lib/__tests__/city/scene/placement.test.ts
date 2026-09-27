@@ -9,6 +9,7 @@ import {
   stepGhostTile,
   tileFillOrder,
   tileRefKey,
+  tileSpreadOrder,
   type TileRef,
 } from "@/lib/city/placement";
 
@@ -91,6 +92,63 @@ describe("tile fill order (visual auto-arrangement)", () => {
     expect(tile).toEqual({ sector: "s0", x: 16, y: 15 });
     // Fully-booked grid degrades to the origin (server will reject with 409).
     expect(ghostStartTile(null, 1, () => false)).toEqual({ sector: "s0", x: 0, y: 0 });
+  });
+});
+
+describe("tile spread order (spread auto-arrangement, 2026-09-27)", () => {
+  it("is a permutation of the grid — every tile exactly once", () => {
+    const spread = tileSpreadOrder(GRID_SIZE);
+    expect(spread).toHaveLength(GRID_SIZE * GRID_SIZE);
+    const seen = new Set(spread.map((t) => `${t.x}:${t.y}`));
+    expect(seen.size).toBe(GRID_SIZE * GRID_SIZE);
+  });
+
+  it("takes even×even tiles first, then odd-parity, then odd×odd", () => {
+    const spread = tileSpreadOrder(GRID_SIZE);
+    const classOf = (t: { x: number; y: number }) =>
+      t.x % 2 === 0 && t.y % 2 === 0 ? 0 : (t.x + t.y) % 2 === 1 ? 1 : 2;
+    const n0 = spread.filter((t) => classOf(t) === 0).length;
+    const n1 = spread.filter((t) => classOf(t) === 1).length;
+    for (let i = 0; i < n0; i++) expect(classOf(spread[i])).toBe(0);
+    for (let i = n0; i < n0 + n1; i++) expect(classOf(spread[i])).toBe(1);
+    for (let i = n0 + n1; i < spread.length; i++) expect(classOf(spread[i])).toBe(2);
+    expect(n0).toBe(16 * 16); // stride-2 lattice: 256 moated tiles per sector
+  });
+
+  it("is center-out within each pass (young cities spread, not corner-hug)", () => {
+    const spread = tileSpreadOrder(GRID_SIZE);
+    const dist = (t: { x: number; y: number }) =>
+      (t.x - 15.5) ** 2 + (t.y - 15.5) ** 2;
+    let runStart = 0;
+    for (let i = 1; i <= spread.length; i++) {
+      const boundary =
+        i === spread.length ||
+        (spread[i].x + spread[i].y) % 2 !== (spread[i - 1].x + spread[i - 1].y) % 2 ||
+        spread[i].x % 2 !== spread[i - 1].x % 2;
+      if (boundary) {
+        for (let j = runStart + 1; j < i; j++) {
+          expect(dist(spread[j])).toBeGreaterThanOrEqual(dist(spread[j - 1]) - 1e-9);
+        }
+        runStart = i;
+      }
+    }
+  });
+
+  it("is deterministic across calls", () => {
+    expect(tileSpreadOrder(GRID_SIZE)).toEqual(tileSpreadOrder(GRID_SIZE));
+  });
+
+  it("first 32 tiles are pairwise non-adjacent (the moat guarantee)", () => {
+    const spread = tileSpreadOrder(GRID_SIZE).slice(0, 32);
+    for (let i = 0; i < spread.length; i++) {
+      for (let j = i + 1; j < spread.length; j++) {
+        const chebyshev = Math.max(
+          Math.abs(spread[i].x - spread[j].x),
+          Math.abs(spread[i].y - spread[j].y)
+        );
+        expect(chebyshev).toBeGreaterThanOrEqual(2);
+      }
+    }
   });
 });
 
