@@ -18,6 +18,8 @@
 
 import { Assets, Rectangle, Texture } from "pixi.js";
 import {
+  CITY_HQ_SHEETS,
+  CITY_LANDMARK_SHEETS,
   CITY_PIXEL_SHEETS,
   type CityPixelSheet,
 } from "./city-pixel-art.generated";
@@ -72,7 +74,15 @@ function ensureSheet(family: string, tier: number): void {
     return;
   }
   sheets.set(key, { state: "loading" });
-  void Assets.load<Texture>(meta.url)
+  void loadSheet(key, meta);
+}
+
+/**
+ * Load + split ANY sheet (families have 3 variant rows; hero sheets have 1).
+ * Resolves the entry and pokes the ready-listeners.
+ */
+function loadSheet(key: string, meta: CityPixelSheet): Promise<void> {
+  return Assets.load<Texture>(meta.url)
     .then((base) => {
       // Pixel art must stay crisp at every zoom — nearest-neighbor forever.
       base.source.scaleMode = "nearest";
@@ -80,7 +90,7 @@ function ensureSheet(family: string, tier: number): void {
       const stepW = meta.frameW + pad;
       const stepH = meta.frameH + pad;
       const variants: PixelArtFrames[] = [];
-      for (let v = 0; v < 3; v++) {
+      for (let v = 0; v < meta.variants; v++) {
         const col = (frame: 0 | 1 | 2) =>
           new Texture({
             source: base.source,
@@ -130,6 +140,40 @@ export function pixelFramesFor(
   if (entry.state === "loading") return undefined;
   if (entry.state === "failed") return null;
   return entry.variants[pixelVariantOf(cardId)] ?? entry.variants[0];
+}
+
+/**
+ * Shared lookup for HERO sheets (HQ + the Six monuments): one variant row,
+ * keyed "HQ|sN" / "LM|i|sN". Same undefined/null contract as above.
+ */
+function heroFrames(key: string, meta: CityPixelSheet | null | undefined): PixelArtFrames | null | undefined {
+  if (!ENABLED) return null;
+  if (!meta) return null;
+  const entry = sheets.get(key);
+  if (!entry) {
+    sheets.set(key, { state: "loading" });
+    void loadSheet(key, meta);
+    return undefined;
+  }
+  if (entry.state === "loading") return undefined;
+  if (entry.state === "failed") return null;
+  return entry.variants[0];
+}
+
+/** HQ core frames for a value stage (1..3). */
+export function hqFramesFor(stage: number): PixelArtFrames | null | undefined {
+  const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+  return heroFrames(`HQ|s${s}`, CITY_HQ_SHEETS[s - 1]);
+}
+
+/** Monument frames for goddess roster index 0..5 + value stage (1..3). */
+export function landmarkFramesFor(
+  index: number,
+  stage: number
+): PixelArtFrames | null | undefined {
+  const i = ((index % 6) + 6) % 6;
+  const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+  return heroFrames(`LM|${i}|s${s}`, CITY_LANDMARK_SHEETS[String(i)]?.[s - 1]);
 }
 
 /** Whether at least one sheet loaded (the scene's pixel-mode signal). */

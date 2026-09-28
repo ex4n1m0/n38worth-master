@@ -123,8 +123,8 @@ export class AggregateBlocks extends Container {
         const variant = (seed >>> (placedBlocks * 3)) & 3;
         const h = 10 + variant * 6;
         drawIsoBox(slab, 0, 0, 16 + variant * 3, 8 + variant * 1.5, h, mass, 1, neon);
-        // Tiny lit windows (deterministic per slab): the distant-skyline
-        // density cue — sparse bright dots on dark mass, bloom feed.
+        // Tiny lit windows (deterministic per slab): the distant-sprawl
+        // density cue — sparse bright dots on the mid-tone mass.
         const dots = 2 + variant;
         for (let d = 0; d < dots; d++) {
           const r = (seed >>> (placedBlocks * 7 + d * 5)) & 15;

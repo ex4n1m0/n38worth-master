@@ -220,6 +220,9 @@ export function makeFixtureNeighbors(
       // Mini monument ring flags: first fixture neighbor holds two goddesses
       // (roster order), the others none — exercises lit + dormant monuments.
       goddessOwned: GODDESS_USERNAMES.map((_, gi) => oi === 0 && gi < 2),
+      // Deterministic hero-stage spread for the relay QA: neighbor 0 final
+      // form, neighbor 1 mid form, neighbor 2 base form.
+      hqStage: (3 - Math.min(oi, 2)) as CityNeighbor["hqStage"],
     });
   });
   return neighbors;

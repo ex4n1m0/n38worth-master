@@ -5,7 +5,7 @@ import { eq, sql, and, desc, asc, inArray, lte } from "drizzle-orm";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getGameWinCount } from "@/lib/game-wins";
-import { DETAILED_LIMIT, projectCity } from "@/lib/city/projection";
+import { DETAILED_LIMIT, projectCity, type CityHeroInput } from "@/lib/city/projection";
 import { FIXTURE_NOW, makeCityFixture, makeFixtureNeighbors } from "@/lib/city/fixtures";
 import {
   NEIGHBOR_BUILDING_LIMIT,
@@ -71,6 +71,19 @@ export async function GET(
     // Fixture satellites (QA for the steal surface): 3 deterministic
     // neighbor clusters with a firewall + a co-owned building in the mix.
     const neighbors = makeFixtureNeighbors(ownedCards);
+    // Hero stages for fixtures: the fixture world's max card value is the
+    // "game max", the owner sits at 55% of it (final HQ form on display);
+    // goddess stages derive from their fixture values naturally.
+    const fixtureMax = Math.max(0, ...ownedCards.map((c) => c.playerValue));
+    const hero: CityHeroInput = {
+      ownerValue: Math.round(fixtureMax * 0.55),
+      gameMaxValue: fixtureMax,
+      goddessValues: new Map(
+        ownedCards
+          .filter((c) => GODDESS_USERNAMES.includes(c.username))
+          .map((c) => [c.username, c.playerValue])
+      ),
+    };
     const city = projectCity(
       profile,
       ownedCards,
@@ -78,7 +91,8 @@ export async function GET(
       aggregates,
       0,
       undefined,
-      neighbors
+      neighbors,
+      hero
     );
     return NextResponse.json(
       { ...city, owner: { ...city.owner, profession: null } },
@@ -102,6 +116,7 @@ export async function GET(
         isNpc: users.isNpc,
         profession: users.profession,
         missionLevel: users.missionLevel,
+        playerValue: users.playerValue,
         portfolioValue: portfolioValueExpr.as("portfolio_value"),
         ownedCount: visibleOwnedCountExpr.as("visible_owned_count"),
         onboardingCreatedBy: users.onboardingCreatedBy,
@@ -221,6 +236,37 @@ export async function GET(
       );
     const goddessOwned = new Set(goddessRows.map((r) => r.username));
 
+    // ── Hero stages (2026-09-28): HQ + monument value forms ──────────────
+    // Global/owner-public data only (never viewer-specific — CDN safe):
+    // the current max player value across ACTIVE non-goddess players is
+    // the "game max" the HQ's final form is reserved for, and the six
+    // goddess cards' live values stage their monuments against the priciest
+    // of the six.
+    const excludedNamesSql = sql.join(
+      [...GODDESS_USERNAMES, ...REMOVED_AGENT_USERNAMES].map((name) => sql`${name}`),
+      sql`, `
+    );
+    const [maxRow] = await db
+      .select({ maxValue: sql<number>`MAX(${users.playerValue})` })
+      .from(users)
+      .where(
+        and(
+          eq(users.isActive, 1),
+          sql`"users"."username" NOT IN (${excludedNamesSql})`
+        )
+      );
+    const goddessValueRows = await db
+      .select({ username: users.username, playerValue: users.playerValue })
+      .from(users)
+      .where(inArray(users.username, GODDESS_USERNAMES));
+    const hero: CityHeroInput = {
+      ownerValue: owner.playerValue,
+      gameMaxValue: Number(maxRow?.maxValue ?? 0),
+      goddessValues: new Map(
+        goddessValueRows.map((r) => [r.username, r.playerValue])
+      ),
+    };
+
     // ── Satellite cities (2026-09-27) ────────────────────────────────────
     // Owned cards that themselves own visible cards render as FOREIGN mini
     // clusters outside the macro grid; their buildings are stealable via the
@@ -311,7 +357,8 @@ export async function GET(
         })),
         owner.username,
         new Date(),
-        neighborGoddessRows
+        neighborGoddessRows,
+        hero.gameMaxValue
       );
     }
 
@@ -327,7 +374,8 @@ export async function GET(
       aggregates,
       gameWinCount,
       goddessOwned,
-      neighbors
+      neighbors,
+      hero
     );
 
     return NextResponse.json(

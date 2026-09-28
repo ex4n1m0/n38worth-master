@@ -17,7 +17,7 @@
  */
 
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { buildingTier, protectionState } from "./projection";
+import { buildingTier, heroStageOf, protectionState } from "./projection";
 import type { CityNeighbor, CityNeighborBuilding } from "./types";
 
 /** Max satellite cities per projection (octant anchor slots, satellites.ts). */
@@ -32,6 +32,8 @@ export interface NeighborCandidate {
   username: string;
   profession: string | null;
   isNpc: number;
+  /** The candidate's own player_value (drives its HQ relay's hero stage). */
+  playerValue: number;
 }
 
 /** One ownership row of a candidate (the neighbor's owned card), SQL-shaped. */
@@ -71,7 +73,8 @@ export function assembleCityNeighbors(
   rows: readonly NeighborOwnedRow[],
   cityOwnerUsername: string,
   now: Date,
-  goddessRows: readonly NeighborGoddessRow[] = []
+  goddessRows: readonly NeighborGoddessRow[] = [],
+  gameMaxValue = 0
 ): CityNeighbor[] {
   const goddessSet = new Set(GODDESS_USERNAMES);
 
@@ -136,6 +139,7 @@ export function assembleCityNeighbors(
       buildings,
       truncated: visibleOwnedCount > buildings.length,
       goddessOwned: GODDESS_USERNAMES.map((name) => ownedGods?.has(name) === true),
+      hqStage: heroStageOf(candidate.playerValue, gameMaxValue),
     });
   }
   return neighbors;

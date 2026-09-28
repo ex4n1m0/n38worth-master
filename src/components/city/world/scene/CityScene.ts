@@ -37,8 +37,7 @@
  * placements all arrive via the projection and are never recomputed here.
  */
 
-import { Application, ColorMatrixFilter, Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
-import { AdvancedBloomFilter } from "pixi-filters";
+import { Application, ColorMatrixFilter, Container, FillGradient, Graphics, Sprite, Texture } from "pixi.js";
 import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import type { CityBuilding, CityProjection, CitySectorInfo } from "@/lib/city/types";
 import {
@@ -132,9 +131,6 @@ export interface CitySceneInit {
 
 const MAX_DPR = 2;
 
-/** Bloom kill switch: NEXT_PUBLIC_CITY_BLOOM=off disables the filter pass. */
-const CITY_BLOOM_ENV = process.env.NEXT_PUBLIC_CITY_BLOOM !== "off";
-
 /** Dev perf overlay (engine-audit §3.3) — stripped from production builds. */
 const PERF_OVERLAY = process.env.NODE_ENV !== "production";
 /** Perf snapshot cadence (ms) — store writes stay rare. */
@@ -145,7 +141,7 @@ const PERF_PUSH_MS = 500;
  * horizon band — generated to a texture once per size, static behind the
  * camera (infinite-distance backdrop). A sparse seeded STARFIELD is baked
  * into the same texture (study §Track D): zero runtime cost, and it sits
- * behind fxRoot so stars never bloom — the backdrop stays calm while the
+ * behind fxRoot (a plain separator since the bloom pass was removed) so the
  * city glows. (2026-09-28: the distant-skyline city strip was REMOVED by
  * user ruling — the background is sky + stars only.)
  */
@@ -234,44 +230,27 @@ const MOVE_GLIDE_CAP = 96;
  * player feels the time passing (2026-09-28 user ruling).
  */
 const DAYLIGHT_STEP_MS = 250;
-/** Screen-blend daylight wash over the whole stage (atmosphere unifier —
- *  since the v2 normal-city redo every element owns AUTHORED day/night art,
- *  so this is subtle). Soft warm-white, never bloom-fed (above fxRoot). */
-const DAY_WASH_COLOR = 0xf2ead4;
-const DAY_WASH_MAX_ALPHA = 0.14;
 
 export class CityScene {
   private readonly app: Application;
   private readonly host: HTMLElement;
   private readonly worldContainer = new Container();
-  /** Screen-sized filtered wrapper (bloom) around the whole world. */
+  /** Screen-sized wrapper holding the camera-transformed world — the sky
+   *  layers sit outside it on the stage (structural separator; no filters —
+   *  the bloom pass was removed 2026-09-28 by user ruling). */
   private readonly fxRoot = new Container();
   /** Static night-sky backdrop (behind fxRoot, never filtered). */
   private sky!: Sprite;
   /** Day-sky crossfade layer (alpha = daylight; sits directly over `sky`). */
   private skyDay!: Sprite;
-  /** Screen-blend daylight wash above fxRoot (brightens floor + buildings). */
-  private dayWash!: Graphics;
   /** Day/night state: displayed factor 0..1 + continuous ramp tracking. */
   private daylight = 0;
   private daylightTracking = false;
   private daylightAppliedAt = 0;
   /** One-shot wake timer for the next ramp boundary (render-on-demand). */
   private daylightTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Threshold bloom (study §Track B) — dark palette makes it selective. */
-  private readonly bloom = new AdvancedBloomFilter({
-    threshold: 0.55,
-    bloomScale: 0.85,
-    brightness: 1.0,
-    blur: 8,
-    quality: 4,
-  });
-  /** Runtime bloom state: env + WebGL2 support + frame-probe verdict. */
-  private bloomSupported = true;
-  private bloomKilledByProbe = false;
-  /** Frame-budget probe (bloom fallback, study §B3). */
+  /** Frame-time EMA — feeds the dev perf overlay fps readout. */
   private frameEma = 0;
-  private frameSamples = 0;
   private lastRenderAt = 0;
   /**
    * Aggregate-skyline daylight lift (v2 normal-city redo, 2026-09-28): the
@@ -282,8 +261,6 @@ export class CityScene {
    * IsoWorld.setDaylight for the hero layers).
    */
   private readonly aggregateDay = new ColorMatrixFilter();
-  /** Bloom is currently in the fxRoot filter stack (probe + LOD gated). */
-  private bloomAttached = false;
   private readonly world: IsoWorld;
   private readonly aggregate: AggregateBlocks;
   private readonly satellites = new SatelliteLayer(() => this.requestRender());
@@ -394,27 +371,18 @@ export class CityScene {
       new FxLayer(policy)
     );
 
-    // Night relight stack (study §A5/§B1): static sky behind everything, the
-    // whole world inside ONE screen-sized filtered container — with the dark
-    // night palette, a threshold bloom on that pass is effectively selective
-    // (only emissives clear the threshold) without per-building layers. The
-    // DAY layer (day/night cycle) crossfades over the night sky, and the
-    // daylight wash sits ABOVE fxRoot so it never feeds the bloom filter.
+    // Layer stack (bloom/gloom removed 2026-09-28 by user ruling — the v3
+    // SimCity-4 art carries its own contrast): static sky behind everything,
+    // the world inside fxRoot, and the day-sky crossfade OVER the night sky.
+    // Day/night for buildings/terrain/platforms lives in their AUTHORED art
+    // frames (see BuildingSprite.setDaylight, IsoWorld.setDaylight).
     scene.sky = new Sprite(buildSkyTexture(app, app.renderer.width, app.renderer.height));
     scene.skyDay = new Sprite(
       buildDaySkyTexture(app, app.renderer.width, app.renderer.height)
     );
     scene.skyDay.alpha = 0;
-    scene.dayWash = new Graphics()
-      .rect(0, 0, app.renderer.width, app.renderer.height)
-      .fill({ color: DAY_WASH_COLOR, alpha: DAY_WASH_MAX_ALPHA });
-    scene.dayWash.blendMode = "screen";
-    scene.dayWash.alpha = 0;
     scene.fxRoot.addChild(scene.worldContainer);
-    scene.fxRoot.filterArea = new Rectangle(0, 0, app.renderer.width, app.renderer.height);
-    app.stage.addChild(scene.sky, scene.skyDay, scene.fxRoot, scene.dayWash);
-    scene.bloomSupported = CITY_BLOOM_ENV && scene.detectWebGL2();
-    scene.syncBloom();
+    app.stage.addChild(scene.sky, scene.skyDay, scene.fxRoot);
 
     // Day/night cycle: apply the CURRENT daylight immediately (opening at
     // :15–:45 real = daytime right away), then arm the one-shot wake timer
@@ -484,6 +452,8 @@ export class CityScene {
       const modeChanged = active !== scene.pixelMode;
       scene.pixelMode = active;
       scene.world.refreshPixelArt();
+      scene.satellites.refreshPixelArt();
+      scene.universe.refreshPixelArt();
       if (modeChanged) scene.applyDaylight();
       scene.updateCulling();
       scene.requestRender();
@@ -504,7 +474,8 @@ export class CityScene {
       this.world.syncHq(
         this.lastProjection.owner.profession,
         this.strings.coreTag,
-        this.strings.displayName(this.lastProjection.owner.username)
+        this.strings.displayName(this.lastProjection.owner.username),
+        this.lastProjection.hqStage ?? 1
       );
       this.world.syncSectorInfo(
         this.lastProjection.sectorInfo,
@@ -687,7 +658,8 @@ export class CityScene {
     this.world.syncHq(
       projection.owner.profession,
       this.strings.coreTag,
-      this.strings.displayName(projection.owner.username)
+      this.strings.displayName(projection.owner.username),
+      projection.hqStage ?? 1
     );
     this.world.setLod(this.lod);
     // Sprites created by THIS sync must match an in-flight detail fade.
@@ -797,7 +769,6 @@ export class CityScene {
     this.universe.setLod(lod);
     this.paths.sync(this.lastTiles, HQ_TILE, lod);
     this.links.setLod(lod);
-    this.syncBloom(); // world-LOD massing views skip the filter pass
     // Root beams/veil carry LOD-dependent alpha — redraw from the last state.
     this.applyRoot(false);
     if (this.lastProjection) {
@@ -902,7 +873,7 @@ export class CityScene {
     const anchors = this.world
       .landmarkBeamPoints()
       .map((a) => ({ x: a.x, y: a.y }));
-    this.rootLayer.sync(state, anchors, { x: hqPoint.x, y: hqPoint.y - 108 }, this.lod);
+    this.rootLayer.sync(state, anchors, { x: hqPoint.x, y: hqPoint.y - this.world.hqExtentPx() }, this.lod);
     // Data-path tint: the grid's "data paths transform" as the sequence runs.
     if (state.active) {
       const color = ROOT_PHASE_COLORS[state.phase] ?? null;
@@ -915,7 +886,7 @@ export class CityScene {
       for (const a of this.world.landmarkBeamPoints()) {
         if (a.owned) this.fx.playLandmark(a.x, a.y);
       }
-      this.fx.playLandmark(hqPoint.x, hqPoint.y - 108);
+      this.fx.playLandmark(hqPoint.x, hqPoint.y - this.world.hqExtentPx());
     }
   }
 
@@ -989,56 +960,18 @@ export class CityScene {
   // ── internals ─────────────────────────────────────────────────────────
 
   /**
-   * WebGL2 capability (bloom fallback, study §B3). The raw GL context is
-   * reached defensively — if it cannot be found, assume a modern device
-   * rather than silently degrading everyone.
-   */
-  private detectWebGL2(): boolean {
-    if (typeof WebGL2RenderingContext === "undefined") return false;
-    const renderer = this.app.renderer as unknown as {
-      gl?: unknown;
-      ctx?: { gl?: unknown };
-    };
-    const gl = renderer.gl ?? renderer.ctx?.gl;
-    return !gl || gl instanceof WebGL2RenderingContext;
-  }
-
-  /**
-   * Attach/detach the fxRoot filter stack: threshold bloom only (env +
-   * capability + LOD + probe gates). Day/night is carried by authored art
-   * frames + scoped hero filters, not a global matrix.
-   */
-  private syncBloom(): void {
-    const filters: Array<AdvancedBloomFilter> = [];
-    this.bloomAttached =
-      this.bloomSupported &&
-      !this.bloomKilledByProbe &&
-      this.lod !== "world";
-    if (this.bloomAttached) filters.push(this.bloom);
-    this.fxRoot.filters = filters;
-  }
-
-  /**
-   * Frame-budget probe (study §B3): during CONTINUOUS render streaks (camera
-   * moves, FX, fades), an EMA of the rAF interval above ~21ms means the
-   * scene cannot hold ~45fps with the filter attached — drop bloom for the
-   * session. Gaps >120ms (idle render-on-demand) reset the streak so sparse
-   * renders never sample scheduling jitter.
+   * Frame-time EMA (dev perf overlay): during CONTINUOUS render streaks
+   * (camera moves, FX, fades) the rAF interval is smoothed for the fps
+   * readout. Gaps >120ms (idle render-on-demand) reset the streak so sparse
+   * renders never sample scheduling jitter. (The bloom frame-budget probe
+   * that used to live here went away with the filter, 2026-09-28.)
    */
   private updateFrameProbe(now: number): void {
-    if (!this.bloomSupported || this.bloomKilledByProbe) return;
     if (this.lastRenderAt > 0 && now - this.lastRenderAt < 120) {
       const dt = now - this.lastRenderAt;
       this.frameEma = this.frameEma > 0 ? this.frameEma * 0.9 + dt * 0.1 : dt;
-      this.frameSamples += 1;
-      if (this.frameSamples > 120 && this.frameEma > 21 && this.bloomAttached) {
-        this.bloomKilledByProbe = true;
-        this.syncBloom();
-        console.info("[city] bloom disabled by frame-budget probe");
-      }
     } else {
       this.frameEma = 0;
-      this.frameSamples = 0;
     }
     this.lastRenderAt = now;
   }
@@ -1197,21 +1130,13 @@ export class CityScene {
     const w = Math.max(1, this.host.clientWidth);
     const h = Math.max(1, this.host.clientHeight);
     this.app.renderer.resize(w, h);
-    this.fxRoot.filterArea = new Rectangle(0, 0, w, h);
     this.sky.destroy({ texture: true });
     this.sky = new Sprite(buildSkyTexture(this.app, w, h));
     this.skyDay.destroy({ texture: true });
     this.skyDay = new Sprite(buildDaySkyTexture(this.app, w, h));
     this.skyDay.alpha = this.daylight;
-    this.dayWash.destroy();
-    this.dayWash = new Graphics()
-      .rect(0, 0, w, h)
-      .fill({ color: DAY_WASH_COLOR, alpha: DAY_WASH_MAX_ALPHA });
-    this.dayWash.blendMode = "screen";
-    this.dayWash.alpha = this.daylight;
     this.app.stage.addChildAt(this.sky, 0);
     this.app.stage.addChildAt(this.skyDay, 1);
-    this.app.stage.addChild(this.dayWash);
     this.rig.onResize();
     this.requestRender();
   }
@@ -1314,24 +1239,22 @@ export class CityScene {
   }
 
   /**
-   * Apply the current daylight factor: day-sky crossfade alpha, the
-   * screen-blend wash, the world color-matrix lift (dark masses → shades of
-   * white, lerped to identity by night), and a raised bloom threshold /
-   * lowered bloom scale — the brighter daytime scene must not glow out, and
-   * the night ambience (threshold 0.55, scale 0.85, no matrix) stays exactly
-   * as it was once night returns.
+   * Apply the current daylight factor: day-sky crossfade alpha and the
+   * buildings' day/night/lights ART frames (or, in the procedural fallback,
+   * the lit-window dim). No scene-wide filters or washes — the v3 SimCity-4
+   * art owns its contrast, and every element carries authored day/night
+   * states (2026-09-28 user ruling: remove bloom/gloom).
    */
   private applyDaylight(): void {
     const v = this.daylight;
     this.skyDay.alpha = v;
-    this.dayWash.alpha = v;
-    this.bloom.threshold = 0.55 + 0.25 * v;
-    this.bloom.bloomScale = 0.85 - 0.3 * v;
-    // Buildings crossfade their day/night/lights ART frames (or, in the
-    // procedural fallback, dim lit windows to a glass sheen) — same 250 ms
-    // ramp cadence, alpha-only, no redraws. The terrain plate + hero
-    // filters ride along inside IsoWorld.setDaylight.
+    // Buildings + heroes (HQ/monuments, home and foreign minis) crossfade
+    // their day/night/lights ART frames — same 250 ms ramp cadence,
+    // alpha-only, no redraws. The terrain plate rides along inside
+    // IsoWorld.setDaylight.
     this.world.setDaylight(v);
+    this.satellites.setDaylight(v);
+    this.universe.setDaylight(v);
     // Aggregate skyline: same soft daylight lerp as the hero layers.
     const scale = 1 + (0.68 - 1) * v;
     const offset = 0.3 * v;
@@ -1362,7 +1285,6 @@ export class CityScene {
       spritesTotal: stats.total,
       spritesVisible: stats.visible,
       lod: this.lod,
-      bloom: this.bloomAttached,
       daylight: Math.round(this.daylight * 100) / 100,
       zoom: Math.round(this.rig.state.zoom * 100) / 100,
     });
@@ -1410,7 +1332,6 @@ export class CityScene {
     this.ro.disconnect();
     this.rig.destroy();
     this.fx.clearShots();
-    this.fxRoot.filters = []; // release the bloom framebuffers first
     this.app.canvas.removeEventListener("webglcontextlost", this.onContextLost);
     this.app.destroy({ removeView: true }, { children: true, texture: true });
     this.avatarReadyTeardown?.();

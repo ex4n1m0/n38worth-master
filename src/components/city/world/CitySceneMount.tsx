@@ -238,8 +238,7 @@ function CityPerfChip() {
     >
       <div>{fps}</div>
       <div>
-        sprites {perf.spritesVisible}/{perf.spritesTotal} · lod {perf.lod} · bloom{" "}
-        {perf.bloom ? "on" : "off"}
+        sprites {perf.spritesVisible}/{perf.spritesTotal} · lod {perf.lod}
       </div>
       <div>
         daylight {perf.daylight.toFixed(2)} · zoom {perf.zoom.toFixed(2)}

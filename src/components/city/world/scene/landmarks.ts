@@ -22,11 +22,13 @@
  * State transitions (acquired / lost / selected / LOD swap) redraw once.
  */
 
-import { Container, Graphics } from "pixi.js";
+import { ColorMatrixFilter, Container, Graphics, Sprite } from "pixi.js";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { Lod } from "@/lib/city/scene/lod";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
+import { facadeGlowAt } from "@/lib/city/scene/daylight";
+import { landmarkFramesFor } from "./pixel-art";
 import {
   COLOR_SELECTION,
   drawIsoBox,
@@ -286,9 +288,15 @@ export function landmarkIndexFor(username: string): number {
 }
 
 /**
- * One goddess landmark monument. Static art per (username, owned); the name
- * chip shows at close LOD; the selection ring mirrors mirror-list/panel
- * focus. `owned` arrives from the city projection — never client-derived.
+ * One goddess landmark monument. Static art per (username, owned, stage);
+ * the name chip shows at close LOD; the selection ring mirrors mirror-list/
+ * panel focus. `owned` + `stage` arrive from the city projection — never
+ * client-derived.
+ *
+ * HERO PIXEL ART (2026-09-28): three value-driven stages mount the
+ * generated Landmark-i-s{1..3} sheets (day/night/lights). The procedural
+ * monument below is the fallback and carries its own scoped day-lift
+ * filter; the identity pad/ground ring stays procedural in both modes.
  */
 export class LandmarkSprite extends Container {
   readonly username: string;
@@ -298,12 +306,28 @@ export class LandmarkSprite extends Container {
   private labelKey = "";
   private selection: Graphics | null = null;
   private lod: Lod = "district";
+  /** Pixel-art day/night/lights frames (hero stages). */
+  private readonly artDay = new Sprite();
+  private readonly artNight = new Sprite();
+  private readonly artLights = new Sprite();
+  private pixelKey: string | null = null;
+  private stageCurrent = 0;
+  private daylightCurrent = 0;
+  /** Procedural monument body + scoped day lift (identity at night). */
+  private readonly body = new Container();
+  private readonly bodyDay = new ColorMatrixFilter();
 
-  constructor(index: number, owned: boolean) {
+  constructor(index: number, owned: boolean, stage = 1) {
     super();
     this.index = ((index % GODDESS_USERNAMES.length) + GODDESS_USERNAMES.length) % GODDESS_USERNAMES.length;
     this.username = GODDESS_USERNAMES[this.index];
+    this.stageCurrent = stage;
     this.scale.set(MONUMENT_SCALE);
+    this.body.filters = [this.bodyDay];
+    this.artLights.blendMode = "add";
+    this.artDay.visible = false;
+    this.artNight.visible = false;
+    this.artLights.visible = false;
     this.setOwned(owned);
   }
 
@@ -319,10 +343,88 @@ export class LandmarkSprite extends Container {
     if (owned === this.drawnOwned) return;
     this.drawnOwned = owned;
     this.redraw();
+    this.syncPixelArt();
+  }
+
+  /** Value-stage swap (server-derived 1..3) — remounts the pixel frames. */
+  setStage(stage: number): void {
+    const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+    if (s === this.stageCurrent) return;
+    this.stageCurrent = s;
+    this.syncPixelArt();
+    if (this.labelChip) {
+      this.labelChip.position.set(0, -(this.artHeightPx() + 24));
+    }
   }
 
   get owned(): boolean {
     return this.drawnOwned === true;
+  }
+
+  /**
+   * Daylight factor 0..1 (authored frames, mirrors BuildingSprite/HqSprite):
+   * day frame crossfades over night, additive identity lights dim to a
+   * sheen. The fallback body lerps its own scoped lift instead.
+   */
+  setDaylight(daylight: number): void {
+    this.daylightCurrent = daylight;
+    if (this.pixelKey !== null) {
+      this.artDay.alpha = daylight;
+      this.artLights.alpha = facadeGlowAt(daylight);
+    } else {
+      const scale = 1 + (0.68 - 1) * daylight;
+      const offset = 0.3 * daylight;
+      this.bodyDay.matrix = [
+        scale, 0, 0, 0, offset,
+        0, scale, 0, 0, offset,
+        0, 0, scale, 0, offset,
+        0, 0, 0, 1, 0,
+      ];
+    }
+  }
+
+  /** Mount (or fall back from) the generated monument frames for the stage. */
+  syncPixelArt(): void {
+    const frames = landmarkFramesFor(this.index, this.stageCurrent);
+    if (!frames) {
+      if (this.pixelKey !== null) {
+        this.pixelKey = null;
+        this.artDay.visible = false;
+        this.artNight.visible = false;
+        this.artLights.visible = false;
+        this.body.visible = true;
+        this.setDaylight(this.daylightCurrent);
+      }
+      return;
+    }
+    const key = `${frames.day.source.uid}|${this.index}|${this.stageCurrent}`;
+    if (key === this.pixelKey) return;
+    this.pixelKey = key;
+    for (const [sprite, tex] of [
+      [this.artDay, frames.day],
+      [this.artNight, frames.night],
+      [this.artLights, frames.lights],
+    ] as const) {
+      sprite.texture = tex;
+      sprite.anchor.set(frames.anchorX / frames.frameW, frames.anchorY / frames.frameH);
+      sprite.position.set(0, 0);
+      sprite.visible = true;
+    }
+    this.artDay.alpha = this.daylightCurrent;
+    this.artLights.alpha = facadeGlowAt(this.daylightCurrent);
+    this.body.visible = false;
+    if (this.labelChip) {
+      this.labelChip.position.set(0, -(this.artHeightPx() + 24));
+    }
+  }
+
+  /** Scaled art height above the tile (pixel stage art or fallback body). */
+  artHeightPx(): number {
+    if (this.pixelKey !== null) {
+      const frames = landmarkFramesFor(this.index, this.stageCurrent);
+      if (frames) return Math.round(frames.artHeight * MONUMENT_SCALE);
+    }
+    return landmarkArtHeight(this.index);
   }
 
   /** Display-name chip (resolved locale text from the React shell). */
@@ -338,7 +440,7 @@ export class LandmarkSprite extends Container {
     this.labelChip = makeTextChip(text, {
       borderColor: LANDMARK_COLORS[this.index],
     });
-    this.labelChip.position.set(0, -(landmarkArtHeight(this.index) + 24));
+    this.labelChip.position.set(0, -(this.artHeightPx() + 24));
     this.labelChip.visible = this.lod === "close";
     this.addChild(this.labelChip);
   }
@@ -378,14 +480,20 @@ export class LandmarkSprite extends Container {
     if (this.selection) keep.push(this.selection);
     if (this.labelChip) keep.push(this.labelChip);
     this.removeChildren();
+    this.body.removeChildren();
+    const pad = new Graphics();
+    drawMonumentPad(pad, LANDMARK_COLORS[this.index], owned);
     const g = new Graphics();
-    drawMonumentPad(g, LANDMARK_COLORS[this.index], owned);
     LANDMARK_DRAW[this.index](g, owned);
-    this.addChild(g, ...keep);
+    this.body.addChild(g);
+    this.body.visible = this.pixelKey === null;
+    this.addChild(pad, this.artDay, this.artNight, this.artLights, this.body, ...keep);
   }
 }
 
-/** Beam anchor point of a landmark (monument tip) for the Root Sequence. */
+/** Beam anchor point of a landmark (monument tip) for the Root Sequence.
+ *  Fallback-body approximation — pixel-mode callers use the sprite's live
+ *  artHeightPx() instead (stage art heights differ). */
 export function landmarkBeamAnchor(index: number): { dx: number; dy: number } {
   return { dx: 0, dy: -(landmarkArtHeight(index) - 14) };
 }

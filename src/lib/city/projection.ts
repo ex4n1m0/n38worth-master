@@ -31,6 +31,7 @@ import {
   type CityProjection,
   type CitySectorInfo,
   type BuildingTier,
+  type HeroStage,
   UNASSIGNED_FAMILY,
 } from "./types";
 
@@ -61,6 +62,44 @@ export const DETAILED_LIMIT = resolveDetailedLimit(
   process.env.NODE_ENV,
   process.env.CITY_DETAILED_LIMIT
 );
+
+/**
+ * HERO-ART STAGES (2026-09-28 user ruling): the HQ core and the Six
+ * monuments come in 3 value-driven forms; the FINAL form is reserved for
+ * the neighborhood of the CURRENT MAX of the building's population — the
+ * top of the value leaderboard for the HQ, the priciest goddess card for
+ * each monument. Stage cutoffs are fractions of that population max:
+ *   stage 1: value < 5% of max   (everyone)
+ *   stage 2: 5% ≤ value < 50%    (climbing the board)
+ *   stage 3: value ≥ 50% of max  (only players near the current game max)
+ */
+export const HERO_STAGE_FRACTIONS = [0.05, 0.5] as const;
+
+/**
+ * Hero stage 1..3 for a value against its population max (pure; degenerate
+ * max or value → stage 1, so unknown data can never fabricate a final form).
+ */
+export function heroStageOf(value: number, populationMax: number): HeroStage {
+  const max = Math.max(0, populationMax);
+  if (max <= 0 || value <= 0) return 1;
+  const ratio = value / max;
+  if (ratio >= HERO_STAGE_FRACTIONS[1]) return 3;
+  if (ratio >= HERO_STAGE_FRACTIONS[0]) return 2;
+  return 1;
+}
+
+/**
+ * Hero-stage inputs fetched by the route (all GLOBAL/owner-public — never
+ * viewer-specific, so the CDN-safety of the city route is unaffected).
+ */
+export interface CityHeroInput {
+  /** The city owner's OWN player_value (drives the HQ form). */
+  ownerValue: number;
+  /** Current max player_value across active players, goddesses excluded. */
+  gameMaxValue: number;
+  /** The six goddess cards' CURRENT player_value by raw username. */
+  goddessValues: ReadonlyMap<string, number>;
+}
 
 /**
  * Visual tier 1–7 from the value/floor ratio (never reads economy state).
@@ -168,14 +207,24 @@ export function projectCity(
   aggregates?: CityAggregates,
   gameWinCount = 0,
   goddessOwned?: ReadonlySet<string>,
-  neighbors?: readonly CityNeighbor[]
+  neighbors?: readonly CityNeighbor[],
+  hero?: CityHeroInput
 ): CityProjection {
   const goddessSet = new Set(GODDESS_USERNAMES);
 
   const ownedUsernames = goddessOwned ?? new Set(ownedCards.map((c) => c.username));
+  // Monument stages: each goddess vs the priciest of the six (omitted hero
+  // input → stage 1 everywhere; the route always supplies real values).
+  let goddessMax = 0;
+  if (hero) {
+    for (const v of hero.goddessValues.values()) goddessMax = Math.max(goddessMax, v);
+  }
   const landmarks: CityLandmark[] = GODDESS_USERNAMES.map((username) => ({
     username,
     owned: ownedUsernames.has(username),
+    stage: hero
+      ? heroStageOf(hero.goddessValues.get(username) ?? 0, goddessMax)
+      : 1,
   }));
 
   // Goddesses render as landmarks, not buildings.
@@ -264,6 +313,7 @@ export function projectCity(
       ? Math.max(0, aggregates.totalBuildings - detailedCards.length)
       : buildingCards.length - detailedCards.length,
     landmarks,
+    hqStage: hero ? heroStageOf(hero.ownerValue, hero.gameMaxValue) : 1,
     // Satellite cities pass through untouched (shaped/bounded by the
     // assembler in neighbors.ts — pure data, never derived here).
     neighbors: neighbors ? [...neighbors] : [],

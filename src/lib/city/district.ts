@@ -39,20 +39,20 @@ export const FAMILY_HEX: Readonly<Record<string, string>> = Object.freeze({
 });
 
 /**
- * NIGHT MASS palette (CITY_VISUALS_STUDY §A1): the reference look is 80%
- * near-black blue surfaces with the family hue carried by EMISSIVES only.
- * Bodies render in these blue-black masses; FAMILY_HEX above stays the
- * accent source for the DOM panel, and FAMILY_NEON_HEX below is the
- * saturated emissive accent the Pixi scene lights windows/neon/edges with.
- * Same hue family per row → the audited hue spread is preserved.
+ * MASS palette (SC4 contrast pass, 2026-09-28): mid-tone, family-hued
+ * building masses for the PROCEDURAL renderers (aggregate rim slabs, HQ
+ * tower, pixel-art fallback). The old blue-black night palette read as
+ * "black bricks" next to the bright v3 pixel-art buildings. The scene's day
+ * ColorMatrix lift carries these to daylight; FAMILY_NEON_HEX below stays
+ * the emissive accent the Pixi scene lights windows/edges with.
  */
 export const FAMILY_MASS_HEX: Readonly<Record<string, string>> = Object.freeze({
-  Cryptographer: "#151327", // violet-black
-  "Zero-Day": "#1f1216", // red-black
-  Overclocker: "#131a12", // green-black
-  "Cache Keeper": "#0f1a18", // mint-black
-  "Server Marshal": "#101722", // blue-black
-  "Bot Herder": "#1c1710", // amber-black
+  Cryptographer: "#6b5f49", // warm stone
+  "Zero-Day": "#6e737b", // concrete gray
+  Overclocker: "#6e4538", // brick red-brown
+  "Cache Keeper": "#6f6046", // adobe tan
+  "Server Marshal": "#5d6d7f", // steel blue
+  "Bot Herder": "#61666e", // metal gray
 });
 
 /** Emissive accents (windows / neon edges / beacons) per family. */
@@ -67,7 +67,7 @@ export const FAMILY_NEON_HEX: Readonly<Record<string, string>> = Object.freeze({
 
 /** Neutral accent for profession-less (unassigned) buildings. */
 export const UNASSIGNED_HEX = "#9ca3af";
-export const UNASSIGNED_MASS_HEX = "#141821";
+export const UNASSIGNED_MASS_HEX = "#625e50";
 export const UNASSIGNED_NEON_HEX = "#9ca3af";
 
 export function familyHex(profession: string | null): string {

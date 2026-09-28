@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  CityHeroInput,
   DETAILED_LIMIT,
   DEFAULT_DETAILED_LIMIT,
   buildingTier,
@@ -8,6 +9,7 @@ import {
   sectorInfo,
   sectorsUnlocked,
   projectCity,
+  heroStageOf,
 } from "@/lib/city/projection";
 import { UNASSIGNED_FAMILY } from "@/lib/city/types";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
@@ -391,5 +393,50 @@ describe("projectCity goddessOwned (H1: landmark truth vs DETAILED_LIMIT)", () =
     const city = projectCity(profile, [], NOW, undefined, 0, owned);
     expect(city.landmarks.filter((l) => l.owned)).toHaveLength(3);
     expect(city.rootSequenceEligible).toBe(false);
+  });
+});
+
+describe("heroStageOf (HQ + monument value stages)", () => {
+  it("stage 1 below 5% of the population max, 2 at 5–50%, 3 at ≥50%", () => {
+    expect(heroStageOf(0, 1_000_000)).toBe(1);
+    expect(heroStageOf(49_999, 1_000_000)).toBe(1); // < 5%
+    expect(heroStageOf(50_000, 1_000_000)).toBe(2); // exactly 5%
+    expect(heroStageOf(499_999, 1_000_000)).toBe(2);
+    expect(heroStageOf(500_000, 1_000_000)).toBe(3); // exactly 50% — top form
+    expect(heroStageOf(1_000_000, 1_000_000)).toBe(3); // the current max itself
+    expect(heroStageOf(2_000_000, 1_000_000)).toBe(3); // a new max keeps 3
+  });
+
+  it("degenerate population max or value never fabricates the final form", () => {
+    expect(heroStageOf(999_999, 0)).toBe(1);
+    expect(heroStageOf(-5, 1_000_000)).toBe(1);
+    expect(heroStageOf(0, 1_000_000)).toBe(1);
+  });
+});
+
+describe("projectCity hero stages", () => {
+  it("defaults every stage to 1 when hero input is omitted", () => {
+    const city = projectCity(profile, [], NOW, undefined, 0, new Set(GODDESS_USERNAMES));
+    expect(city.hqStage).toBe(1);
+    expect(city.landmarks.every((l) => l.stage === 1)).toBe(true);
+  });
+
+  it("stages the HQ against the game max and monuments against the priciest goddess", () => {
+    const hero: CityHeroInput = {
+      ownerValue: 600_000,
+      gameMaxValue: 1_000_000, // owner at 60% → final HQ form
+      goddessValues: new Map([
+        [GODDESS_USERNAMES[0], 900_000], // 90% of goddess max → 3
+        [GODDESS_USERNAMES[1], 300_000], // 30% → 2
+        [GODDESS_USERNAMES[2], 10_000], // 1% → 1
+      ]),
+    };
+    const city = projectCity(profile, [], NOW, undefined, 0, undefined, [], hero);
+    expect(city.hqStage).toBe(3);
+    expect(city.landmarks[0].stage).toBe(3);
+    expect(city.landmarks[1].stage).toBe(2);
+    expect(city.landmarks[2].stage).toBe(1);
+    // goddesses missing from the map default to stage 1
+    expect(city.landmarks[3].stage).toBe(1);
   });
 });

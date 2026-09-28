@@ -16,7 +16,7 @@ function candidate(
   username: string,
   extra: Partial<NeighborCandidate> = {}
 ): NeighborCandidate {
-  return { cardId, username, profession: "Overclocker", isNpc: 1, ...extra };
+  return { cardId, username, profession: "Overclocker", isNpc: 1, playerValue: 10_000, ...extra };
 }
 
 function row(

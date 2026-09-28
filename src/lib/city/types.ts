@@ -98,10 +98,21 @@ export interface CityAggregates {
   familyTotals: Record<string, number>;
 }
 
+/**
+ * Hero-art stage for the HQ core and the Six monuments (2026-09-28 user
+ * ruling): 1..3, derived SERVER-side from the building's value vs the
+ * CURRENT MAX of its population (all active players for the HQ, the six
+ * goddesses for monuments) — the final stage appears only near the current
+ * game max. The client renders the stage and never recomputes it.
+ */
+export type HeroStage = 1 | 2 | 3;
+
 /** A goddess landmark slot (fixed roster order, owned flag from ownership). */
 export interface CityLandmark {
   username: string;
   owned: boolean;
+  /** Hero-art stage 1..3 from the goddess card's value (1 when unknown). */
+  stage: HeroStage;
 }
 
 /**
@@ -141,6 +152,11 @@ export interface CityNeighbor {
    * same shape as the home city, monuments lit per actual ownership.
    */
   goddessOwned: boolean[];
+  /**
+   * Hero-art stage of the neighbor's own HQ relay (value vs the same game
+   * max the home HQ uses; 1 when unknown). Server-derived only.
+   */
+  hqStage: HeroStage;
 }
 
 /**
@@ -181,6 +197,11 @@ export interface CityProjection {
   /** Number of buildings folded into aggregate density blocks. */
   aggregatedCount: number;
   landmarks: CityLandmark[];
+  /**
+   * Hero-art stage of the owner's HQ core (value vs the current game max
+   * player value; 1 when unknown). Server-derived only.
+   */
+  hqStage: HeroStage;
   /**
    * Satellite cities (owned cards that own cards), value order, bounded by
    * NEIGHBOR_CITY_LIMIT. Their buildings are hireable (steal) by the city

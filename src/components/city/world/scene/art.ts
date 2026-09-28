@@ -7,13 +7,11 @@
  * (see "Art manifest" below) — components only ever call familyArt(), so the
  * swap touches this module alone (RTS plan §Phase B task 2 / §Phase C).
  *
- * NIGHT RELIGHT (CITY_VISUALS_STUDY §Track A, 2026-09): the reference look
- * is 80% near-black blue mass with family hue carried by EMISSIVES. Every
- * family now renders in a blue-black MASS color (FAMILY_MASS_HEX) with
+ * PROCEDURAL MASSES (2026-09-28 SC4 contrast pass): every family renders in
+ * a mid-tone, family-hued MASS color (FAMILY_MASS_HEX) with
  * gradient-shaded faces + AO seams, while lit windows / coils / beacons /
  * LED strips draw into a separate EMISSIVE Graphics (`e` params below) in
- * the saturated NEON accent (FAMILY_NEON_HEX) — that layer is what the
- * scene's threshold bloom (Track B) picks up. Faces are vertical
+ * the saturated NEON accent (FAMILY_NEON_HEX). Faces are vertical
  * FillGradients (lit top → shadowed base), top diamonds carry a faint neon
  * rim (edge-lit architecture), and platforms are WET SLABS (dark fill +
  * accent wash + a vertical reflection streak).

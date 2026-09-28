@@ -147,7 +147,7 @@ export function Navbar() {
     const isCurrentPathAllowed = allowedPaths.some(
       (p) => pathname === p || pathname.startsWith("/players/") || pathname.startsWith("/city") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
     );
-    if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/history")) {
+    if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/history") && !pathname.startsWith("/catalog")) {
       // During onboarding (avatar OR starter-NPC step) the only legitimate
       // landing page is the user's own profile — the avatar uploader and the
       // 3 starter-NPC cards now both live there.
@@ -349,6 +349,12 @@ export function Navbar() {
                       <Link href="/history" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
                         <History className="h-4 w-4 mr-2" />
                         {t.navHistory}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/catalog" onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
+                        <Building2 className="h-4 w-4 mr-2" />
+                        {t.navBuildingsCatalog}
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator className="bg-gray-800" />

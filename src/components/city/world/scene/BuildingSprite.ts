@@ -22,8 +22,8 @@
  * (art.ts) — future WebP atlases slot in there without touching this class.
  *
  * The sprite's origin (0,0) is the TILE CENTER; the body extends upward
- * (negative y). Depth = zIndex set by IsoWorld from the global (x+y), which
- * also drives the depth-fog tint (night atmosphere).
+ * (negative y). Depth = zIndex set by IsoWorld from the global (x+y)
+ * (painter's order — no fog tint since the 2026-09-28 bloom/gloom removal).
  */
 
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";

@@ -155,6 +155,24 @@ export class UniverseLayer extends Container {
     }
   }
 
+  /** Daylight factor for the mini cities' hero sprites (relay + monuments). */
+  setDaylight(daylight: number): void {
+    this.daylightCurrent = daylight;
+    for (const mini of this.minis.values()) {
+      mini.relay.setDaylight(daylight);
+      for (const m of mini.monuments) m.setDaylight(daylight);
+    }
+  }
+  private daylightCurrent = 0;
+
+  /** Pixel-art texture-ready pass (late hero sheets mount in place). */
+  refreshPixelArt(): void {
+    for (const mini of this.minis.values()) {
+      mini.relay.syncPixelArt();
+      for (const m of mini.monuments) m.syncPixelArt();
+    }
+  }
+
   /** Selection ring on a universe city's marker + mini relay plate border. */
   setSelected(username: string | null): void {
     this.selected = username;
@@ -465,14 +483,21 @@ export class UniverseLayer extends Container {
       .stroke({ width: 1.25, color: UNIVERSE_TINT, alpha: 0.22 });
     cityBox.addChild(pad);
 
-    // The Six mini monuments — owned flags from that city's landmarks.
-    const ownedFlags = new Set(
-      projection.landmarks.filter((l) => l.owned).map((l) => l.username)
+    // The Six mini monuments — owned flags + value stages from that city's
+    // landmarks (stale CDN payloads may lack stage → default 1).
+    const landmarksByUsername = new Map(
+      projection.landmarks.map((l) => [l.username, l] as const)
     );
     const monuments: LandmarkSprite[] = [];
     for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
-      const monument = new LandmarkSprite(i, ownedFlags.has(GODDESS_USERNAMES[i]));
+      const lm = landmarksByUsername.get(GODDESS_USERNAMES[i]);
+      const monument = new LandmarkSprite(
+        i,
+        lm?.owned === true,
+        lm?.stage ?? 1
+      );
       monument.tint = UNIVERSE_TINT;
+      monument.setDaylight(this.daylightCurrent);
       const lt = landmarkTile(i);
       const local = tileToScreen(lt.x - HQ_TILE.x, lt.y - HQ_TILE.y);
       monument.position.set(local.x, local.y);
@@ -481,10 +506,11 @@ export class UniverseLayer extends Container {
       monuments.push(monument);
     }
 
-    // Relay core (that city's own HQ).
-    const relay = new HqSprite(projection.owner.profession);
+    // Relay core (that city's own HQ — its value stage rides the payload).
+    const relay = new HqSprite(projection.owner.profession, projection.hqStage ?? 1);
     relay.setTag("");
     relay.tint = UNIVERSE_TINT;
+    relay.setDaylight(this.daylightCurrent);
     relay.zIndex = 900_000;
     cityBox.addChild(relay);
 

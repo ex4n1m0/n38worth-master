@@ -37,7 +37,6 @@ export interface CityPerfSnapshot {
   spritesTotal: number;
   spritesVisible: number;
   lod: Lod;
-  bloom: boolean;
   daylight: number;
   zoom: number;
 }

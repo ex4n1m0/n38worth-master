@@ -19,7 +19,7 @@
  * unlock) is server-sent; this class never computes economy values.
  */
 
-import { ColorMatrixFilter, Container, Graphics } from "pixi.js";
+import { Container, Graphics } from "pixi.js";
 import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { CityBuilding, CityLandmark, CitySectorInfo } from "@/lib/city/types";
@@ -38,11 +38,7 @@ import { tileRefKey, type TileRef } from "@/lib/city/placement";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
 import { drawDashedLine, drawLockMarker, makeTextChip } from "./art";
-import {
-  LandmarkSprite,
-  landmarkArtHeight,
-  landmarkBeamAnchor,
-} from "./landmarks";
+import { LandmarkSprite } from "./landmarks";
 
 /** One building + the tile it renders on (persisted or visual auto-tile). */
 export interface SceneBuildingEntry {
@@ -124,21 +120,11 @@ export function worldPointOfTile(tile: TileRef): { x: number; y: number } {
 }
 
 /**
- * DEPTH FOG (night atmosphere, study §A5): iso depth = global (x + y), the
- * same signal as zIndex. The tint is normalized over the city's OCCUPIED
- * depth span (buildings ∪ HQ ∪ monument ring, floored at ~3 tiles) so the
- * fade is visible even in a small single-sector city — far rows melt into
- * the void while the near edge stays bright. Tint-only (alpha stays 1) so
- * painter's-order overlap never double-composites.
+ * DEPTH FOG was REMOVED (2026-09-28 user ruling "remove the bloom/gloom"):
+ * the unconditional far-row dimming was flattening the SimCity-4 art's
+ * contrast day AND night. Iso depth = global (x + y) still drives zIndex
+ * (painter's order) — it just no longer tints anything.
  */
-function fogTint(depth: number, depthMin: number, depthSpan: number): number {
-  const f = Math.max(0, Math.min(1, (depth - depthMin) / Math.max(1, depthSpan)));
-  // Dim to ~55% at the far edge, cooling slightly less in blue → bluish fog.
-  const r = Math.round(255 * (1 - 0.5 * f));
-  const g = Math.round(255 * (1 - 0.47 * f));
-  const b = Math.round(255 * (1 - 0.42 * f));
-  return (r << 16) | (g << 8) | b;
-}
 
 export class IsoWorld extends Container {
   private _sectorCount: number;
@@ -174,10 +160,9 @@ export class IsoWorld extends Container {
     super();
     this._sectorCount = Math.max(1, Math.min(9, sectorCount));
     this.buildingsLayer.sortableChildren = true; // depth = zIndex (x+y)
-    // Soft daylight lift for the hero layers (identity at night — see
-    // setDaylight; buildings/terrain own authored day states instead).
-    this.hqLayer.filters = [this.hqDayFilter];
-    this.landmarkLayer.filters = [this.landmarkDayFilter];
+    // Hero layers carry NO filter since the 2026-09-28 hero pixel-art pass:
+    // HQ + monuments mount authored day/night frames and own a scoped
+    // fallback lift inside their sprites (see HqSprite/LandmarkSprite).
     // landmarkLayer sits ABOVE buildingsLayer deliberately: the six monuments
     // are the sector's key landmarks — ordinary towers must never occlude
     // them (image-analyst Phase E gate: buildings stacked on monument
@@ -196,10 +181,6 @@ export class IsoWorld extends Container {
   get sectorCount(): number {
     return this._sectorCount;
   }
-
-  /** Occupied depth span for fog normalization (updated per sync). */
-  private depthMin = 0;
-  private depthSpan = 96;
 
   /** Sector count changed (mission completed) → rebuild the ground pads. */
   setSectorCount(count: number): void {
@@ -260,11 +241,8 @@ export class IsoWorld extends Container {
 
   private plateDay: Graphics | null = null;
   private plateNight: Graphics | null = null;
-  /** Last daylight pushed by the scene (plate crossfade + hero filters). */
+  /** Last daylight pushed by the scene (plate crossfade + hero sprites). */
   private daylightCurrent = 0;
-  /** Soft daylight lift for the still-procedural hero art (HQ + monuments). */
-  private readonly hqDayFilter = new ColorMatrixFilter();
-  private readonly landmarkDayFilter = new ColorMatrixFilter();
 
   /**
    * The terrain plate: grass diamond covering tiles [-M, N+M)² of the macro
@@ -430,18 +408,6 @@ export class IsoWorld extends Container {
 
     const added: BuildingSprite[] = [];
     this.occupancy.clear();
-    // Occupied depth extent (fog normalization): buildings ∪ HQ ∪ monuments.
-    let dMin = Infinity;
-    let dMax = -Infinity;
-    const noteDepth = (gx: number, gy: number) => {
-      const d = gx + gy;
-      if (d < dMin) dMin = d;
-      if (d > dMax) dMax = d;
-    };
-    for (const landmark of LANDMARK_RING) {
-      noteDepth(HQ_TILE.x + landmark.dx, HQ_TILE.y + landmark.dy);
-    }
-    noteDepth(HQ_TILE.x, HQ_TILE.y);
     for (const entry of entries) {
       const key = tileRefKey(entry.tile);
       this.occupancy.set(key, entry.building.cardId);
@@ -460,17 +426,6 @@ export class IsoWorld extends Container {
       const sectorIndex = Number(entry.tile.sector.replace(/^s/, "")) || 0;
       const g = globalTile(sectorIndex, entry.tile.x, entry.tile.y, GRID_SIZE);
       sprite.zIndex = g.x + g.y; // iso depth: painters order by (x + y)
-      noteDepth(g.x, g.y);
-    }
-    if (dMax > dMin) {
-      this.depthMin = dMin;
-      // Floor the span (~3 macro tiles) so tiny cities still get a gentle fade.
-      this.depthSpan = Math.max(48, dMax - dMin);
-    }
-    const min = this.depthMin;
-    const span = this.depthSpan;
-    for (const sprite of this.sprites.values()) {
-      sprite.tint = fogTint(sprite.zIndex, min, span);
     }
     return { added, removed };
   }
@@ -488,16 +443,17 @@ export class IsoWorld extends Container {
     landmarks.forEach((landmark, i) => {
       let sprite = this.landmarkSprites[i];
       if (!sprite) {
-        sprite = new LandmarkSprite(i, landmark.owned);
+        sprite = new LandmarkSprite(i, landmark.owned, landmark.stage ?? 1);
+        sprite.setDaylight(this.daylightCurrent);
         const p = worldPointOfTile(landmarkTile(i));
         sprite.position.set(p.x, p.y);
         const g = globalTile(0, landmarkTile(i).x, landmarkTile(i).y, GRID_SIZE);
         sprite.zIndex = g.x + g.y;
-        sprite.tint = fogTint(g.x + g.y, this.depthMin, this.depthSpan);
         this.landmarkSprites[i] = sprite;
         this.landmarkLayer.addChild(sprite);
       } else {
         sprite.setOwned(landmark.owned);
+        sprite.setStage(landmark.stage ?? 1);
       }
       sprite.setLabel(displayName ? displayName(landmark.username) : null);
     });
@@ -505,12 +461,16 @@ export class IsoWorld extends Container {
     return this.landmarkSprites.map((s) => s.owned);
   }
 
-  /** Beam anchors (monument tips, roster order) for the Root Sequence. */
+  /** Beam anchors (monument tips, roster order) for the Root Sequence.
+   *  Uses each sprite's LIVE art height — stage art differs from the
+   *  fallback body (2026-09-28 hero stages). */
   landmarkBeamPoints(): Array<{ x: number; y: number; owned: boolean; index: number }> {
-    return this.landmarkSprites.map((s) => {
-      const a = landmarkBeamAnchor(s.index);
-      return { x: s.x + a.dx, y: s.y + a.dy, owned: s.owned, index: s.index };
-    });
+    return this.landmarkSprites.map((s) => ({
+      x: s.x,
+      y: s.y - (s.artHeightPx() - 14),
+      owned: s.owned,
+      index: s.index,
+    }));
   }
 
   /** Mirror-list/panel selection ring on a landmark. */
@@ -519,20 +479,31 @@ export class IsoWorld extends Container {
   }
 
   /** HQ core at sector 0 center (own-card representation, §D4). */
-  syncHq(profession: string | null, coreTag: string, ownerName: string): void {
+  syncHq(
+    profession: string | null,
+    coreTag: string,
+    ownerName: string,
+    stage = 1
+  ): void {
     if (!this.hq) {
-      this.hq = new HqSprite(profession);
+      this.hq = new HqSprite(profession, stage);
+      this.hq.setDaylight(this.daylightCurrent);
       const p = worldPointOfTile(HQ_TILE);
       this.hq.position.set(p.x, p.y);
       const g = globalTile(0, HQ_TILE.x, HQ_TILE.y, GRID_SIZE);
       this.hq.zIndex = g.x + g.y;
-      this.hq.tint = fogTint(g.x + g.y, this.depthMin, this.depthSpan);
       this.hqLayer.addChild(this.hq);
     } else {
       this.hq.setProfession(profession);
+      this.hq.setStage(stage);
     }
     this.hq.setTag(coreTag);
     this.hq.setOwnerName(ownerName);
+  }
+
+  /** HQ body height above the tile (live stage art or fallback tower). */
+  hqExtentPx(): number {
+    return this.hq?.artExtentPx() ?? 118;
   }
 
   spriteFor(cardId: number): BuildingSprite | undefined {
@@ -603,7 +574,7 @@ export class IsoWorld extends Container {
       if (!s.visible) continue;
       const dx = Math.abs(worldX - s.x);
       const dy = worldY - s.y;
-      if (dx <= TILE_W * 0.62 && dy >= -(landmarkArtHeight(i) + 12) && dy <= TILE_H * 0.8) {
+      if (dx <= TILE_W * 0.62 && dy >= -(s.artHeightPx() + 12) && dy <= TILE_H * 0.8) {
         return i;
       }
     }
@@ -629,36 +600,27 @@ export class IsoWorld extends Container {
 
   /**
    * Daylight factor 0..1 (pixel-art day/night): crossfades the terrain
-   * plate + every building's day/night/lights frames (or the procedural
-   * facade glow in fallback mode), and lerps a soft daylight lift over the
-   * still-procedural hero art (HQ + monuments — night-native masses).
+   * plate + every building's AND hero's day/night/lights frames (or the
+   * scoped fallback lifts inside the hero sprites — HQ + monuments own
+   * their day states since the 2026-09-28 hero pixel-art pass).
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     if (this.plateDay) this.plateDay.alpha = daylight;
     for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
-    const scale = 1 + (0.68 - 1) * daylight;
-    const offset = 0.3 * daylight;
-    this.hqDayFilter.matrix = [
-      scale, 0, 0, 0, offset,
-      0, scale, 0, 0, offset,
-      0, 0, scale, 0, offset,
-      0, 0, 0, 1, 0,
-    ];
-    this.landmarkDayFilter.matrix = [
-      scale, 0, 0, 0, offset,
-      0, scale, 0, 0, offset,
-      0, 0, scale, 0, offset,
-      0, 0, 0, 1, 0,
-    ];
+    this.hq?.setDaylight(daylight);
+    for (const landmark of this.landmarkSprites) landmark.setDaylight(daylight);
   }
 
   /**
    * Pixel-art texture-ready pass: a sheet finished loading — re-check every
-   * sprite (mounting frames in place) so late arrivals swap cleanly.
+   * sprite INCLUDING the heroes (mounting frames in place) so late arrivals
+   * swap cleanly.
    */
   refreshPixelArt(): void {
     for (const sprite of this.sprites.values()) sprite.syncPixelArt();
+    this.hq?.syncPixelArt();
+    for (const landmark of this.landmarkSprites) landmark.syncPixelArt();
   }
 
   /** Building-sprite counts for the dev perf overlay (post-cull). */
@@ -681,19 +643,19 @@ export class IsoWorld extends Container {
       if (vis) this.cullStats.visible += 1;
     }
     if (this.hq) {
-      this.hq.visible = pointVisible(rect, this.hq.x, this.hq.y, 150, TILE_W * 0.75);
+      this.hq.visible = pointVisible(rect, this.hq.x, this.hq.y, this.hq.artExtentPx() + 32, TILE_W * 0.75);
     }
-    // Landmarks use their per-monument art heights (landmarks.ts). Dormant
-    // monuments stay hidden even in-viewport (setOwned rules them invisible;
-    // the viewport pass must never un-hide one).
-    this.landmarkSprites.forEach((landmark, i) => {
+    // Landmarks use their LIVE art heights (stage pixel art or fallback).
+    // Dormant monuments stay hidden even in-viewport (setOwned rules them
+    // invisible; the viewport pass must never un-hide one).
+    this.landmarkSprites.forEach((landmark) => {
       landmark.visible =
         landmark.owned &&
         pointVisible(
           rect,
           landmark.x,
           landmark.y,
-          landmarkArtHeight(i),
+          landmark.artHeightPx(),
           TILE_W * 0.62
         );
     });

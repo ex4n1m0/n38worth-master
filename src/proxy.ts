@@ -99,6 +99,7 @@ export const config = {
     "/history/:path*",
     "/transactions/:path*",
     "/city/:path*",
+    "/catalog/:path*",
     "/login",
     "/register",
   ],

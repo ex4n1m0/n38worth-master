@@ -186,9 +186,10 @@ export class SatelliteLayer extends Container {
           cityBox.addChild(monument);
           monuments.push(monument);
         }
-        const relay = new HqSprite(neighbor.profession);
+        const relay = new HqSprite(neighbor.profession, neighbor.hqStage ?? 1);
         relay.setTag(""); // the identity plate below replaces the CORE tag
         relay.tint = FOREIGN_TINT;
+        relay.setDaylight(this.daylightCurrent);
         relay.zIndex = 900_000; // core above monuments, monuments above rings
         cityBox.addChild(relay);
         this.addChild(container);
@@ -207,8 +208,9 @@ export class SatelliteLayer extends Container {
         };
         this.clusters.set(neighbor.cardId, cluster);
         this.drawPad(cluster);
-      } else if (cluster.neighbor.profession !== neighbor.profession) {
+      } else {
         cluster.relay.setProfession(neighbor.profession);
+        cluster.relay.setStage(neighbor.hqStage ?? 1);
       }
       cluster.neighbor = neighbor;
       cluster.slot = slot;
@@ -323,6 +325,27 @@ export class SatelliteLayer extends Container {
   setLod(lod: Lod): void {
     for (const cluster of this.clusters.values()) {
       for (const { sprite } of cluster.buildings.values()) sprite.setLod(lod);
+    }
+  }
+
+  /**
+   * Daylight factor for the hero sprites (relay + monuments mount authored
+   * day/night frames like everything else since 2026-09-28).
+   */
+  setDaylight(daylight: number): void {
+    this.daylightCurrent = daylight;
+    for (const cluster of this.clusters.values()) {
+      cluster.relay.setDaylight(daylight);
+      for (const m of cluster.monuments) m.setDaylight(daylight);
+    }
+  }
+  private daylightCurrent = 0;
+
+  /** Pixel-art texture-ready pass (late hero sheets mount in place). */
+  refreshPixelArt(): void {
+    for (const cluster of this.clusters.values()) {
+      cluster.relay.syncPixelArt();
+      for (const m of cluster.monuments) m.syncPixelArt();
     }
   }
 
