@@ -66,6 +66,49 @@ export const COLOR_GHOST_INVALID = 0xef4444;
 export const COLOR_VOID = 0x05060a;
 export const COLOR_WET_SLAB = 0x0a0e1a;
 
+/**
+ * GRASS LAND palette (single source of truth, 2026-09-28): the terrain
+ * plate, the outer terrain tier, and every mini-city pad (satellites +
+ * universe) share ONE green so the world floor reads as continuous land —
+ * the old near-black mini pads read as "black squares" over it.
+ */
+export const GRASS_DAY = 0x6b9c52;
+export const GRASS_NIGHT = 0x1f2a21;
+export const GRASS_BAND_DAY_A = 0x63954b;
+export const GRASS_BAND_DAY_B = 0x71a358;
+export const GRASS_BAND_NIGHT_A = 0x1c261e;
+export const GRASS_BAND_NIGHT_B = 0x222f24;
+/** Terrain rim (plate + pads): warm soil edge by day, dark loam at night. */
+export const GRASS_RIM_DAY = 0x54452f;
+export const GRASS_RIM_NIGHT = 0x141b16;
+
+/**
+ * Grass pad under a mini city (day/night pair — the owner crossfades like
+ * every other authored state). The caller keeps its dashed accent border on
+ * top: the border is the cluster's highlight identity, the FILL is the land.
+ */
+export function drawGrassPad(
+  g: Graphics,
+  halfW: number,
+  halfH: number,
+  variant: "day" | "night"
+): void {
+  const day = variant === "day";
+  const diamond = [0, -halfH, halfW, 0, 0, halfH, -halfW, 0];
+  g.poly(diamond).fill({ color: day ? GRASS_DAY : GRASS_NIGHT, alpha: 1 });
+  // Faint inner mow ring — mowed land, not a painted shape.
+  g.poly([0, -halfH * 0.7, halfW * 0.7, 0, 0, halfH * 0.7, -halfW * 0.7, 0]).stroke({
+    width: 1,
+    color: day ? GRASS_BAND_DAY_A : GRASS_BAND_NIGHT_A,
+    alpha: 0.5,
+  });
+  g.poly(diamond).stroke({
+    width: 1.5,
+    color: day ? GRASS_RIM_DAY : GRASS_RIM_NIGHT,
+    alpha: day ? 0.8 : 0.9,
+  });
+}
+
 /** Hex string → 0xRRGGBB (palette lives in the pure district module). */
 function hexToRgb(hex: string): number {
   return parseInt(hex.slice(1), 16);

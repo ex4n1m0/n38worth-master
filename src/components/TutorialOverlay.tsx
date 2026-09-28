@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  Building2,
   Coins,
   Compass,
   GraduationCap,
@@ -92,7 +93,9 @@ const buildSteps = (t: TranslationKeys): TutorialStep[] => [
         <span className="text-cyan-300">{t.tutorialStep3BodyHighlight1}</span>
         {t.tutorialStep3BodyText1}{" "}
         <span className="text-cyan-300">{t.tutorialStep3BodyHighlight2}</span>
-        {t.tutorialStep3BodyText2}
+        {t.tutorialStep3BodyText2}{" "}
+        <span className="text-cyan-300">{t.tutorialStep3BodyHighlight3}</span>
+        {t.tutorialStep3BodyText3}
       </>
     ),
   },
@@ -109,17 +112,29 @@ const buildSteps = (t: TranslationKeys): TutorialStep[] => [
     ),
   },
   {
-    id: "combo",
-    icon: Sparkles,
+    id: "city",
+    icon: Building2,
     title: t.tutorialStep5Title,
-    anchor: "combo-pill",
     body: (
       <>
         {t.tutorialStep5BodyPrefix}
-        <span className="text-cyan-300">{t.tutorialStep5BodyHighlight1}</span>
-        {t.tutorialStep5BodyMiddle}
-        <span className="text-cyan-300">{t.tutorialStep5BodyHighlight2}</span>
+        <span className="text-cyan-300">{t.tutorialStep5BodyHighlight}</span>
         {t.tutorialStep5BodySuffix}
+      </>
+    ),
+  },
+  {
+    id: "combo",
+    icon: Sparkles,
+    title: t.tutorialStep6Title,
+    anchor: "combo-pill",
+    body: (
+      <>
+        {t.tutorialStep6BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep6BodyHighlight1}</span>
+        {t.tutorialStep6BodyMiddle}
+        <span className="text-cyan-300">{t.tutorialStep6BodyHighlight2}</span>
+        {t.tutorialStep6BodySuffix}
         <kbd className="rounded border border-gray-600 bg-gray-800 px-1.5 py-0.5 font-mono text-[11px] text-gray-300">C</kbd>
       </>
     ),
@@ -127,21 +142,8 @@ const buildSteps = (t: TranslationKeys): TutorialStep[] => [
   {
     id: "missions",
     icon: Target,
-    title: t.tutorialStep6Title,
-    anchor: "mission-bar",
-    body: (
-      <>
-        {t.tutorialStep6BodyPrefix}
-        <span className="text-cyan-300">{t.tutorialStep6BodyHighlight}</span>
-        {t.tutorialStep6BodySuffix}
-      </>
-    ),
-  },
-  {
-    id: "events",
-    icon: Radio,
     title: t.tutorialStep7Title,
-    anchor: "event-feed",
+    anchor: "mission-bar",
     body: (
       <>
         {t.tutorialStep7BodyPrefix}
@@ -151,15 +153,28 @@ const buildSteps = (t: TranslationKeys): TutorialStep[] => [
     ),
   },
   {
-    id: "finish",
-    icon: GraduationCap,
+    id: "events",
+    icon: Radio,
     title: t.tutorialStep8Title,
-    anchor: "account-menu",
+    anchor: "event-feed",
     body: (
       <>
         {t.tutorialStep8BodyPrefix}
         <span className="text-cyan-300">{t.tutorialStep8BodyHighlight}</span>
         {t.tutorialStep8BodySuffix}
+      </>
+    ),
+  },
+  {
+    id: "finish",
+    icon: GraduationCap,
+    title: t.tutorialStep9Title,
+    anchor: "account-menu",
+    body: (
+      <>
+        {t.tutorialStep9BodyPrefix}
+        <span className="text-cyan-300">{t.tutorialStep9BodyHighlight}</span>
+        {t.tutorialStep9BodySuffix}
       </>
     ),
   },

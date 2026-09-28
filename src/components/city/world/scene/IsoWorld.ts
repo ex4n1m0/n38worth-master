@@ -34,10 +34,27 @@ import {
   pickTile,
   tileToScreen,
 } from "@/lib/city/scene/iso";
+import {
+  UNIVERSE_CITY_CAP,
+  universeCumulativeCapacity,
+  universeRingRadius,
+} from "@/lib/city/universe";
 import { tileRefKey, type TileRef } from "@/lib/city/placement";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
-import { drawDashedLine, drawLockMarker, makeTextChip } from "./art";
+import {
+  GRASS_BAND_DAY_A,
+  GRASS_BAND_DAY_B,
+  GRASS_BAND_NIGHT_A,
+  GRASS_BAND_NIGHT_B,
+  GRASS_DAY,
+  GRASS_NIGHT,
+  GRASS_RIM_DAY,
+  GRASS_RIM_NIGHT,
+  drawDashedLine,
+  drawLockMarker,
+  makeTextChip,
+} from "./art";
 import { LandmarkSprite } from "./landmarks";
 
 /** One building + the tile it renders on (persisted or visual auto-tile). */
@@ -48,6 +65,24 @@ export interface SceneBuildingEntry {
 
 /** HQ tile: sector 0 center. */
 export const HQ_TILE: TileRef = { sector: "s0", x: GRID_SIZE >> 1, y: GRID_SIZE >> 1 };
+
+/**
+ * OUTER TERRAIN extent (2026-09-28): the shared universe places other
+ * cities up to TWO outermost-ring radii from the viewer (viewer on the rim,
+ * city diametric across) — far beyond the macro-grid plate (~±55 tiles), so
+ * without extra ground the distant cities read as FLOATING (user report).
+ * One flat grass tier (day/night pair, no streets) extends the land to
+ * cover every possible anchor at the 500-city cap; it also tucks the
+ * satellite anchor zone (~≤61 tiles) under grass, which already poked past
+ * the city plate. Pure derivation from the universe ring math — grows
+ * automatically if the cap or ring step changes.
+ */
+function universeTerrainExtent(): number {
+  let m = 1;
+  while (universeCumulativeCapacity(m) < UNIVERSE_CITY_CAP) m++;
+  return 2 * universeRingRadius(m) + 56;
+}
+const OUTER_TERRAIN_RADIUS = universeTerrainExtent();
 
 /**
  * Fixed goddess landmark hexagon (roster order), hugging the HQ core at
@@ -221,11 +256,15 @@ export class IsoWorld extends Container {
     // variation — day + night variants crossfaded by setDaylight. This
     // replaces the per-sector blue pads (the "floor looks like the sky" and
     // "transparent floor" complaints): the ground now reads as LAND, gaps
-    // between sector diamonds included.
+    // between sector diamonds included. The OUTER terrain tier below extends
+    // the land to the universe bounds so distant cities never float.
     this.groundLayer.addChild(
+      this.buildOuterTerrain("night"),
+      this.buildOuterTerrain("day"),
       this.buildTerrainPlate("night"),
       this.buildTerrainPlate("day")
     );
+    this.outerDay!.alpha = this.daylightCurrent;
     this.plateDay!.alpha = this.daylightCurrent;
     // Locked-sector overlays ride on top: dim unincorporated land + dashed
     // boundary + lock marker (discovery UI, neutral slate now).
@@ -241,8 +280,68 @@ export class IsoWorld extends Container {
 
   private plateDay: Graphics | null = null;
   private plateNight: Graphics | null = null;
+  private outerDay: Graphics | null = null;
+  private outerNight: Graphics | null = null;
   /** Last daylight pushed by the scene (plate crossfade + hero sprites). */
   private daylightCurrent = 0;
+
+  /**
+   * The OUTER terrain tier: a flat grass diamond centered on the macro-grid
+   * center out to OUTER_TERRAIN_RADIUS tiles (the full universe extent).
+   * Plain land — mow bands at a coarse scale, NO street seams, NO sector
+   * detail: the incorporated city reads as the detailed plate on top, its
+   * rim now doing double duty as the city-limit line. Day + night variants
+   * crossfaded by setDaylight like the plate.
+   */
+  private buildOuterTerrain(variant: "day" | "night"): Graphics {
+    const day = variant === "day";
+    const g = new Graphics();
+    const stride = GRID_SIZE + SECTOR_GAP_TILES;
+    const n = 2 * stride + GRID_SIZE;
+    const center = n / 2; // tile-space center of the macro grid ≈ the HQ
+    const c0 = center - OUTER_TERRAIN_RADIUS;
+    const c1 = center + OUTER_TERRAIN_RADIUS;
+    const corner = (tx: number, ty: number, ox: number, oy: number) => {
+      const p = tileToScreen(tx, ty);
+      return [p.x + ox, p.y + oy] as [number, number];
+    };
+    const plate = [
+      corner(c0, c0, 0, -TILE_H / 2),
+      corner(c1, c0, TILE_W / 2, 0),
+      corner(c1, c1, 0, TILE_H / 2),
+      corner(c0, c1, -TILE_W / 2, 0),
+    ].flat();
+
+    // Slightly different mow STRIPE phase only — the BASE green matches the
+    // city plate exactly (2026-09-28 user ruling: one consistent world
+    // floor); the plate's street grid + rim still read the city as
+    // incorporated land on top of the same countryside.
+    g.poly(plate).fill({ color: day ? GRASS_DAY : GRASS_NIGHT, alpha: 1 });
+    const bandFrom = day ? GRASS_BAND_DAY_A : GRASS_BAND_NIGHT_A;
+    const bandTo = day ? GRASS_BAND_DAY_B : GRASS_BAND_NIGHT_B;
+    const bands = 26;
+    for (let band = 0; band < bands; band++) {
+      // Same diagonal mow strips as the plate, coarser (each ≈ 27 tiles).
+      const k0 = c0 + (band * (c1 - c0)) / bands;
+      const k1 = c0 + ((band + 1) * (c1 - c0)) / bands;
+      const pA = tileToScreen(k0, c0);
+      const pB = tileToScreen(k1, c0);
+      const pC = tileToScreen(k1 + (c1 - c0), c1 + (c1 - c0));
+      const pD = tileToScreen(k0 + (c1 - c0), c1 + (c1 - c0));
+      g.poly([pA.x, pA.y, pB.x, pB.y, pC.x, pC.y, pD.x, pD.y]).fill({
+        color: band % 2 === 0 ? bandFrom : bandTo,
+        alpha: 1,
+      });
+    }
+
+    // Soft rim: the land still ends somewhere (a coastline read at world
+    // zoom), but far enough out that no city floats past it.
+    g.poly(plate).stroke({ width: 2, color: day ? GRASS_RIM_DAY : GRASS_RIM_NIGHT, alpha: day ? 0.7 : 0.85 });
+
+    if (day) this.outerDay = g;
+    else this.outerNight = g;
+    return g;
+  }
 
   /**
    * The terrain plate: grass diamond covering tiles [-M, N+M)² of the macro
@@ -268,10 +367,11 @@ export class IsoWorld extends Container {
     const left = corner(c0, c1, -TILE_W / 2, 0);
     const plate = [top, right, bottom, left].flat();
 
-    // Grass base + subtle mow bands (alternate diagonal strips).
-    g.poly(plate).fill({ color: day ? 0x6b9c52 : 0x1f2a21, alpha: 1 });
-    const bandFrom = day ? 0x63954b : 0x1c261e;
-    const bandTo = day ? 0x71a358 : 0x222f24;
+    // Grass base + subtle mow bands (alternate diagonal strips) — the shared
+    // GRASS_* palette (single source of truth with the outer tier + pads).
+    g.poly(plate).fill({ color: day ? GRASS_DAY : GRASS_NIGHT, alpha: 1 });
+    const bandFrom = day ? GRASS_BAND_DAY_A : GRASS_BAND_NIGHT_A;
+    const bandTo = day ? GRASS_BAND_DAY_B : GRASS_BAND_NIGHT_B;
     for (let band = 0; band < 14; band++) {
       // Strip between iso lines of constant (x - y): a quad from tile line
       // k to k+2 (in tile-diagonal space), clipped by drawing the full
@@ -310,7 +410,7 @@ export class IsoWorld extends Container {
     }
 
     // Rim: darker edge so the plate reads as an island of terrain.
-    g.poly(plate).stroke({ width: 2, color: day ? 0x54452f : 0x141b16, alpha: day ? 0.8 : 0.9 });
+    g.poly(plate).stroke({ width: 2, color: day ? GRASS_RIM_DAY : GRASS_RIM_NIGHT, alpha: day ? 0.8 : 0.9 });
 
     if (day) this.plateDay = g;
     else this.plateNight = g;
@@ -581,6 +681,28 @@ export class IsoWorld extends Container {
     return -1;
   }
 
+  /**
+   * HQ body hit (2026-09-28 "select the core building"): the core's pixel
+   * art is wider than its tile — tap anywhere on the body (pad to art tip,
+   * generous width) to select it. Monuments hit-test FIRST, so their art
+   * keeps priority where the two overlap on screen.
+   */
+  hqHitAt(worldX: number, worldY: number): boolean {
+    if (!this.hq || !this.hq.visible) return false;
+    const dx = Math.abs(worldX - this.hq.x);
+    const dy = worldY - this.hq.y;
+    return (
+      dx <= TILE_W * 0.85 &&
+      dy >= -(this.hq.artExtentPx() + 16) &&
+      dy <= TILE_H * 0.85
+    );
+  }
+
+  /** Selection ring on the HQ core (own-city panel). */
+  setHqSelected(selected: boolean): void {
+    this.hq?.setSelected(selected);
+  }
+
   setLod(lod: Lod): void {
     for (const sprite of this.sprites.values()) sprite.setLod(lod);
     for (const landmark of this.landmarkSprites) landmark.setLod(lod);
@@ -606,6 +728,7 @@ export class IsoWorld extends Container {
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
+    if (this.outerDay) this.outerDay.alpha = daylight;
     if (this.plateDay) this.plateDay.alpha = daylight;
     for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
     this.hq?.setDaylight(daylight);

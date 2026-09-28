@@ -191,7 +191,9 @@ export default function PlayerProfilePage() {
   const hasPlayer = !!player;
 
   // After a fresh login/registration, give the player a moment to see their
-  // profile (and auto-claim the daily reward), then guide them to Cards.
+  // profile (and auto-claim the daily reward), then guide them to their CITY —
+  // the game's home screen since 2026-09-28 (hiring, missions and the market
+  // all radiate from the city view).
   useEffect(() => {
     if (
       !isOwnProfileEarly ||
@@ -206,7 +208,7 @@ export default function PlayerProfilePage() {
 
     const timeout = window.setTimeout(() => {
       sessionStorage.removeItem("auto-navigate-cards");
-      router.push("/leaderboard");
+      router.push("/city");
     }, 10_000);
 
     return () => window.clearTimeout(timeout);

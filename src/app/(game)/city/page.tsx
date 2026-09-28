@@ -210,14 +210,16 @@ export default function CityPage() {
       </header>
 
       {city.families.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-gray-800 py-16 text-center">
-          <Building2 className="h-8 w-8 text-gray-600" aria-hidden="true" />
-          <h2 className="text-base font-bold text-gray-300">
-            {t.cityEmptyTitle}
-          </h2>
-          <p className="max-w-sm text-sm text-gray-500">{t.cityEmptyBody}</p>
+        // Fresh city (0 hires): the world STILL renders below — HQ core at
+        // the center, the shared universe around it — so a brand-new player
+        // sees their city exist from day one. Only a slim hire hint shows;
+        // the old full-empty placeholder that replaced the scene is gone.
+        <div className="flex items-center gap-2.5 rounded-xl border border-dashed border-gray-800 bg-white/[0.02] px-3.5 py-2.5">
+          <Building2 className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />
+          <p className="min-w-0 text-xs text-gray-500">{t.cityEmptyBody}</p>
         </div>
-      ) : viewMode === "grid" ? (
+      ) : null}
+      {viewMode === "grid" && city.families.length > 0 ? (
         <CityGrid families={city.families} />
       ) : (
         <CityWorld projection={city} />

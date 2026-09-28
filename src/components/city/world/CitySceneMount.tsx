@@ -125,7 +125,6 @@ export default function CitySceneMount({
           callbacks: {
             onSelectCard: (cardId) => {
               cityWorldStore.getState().select(cardId);
-              if (cardId !== null) play("buttons");
             },
             onContextLost: () => onContextLost(),
           },
@@ -193,12 +192,32 @@ export default function CitySceneMount({
       if (state.selectedUniverseCity !== prev.selectedUniverseCity) {
         scene.setSelectedUniverseCity(state.selectedUniverseCity);
       }
+      if (state.selectedUniverseBuilding !== prev.selectedUniverseBuilding) {
+        scene.setSelectedUniverseBuilding(state.selectedUniverseBuilding);
+      }
+      if (state.selectedHq !== prev.selectedHq) {
+        scene.setSelectedHq(state.selectedHq);
+      }
+      // One tap sound for ANY new selection (cards, satellites, landmarks,
+      // universe cities/buildings, HQ cores) — played here so every pick
+      // path in the scene sounds the same.
+      if (
+        (state.selectedCardId !== null && state.selectedCardId !== prev.selectedCardId) ||
+        (state.selectedForeign !== null && state.selectedForeign !== prev.selectedForeign) ||
+        (state.selectedLandmark !== null && state.selectedLandmark !== prev.selectedLandmark) ||
+        (state.selectedUniverseCity !== null && state.selectedUniverseCity !== prev.selectedUniverseCity) ||
+        (state.selectedUniverseBuilding !== null &&
+          state.selectedUniverseBuilding !== prev.selectedUniverseBuilding) ||
+        (state.selectedHq !== null && state.selectedHq !== prev.selectedHq)
+      ) {
+        play("buttons");
+      }
       if (state.reducedMotion !== prev.reducedMotion) {
         scene.setReducedMotion(state.reducedMotion);
       }
     });
     return unsubscribe;
-  }, []);
+  }, [play]);
 
   // ── reduced-motion resolution (single media query listener) ──
   useEffect(() => {

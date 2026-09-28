@@ -51,7 +51,7 @@ import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
 import { LandmarkSprite } from "./landmarks";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
-import { makeTextChip } from "./art";
+import { drawDashedLine, drawGrassPad, makeTextChip } from "./art";
 
 /** Distant-city ink: cool pale blue (stake cities use the satellite violet). */
 const UNIVERSE_TINT = 0xbfd0e8;
@@ -79,6 +79,13 @@ export interface UniverseLayerStrings {
   displayName: (username: string) => string;
 }
 
+/** Rich universe tap: the relay core (HQ panel), one building, or a marker
+ *  dot (city chip + visit link). */
+export type UniversePick =
+  | { kind: "hq"; username: string }
+  | { kind: "building"; username: string; cardId: number }
+  | { kind: "city"; username: string };
+
 interface MiniBuildingEntry {
   sprite: BuildingSprite;
   gx: number;
@@ -92,6 +99,9 @@ interface MiniCity {
   relay: HqSprite;
   monuments: LandmarkSprite[];
   buildings: Map<number, MiniBuildingEntry>;
+  /** Grass ground, day + night pair (crossfaded by setDaylight). */
+  padNight: Graphics;
+  padDay: Graphics;
   plate: Container | null;
   plateKey: string;
   /** World-px anchor (recomputed per epoch; minis snap). */
@@ -155,11 +165,13 @@ export class UniverseLayer extends Container {
     }
   }
 
-  /** Daylight factor for the mini cities' hero sprites (relay + monuments). */
+  /** Daylight factor for the mini cities' hero sprites (relay + monuments)
+   *  and their grass pads (day crossfades over night). */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     for (const mini of this.minis.values()) {
       mini.relay.setDaylight(daylight);
+      mini.padDay.alpha = daylight;
       for (const m of mini.monuments) m.setDaylight(daylight);
     }
   }
@@ -177,6 +189,59 @@ export class UniverseLayer extends Container {
   setSelected(username: string | null): void {
     this.selected = username;
     this.redrawMarkers(null);
+  }
+
+  /**
+   * Selection ring + strong name chip on one BUILDING inside a universe mini
+   * city (2026-09-28 "select buildings on other cities"). Re-applied after
+   * every mini (re)build so an arriving city honors a live selection.
+   */
+  setSelectedBuilding(sel: { username: string; cardId: number } | null): void {
+    this.selectedBuilding = sel;
+    this.applyBuildingSelection();
+  }
+
+  /** Selection ring on a mini city's relay core (HQ panel anchor). */
+  setSelectedHq(username: string | null): void {
+    this.selectedHq = username;
+    for (const [u, mini] of this.minis) mini.relay.setSelected(u === username);
+  }
+
+  /** World-px anchors of every live mini (country-road endpoints). */
+  roadAnchors(): Array<{ x: number; y: number }> {
+    const out: Array<{ x: number; y: number }> = [];
+    for (const mini of this.minis.values()) {
+      out.push({ x: mini.container.x, y: mini.container.y });
+    }
+    return out;
+  }
+
+  /**
+   * Optional hook fired whenever the live-mini SET changes (built/destroyed)
+   * — the scene re-syncs country roads to the new endpoints.
+   */
+  onMinisChanged: (() => void) | null = null;
+
+  private selectedBuilding: { username: string; cardId: number } | null = null;
+  private selectedHq: string | null = null;
+
+  private applyBuildingSelection(): void {
+    for (const [username, mini] of this.minis) {
+      for (const [cardId, entry] of mini.buildings) {
+        const isSel =
+          this.selectedBuilding !== null &&
+          this.selectedBuilding.username === username &&
+          this.selectedBuilding.cardId === cardId;
+        entry.sprite.setSelected(isSel);
+        if (isSel && this.displayName) {
+          entry.sprite.showLabel(this.displayName(entry.sprite.building.username), {
+            strong: true,
+          });
+        } else {
+          entry.sprite.hideLabel();
+        }
+      }
+    }
   }
 
   /**
@@ -296,25 +361,29 @@ export class UniverseLayer extends Container {
   }
 
   /**
-   * Hit-test a world point: a mini city's buildings/relay (forgiving, in
-   * the mini's local space) or a marker dot. Returns the city username.
+   * Hit-test a world point: a mini city's relay core or one of its BUILDINGS
+   * (forgiving, in the mini's local space — 2026-09-28 "select buildings on
+   * other cities"), or a marker dot (city chip). Relay first: the core is the
+   * mini's biggest, most deliberate target.
    */
-  pick(worldX: number, worldY: number): string | null {
+  pick(worldX: number, worldY: number): UniversePick | null {
     for (const [username, mini] of this.minis) {
       if (!mini.container.visible) continue;
       const local = {
         x: (worldX - mini.container.x) / MINI_CITY_SCALE,
         y: (worldY - mini.container.y) / MINI_CITY_SCALE,
       };
-      // Relay zone (±1.2 platforms) or any building body-rect.
-      if (Math.hypot(local.x, local.y) <= TILE_W * 0.62) return username;
-      for (const entry of mini.buildings.values()) {
+      // Relay zone (±1.2 platforms) → the city's core building.
+      if (Math.hypot(local.x, local.y) <= TILE_W * 0.62) {
+        return { kind: "hq", username };
+      }
+      for (const [cardId, entry] of mini.buildings) {
         if (
           Math.abs(local.x - entry.sprite.x) <= TILE_W * 0.55 &&
           local.y >= entry.sprite.y + entry.sprite.topY - 8 &&
           local.y <= entry.sprite.y + 40
         ) {
-          return username;
+          return { kind: "building", username, cardId };
         }
       }
     }
@@ -330,7 +399,9 @@ export class UniverseLayer extends Container {
     if (best) {
       const city = this.payload.cities.find((c) => c.username === best!.username)!;
       const slack = 14;
-      if (best.d <= universeMarkerRadius(city.rank) + slack) return best.username;
+      if (best.d <= universeMarkerRadius(city.rank) + slack) {
+        return { kind: "city", username: best.username };
+      }
     }
     return null;
   }
@@ -470,18 +541,35 @@ export class UniverseLayer extends Container {
     cityBox.scale.set(MINI_CITY_SCALE);
     container.addChild(cityBox);
 
-    // Pad: same violet-family skirt as satellites, slightly cooler.
-    // OPAQUE floor (2026-09-28 user ruling) — the starfield must not show
-    // through a floating city's ground.
-    const pad = new Graphics();
+    // Grass ground, same LAND as the world floor (2026-09-28 "black square"
+    // fix — the old near-black pad read as a dark slab over the terrain),
+    // day + night pair, with the cool pale-blue dashed border kept as the
+    // cluster's highlight identity.
+    const padNight = new Graphics();
+    const padDay = new Graphics();
     const e = 6.5;
-    pad
-      .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
-      .fill({ color: 0x0a0e1a, alpha: 1 });
-    pad
-      .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
-      .stroke({ width: 1.25, color: UNIVERSE_TINT, alpha: 0.22 });
-    cityBox.addChild(pad);
+    const halfW = e * 64;
+    const halfH = e * 32;
+    const corners: ReadonlyArray<[number, number]> = [
+      [0, -halfH],
+      [halfW, 0],
+      [0, halfH],
+      [-halfW, 0],
+    ];
+    for (const [g, variant] of [
+      [padNight, "night"],
+      [padDay, "day"],
+    ] as const) {
+      drawGrassPad(g, halfW, halfH, variant);
+      const stroke = { width: 1.25, color: UNIVERSE_TINT, alpha: 0.26 };
+      for (let i = 0; i < 4; i++) {
+        const [x1, y1] = corners[i];
+        const [x2, y2] = corners[(i + 1) % 4];
+        drawDashedLine(g, x1, y1, x2, y2, 22, 14, stroke);
+      }
+    }
+    padDay.alpha = this.daylightCurrent;
+    cityBox.addChild(padNight, padDay);
 
     // The Six mini monuments — owned flags + value stages from that city's
     // landmarks (stale CDN payloads may lack stage → default 1).
@@ -546,12 +634,18 @@ export class UniverseLayer extends Container {
       relay,
       monuments,
       buildings,
+      padNight,
+      padDay,
       plate: null,
       plateKey: "",
       world,
     });
     this.miniOrder.push(city.username);
     this.syncPlates();
+    // Honor a live HQ/building selection in the freshly built city.
+    relay.setSelected(this.selectedHq === city.username);
+    this.applyBuildingSelection();
+    this.onMinisChanged?.();
   }
 
   private destroyMini(username: string): void {
@@ -562,6 +656,7 @@ export class UniverseLayer extends Container {
     this.minis.delete(username);
     const i = this.miniOrder.indexOf(username);
     if (i >= 0) this.miniOrder.splice(i, 1);
+    this.onMinisChanged?.();
   }
 
   private clearMinis(): void {

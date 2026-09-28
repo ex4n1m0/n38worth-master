@@ -50,7 +50,7 @@ import {
 } from "@/lib/city/satellites";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { TileRef } from "@/lib/city/placement";
-import { drawDashedLine, makeTextChip } from "./art";
+import { drawDashedLine, drawGrassPad, makeTextChip } from "./art";
 import { BuildingSprite } from "./BuildingSprite";
 import { HqSprite } from "./HqSprite";
 import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
@@ -78,7 +78,7 @@ const PULSE_CYCLE_MS = 3400;
 const PULSE_STAGGER_MS = 430;
 
 export type SatellitePick =
-  | { kind: "hq"; ownerCardId: number }
+  | { kind: "hq"; ownerCardId: number; username: string }
   | { kind: "building"; ownerCardId: number; cardId: number };
 
 interface Cluster {
@@ -91,7 +91,9 @@ interface Cluster {
   relay: HqSprite;
   /** The Six mini monuments, roster order (created once, owned-flag synced). */
   monuments: LandmarkSprite[];
-  pad: Graphics;
+  /** Grass ground, day + night pair (crossfaded by setDaylight). */
+  padNight: Graphics;
+  padDay: Graphics;
   plate: Container | null;
   plateKey: string;
   /** Building sprites keyed by card id; local tiles keyed the same. */
@@ -166,8 +168,9 @@ export class SatelliteLayer extends Container {
         const anchor = satelliteAnchor(slot, undefined, sectorCount);
         const p = tileToScreen(anchor.x, anchor.y);
         container.position.set(p.x, p.y);
-        const pad = new Graphics();
-        cityBox.addChild(pad);
+        const padNight = new Graphics();
+        const padDay = new Graphics();
+        cityBox.addChild(padNight, padDay);
         // The Six mini monuments — the home landmark hexagon, roster order.
         // Never labeled (the identity plate speaks for the cluster); zIndex
         // mirrors the home layering: monuments above buildings, relay above
@@ -200,7 +203,8 @@ export class SatelliteLayer extends Container {
           cityBox,
           relay,
           monuments,
-          pad,
+          padNight,
+          padDay,
           plate: null,
           plateKey: "",
           buildings: new Map(),
@@ -208,6 +212,7 @@ export class SatelliteLayer extends Container {
         };
         this.clusters.set(neighbor.cardId, cluster);
         this.drawPad(cluster);
+        cluster.padDay.alpha = this.daylightCurrent;
       } else {
         cluster.relay.setProfession(neighbor.profession);
         cluster.relay.setStage(neighbor.hqStage ?? 1);
@@ -330,12 +335,14 @@ export class SatelliteLayer extends Container {
 
   /**
    * Daylight factor for the hero sprites (relay + monuments mount authored
-   * day/night frames like everything else since 2026-09-28).
+   * day/night frames like everything else since 2026-09-28) AND the grass
+   * pads (day variant crossfades over the night one).
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     for (const cluster of this.clusters.values()) {
       cluster.relay.setDaylight(daylight);
+      cluster.padDay.alpha = daylight;
       for (const m of cluster.monuments) m.setDaylight(daylight);
     }
   }
@@ -391,7 +398,7 @@ export class SatelliteLayer extends Container {
         }
       }
       if (gx === a.x && gy === a.y) {
-        return { kind: "hq", ownerCardId };
+        return { kind: "hq", ownerCardId, username: cluster.neighbor.username };
       }
     }
     // Pass 2 — forgiving: nearest candidate inside the cluster (local px,
@@ -411,7 +418,7 @@ export class SatelliteLayer extends Container {
       const dRelay = Math.hypot(local.x, local.y) + 18;
       if (dRelay < bestD) {
         bestD = dRelay;
-        bestPick = { kind: "hq", ownerCardId };
+        bestPick = { kind: "hq", ownerCardId, username: cluster.neighbor.username };
       }
       for (const [cardId, entry] of cluster.buildings) {
         // Tower bodies rise above the tile — measure toward the body middle
@@ -533,28 +540,46 @@ export class SatelliteLayer extends Container {
 
   // ── internals ─────────────────────────────────────────────────────────
 
-  /** Faint violet pad diamond under one mini city (radius + skirt).
-   *  OPAQUE floor (2026-09-28 user ruling, universe parity) — stars must
-   *  not show through a floating city's ground. */
+  /**
+   * Grass ground diamond under one mini city (radius + skirt), day + night
+   * pair. GRASS, not the old near-black pad (2026-09-28 "black square" fix):
+   * the satellite reads as the same LAND as the world floor, with the dashed
+   * violet border kept as the cluster's highlight identity.
+   */
   private drawPad(cluster: Cluster): void {
-    const g = cluster.pad;
-    g.clear();
     const e = SATELLITE_CLUSTER_RADIUS + 1.5;
     // Half-extents match satelliteClusterBounds: e tiles of tile halfwidth
     // (TILE_W/2 per tile of x-offset — NOT TILE_W, which drew 2× oversized).
+    const halfW = e * (TILE_W / 2);
+    const halfH = e * (TILE_H / 2);
     const corners: ReadonlyArray<[number, number]> = [
-      [0, -e * (TILE_H / 2)],
-      [e * (TILE_W / 2), 0],
-      [0, e * (TILE_H / 2)],
-      [-e * (TILE_W / 2), 0],
+      [0, -halfH],
+      [halfW, 0],
+      [0, halfH],
+      [-halfW, 0],
     ];
-    g.poly(corners.flat()).fill({ color: 0x0a0e1a, alpha: 1 });
-    const stroke = { width: 1.5, color: SATELLITE_ACCENT, alpha: 0.28 };
-    for (let i = 0; i < 4; i++) {
-      const [x1, y1] = corners[i];
-      const [x2, y2] = corners[(i + 1) % 4];
-      drawDashedLine(g, x1, y1, x2, y2, 22, 14, stroke);
+    for (const [g, variant] of [
+      [cluster.padNight, "night"],
+      [cluster.padDay, "day"],
+    ] as const) {
+      g.clear();
+      drawGrassPad(g, halfW, halfH, variant);
+      const stroke = { width: 1.5, color: SATELLITE_ACCENT, alpha: 0.34 };
+      for (let i = 0; i < 4; i++) {
+        const [x1, y1] = corners[i];
+        const [x2, y2] = corners[(i + 1) % 4];
+        drawDashedLine(g, x1, y1, x2, y2, 22, 14, stroke);
+      }
     }
+  }
+
+  /** World-px anchors of every cluster (country-road endpoints). */
+  roadAnchors(): Array<{ x: number; y: number }> {
+    const out: Array<{ x: number; y: number }> = [];
+    for (const cluster of this.clusters.values()) {
+      out.push({ x: cluster.container.x, y: cluster.container.y });
+    }
+    return out;
   }
 
   /** Identity plate (+ "+N more" when truncated) above the mini city. */

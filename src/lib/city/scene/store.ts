@@ -68,6 +68,19 @@ export interface CityWorldState {
    */
   selectedUniverseCity: string | null;
   /**
+   * Selected BUILDING inside a UNIVERSE mini city (2026-09-28 "select
+   * buildings on other cities"): identified by the city owner's username +
+   * the building card id. Inspector resolves it against that city's public
+   * projection (["city", username] query) and offers the hire/steal action.
+   */
+  selectedUniverseBuilding: { username: string; cardId: number } | null;
+  /**
+   * Selected HQ CORE (2026-09-28 "select the core building"): the username
+   * of the core's owner — the own city's owner (own core) or a foreign city
+   * (satellite relay / universe relay). Drives the HQ inspector panel.
+   */
+  selectedHq: string | null;
+  /**
    * Universe summary for the HUD chip (set by the scene on universe sync):
    * how many cities the shared map holds + the viewer's rank (null when
    * beyond the mapped cap).
@@ -93,6 +106,8 @@ export interface CityWorldState {
   selectForeign: (sel: { owner: number; cardId: number } | null) => void;
   selectLandmark: (index: number | null) => void;
   selectUniverseCity: (username: string | null) => void;
+  selectUniverseBuilding: (sel: { username: string; cardId: number } | null) => void;
+  selectHq: (username: string | null) => void;
   setUniverseSummary: (summary: { count: number; myRank: number | null } | null) => void;
   setReducedMotion: (reduced: boolean) => void;
   /** Dev perf overlay push (≤2 Hz, dev builds only). */
@@ -111,6 +126,8 @@ const initial = {
   selectedForeign: null as { owner: number; cardId: number } | null,
   selectedLandmark: null as number | null,
   selectedUniverseCity: null as string | null,
+  selectedUniverseBuilding: null as { username: string; cardId: number } | null,
+  selectedHq: null as string | null,
   universeSummary: null as { count: number; myRank: number | null } | null,
   reducedMotion: false,
   perf: null as CityPerfSnapshot | null,
@@ -138,13 +155,17 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
   setLod: (lod) => set({ lod }),
   // One inspector at a time: every selection action clears the others.
   select: (cardId) =>
-    set({ selectedCardId: cardId, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null }),
+    set({ selectedCardId: cardId, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectForeign: (sel) =>
-    set({ selectedForeign: sel, selectedCardId: null, selectedLandmark: null, selectedUniverseCity: null }),
+    set({ selectedForeign: sel, selectedCardId: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectLandmark: (index) =>
-    set({ selectedLandmark: index, selectedCardId: null, selectedForeign: null, selectedUniverseCity: null }),
+    set({ selectedLandmark: index, selectedCardId: null, selectedForeign: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectUniverseCity: (username) =>
-    set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null }),
+    set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseBuilding: null, selectedHq: null }),
+  selectUniverseBuilding: (sel) =>
+    set({ selectedUniverseBuilding: sel, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedHq: null }),
+  selectHq: (username) =>
+    set({ selectedHq: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null }),
   setUniverseSummary: (summary) => set({ universeSummary: summary }),
   setReducedMotion: (reduced) => set({ reducedMotion: reduced }),
   setPerf: (perf) => set({ perf }),

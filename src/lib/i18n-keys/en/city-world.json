@@ -73,5 +73,11 @@
   "cityPanelShow": "Show {title}",
   "cityInspectorMinimize": "Minimize building details",
   "cityInspectorRestore": "Show building details",
+  "cityInspectorLoading": "Loading…",
+  "cityInspectorCityOf": "City",
+  "cityInspectorUniverseGone": "This building left the city view — pan closer and tap it again.",
+  "cityHqInspectorTitle": "Core HQ details",
+  "cityHqNoteOwn": "Your core — every hire builds around it.",
+  "cityHqNoteForeign": "{name}'s city core.",
   "citySimTime": "Simulation time"
 }

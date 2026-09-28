@@ -79,6 +79,7 @@ import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
 import { SatelliteLayer } from "./SatelliteLayer";
 import { UniverseLayer } from "./UniverseLayer";
+import { RoadsLayer, type RoadAnchor } from "./RoadsLayer";
 import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
 import { onPixelArtReady, pixelArtActive } from "./pixel-art";
 import { mulberry32 } from "./art";
@@ -266,6 +267,8 @@ export class CityScene {
   private readonly satellites = new SatelliteLayer(() => this.requestRender());
   /** The shared universe map (markers + lazy mini cities, 2026-09-28). */
   private readonly universe = new UniverseLayer();
+  /** Country roads HQ → satellites/universe cities (pure decoration). */
+  private readonly roads = new RoadsLayer();
   private readonly paths = new PathLayer();
   private readonly links: DistrictLinks;
   private readonly rootLayer: RootSequenceLayer;
@@ -394,15 +397,20 @@ export class CityScene {
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
     // beneath paths/buildings as a ground-level wash. The shared UNIVERSE
     // sits just under the satellites (its cities live far outside the macro
-    // grid too); satellite clusters draw over it near the home city.
+    // grid too); satellite clusters draw over it near the home city. Country
+    // ROADS sit directly over the world's ground (under everything else) so
+    // they read as terrain, not markers.
     scene.worldContainer.addChild(
       scene.world,
+      scene.roads,
       scene.aggregate,
       scene.universe,
       scene.satellites,
       scene.rootLayer.beams,
       scene.fx
     );
+    // A mini city arriving/leaving re-paves the country roads.
+    scene.universe.onMinisChanged = () => scene.syncRoads();
     // Aggregate skyline daylight lerp (identity at night — applyDaylight).
     scene.aggregate.filters = [scene.aggregateDay];
     // Ground-level overlays (root veil → paths + district links) sit
@@ -635,6 +643,7 @@ export class CityScene {
         this.fx.playLoss(p.x, p.y);
       }
     }
+    this.syncRoads();
     const landmarkOwned = this.world.syncLandmarks(
       projection.landmarks,
       this.strings.displayName
@@ -702,6 +711,23 @@ export class CityScene {
     this.requestRender();
   }
 
+  /** Universe-city BUILDING selection visuals (steal surface, 2026-09-28). */
+  setSelectedUniverseBuilding(sel: { username: string; cardId: number } | null): void {
+    this.universe.setSelectedBuilding(sel);
+    this.requestRender();
+  }
+
+  /**
+   * HQ-core selection (2026-09-28 "select the core building"): own city's
+   * core rings in IsoWorld, a foreign (universe/satellite) core rings its
+   * relay. `username === null` clears both.
+   */
+  setSelectedHq(username: string | null): void {
+    this.world.setHqSelected(!!username && username === this.lastProjection?.owner.username);
+    this.universe.setSelectedHq(username);
+    this.requestRender();
+  }
+
   /** Universe-city selection visuals (marker ring + HUD chip source). */
   setSelectedUniverseCity(username: string | null): void {
     this.universe.setSelected(username);
@@ -727,6 +753,7 @@ export class CityScene {
     if (this.destroyed) return;
     const stake = (this.lastProjection?.neighbors ?? []).map((n) => n.username);
     this.universe.sync(payload, viewerUsername, stake);
+    this.syncRoads();
     const summary = this.universe.summary();
     cityWorldStore.getState().setUniverseSummary(
       summary
@@ -901,6 +928,23 @@ export class CityScene {
     );
   }
 
+  /**
+   * Country roads (pure decoration): HQ → every satellite cluster + every
+   * live universe mini. Insets clear the destination pads (their radius in
+   * tiles + a shoulder) so paving stops at each city's rim.
+   */
+  private syncRoads(): void {
+    if (this.destroyed) return;
+    const hq = worldPointOfTile(HQ_TILE);
+    const anchors: RoadAnchor[] = this.satellites
+      .roadAnchors()
+      .map((a) => ({ ...a, inset: 10 }));
+    for (const a of this.universe.roadAnchors()) {
+      anchors.push({ ...a, inset: 8 });
+    }
+    this.roads.sync(hq, anchors);
+  }
+
   // ── re-rank glide (value-orbit placement) ─────────────────────────────
 
   /**
@@ -1045,70 +1089,76 @@ export class CityScene {
   /**
    * Forgiving tap picking (2026-09-28 "easier selection"), in priority order:
    *   1. exact building tile (classic iso pick)
-   *   2. satellite cluster (the layer hit-tests bodies + proximity itself)
-   *   3. goddess monument body (big art on small tiles)
-   *   4. building body-rect / nearest tower within a screen-px tolerance —
+   *   2. satellite cluster (buildings + relay cores — the layer hit-tests
+   *      bodies + proximity itself)
+   *   3. shared universe: mini-city relay core (HQ panel) / mini-city
+   *      building (steal surface) / marker dot (city chip + visit link)
+   *   4. goddess monument body (big art on small tiles)
+   *   5. OWN HQ core body (HQ panel)
+   *   6. building body-rect / nearest tower within a screen-px tolerance —
    *      towers rise above their tiles, so a rooftop tap used to hit the
    *      empty tile BEHIND the building
-   *   5. locked-pad peek / deselect
+   *   7. locked-pad peek / deselect
    */
   private onTap(worldX: number, worldY: number): void {
     const state = cityWorldStore.getState();
     const hit = this.world.pickBuilding(worldX, worldY);
     if (hit && hit.cardId !== null) {
-      if (state.selectedLandmark !== null) state.selectLandmark(null);
-      state.selectForeign(null);
+      state.select(hit.cardId);
       this.callbacks.onSelectCard(hit.cardId);
       return;
     }
     // Satellite cities live outside the macro grid, where pickTile cannot
-    // address tiles — the layer hit-tests its own clusters instead.
+    // address tiles — the layer hit-tests its own clusters instead. The
+    // relay core opens the NEIGHBOR'S HQ panel (2026-09-28 "select the core
+    // building"); their card stays directly selectable on the home orbit.
     const sat = this.satellites.pick(worldX, worldY);
     if (sat) {
-      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-      if (state.selectedLandmark !== null) state.selectLandmark(null);
       if (sat.kind === "hq") {
-        // The relay IS a home-orbit building of this city — open the
-        // normal inspector (overclock / profession) for it.
-        state.selectForeign(null);
-        this.callbacks.onSelectCard(sat.ownerCardId);
+        state.selectHq(sat.username);
       } else {
         state.selectForeign({ owner: sat.ownerCardId, cardId: sat.cardId });
       }
       return;
     }
-    // Shared universe (2026-09-28): a marker or lazy mini city selects that
-    // city (HUD chip + visit link) — clears the other selections like the
-    // satellite/landmark branches do.
+    // Shared universe (2026-09-28): relay core → HQ panel; a mini-city
+    // BUILDING → its own inspector (hire/steal surface); a marker dot →
+    // the city chip + visit link.
     const universeCity = this.universe.pick(worldX, worldY);
     if (universeCity) {
-      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-      if (state.selectedLandmark !== null) state.selectLandmark(null);
-      state.selectForeign(null);
-      state.selectUniverseCity(universeCity);
+      if (universeCity.kind === "building") {
+        state.selectUniverseBuilding({
+          username: universeCity.username,
+          cardId: universeCity.cardId,
+        });
+      } else if (universeCity.kind === "hq") {
+        state.selectHq(universeCity.username);
+      } else {
+        state.selectUniverseCity(universeCity.username);
+      }
       return;
     }
     // Goddess monument bodies tower over their tiles — tap the art anywhere.
     const landmarkIndex = this.world.landmarkHitAt(worldX, worldY);
     if (landmarkIndex >= 0) {
-      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-      state.selectForeign(null);
       state.selectLandmark(landmarkIndex);
+      return;
+    }
+    // Own HQ core (the projection owner's centerpiece).
+    if (this.world.hqHitAt(worldX, worldY) && this.lastProjection) {
+      state.selectHq(this.lastProjection.owner.username);
       return;
     }
     // Nearest tower within a ~40 screen-px tolerance (zoom-aware).
     const tol = Math.max(TILE_W * 0.75, 40 / this.rig.state.zoom);
     const near = this.world.pickBuildingProximate(worldX, worldY, tol);
     if (near) {
-      if (state.selectedLandmark !== null) state.selectLandmark(null);
-      state.selectForeign(null);
+      state.select(near.cardId);
       this.callbacks.onSelectCard(near.cardId);
       return;
     }
     if (!hit) {
-      if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-      if (state.selectedLandmark !== null) state.selectLandmark(null);
-      state.selectForeign(null);
+      state.select(null);
       return;
     }
     // hit.cardId === null — an empty tile inside the grid.
@@ -1120,9 +1170,7 @@ export class CityScene {
         return;
       }
     }
-    if (this.selectedCardId !== null) this.callbacks.onSelectCard(null);
-    if (state.selectedLandmark !== null) state.selectLandmark(null);
-    state.selectForeign(null);
+    state.select(null);
   }
 
   private onResize(): void {
@@ -1255,6 +1303,7 @@ export class CityScene {
     this.world.setDaylight(v);
     this.satellites.setDaylight(v);
     this.universe.setDaylight(v);
+    this.roads.setDaylight(v);
     // Aggregate skyline: same soft daylight lerp as the hero layers.
     const scale = 1 + (0.68 - 1) * v;
     const offset = 0.3 * v;

@@ -94,11 +94,7 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
           sceneRef={sceneRef}
           sceneEpoch={sceneEpoch}
         />
-        <BuildingInspector
-          families={projection.families}
-          neighbors={projection.neighbors}
-          isOwner={isOwner}
-        />
+        <BuildingInspector projection={projection} isOwner={isOwner} />
       </div>
       <div className="city-world-side">
         <WorldSummary projection={projection} />

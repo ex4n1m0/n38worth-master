@@ -53,6 +53,8 @@ export class HqSprite extends Container {
    */
   private readonly body = new Container();
   private readonly bodyDay = new ColorMatrixFilter();
+  /** Selection ring (2026-09-28 "select the core building"). */
+  private readonly selRing = new Graphics();
 
   constructor(profession: string | null, stage = 1) {
     super();
@@ -73,9 +75,23 @@ export class HqSprite extends Container {
       alpha: 0.35,
     });
     this.addChild(ring);
+    // Selection ring — brighter, slightly larger, only while selected (the
+    // tap target for "select the core building").
+    this.selRing.ellipse(0, 0, TILE_W * 0.72, TILE_H * 0.72).stroke({
+      width: 2.5,
+      color: COLOR_SELECTION,
+      alpha: 0.95,
+    });
+    this.selRing.visible = false;
+    this.addChild(this.selRing);
     this.draw(profession);
     this.syncPixelArt();
     this.setDaylight(0);
+  }
+
+  /** Selection state (own HQ + foreign relay cores). */
+  setSelected(selected: boolean): void {
+    this.selRing.visible = selected;
   }
 
   /** New payload (profession may change on the public route). */

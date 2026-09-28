@@ -45,10 +45,12 @@ import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
 import { useCityEnabled } from "@/hooks/useCityEnabled";
 
+// City sits LAST (2026-09-28 user ruling): Home | Buildings (market) | City —
+// the city is the destination, the market is a tool you hop into.
 const mainNavLinks = [
   { href: "/my-profile", icon: Users },
-  { href: "/city", icon: Building2 },
   { href: "/leaderboard", icon: Search },
+  { href: "/city", icon: Building2 },
 ];
 
 export function Navbar() {
@@ -154,7 +156,9 @@ export function Navbar() {
       if (!onboarding.onboardingComplete) {
         router.replace(`/players/${session.user?.name}`);
       } else {
-        router.replace("/leaderboard");
+        // The city is the game's home screen since 2026-09-28 — a stranded
+        // fully-onboarded player lands there (market when the flag is off).
+        router.replace(cityEnabled ? "/city" : "/leaderboard");
       }
     }
   }, [
@@ -165,6 +169,7 @@ export function Navbar() {
     session,
     router,
     allVisibleLinks,
+    cityEnabled,
   ]);
 
   if (!session) return null;
