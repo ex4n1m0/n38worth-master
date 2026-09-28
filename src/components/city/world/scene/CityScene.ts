@@ -30,14 +30,14 @@
  *   minutes of day, 30 of night (daylight.ts). Daylight crossfades a blue
  *   day sky over the night backdrop and adds a screen-blend wash that
  *   brightens floor + buildings; night keeps the current dark ambience.
- *   The wall clock is sampled on a slow interval and eased between samples
- *   (render-on-demand friendly; reduced motion snaps).
+ *   A wake timer sleeps through the steady plateaus; during each ramp the
+ *   factor is tracked CONTINUOUSLY per frame (smooth drift, no steps).
  *
  * The scene is a RENDERER of server state: tier / protection / sectors /
  * placements all arrive via the projection and are never recomputed here.
  */
 
-import { Application, Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
+import { Application, ColorMatrixFilter, Container, FillGradient, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import { AdvancedBloomFilter } from "pixi-filters";
 import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import type { CityBuilding, CityProjection, CitySectorInfo } from "@/lib/city/types";
@@ -53,7 +53,7 @@ import {
   resolveMotion,
   type MotionPolicy,
 } from "@/lib/city/scene/motion";
-import { daylightAt } from "@/lib/city/scene/daylight";
+import { daylightAt, nextDaylightBoundaryAt } from "@/lib/city/scene/daylight";
 import { clampCamera, ZOOM_MIN, type CameraState } from "@/lib/city/scene/camera";
 import { visibleWorldRect } from "@/lib/city/scene/culling";
 import { TILE_W, pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
@@ -81,6 +81,7 @@ import { BuildingSprite } from "./BuildingSprite";
 import { SatelliteLayer } from "./SatelliteLayer";
 import { UniverseLayer } from "./UniverseLayer";
 import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
+import { onPixelArtReady, pixelArtActive } from "./pixel-art";
 import { mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
@@ -133,6 +134,11 @@ const MAX_DPR = 2;
 
 /** Bloom kill switch: NEXT_PUBLIC_CITY_BLOOM=off disables the filter pass. */
 const CITY_BLOOM_ENV = process.env.NEXT_PUBLIC_CITY_BLOOM !== "off";
+
+/** Dev perf overlay (engine-audit §3.3) — stripped from production builds. */
+const PERF_OVERLAY = process.env.NODE_ENV !== "production";
+/** Perf snapshot cadence (ms) — store writes stay rare. */
+const PERF_PUSH_MS = 500;
 
 /**
  * Night sky gradient (study §A5): vertical #05060A → #0A0E1A with a faint
@@ -221,17 +227,27 @@ const MOVE_GLIDE_CAP = 96;
 
 /**
  * Day/night cycle (daylight.ts — 1 real hour = 1 game day, 30 real minutes
- * day / 30 night). The wall clock is sampled on a slow interval and the
- * visuals EASE to the new daylight factor; the ramps in daylightAt() mean
- * each sampled step is small, so the crossfade reads as continuous dawn or
- * dusk rather than discrete jumps.
+ * day / 30 night). The scene SLEEPS through the steady day/night plateaus
+ * (a wake timer armed at the next ramp boundary — zero idle rAF cost) and
+ * then tracks daylightAt CONTINUOUSLY through each 2.5-minute ramp, so the
+ * sky/wash drift smoothly the whole transition instead of stepping — the
+ * player feels the time passing (2026-09-28 user ruling).
  */
-const DAYLIGHT_SAMPLE_MS = 15_000;
-const DAYLIGHT_EASE_MS = 12_000;
+const DAYLIGHT_STEP_MS = 250;
 /** Screen-blend daylight wash over the whole stage (floor + buildings + sky
  *  brighten together). Soft blue-white, never bloom-fed (above fxRoot). */
 const DAY_WASH_COLOR = 0xcfe2f7;
 const DAY_WASH_MAX_ALPHA = 0.3;
+/**
+ * Day palette matrix targets (row-major 4×5): channel = c·SCALE + OFFSET.
+ * STRONG (procedural fallback): OFFSET ≈ 0.55 puts pure black at light gray,
+ * SCALE 0.5 keeps mid-tones separated. PIXEL (art day/night frames mounted):
+ * the day art already carries daylight, so the lift only warms the remaining
+ * procedural elements (platforms, HQ, landmarks, paths) — day frames are
+ * authored pre-compensated for these exact values (gen-city-pixel-art.ts).
+ */
+const DAY_MATRIX_STRONG = { scale: 0.5, offset: 0.55 };
+const DAY_MATRIX_PIXEL = { scale: 0.72, offset: 0.26 };
 
 export class CityScene {
   private readonly app: Application;
@@ -245,14 +261,12 @@ export class CityScene {
   private skyDay!: Sprite;
   /** Screen-blend daylight wash above fxRoot (brightens floor + buildings). */
   private dayWash!: Graphics;
-  /** Day/night state: current eased factor 0..1 + the ease-in-flight target. */
+  /** Day/night state: displayed factor 0..1 + continuous ramp tracking. */
   private daylight = 0;
-  private daylightFrom = 0;
-  private daylightTarget = 0;
-  private daylightStartMs = 0;
-  private daylightEaseActive = false;
-  /** Slow wall-clock sampler driving the cycle (render-on-demand friendly). */
-  private daylightTimer: ReturnType<typeof setInterval> | null = null;
+  private daylightTracking = false;
+  private daylightAppliedAt = 0;
+  /** One-shot wake timer for the next ramp boundary (render-on-demand). */
+  private daylightTimer: ReturnType<typeof setTimeout> | null = null;
   /** Threshold bloom (study §Track B) — dark palette makes it selective. */
   private readonly bloom = new AdvancedBloomFilter({
     threshold: 0.55,
@@ -268,6 +282,20 @@ export class CityScene {
   private frameEma = 0;
   private frameSamples = 0;
   private lastRenderAt = 0;
+  /**
+   * DAY PALETTE LIFT (2026-09-28 user ruling "black areas become shades of
+   * white"): the building art is a NIGHT palette (near-black masses + neon)
+   * and no overlay can turn black into white — a color matrix on the WORLD
+   * can. At full day every channel is mapped c → c·SCALE + OFFSET, so dark
+   * faces land at light gray (~0.56) while emissives stay saturated; the
+   * matrix lerps back to identity as daylight falls, and the filter is
+   * DETACHED at night (zero cost outside daytime). Rides fxRoot (screen
+   * filterArea) BEFORE bloom — see syncBloom.
+   */
+  private readonly dayColor = new ColorMatrixFilter();
+  private dayFilterOn = false;
+  /** Bloom is currently in the fxRoot filter stack (probe + LOD gated). */
+  private bloomAttached = false;
   private readonly world: IsoWorld;
   private readonly aggregate: AggregateBlocks;
   private readonly satellites = new SatelliteLayer(() => this.requestRender());
@@ -318,6 +346,13 @@ export class CityScene {
   private destroyed = false;
   /** Unsubscribe for avatar-texture arrivals (billboards need a re-render). */
   private avatarReadyTeardown: (() => void) | null = null;
+  /**
+   * PIXEL-ART MODE (engine upgrade 2026-09-28): true once generated building
+   * sheets are mounted — switches the day matrix to the soft pixel lift and
+   * keeps frames/ daylight crossfades authoritative for buildings.
+   */
+  private pixelMode = false;
+  private pixelArtTeardown: (() => void) | null = null;
 
   private constructor(
     app: Application,
@@ -394,15 +429,11 @@ export class CityScene {
     scene.syncBloom();
 
     // Day/night cycle: apply the CURRENT daylight immediately (opening at
-    // :15–:45 real = daytime right away), then sample the wall clock slowly.
-    scene.daylight = scene.daylightFrom = scene.daylightTarget = daylightAt(
-      Date.now()
-    );
+    // :15–:45 real = daytime right away), then arm the one-shot wake timer
+    // for the next ramp boundary (see updateDaylight).
+    scene.daylight = daylightAt(Date.now());
     scene.applyDaylight();
-    scene.daylightTimer = setInterval(
-      () => scene.sampleDaylight(),
-      DAYLIGHT_SAMPLE_MS
-    );
+    scene.scheduleDaylightWake();
 
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
     // beneath paths/buildings as a ground-level wash. The shared UNIVERSE
@@ -455,6 +486,18 @@ export class CityScene {
     // Billboard textures arrive async — each arrival requests one render so
     // plates pop in without a camera nudge (sprites mount themselves).
     scene.avatarReadyTeardown = onAvatarTextureReady(() => scene.requestRender());
+    // Pixel-art sheets arrive async too: the first ready sheet flips pixel
+    // mode (soft day matrix — applyDaylight re-runs so the lift retargets
+    // live), every arrival re-checks all sprites and mounts frames in place.
+    scene.pixelArtTeardown = onPixelArtReady(() => {
+      const active = pixelArtActive();
+      const modeChanged = active !== scene.pixelMode;
+      scene.pixelMode = active;
+      scene.world.refreshPixelArt();
+      if (modeChanged) scene.applyDaylight();
+      scene.updateCulling();
+      scene.requestRender();
+    });
 
     scene.applyCamera(rig.state);
     scene.requestRender();
@@ -661,6 +704,9 @@ export class CityScene {
     if (this.lod === "close" && this.detailAlpha < 1) {
       this.world.setDetailAlpha(this.detailAlpha);
     }
+    // ...and the current daylight (new sprites default to night=0; a daytime
+    // sync would otherwise light their windows out of step).
+    this.world.setDaylight(this.daylight);
 
     this.cardTiles.clear();
     this.buildingsById.clear();
@@ -967,13 +1013,21 @@ export class CityScene {
     return !gl || gl instanceof WebGL2RenderingContext;
   }
 
-  /** Attach/detach the bloom pass (env + capability + LOD + probe gates). */
+  /**
+   * Attach/detach the fxRoot filter stack: day palette lift first (when
+   * daylight > 0), then threshold bloom (env + capability + LOD + probe
+   * gates). Order matters — bloom must see the LIFTED colors so the daytime
+   * threshold raise lines up with what is on screen.
+   */
   private syncBloom(): void {
-    const on =
+    const filters: Array<ColorMatrixFilter | AdvancedBloomFilter> = [];
+    if (this.dayFilterOn) filters.push(this.dayColor);
+    this.bloomAttached =
       this.bloomSupported &&
       !this.bloomKilledByProbe &&
       this.lod !== "world";
-    this.fxRoot.filters = on ? [this.bloom] : [];
+    if (this.bloomAttached) filters.push(this.bloom);
+    this.fxRoot.filters = filters;
   }
 
   /**
@@ -989,7 +1043,7 @@ export class CityScene {
       const dt = now - this.lastRenderAt;
       this.frameEma = this.frameEma > 0 ? this.frameEma * 0.9 + dt * 0.1 : dt;
       this.frameSamples += 1;
-      if (this.frameSamples > 120 && this.frameEma > 21 && this.fxRoot.filters.length > 0) {
+      if (this.frameSamples > 120 && this.frameEma > 21 && this.bloomAttached) {
         this.bloomKilledByProbe = true;
         this.syncBloom();
         console.info("[city] bloom disabled by frame-budget probe");
@@ -1218,49 +1272,66 @@ export class CityScene {
   }
 
   /**
-   * Wall-clock sample (interval-driven, render-on-demand friendly): compute
-   * the target daylight and, when it moved, start an ease toward it. The
-   * ±1-game-hour ramps in daylightAt() mean consecutive samples differ by
-   * only ~0.05 — the ease below merely smooths those steps into a glide.
-   * Reduced motion snaps instead (a 12s crossfade is still "motion").
+   * Arm the one-shot wake timer for the next ramp boundary (dawn 05:00 /
+   * dusk 17:00 game). Waking sets `daylightTracking` and nudges a render;
+   * the tick loop then owns the ramp. Already inside a ramp
+   * (nextDaylightBoundaryAt ≤ now) → track immediately.
    */
-  private sampleDaylight(): void {
+  private scheduleDaylightWake(): void {
     if (this.destroyed) return;
-    const target = daylightAt(Date.now());
-    if (Math.abs(target - this.daylight) < 0.004) {
-      this.daylightTarget = target;
+    if (this.daylightTimer !== null) {
+      clearTimeout(this.daylightTimer);
+      this.daylightTimer = null;
+    }
+    const delay = nextDaylightBoundaryAt(Date.now()) - Date.now();
+    if (delay <= 0) {
+      this.daylightTracking = true;
+      this.requestRender();
       return;
     }
-    this.daylightFrom = this.daylight;
-    this.daylightTarget = target;
-    this.daylightStartMs = performance.now();
-    if (this.policy.reduced) {
-      this.daylightEaseActive = false;
-      this.daylight = target;
-      this.applyDaylight();
-    } else {
-      this.daylightEaseActive = true;
-    }
-    this.requestRender();
+    this.daylightTimer = setTimeout(() => {
+      this.daylightTimer = null;
+      this.daylightTracking = true;
+      this.requestRender();
+    }, delay);
   }
 
-  /** Advance the daylight ease. True while active (keeps the ticker alive). */
-  private updateDaylight(now: number): boolean {
-    if (!this.daylightEaseActive) return false;
-    const p = clamp01((now - this.daylightStartMs) / DAYLIGHT_EASE_MS);
-    this.daylight =
-      this.daylightFrom + (this.daylightTarget - this.daylightFrom) * easeOutCubic(p);
-    if (p >= 1) this.daylightEaseActive = false;
-    this.applyDaylight();
-    return true;
+  /**
+   * Continuous daylight drift (2026-09-28 user ruling "feel the time
+   * passing"): while a ramp runs, the displayed factor FOLLOWS the analytic
+   * daylightAt per frame — a 250ms quantization on the applied step keeps
+   * the render count sane (4 fps through a 150s ramp is visually seamless;
+   * each step is ~0.17% of the wash). When the ramp settles back onto a
+   * plateau (factor exactly 0 or 1), tracking stops and the next boundary
+   * timer is armed — idle cost returns to zero.
+   */
+  private updateDaylight(perfNow: number): boolean {
+    if (!this.daylightTracking) return false;
+    const target = daylightAt(Date.now());
+    const settled = (target === 0 || target === 1) && this.daylight === target;
+    if (
+      perfNow - this.daylightAppliedAt >= DAYLIGHT_STEP_MS &&
+      Math.abs(target - this.daylight) > 0.0005
+    ) {
+      this.daylight = target;
+      this.applyDaylight();
+      this.daylightAppliedAt = perfNow;
+      this.dirty = true;
+    }
+    if (settled) {
+      this.daylightTracking = false;
+      this.scheduleDaylightWake();
+    }
+    return true; // keep the ticker alive through the ramp
   }
 
   /**
    * Apply the current daylight factor: day-sky crossfade alpha, the
-   * screen-blend wash that brightens floor + buildings together, and a
-   * raised bloom threshold / lowered bloom scale — the brighter daytime
-   * scene must not glow out, and the night ambience (threshold 0.55, scale
-   * 0.85) stays exactly as it was once night returns.
+   * screen-blend wash, the world color-matrix lift (dark masses → shades of
+   * white, lerped to identity by night), and a raised bloom threshold /
+   * lowered bloom scale — the brighter daytime scene must not glow out, and
+   * the night ambience (threshold 0.55, scale 0.85, no matrix) stays exactly
+   * as it was once night returns.
    */
   private applyDaylight(): void {
     const v = this.daylight;
@@ -1268,12 +1339,50 @@ export class CityScene {
     this.dayWash.alpha = v;
     this.bloom.threshold = 0.55 + 0.25 * v;
     this.bloom.bloomScale = 0.85 - 0.3 * v;
+    // Buildings crossfade their day/night/lights ART frames (or, in the
+    // procedural fallback, dim lit windows to a glass sheen) — same 250 ms
+    // ramp cadence, alpha-only, no redraws.
+    this.world.setDaylight(v);
+    // Channel map: identity·(1−v) → (c·SCALE+OFFSET)·v, alpha passthrough.
+    const m = this.pixelMode ? DAY_MATRIX_PIXEL : DAY_MATRIX_STRONG;
+    const scale = 1 + (m.scale - 1) * v;
+    const offset = m.offset * v;
+    this.dayColor.matrix = [
+      scale, 0, 0, 0, offset,
+      0, scale, 0, 0, offset,
+      0, 0, scale, 0, offset,
+      0, 0, 0, 1, 0,
+    ];
+    const wantFilter = v > 0.002;
+    if (wantFilter !== this.dayFilterOn) {
+      this.dayFilterOn = wantFilter;
+      this.syncBloom();
+    }
   }
 
   private requestRender(): void {
     if (this.destroyed) return;
     this.dirty = true;
     if (!this.raf) this.raf = requestAnimationFrame(this.tick);
+  }
+
+  /** Dev perf overlay push (≤2 Hz, only while frames actually render). */
+  private lastPerfPush = 0;
+
+  private pushPerfSnapshot(now: number): void {
+    if (!PERF_OVERLAY || now - this.lastPerfPush < PERF_PUSH_MS) return;
+    this.lastPerfPush = now;
+    const stats = this.world.cullStats;
+    cityWorldStore.getState().setPerf({
+      fps: this.frameEma > 0 ? Math.round(1000 / this.frameEma) : 0,
+      frameMs: Math.round(this.frameEma * 10) / 10,
+      spritesTotal: stats.total,
+      spritesVisible: stats.visible,
+      lod: this.lod,
+      bloom: this.bloomAttached,
+      daylight: Math.round(this.daylight * 100) / 100,
+      zoom: Math.round(this.rig.state.zoom * 100) / 100,
+    });
   }
 
   private tick = (): void => {
@@ -1301,6 +1410,7 @@ export class CityScene {
       } catch (err) {
         console.error("[city] render failed", err);
       }
+      this.pushPerfSnapshot(performance.now());
     }
     if (busy) this.requestRender();
   };
@@ -1309,8 +1419,9 @@ export class CityScene {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
+    this.daylightTracking = false;
     if (this.daylightTimer !== null) {
-      clearInterval(this.daylightTimer);
+      clearTimeout(this.daylightTimer);
       this.daylightTimer = null;
     }
     this.ro.disconnect();
@@ -1321,6 +1432,8 @@ export class CityScene {
     this.app.destroy({ removeView: true }, { children: true, texture: true });
     this.avatarReadyTeardown?.();
     this.avatarReadyTeardown = null;
+    this.pixelArtTeardown?.();
+    this.pixelArtTeardown = null;
     // Mounted billboard textures died with the app; free the never-mounted
     // stragglers and empty the cache (a remount must reload, never reuse).
     resetAvatarTextures();

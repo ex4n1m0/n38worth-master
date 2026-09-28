@@ -551,6 +551,31 @@ export class IsoWorld extends Container {
     for (const sprite of this.sprites.values()) sprite.setDetailAlpha(alpha);
   }
 
+  /** Lit-window glow (daylight-driven, engine-audit §3.1) — alpha-only. */
+  setFacadeGlow(glow: number): void {
+    for (const sprite of this.sprites.values()) sprite.setFacadeGlow(glow);
+  }
+
+  /**
+   * Daylight factor 0..1 (pixel-art day/night): crossfades every building's
+   * day/night/lights frames (or the procedural facade glow in fallback
+   * mode — the sprite decides internally).
+   */
+  setDaylight(daylight: number): void {
+    for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
+  }
+
+  /**
+   * Pixel-art texture-ready pass: a sheet finished loading — re-check every
+   * sprite (mounting frames in place) so late arrivals swap cleanly.
+   */
+  refreshPixelArt(): void {
+    for (const sprite of this.sprites.values()) sprite.syncPixelArt();
+  }
+
+  /** Building-sprite counts for the dev perf overlay (post-cull). */
+  readonly cullStats = { total: 0, visible: 0 };
+
   /**
    * Viewport culling pass (runs on camera-settle / sync only — never per
    * frame). Sprites keep their body height + platform extents; the HQ and
@@ -558,11 +583,14 @@ export class IsoWorld extends Container {
    * and sector chips stay unculled (≤ 9 sectors — cheap static Graphics).
    */
   applyCull(rect: CullRect): void {
+    this.cullStats.total = 0;
+    this.cullStats.visible = 0;
     for (const sprite of this.sprites.values()) {
+      this.cullStats.total += 1;
       // topY is negative (bodies rise in −y): margin = body height + tile.
-      sprite.setCulled(
-        !pointVisible(rect, sprite.x, sprite.y, -sprite.topY + TILE_H, TILE_W / 2)
-      );
+      const vis = pointVisible(rect, sprite.x, sprite.y, -sprite.topY + TILE_H, TILE_W / 2);
+      sprite.setCulled(!vis);
+      if (vis) this.cullStats.visible += 1;
     }
     if (this.hq) {
       this.hq.visible = pointVisible(rect, this.hq.x, this.hq.y, 150, TILE_W * 0.75);

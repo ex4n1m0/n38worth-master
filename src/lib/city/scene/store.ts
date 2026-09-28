@@ -26,6 +26,22 @@ export interface CityCameraSnapshot {
   zoom: number;
 }
 
+/**
+ * Dev performance overlay snapshot (engine-audit §3.3), pushed by the scene
+ * at ≤2 Hz WHILE RENDERING — with render-on-demand the scene sleeps when
+ * idle, so fps=0 there means "no renders requested", not jank.
+ */
+export interface CityPerfSnapshot {
+  fps: number;
+  frameMs: number;
+  spritesTotal: number;
+  spritesVisible: number;
+  lod: Lod;
+  bloom: boolean;
+  daylight: number;
+  zoom: number;
+}
+
 export interface CityWorldState {
   /** Interaction-end camera snapshot (HUD sector label; NOT 60fps live). */
   camera: CityCameraSnapshot;
@@ -58,6 +74,8 @@ export interface CityWorldState {
    * beyond the mapped cap).
    */
   universeSummary: { count: number; myRank: number | null } | null;
+  /** Dev perf overlay snapshot (dev builds; null until the first push). */
+  perf: CityPerfSnapshot | null;
   /** prefers-reduced-motion, resolved by the React shell. */
   reducedMotion: boolean;
   /**
@@ -78,6 +96,8 @@ export interface CityWorldState {
   selectUniverseCity: (username: string | null) => void;
   setUniverseSummary: (summary: { count: number; myRank: number | null } | null) => void;
   setReducedMotion: (reduced: boolean) => void;
+  /** Dev perf overlay push (≤2 Hz, dev builds only). */
+  setPerf: (perf: CityPerfSnapshot) => void;
   /** Full reset (world unmount / WebGL remount) so state never leaks. */
   resetWorld: () => void;
 }
@@ -94,6 +114,7 @@ const initial = {
   selectedUniverseCity: null as string | null,
   universeSummary: null as { count: number; myRank: number | null } | null,
   reducedMotion: false,
+  perf: null as CityPerfSnapshot | null,
 };
 
 export const cityWorldStore = createStore<CityWorldState>()((set) => ({
@@ -127,6 +148,7 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
     set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null }),
   setUniverseSummary: (summary) => set({ universeSummary: summary }),
   setReducedMotion: (reduced) => set({ reducedMotion: reduced }),
+  setPerf: (perf) => set({ perf }),
   resetWorld: () => set({ ...initial }),
 }));
 

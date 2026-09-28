@@ -53,6 +53,7 @@
 - Rebrand: rename `users.profession` rows (one-time): `npm run rebrand:professions`
 - Rebrand: swap goddess avatar art to statics (one-time): `npm run rebrand:goddess-art`
 - Regenerate sci-fi placeholder art: `npm run gen:scifi-art`
+- Regenerate city pixel-art building sheets: `npm run gen:city-pixel-art`
 
 ## Sci-fi rebrand (2026-09)
 The game was rebranded from medieval/dark-fantasy to a sci-fi "simulation /
@@ -255,6 +256,21 @@ n38worth-game-systems review):
 - Rendering stays bounded: aggregate ordinary avatars beyond the
   detailed-display limit, lazy-load heavy avatar media, support keyboard
   interaction and prefers-reduced-motion.
+- **Building art is a generated PIXEL-ART atlas (since 2026-09-28)**:
+  `npm run gen:city-pixel-art` deterministically re-plots
+  `public/city/pixel/*.png` (49 sheets: 7 families × 7 tiers, 3 variants ×
+  day/night/lights frames) + `city-pixel-art.generated.ts` (the manifest —
+  frame geometry, ground-contact anchors). The scene mounts them via
+  `scene/pixel-art.ts` (nearest-neighbor, lazy per family×tier, kill switch
+  `NEXT_PUBLIC_CITY_PIXEL_ART=off` → procedural fallback in art.ts).
+  Day/night for buildings = art-frame crossfade driven by daylight.ts
+  (`BuildingSprite.setDaylight`); the day frames are authored
+  PRE-COMPENSATED for the scene's day matrix lift — if you change
+  DAY_MATRIX_PIXEL in CityScene.ts, apply the same map in the generator's
+  dayLift() and regenerate. Variant per card is `pixelVariantOf`
+  (lib/city/scene/pixel-variant.ts, tested) — deterministic, never random.
+  All art is original code-plotted work; never feed copyrighted game assets
+  into the pipeline.
 - Economy-touching city work follows: map paths → state invariants → review
   by n38worth-game-systems (formulas/milestones/goddesses) and
   security-reviewer (auth/ownership/races) → image-analyst for major UI

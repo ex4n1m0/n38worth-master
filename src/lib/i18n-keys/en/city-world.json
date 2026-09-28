@@ -72,5 +72,6 @@
   "cityPanelHide": "Hide {title}",
   "cityPanelShow": "Show {title}",
   "cityInspectorMinimize": "Minimize building details",
-  "cityInspectorRestore": "Show building details"
+  "cityInspectorRestore": "Show building details",
+  "citySimTime": "Simulation time"
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { Globe } from "lucide-react";
+import { Globe, Moon, Sun } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
@@ -10,6 +10,8 @@ import {
   summaryBuildingTotal,
   worldSummaryRows,
 } from "@/lib/city/scene/summary";
+import { daylightAt, gameClockAt } from "@/lib/city/scene/daylight";
+import { useNow } from "@/hooks/useNow";
 import { useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { UNASSIGNED_FAMILY, type CityProjection } from "@/lib/city/types";
 import { formatCompact } from "@/lib/utils";
@@ -43,6 +45,16 @@ export function WorldSummary({ projection }: { projection: CityProjection }) {
   const [collapsed, setCollapsed] = useState(false);
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
+  // SIM CLOCK (2026-09-28 user request "see the time passing quickly"): one
+  // game day per real hour → 24 game seconds tick per real second, so the
+  // seconds visibly race. Shared useNow (never a per-component interval);
+  // the sun/moon glyph flips at the daylight ramp midpoints.
+  const now = useNow();
+  const clock = gameClockAt(now);
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const clockText = `${pad2(clock.h)}:${pad2(clock.m)}:${pad2(clock.s)}`;
+  const isDay = daylightAt(now) >= 0.5;
+
   return (
     <section
       className={`city-world-summary ${collapsed ? "city-panel-collapsed" : ""}`}
@@ -52,6 +64,19 @@ export function WorldSummary({ projection }: { projection: CityProjection }) {
         <CityPanelHead
           title={t.citySummaryLabel}
           icon={<Globe className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          trailing={
+            <span
+              className="text-[11px] font-bold tabular-nums tracking-wide text-gray-200"
+              title={t.citySimTime}
+            >
+              {isDay ? (
+                <Sun className="mr-0.5 inline h-3 w-3 text-amber-300" aria-hidden="true" />
+              ) : (
+                <Moon className="mr-0.5 inline h-3 w-3 text-slate-300" aria-hidden="true" />
+              )}
+              {clockText}
+            </span>
+          }
           collapsed={collapsed}
           onToggle={toggle}
           bodyId="city-overview-body"

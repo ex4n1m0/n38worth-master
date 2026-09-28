@@ -865,12 +865,15 @@ const FACADE: Record<string, { hw: number; cols: number; baseOnly: boolean }> = 
 /**
  * Seeded window grid on the central massing's two visible faces (study §A3).
  * `seed` (the cardId) makes the lit/unlit pattern stable per building yet
- * varied across the city: ~55% lit, warm/cool mix, occasional blown white.
- * Unlit windows stay as faint dark insets so faces read textured even where
- * dark. Close LOD only (the caller's windows layer).
+ * varied across the city. Lit windows (warm/cool mix) draw into `gLit` and
+ * dark insets into `gDark` — SEPARATE targets so the scene can dim the LIT
+ * layer toward a glass sheen at full day while the insets keep the facade
+ * textured (engine-audit §3.1; glow = facadeGlowAt(daylight)). Close LOD
+ * only (the caller's windows layer).
  */
 export function drawFacadeWindows(
-  g: Graphics,
+  gLit: Graphics,
+  gDark: Graphics,
   seed: number,
   tier: BuildingTier,
   profession: string | null
@@ -900,22 +903,18 @@ export function drawFacadeWindows(
         const wW = 4;
         const wH = 4.5;
         const shear = side < 0 ? 0.5 : -0.5; // parallelogram follows the face slope
+        const pane = [
+          x, y,
+          x + wW, y + wW * shear,
+          x + wW, y + wW * shear + wH,
+          x, y + wH,
+        ];
         if (r < 0.62) {
           const r2 = rng();
           const lit = r2 < 0.62 ? 0xffb547 : r2 < 0.9 ? 0xbfd7ff : 0xf2f7ff;
-          g.poly([
-            x, y,
-            x + wW, y + wW * shear,
-            x + wW, y + wW * shear + wH,
-            x, y + wH,
-          ]).fill({ color: lit, alpha: 0.95 });
+          gLit.poly(pane).fill({ color: lit, alpha: 0.95 });
         } else {
-          g.poly([
-            x, y,
-            x + wW, y + wW * shear,
-            x + wW, y + wW * shear + wH,
-            x, y + wH,
-          ]).fill({ color: shade(spec.mass, 1.9), alpha: 0.5 });
+          gDark.poly(pane).fill({ color: shade(spec.mass, 1.9), alpha: 0.5 });
         }
       }
     }

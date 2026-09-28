@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { cityWorldStore } from "@/lib/city/scene/store";
+import { useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { cardDisplayName } from "@/lib/display-names";
@@ -215,6 +216,34 @@ export default function CitySceneMount({
       tabIndex={0}
       role="application"
       aria-label={t.cityWorldCanvasLabel}
-    />
+    >
+      {DEV_PERF_OVERLAY ? <CityPerfChip /> : null}
+    </div>
+  );
+}
+
+/** Dev-builds-only perf overlay (engine-audit §3.3); stripped in prod. */
+const DEV_PERF_OVERLAY = process.env.NODE_ENV !== "production";
+
+function CityPerfChip() {
+  const perf = useCityWorldStore((s) => s.perf);
+  if (!perf) return null;
+  // fps=0 while idle is EXPECTED (render-on-demand sleeps) — label it so the
+  // overlay never reads as jank.
+  const fps = perf.fps > 0 ? `${perf.fps} fps · ${perf.frameMs} ms` : "idle (on-demand)";
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute bottom-2 left-2 z-50 rounded-md border border-gray-700 bg-gray-950/85 px-2 py-1 font-mono text-[10px] leading-4 text-gray-300"
+    >
+      <div>{fps}</div>
+      <div>
+        sprites {perf.spritesVisible}/{perf.spritesTotal} · lod {perf.lod} · bloom{" "}
+        {perf.bloom ? "on" : "off"}
+      </div>
+      <div>
+        daylight {perf.daylight.toFixed(2)} · zoom {perf.zoom.toFixed(2)}
+      </div>
+    </div>
   );
 }

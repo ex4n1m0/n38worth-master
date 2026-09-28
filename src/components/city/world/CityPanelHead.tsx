@@ -15,6 +15,7 @@ export function CityPanelHead({
   title,
   icon,
   count,
+  trailing,
   collapsed,
   onToggle,
   bodyId,
@@ -25,6 +26,9 @@ export function CityPanelHead({
   icon: React.ReactNode;
   /** Trailing count/badge node (already localized). */
   count?: React.ReactNode;
+  /** Extra trailing node pinned left of the chevron (e.g. the sim clock) —
+   *  takes over the row's ml-auto push when `count` is absent. */
+  trailing?: React.ReactNode;
   collapsed: boolean;
   onToggle: () => void;
   /** id of the body element this head controls. */
@@ -51,6 +55,15 @@ export function CityPanelHead({
       {count !== undefined ? (
         <span className="ml-auto shrink-0 text-[10px] font-bold tabular-nums text-gray-500">
           {count}
+        </span>
+      ) : null}
+      {trailing !== undefined ? (
+        <span
+          className={`inline-flex shrink-0 items-center gap-1 ${
+            count === undefined ? "ml-auto" : ""
+          }`}
+        >
+          {trailing}
         </span>
       ) : null}
       <ChevronDown

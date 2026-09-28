@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  FACADE_GLOW_DAY,
   REAL_HOUR_MS,
   daylightAt,
+  facadeGlowAt,
+  gameClockAt,
   gameHourAt,
+  nextDaylightBoundaryAt,
 } from "@/lib/city/scene/daylight";
 
 /** A wall-clock timestamp at game hour h (fraction of one real hour). */
@@ -63,5 +67,63 @@ describe("daylightAt (1 real hour = 1 game day)", () => {
     expect(gameHourAt(REAL_HOUR_MS - 1)).toBeCloseTo(24, 1);
     // Wraps per real hour (every hour starts a new game day at 00:00).
     expect(gameHourAt(REAL_HOUR_MS + REAL_HOUR_MS / 4)).toBe(6);
+  });
+
+  it("gameClockAt races 24 game seconds per real second", () => {
+    expect(gameClockAt(0)).toEqual({ h: 0, m: 0, s: 0 });
+    // Half the real hour = game noon exactly.
+    expect(gameClockAt(REAL_HOUR_MS / 2)).toEqual({ h: 12, m: 0, s: 0 });
+    // +1 real second = +24 game seconds.
+    const a = gameClockAt(1000);
+    const b = gameClockAt(2000);
+    expect((b.m * 60 + b.s) - (a.m * 60 + a.s)).toBe(24);
+    // Wraps per real hour.
+    expect(gameClockAt(REAL_HOUR_MS)).toEqual({ h: 0, m: 0, s: 0 });
+    // Field decomposition sanity at an exact point: real minute 18.5 =
+    // game 07:24:00 exactly (26,640 game seconds into the day).
+    const c = gameClockAt((26640 / 86400) * REAL_HOUR_MS);
+    expect(c).toEqual({ h: 7, m: 24, s: 0 });
+  });
+
+  it("nextDaylightBoundaryAt targets the next ramp start from any phase", () => {
+    const H = REAL_HOUR_MS;
+    // Deep night (game 2) → this hour's dawn (game 5 = 5/24 of the hour).
+    expect(nextDaylightBoundaryAt(Math.round(H * (2 / 24)))).toBe(
+      Math.round(H * (5 / 24))
+    );
+    // Late night (game 21) → NEXT hour's dawn.
+    expect(nextDaylightBoundaryAt(Math.round(H * (21 / 24)))).toBe(
+      H + Math.round(H * (5 / 24))
+    );
+    // Steady day (game 12) → this hour's dusk start (game 17).
+    expect(nextDaylightBoundaryAt(Math.round(H * (12 / 24)))).toBe(
+      Math.round(H * (17 / 24))
+    );
+    // Inside either ramp → "now" (caller tracks continuously).
+    const dawnMid = Math.round(H * (6 / 24));
+    expect(nextDaylightBoundaryAt(dawnMid)).toBe(dawnMid);
+    const duskMid = Math.round(H * (18 / 24));
+    expect(nextDaylightBoundaryAt(duskMid)).toBe(duskMid);
+  });
+});
+
+describe("facadeGlowAt (lit windows dim toward glass by day)", () => {
+  it("night keeps full glow, full day dims to the glass-sheen floor", () => {
+    expect(facadeGlowAt(0)).toBe(1);
+    expect(facadeGlowAt(1)).toBeCloseTo(FACADE_GLOW_DAY, 10);
+  });
+
+  it("is monotone decreasing across the ramp", () => {
+    let prev = facadeGlowAt(0);
+    for (let v = 0.05; v <= 1.0001; v += 0.05) {
+      const next = facadeGlowAt(v);
+      expect(next).toBeLessThanOrEqual(prev + 1e-12);
+      prev = next;
+    }
+  });
+
+  it("clamps out-of-range inputs", () => {
+    expect(facadeGlowAt(-2)).toBe(1);
+    expect(facadeGlowAt(5)).toBeCloseTo(FACADE_GLOW_DAY, 10);
   });
 });

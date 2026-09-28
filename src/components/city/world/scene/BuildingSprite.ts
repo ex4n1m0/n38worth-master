@@ -10,7 +10,8 @@
  *   2 silhouette    tier-1 family silhouette (art.ts manifest)
  *   3 tierExt       tier 2..7 modular floors + shared tier features
  *   4 emissive      family lights (coils, beacons, LED strips) — bloom feed
- *   5 windows       seeded facade window grid (close LOD only)
+ *   5 windows       close-LOD container: dark facade insets + LIT windows
+ *                  (glow-modulated by daylight, setFacadeGlow) + micro-props
  *   6 identity      profession sigil (close LOD only)
  *   7 status        firewall cyan ring / hard-lock amber (DOM-tile colors)
  *   8 selection     corner brackets + emissive body edge
@@ -28,7 +29,9 @@
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { UNASSIGNED_FAMILY, type CityBuilding } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
+import { facadeGlowAt } from "@/lib/city/scene/daylight";
 import { avatarTexture, loadAvatarTexture } from "./avatars";
+import { pixelFramesFor, type PixelArtFrames } from "./pixel-art";
 import {
   COLOR_SELECTION,
   drawFacadeWindows,
@@ -47,11 +50,28 @@ export class BuildingSprite extends Container {
   private _building: CityBuilding;
 
   private readonly platform: Graphics = new Graphics();
+  /**
+   * PIXEL-ART PATH (engine upgrade 2026-09-28): day/night/lights sprites
+   * from the generated sheets, crossfaded by the daylight clock. While the
+   * sheet loads (or if pixel art is disabled) they stay hidden and the
+   * procedural layers below carry the building — zero pop-in regression.
+   */
+  private readonly artDay: Sprite = new Sprite();
+  private readonly artNight: Sprite = new Sprite();
+  /** Emissive-only frame, additive — alpha = facadeGlowAt(daylight). */
+  private readonly artLights: Sprite = new Sprite();
+  private pixelKey: string | null = null;
+  private daylightCurrent = 0;
   private readonly silhouette: Graphics = new Graphics();
   private readonly tierExt: Graphics = new Graphics();
   /** Family emissives (coils/beacons/strips) — always visible, bloom feed. */
   private readonly emissive: Graphics = new Graphics();
-  private readonly windows: Graphics = new Graphics();
+  /** Close-LOD facade + clutter. Container alpha = LOD detail fade; the LIT
+   *  child's alpha is daylight glow (setFacadeGlow) — the two compose. */
+  private readonly windows = new Container();
+  private readonly facadeBase: Graphics = new Graphics();
+  private readonly facadeLit: Graphics = new Graphics();
+  private readonly props: Graphics = new Graphics();
   /** Avatar billboard — single rooftop plate (see syncBillboards). */
   private readonly billboards = new Container();
   private readonly identity: Graphics = new Graphics();
@@ -67,6 +87,8 @@ export class BuildingSprite extends Container {
   private drawnKey = "";
   /** Last-built chip identity (text + strong flag) — avoids Text rebuilds. */
   private labelKey = "";
+  /** Current lit-window glow (1 = night) — reapplied on redraw/LOD swaps. */
+  private facadeGlowCurrent = 1;
   /** Viewport-cull reason bit (see setCulled — culling owns `visible`). */
   private cullHidden = false;
   /** Current LOD band (billboards mount only in "close"). */
@@ -77,8 +99,12 @@ export class BuildingSprite extends Container {
   constructor(building: CityBuilding) {
     super();
     this._building = building;
+    this.windows.addChild(this.facadeBase, this.facadeLit, this.props);
     this.addChild(
       this.platform,
+      this.artDay,
+      this.artNight,
+      this.artLights,
       this.silhouette,
       this.tierExt,
       this.emissive,
@@ -89,6 +115,10 @@ export class BuildingSprite extends Container {
       this.selection,
       this.fxSlot
     );
+    this.artLights.blendMode = "add";
+    this.artDay.visible = false;
+    this.artNight.visible = false;
+    this.artLights.visible = false;
     // SELECTION IS OFF BY DEFAULT (Pixi Graphics defaults to visible=true —
     // leaving it true made EVERY building wear the selection wireframe, so
     // selected vs unselected rendered pixel-identical). Billboards likewise
@@ -203,7 +233,9 @@ export class BuildingSprite extends Container {
   setLod(lod: Lod): void {
     this.lodCurrent = lod;
     const close = lod === "close";
-    this.windows.visible = close;
+    // Pixel-art buildings bake windows/props into the frames — the procedural
+    // windows layer only exists for the fallback path.
+    this.windows.visible = close && this.pixelKey === null;
     this.identity.visible = close;
     this.windows.alpha = 1;
     this.identity.alpha = 1;
@@ -216,15 +248,104 @@ export class BuildingSprite extends Container {
   }
 
   /**
-   * Detail-layer alpha for the LOD-swap fade-in (windows + identity layers
-   * only — the silhouette never fades, and billboards stay at full alpha:
-   * they are already on screen at district zoom, so re-fading them on every
-   * close-LOD entry would blink plates that never left). Applied by the
-   * scene's single tween.
+   * Detail-layer alpha for the LOD-swap fade-in (the whole windows container
+   * + identity layers — the silhouette never fades, and billboards stay at
+   * full alpha: they are already on screen at district zoom, so re-fading
+   * them on every close-LOD entry would blink plates that never left).
+   * Composes with setFacadeGlow (which owns only the LIT child's alpha).
+   * Applied by the scene's single tween.
    */
   setDetailAlpha(alpha: number): void {
     this.windows.alpha = alpha;
     this.identity.alpha = alpha;
+  }
+
+  /**
+   * Lit-window glow (engine-audit §3.1): 1 at night (full seeded window
+   * bloom), ~0.15 at full day (glass sheen — architecture reads by day,
+   * lights by night). Alpha-only; insets + micro-props stay constant. The
+   * value is remembered so redraws and LOD swaps reapply it.
+   */
+  setFacadeGlow(glow: number): void {
+    this.facadeGlowCurrent = glow;
+    this.facadeLit.alpha = glow;
+  }
+
+  /**
+   * Daylight factor 0..1 (PIXEL-ART day/night, engine upgrade 2026-09-28):
+   * the day frame fades over the night frame and the additive lights layer
+   * dims to the glass-sheen floor — real art states, not vector tinting.
+   * Procedural fallback buildings keep the facade-glow path above.
+   */
+  setDaylight(daylight: number): void {
+    this.daylightCurrent = daylight;
+    if (this.pixelKey !== null) {
+      this.artDay.alpha = daylight;
+      this.artLights.alpha = facadeGlowAt(daylight);
+    } else {
+      this.setFacadeGlow(facadeGlowAt(daylight));
+    }
+  }
+
+  /**
+   * Mount (or fall back from) the generated pixel-art frames for this
+   * building's (family, tier, cardId-variant). Called from redraw() and from
+   * the scene's texture-ready pass — a sheet that arrives late swaps the
+   * procedural layers out in place (same tile, same layers above).
+   */
+  syncPixelArt(): void {
+    const frames = pixelFramesFor(
+      this.building.profession,
+      this.building.tier,
+      this.building.cardId
+    );
+    if (!frames) {
+      // null = disabled/failed, undefined = still loading — either way the
+      // procedural layers stay visible until a later ready-pass retries.
+      if (this.pixelKey !== null) {
+        this.pixelKey = null;
+        this.setPixelLayersVisible(false);
+        this.setProceduralLayersVisible(true);
+      }
+      return;
+    }
+    const key = `${frames.day.source.uid}|${this.building.profession}|${this.building.tier}`;
+    if (key !== this.pixelKey) {
+      this.pixelKey = key;
+      this.mountPixelFrames(frames);
+    }
+  }
+
+  private mountPixelFrames(frames: PixelArtFrames): void {
+    for (const [sprite, tex] of [
+      [this.artDay, frames.day],
+      [this.artNight, frames.night],
+      [this.artLights, frames.lights],
+    ] as const) {
+      sprite.texture = tex;
+      sprite.anchor.set(frames.anchorX / frames.frameW, frames.anchorY / frames.frameH);
+      sprite.position.set(0, 0);
+      sprite.visible = true;
+    }
+    this.artDay.alpha = this.daylightCurrent;
+    this.artLights.alpha = facadeGlowAt(this.daylightCurrent);
+    // The art carries windows + micro-props + family emissives: hide the
+    // procedural duplicates (identity sigil, status ring, selection, label
+    // and billboards stay — they are state overlays, not art).
+    this.setProceduralLayersVisible(false);
+  }
+
+  private setProceduralLayersVisible(on: boolean): void {
+    this.silhouette.visible = on;
+    this.tierExt.visible = on;
+    this.emissive.visible = on;
+    this.windows.visible = on && this.lodCurrent === "close";
+  }
+
+  private setPixelLayersVisible(on: boolean): void {
+    this.artDay.visible = on;
+    this.artNight.visible = on;
+    this.artLights.visible = on;
   }
 
   /**
@@ -281,10 +402,14 @@ export class BuildingSprite extends Container {
     drawTierFeatures(this.tierExt, this.emissive, this.building.profession, tier);
     spec.drawRooftop(this.tierExt, this.emissive, tier);
 
-    this.windows.clear();
-    drawFacadeWindows(this.windows, this.building.cardId, tier, this.building.profession);
+    this.windows.visible = this.lodCurrent === "close";
+    this.facadeBase.clear();
+    this.facadeLit.clear();
+    drawFacadeWindows(this.facadeLit, this.facadeBase, this.building.cardId, tier, this.building.profession);
+    this.facadeLit.alpha = this.facadeGlowCurrent;
     // Rooftop clutter joins the same close-LOD layer (hidden at distance).
-    drawMicroProps(this.windows, this.building.cardId, tier, this.building.profession);
+    this.props.clear();
+    drawMicroProps(this.props, this.building.cardId, tier, this.building.profession);
 
     this.identity.clear();
     drawIdentityMarker(this.identity, this.building.profession, tier);
@@ -298,6 +423,7 @@ export class BuildingSprite extends Container {
     this.selection.visible = wasSelected;
 
     if (this.lodCurrent !== "world") this.syncBillboards();
+    this.syncPixelArt();
   }
 
   /**
