@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     if (!owned) {
       return NextResponse.json(
-        { error: "You don't own this goddess avatar" },
+        { error: "You don't own this goddess building" },
         { status: 403 }
       );
     }

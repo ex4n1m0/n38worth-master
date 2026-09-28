@@ -7,7 +7,7 @@
   "cityHudResetCamera": "Reset camera",
   "cityHudSector": "Sector {index}",
   "cityHudSectorBetween": "Between sectors",
-  "cityHudSectorLocked": "Locked — unlocks at {threshold} avatars",
+  "cityHudSectorLocked": "Locked — unlocks at {threshold} buildings",
   "citySummaryLabel": "City overview",
   "cityInspectorTitle": "Building details",
   "cityInspectorClose": "Close building details",

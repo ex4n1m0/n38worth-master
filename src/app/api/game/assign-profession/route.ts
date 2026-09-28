@@ -90,18 +90,18 @@ export async function POST(request: Request) {
 
     const [owned] = ownedRows;
     if (!owned) {
-      return NextResponse.json({ error: "You don't own this avatar" }, { status: 403 });
+      return NextResponse.json({ error: "You don't own this building" }, { status: 403 });
     }
 
     const [npc] = npcRows;
     if (!npc) {
-      return NextResponse.json({ error: "Avatar not found" }, { status: 404 });
+      return NextResponse.json({ error: "Building not found" }, { status: 404 });
     }
     if (npc.isNpc !== 1) {
-      return NextResponse.json({ error: "Can only assign professions to NPC avatars" }, { status: 400 });
+      return NextResponse.json({ error: "Can only assign professions to NPC buildings" }, { status: 400 });
     }
     if (npc.profession === profession) {
-      return NextResponse.json({ error: "This avatar already has this profession" }, { status: 400 });
+      return NextResponse.json({ error: "This building already has this profession" }, { status: 400 });
     }
 
     const counts: Record<string, number> = {};

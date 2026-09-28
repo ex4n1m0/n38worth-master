@@ -75,6 +75,14 @@ and Pusher events were NOT renamed. Keep these rules:
   sell block), BREACH (was break), HARD LOCK (was perm block / fate seal),
   CLOAKED (was hidden), SCAN (was reveal), BOTNET (was mass hire).
   "Hire", "credits", "boss", "hire slots" are unchanged.
+- **Units display as BUILDINGS (since 2026-09-28)**: the tradable
+  avatar/card is "building(s)" / "建筑" in ALL user-visible copy — nav tab,
+  market, toasts, tutorial, mission labels (`missions-data.ts`), profession
+  perks, goddess powers, and API `error:` strings. The PROFILE-PHOTO sense
+  keeps "avatar" / "头像" (upload/change/random avatar, "Your Avatar is your
+  Brand"). Key names, code identifiers, API paths and DB values are
+  unchanged (`navAvatars`, `avatarValueTooltip`, `/api/avatar/*`,
+  `reveal-avatar` routes).
 - **Rank titles** in `src/lib/ranks.ts` are sci-fi ladders (Lurker→Architect,
   Null→Yotta, Ghost→Ascendant, Void→Hegemon). The "Empire" leaderboard
   category DISPLAYS as "Grid"/"Widest Grid" but its API value stays

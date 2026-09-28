@@ -108,7 +108,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
           (expiresAt.getTime() - Date.now()) / 60000
         );
         return {
-          error: `${target?.username ?? "An avatar"} is firewalled and can't be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
+          error: `${target?.username ?? "A building"} is firewalled and can't be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
         };
       }
     }

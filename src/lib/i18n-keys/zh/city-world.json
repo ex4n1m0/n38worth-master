@@ -7,7 +7,7 @@
   "cityHudResetCamera": "重置视角",
   "cityHudSector": "扇区 {index}",
   "cityHudSectorBetween": "扇区之间",
-  "cityHudSectorLocked": "未解锁——集齐 {threshold} 个化身后开启",
+  "cityHudSectorLocked": "未解锁——集齐 {threshold} 个建筑后开启",
   "citySummaryLabel": "城市概览",
   "cityInspectorTitle": "建筑详情",
   "cityInspectorClose": "关闭建筑详情",

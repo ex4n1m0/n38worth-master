@@ -124,7 +124,7 @@ export const PROFESSION_PERKS: Record<string, { name: string; description: strin
   },
   "Overclocker": {
     name: "Turbo Boost",
-    description: "Overclocking costs 10% less but still doubles the avatar's value.",
+    description: "Overclocking costs 10% less but still doubles the building's value.",
   },
   "Cache Keeper": {
     name: "Cached Dividends",
@@ -136,7 +136,7 @@ export const PROFESSION_PERKS: Record<string, { name: string; description: strin
   },
   "Bot Herder": {
     name: "Wider Botnet",
-    description: "Botnet grabs +1 extra avatar.",
+    description: "Botnet grabs +1 extra building.",
   },
 };
 
@@ -152,7 +152,7 @@ export const PROFESSION_PERKS_ZH: Record<string, { name: string; description: st
   },
   "Overclocker": {
     name: "涡轮加速",
-    description: "超频费用减少 10%，但依然使化身身价翻倍。",
+    description: "超频费用减少 10%，但依然使建筑身价翻倍。",
   },
   "Cache Keeper": {
     name: "缓存分红",
@@ -164,7 +164,7 @@ export const PROFESSION_PERKS_ZH: Record<string, { name: string; description: st
   },
   "Bot Herder": {
     name: "更广的僵尸网络",
-    description: "僵尸网络每次多抓 1 个化身。",
+    description: "僵尸网络每次多抓 1 个建筑。",
   },
 };
 

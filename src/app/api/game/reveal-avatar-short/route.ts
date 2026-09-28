@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     if (targetId === senderId) {
-      return NextResponse.json({ error: "Cannot reveal your own avatar" }, { status: 400 });
+      return NextResponse.json({ error: "Cannot reveal your own building" }, { status: 400 });
     }
 
     // 1-minute avatar reveal duration
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
     if (!isFree && cost < 0.01) {
       return NextResponse.json(
-        { error: "Player value too low to reveal avatar" },
+        { error: "Player value too low to reveal building" },
         { status: 400 }
       );
     }
@@ -192,6 +192,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Reveal avatar short error:", error);
-    return NextResponse.json({ error: "Failed to reveal avatar" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to reveal building" }, { status: 500 });
   }
 }

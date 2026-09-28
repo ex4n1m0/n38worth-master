@@ -112,13 +112,13 @@ export async function POST(req: Request) {
     const ownedIds = new Set(ownedRows.map((r) => r.ownedId));
     if (placements.some((p) => !ownedIds.has(p.cardId))) {
       return NextResponse.json(
-        { error: "Avatar no longer owned" },
+        { error: "Building no longer owned" },
         { status: 409 }
       );
     }
     if (ownedRows.some((r) => goddessSet.has(r.username))) {
       return NextResponse.json(
-        { error: "Avatar is a landmark, not placeable" },
+        { error: "Building is a landmark, not placeable" },
         { status: 400 }
       );
     }
@@ -250,7 +250,7 @@ export async function POST(req: Request) {
       );
       const rejected = placements
         .filter((p) => !applied.has(p.cardId))
-        .map((p) => ({ cardId: p.cardId, reason: "Avatar no longer owned" }));
+        .map((p) => ({ cardId: p.cardId, reason: "Building no longer owned" }));
 
       // --- 9. Best-effort Pusher (never fails the write — purchaseCore idiom).
       try {

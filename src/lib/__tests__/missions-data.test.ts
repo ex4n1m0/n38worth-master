@@ -116,7 +116,7 @@ describe("locale-aware labels", () => {
   });
 
   it("missionLabel interpolates the threshold into the zh template", () => {
-    expect(missionLabel(0, "zh")).toBe("集齐 20 个化身，解锁完整游戏");
+    expect(missionLabel(0, "zh")).toBe("集齐 20 个建筑，解锁完整游戏");
     // 5,000 uses the en-US thousands separator inside zh copy (canon)
     expect(missionLabel(7, "zh")).toContain("5,000");
   });
@@ -128,7 +128,7 @@ describe("locale-aware labels", () => {
 
   it("finalGoddessLabel reflects the effective threshold in both locales", () => {
     expect(finalGoddessLabel(8000, "en")).toBe(
-      "Get 8,000 avatars to unlock The Architect"
+      "Get 8,000 buildings to unlock The Architect"
     );
     expect(finalGoddessLabel(8000, "zh")).toContain("8,000");
     expect(finalGoddessLabel(8000, "zh")).toContain("架构师");

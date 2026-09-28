@@ -51,11 +51,11 @@ export async function POST(req: Request) {
       .from(ownership)
       .where(and(eq(ownership.ownerId, callerId), eq(ownership.ownedId, targetId)));
     if (!owned) {
-      return NextResponse.json({ error: "You don't own this avatar" }, { status: 403 });
+      return NextResponse.json({ error: "You don't own this building" }, { status: 403 });
     }
     if (owned.renamedAt !== null) {
       return NextResponse.json(
-        { error: "You already renamed this avatar — each owner gets one rename" },
+        { error: "You already renamed this building — each owner gets one rename" },
         { status: 403 }
       );
     }
@@ -71,17 +71,17 @@ export async function POST(req: Request) {
       .from(users)
       .where(eq(users.id, targetId));
     if (!npc) {
-      return NextResponse.json({ error: "Avatar not found" }, { status: 404 });
+      return NextResponse.json({ error: "Building not found" }, { status: 404 });
     }
     if (npc.isNpc !== 1 || npc.isProtected === 1) {
       return NextResponse.json(
-        { error: "Only NPC avatars can be renamed" },
+        { error: "Only NPC buildings can be renamed" },
         { status: 400 }
       );
     }
     if (npc.username === name) {
       return NextResponse.json(
-        { error: "That is already this avatar's name" },
+        { error: "That is already this building's name" },
         { status: 400 }
       );
     }
@@ -120,6 +120,6 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("Rename NPC error:", error);
-    return NextResponse.json({ error: "Failed to rename avatar" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to rename building" }, { status: 500 });
   }
 }

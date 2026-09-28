@@ -34,49 +34,49 @@ export const MISSIONS: Mission[] = [
     threshold: 20,
     rewardCards: [],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 20 avatars to unlock the Game",
+    label: "Get 20 buildings to unlock the Game",
   },
   {
     threshold: 50,
     rewardCards: ["Mass Hire"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 50 avatars to unlock Botnet",
+    label: "Get 50 buildings to unlock Botnet",
   },
   {
     threshold: 100,
     rewardCards: ["Goddess of Wealth"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 100 avatars to unlock The Banker",
+    label: "Get 100 buildings to unlock The Banker",
   },
   {
     threshold: 250,
     rewardCards: ["Goddess of Knowledge"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 250 avatars to unlock The Oracle",
+    label: "Get 250 buildings to unlock The Oracle",
   },
   {
     threshold: 500,
     rewardCards: ["Goddess of Fate"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 500 avatars to unlock The Locksmith",
+    label: "Get 500 buildings to unlock The Locksmith",
   },
   {
     threshold: 1000,
     rewardCards: ["Goddess of Time"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 1,000 avatars to unlock The Clockkeeper",
+    label: "Get 1,000 buildings to unlock The Clockkeeper",
   },
   {
     threshold: 2000,
     rewardCards: ["Goddess of War"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 2,000 avatars to unlock NullPointer",
+    label: "Get 2,000 buildings to unlock NullPointer",
   },
   {
     threshold: 5000,
     rewardCards: ["Goddess"],
     addHireSlots: MISSION_HIRE_SLOTS_REWARD,
-    label: "Get 5,000 avatars to unlock The Architect",
+    label: "Get 5,000 buildings to unlock The Architect",
   },
 ];
 
@@ -104,14 +104,14 @@ export function finalGoddessThreshold(winCount: number): number {
  * labels above stay the server-side canon). `{n}` marks the threshold.
  */
 export const MISSION_LABELS_ZH: Record<number, string> = {
-  0: "集齐 {n} 个化身，解锁完整游戏",
-  1: "集齐 {n} 个化身，解锁僵尸网络",
-  2: "集齐 {n} 个化身，解锁银行家",
-  3: "集齐 {n} 个化身，解锁先知",
-  4: "集齐 {n} 个化身，解锁锁匠",
-  5: "集齐 {n} 个化身，解锁守钟人",
-  6: "集齐 {n} 个化身，解锁空指针",
-  7: "集齐 {n} 个化身，解锁架构师",
+  0: "集齐 {n} 个建筑，解锁完整游戏",
+  1: "集齐 {n} 个建筑，解锁僵尸网络",
+  2: "集齐 {n} 个建筑，解锁银行家",
+  3: "集齐 {n} 个建筑，解锁先知",
+  4: "集齐 {n} 个建筑，解锁锁匠",
+  5: "集齐 {n} 个建筑，解锁守钟人",
+  6: "集齐 {n} 个建筑，解锁空指针",
+  7: "集齐 {n} 个建筑，解锁架构师",
 };
 
 /** Locale-aware progress-bar label for a mission. */
@@ -130,8 +130,8 @@ export function missionLabel(index: number, locale: "en" | "zh" = "en"): string 
 export function finalGoddessLabel(threshold: number, locale: "en" | "zh" = "en"): string {
   const n = threshold.toLocaleString("en-US");
   return locale === "zh"
-    ? `集齐 ${n} 个化身，解锁架构师`
-    : `Get ${n} avatars to unlock The Architect`;
+    ? `集齐 ${n} 个建筑，解锁架构师`
+    : `Get ${n} buildings to unlock The Architect`;
 }
 
 /**
