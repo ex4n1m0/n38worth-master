@@ -27,7 +27,7 @@
  */
 
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
-import { UNASSIGNED_FAMILY, type CityBuilding } from "@/lib/city/types";
+import type { CityBuilding } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import { facadeGlowAt } from "@/lib/city/scene/daylight";
 import { avatarTexture, loadAvatarTexture } from "./avatars";
@@ -49,7 +49,9 @@ import {
 export class BuildingSprite extends Container {
   private _building: CityBuilding;
 
-  private readonly platform: Graphics = new Graphics();
+  private readonly platformNight: Graphics = new Graphics();
+  /** Day concrete slab — crossfaded over the night one by daylight. */
+  private readonly platformDay: Graphics = new Graphics();
   /**
    * PIXEL-ART PATH (engine upgrade 2026-09-28): day/night/lights sprites
    * from the generated sheets, crossfaded by the daylight clock. While the
@@ -101,7 +103,8 @@ export class BuildingSprite extends Container {
     this._building = building;
     this.windows.addChild(this.facadeBase, this.facadeLit, this.props);
     this.addChild(
-      this.platform,
+      this.platformNight,
+      this.platformDay,
       this.artDay,
       this.artNight,
       this.artLights,
@@ -279,6 +282,7 @@ export class BuildingSprite extends Container {
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
+    this.platformDay.alpha = daylight;
     if (this.pixelKey !== null) {
       this.artDay.alpha = daylight;
       this.artLights.alpha = facadeGlowAt(daylight);
@@ -383,13 +387,13 @@ export class BuildingSprite extends Container {
     this.billboardsKey = "";
 
     const spec = familyArt(this.building.profession);
-    const neon = professionNeon(this.building.profession);
     const tier = this.building.tier;
-    const professioned =
-      !!this.building.profession && this.building.profession !== UNASSIGNED_FAMILY;
 
-    this.platform.clear();
-    drawPlatform(this.platform, neon, professioned);
+    this.platformNight.clear();
+    drawPlatform(this.platformNight, "night");
+    this.platformDay.clear();
+    drawPlatform(this.platformDay, "day");
+    this.platformDay.alpha = this.daylightCurrent;
 
     this.silhouette.clear();
     this.emissive.clear();

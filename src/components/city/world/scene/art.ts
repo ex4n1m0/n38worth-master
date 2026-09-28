@@ -806,33 +806,32 @@ export function makeTextChip(
 
 
 /**
- * Tile platform — the WET SLAB (study §A4): dark near-black fill with a
- * layered neon wash (the family light reflecting in the puddle) and, for
- * professioned buildings, a vertical REFLECTION STREAK below center — the
- * "neon mirrored on wet ground" tell from the reference. The streak is drawn
- * bright enough to join the bloom pass.
+ * Tile platform — CONCRETE SLAB (normal-city v2, 2026-09-28): plain paving
+ * under each building, day and night variants (the scene crossfades the two
+ * Graphics by daylight). Replaces the old "wet slab" neon wash + reflection
+ * streak — no glow, no family tint; the building carries identity.
  */
 export function drawPlatform(
   g: Graphics,
-  neon: number,
+  variant: "day" | "night",
   professioned = false
 ): void {
   const hw = PLATFORM_HALF_W;
   const hh = PLATFORM_HALF_H;
   const diamond = [0, -hh, hw, 0, 0, hh, -hw, 0];
-  g.poly(diamond).fill({ color: COLOR_WET_SLAB, alpha: 0.94 });
-  if (professioned) {
-    // Layered accent wash = cheap radial glow under the building.
-    g.poly(diamond).fill({ color: neon, alpha: 0.1 });
-    g.ellipse(0, 0, hw * 0.55, hh * 0.55).fill({ color: neon, alpha: 0.1 });
-    g.poly(diamond).stroke({ width: 2, color: neon, alpha: 0.85 });
-    // Reflection streak toward the viewer (bright — feeds bloom). Wide
-    // enough to read as wet-ground light spill, not a stray line.
-    g.rect(-3, 0, 6, hh + 10).fill(vGrad(neon, shade(neon, 0.4), 0.6));
-    g.ellipse(0, hh * 0.55, 11, hh * 0.55).fill({ color: neon, alpha: 0.12 });
+  if (variant === "day") {
+    g.poly(diamond).fill({ color: 0xb4b0a6, alpha: 1 });
+    // Sidewalk inner line (slightly darker paving seam).
+    g.poly([0, -hh + 3, hw - 5, 0, 0, hh - 3, -hw + 5, 0])
+      .stroke({ width: 1, color: 0x9a968c, alpha: 0.7 });
+    g.poly(diamond).stroke({ width: 1.5, color: 0x84806f, alpha: 1 });
   } else {
-    g.poly(diamond).stroke({ width: 1.5, color: neon, alpha: 0.5 });
+    g.poly(diamond).fill({ color: 0x3d424b, alpha: 1 });
+    g.poly([0, -hh + 3, hw - 5, 0, 0, hh - 3, -hw + 5, 0])
+      .stroke({ width: 1, color: 0x333841, alpha: 0.7 });
+    g.poly(diamond).stroke({ width: 1.5, color: 0x2b3038, alpha: 1 });
   }
+  void professioned;
 }
 
 // ── facade windows (study §A3) ────────────────────────────────────────────

@@ -263,11 +263,15 @@ n38worth-game-systems review):
   frame geometry, ground-contact anchors). The scene mounts them via
   `scene/pixel-art.ts` (nearest-neighbor, lazy per family×tier, kill switch
   `NEXT_PUBLIC_CITY_PIXEL_ART=off` → procedural fallback in art.ts).
-  Day/night for buildings = art-frame crossfade driven by daylight.ts
-  (`BuildingSprite.setDaylight`); the day frames are authored
-  PRE-COMPENSATED for the scene's day matrix lift — if you change
-  DAY_MATRIX_PIXEL in CityScene.ts, apply the same map in the generator's
-  dayLift() and regenerate. Variant per card is `pixelVariantOf`
+  **v2 normal-city direction (2026-09-28 evening, user ruling): classic
+  SimCity 2000/3000-style NORMAL architecture — stone/concrete/brick/glass
+  palette, no cyberpunk neon/rings/coils; day frames are TRUE COLOR; night =
+  dark masses + warm lit windows only.** Day/night = art-frame crossfade +
+  a grass terrain plate (day/night pair in IsoWorld) + concrete platforms
+  (day/night pair in art.ts) + scoped soft-lift filters for the remaining
+  procedural heroes (HQ/monuments/aggregate). There is NO global day
+  ColorMatrix anymore — add authored day/night pairs to new elements
+  instead of reintroducing one. Variant per card is `pixelVariantOf`
   (lib/city/scene/pixel-variant.ts, tested) — deterministic, never random.
   All art is original code-plotted work; never feed copyrighted game assets
   into the pipeline.

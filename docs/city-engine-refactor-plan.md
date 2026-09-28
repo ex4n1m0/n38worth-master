@@ -169,40 +169,46 @@ function.
 
 ### 3.2 Implemented (2026-09-28) — original pixel-art day/night building atlas
 
-The full art-driven day/night system (the "different approach" the upgrade
-plan calls for — real art states instead of tinting one night-native
-drawing):
+**v2 (same day, evening — user ruling "make a normal city first, like
+SimCity 2000/3000"):** the cyberpunk vocabulary is GONE. Buildings are
+normal architecture (stone civic + copper dome, concrete twin towers +
+bridge, brick silos, stepped beige offices, glass corporate slab, warehouse
++ sheds, pitched-roof houses); day frames are TRUE COLOR; night = dark
+masses + warm lit windows, door lamps and tiny red antenna beacons only.
+The global day ColorMatrix was REMOVED — every element owns authored
+day/night states: a grass TERRAIN PLATE under the whole macro grid
+(mow bands + street grid, day/night Graphics pair in IsoWorld), concrete
+platform slabs (day/night pair in art.ts), and scoped soft-lift filters for
+the still-procedural heroes (HQ / monuments / aggregate slabs). Paths are
+neutral asphalt; the HQ palette was de-neon'd (civic tower, warm windows).
+Functional game states keep their colors: firewall/hard-lock rings,
+selection, Root Sequence tints, locked-sector discovery overlays (now
+neutral slate).
+
+v1 notes (superseded): day frames used to be pre-compensated for a global
+day matrix lift — that coupling no longer exists; do not reintroduce a
+global matrix, add authored day/night pairs instead.
 
 - **`scripts/gen-city-pixel-art.ts`** (`npm run gen:city-pixel-art`,
   deterministic, re-runnable, sharp only): plots ORIGINAL pixel art per
-  (family × tier) — scanline iso boxes, 2:1 diamonds, constrained palettes
-  derived from the FAMILY_MASS/NEON canon, seeded window patterns, family
-  silhouettes (vault+dome / hollow gateway / reactor cylinder / offset chip
-  stack / rack slab / tri-lobed hangar / stepped cube), the tier-3..7
-  feature ladder, rooftop clutter. Each sheet carries 3 deterministic
-  variants × 3 frames: **day** (authored pre-compensated for the scene's day
-  matrix lift), **night** (native dark mass), **lights** (emissive-only).
-  Output: `public/city/pixel/*.png` (49 sheets) +
-  `city-pixel-art.generated.ts` (URLs, frame geometry, ground-contact
-  anchors, art heights). A QA contact sheet is written to
-  `scripts/city-pixel-preview.png` (dev artifact, not shipped).
+  (family × tier) — scanline iso boxes, 2:1 diamonds, seeded window
+  patterns, family silhouettes, tier ladder (antenna / annexes / setback /
+  water tank / crown), rooftop clutter. Each sheet carries 3 deterministic
+  variants × 3 frames: day / night / lights. Output:
+  `public/city/pixel/*.png` (49 sheets) + `city-pixel-art.generated.ts`.
+  A QA contact sheet lands in `scripts/city-pixel-preview.png` (dev
+  artifact, gitignored).
 - **`scene/pixel-art.ts`**: sheet loader (nearest-neighbor textures, frame
   splitting, cache + ready-listeners, `NEXT_PUBLIC_CITY_PIXEL_ART=off` kill
   switch) and `src/lib/city/scene/pixel-variant.ts` (deterministic
   cardId→variant, unit-tested).
 - **`BuildingSprite`**: day/night/lights `Sprite` layers crossfaded by the
   daylight clock — `setDaylight(v)` sets day-frame alpha = v and lights
-  alpha = `facadeGlowAt(v)` (additive, feeds bloom). While sheets load (or
-  if disabled) the procedural layers stay visible — zero pop-in regression.
-  Windows/micro-props/emissives come from the art; selection rings, status
-  rings, identity sigils, labels and avatar billboards stay as overlays.
-- **`CityScene`**: pixel mode (first sheet ready) softens the day matrix
-  (0.5/0.55 → 0.72/0.26) because building daylight now comes from art; HQ,
-  landmarks, platforms, paths keep the global lift. Sky crossfade, day wash
-  and bloom adaptation unchanged.
-- Verified: 234 city tests (incl. manifest integrity + variant
-  determinism), contact-sheet visual review, live night render on
-  `/city/IgorCarlier` (62 buildings, all families).
+  alpha = `facadeGlowAt(v)` (additive). While sheets load (or if disabled)
+  the procedural layers stay visible — zero pop-in regression.
+- Verified: 234 city tests, contact-sheet visual review, live night render
+  on `/city/IgorCarlier` (62 buildings, all families; cyan marks confirmed
+  as functional firewall status rings, not art).
 
 The Kenney CC0 route (§below) remains a future alternative art source — the
 generator would be replaced by iso renders of the models; the loader,

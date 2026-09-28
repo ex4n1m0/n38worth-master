@@ -19,14 +19,15 @@
  * unlock) is server-sent; this class never computes economy values.
  */
 
-import { Container, Graphics } from "pixi.js";
-import { GRID_SIZE } from "@/lib/city/layout-schema";
+import { ColorMatrixFilter, Container, Graphics } from "pixi.js";
+import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { CityBuilding, CityLandmark, CitySectorInfo } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import { pointVisible, type CullRect } from "@/lib/city/scene/culling";
 import {
   SECTOR_MACRO,
+  SECTOR_GAP_TILES,
   TILE_H,
   TILE_W,
   globalTile,
@@ -173,6 +174,10 @@ export class IsoWorld extends Container {
     super();
     this._sectorCount = Math.max(1, Math.min(9, sectorCount));
     this.buildingsLayer.sortableChildren = true; // depth = zIndex (x+y)
+    // Soft daylight lift for the hero layers (identity at night — see
+    // setDaylight; buildings/terrain own authored day states instead).
+    this.hqLayer.filters = [this.hqDayFilter];
+    this.landmarkLayer.filters = [this.landmarkDayFilter];
     // landmarkLayer sits ABOVE buildingsLayer deliberately: the six monuments
     // are the sector's key landmarks — ordinary towers must never occlude
     // them (image-analyst Phase E gate: buildings stacked on monument
@@ -230,21 +235,114 @@ export class IsoWorld extends Container {
     if (key === this.groundKey) return;
     this.groundKey = key;
     this.groundLayer.removeChildren().forEach((c) => c.destroy({ children: true }));
-    const total = this._sectorCount + this.lockedPadCount;
-    for (let s = 0; s < total; s++) {
-      const locked = s >= this._sectorCount;
+    // TERRAIN PLATE (normal-city v2, 2026-09-28): ONE solid grass diamond
+    // under the whole macro grid (+ margin), with a street grid and mow-band
+    // variation — day + night variants crossfaded by setDaylight. This
+    // replaces the per-sector blue pads (the "floor looks like the sky" and
+    // "transparent floor" complaints): the ground now reads as LAND, gaps
+    // between sector diamonds included.
+    this.groundLayer.addChild(
+      this.buildTerrainPlate("night"),
+      this.buildTerrainPlate("day")
+    );
+    this.plateDay!.alpha = this.daylightCurrent;
+    // Locked-sector overlays ride on top: dim unincorporated land + dashed
+    // boundary + lock marker (discovery UI, neutral slate now).
+    for (let s = this._sectorCount; s < this._sectorCount + this.lockedPadCount; s++) {
+      if (s >= SECTOR_KEYS.length) break;
       const origin = worldPointOfTile({ sector: `s${s}`, x: 0, y: 0 });
       const pad = new Container();
       pad.position.set(origin.x, origin.y);
-      pad.addChild(this.drawSectorGround(s, locked));
+      pad.addChild(this.drawLockedOverlay());
       this.groundLayer.addChild(pad);
     }
   }
 
-  private drawSectorGround(sectorIndex: number, locked: boolean): Graphics {
+  private plateDay: Graphics | null = null;
+  private plateNight: Graphics | null = null;
+  /** Last daylight pushed by the scene (plate crossfade + hero filters). */
+  private daylightCurrent = 0;
+  /** Soft daylight lift for the still-procedural hero art (HQ + monuments). */
+  private readonly hqDayFilter = new ColorMatrixFilter();
+  private readonly landmarkDayFilter = new ColorMatrixFilter();
+
+  /**
+   * The terrain plate: grass diamond covering tiles [-M, N+M)² of the macro
+   * grid (N = 3 macro cells), with tile-grid streets and mow bands. Drawn
+   * once per palette; the day variant crossfades over the night one.
+   */
+  private buildTerrainPlate(variant: "day" | "night"): Graphics {
+    const day = variant === "day";
+    const g = new Graphics();
+    const stride = GRID_SIZE + SECTOR_GAP_TILES;
+    const n = 2 * stride + GRID_SIZE; // tiles across the macro square
+    const m = 6; // green margin beyond the buildable grid
+    const c0 = -m;
+    const c1 = n + m;
+    // Diamond corners in world px (tile centers ± half-tile).
+    const corner = (tx: number, ty: number, ox: number, oy: number) => {
+      const p = tileToScreen(tx, ty);
+      return [p.x + ox, p.y + oy] as [number, number];
+    };
+    const top = corner(c0, c0, 0, -TILE_H / 2);
+    const right = corner(c1, c0, TILE_W / 2, 0);
+    const bottom = corner(c1, c1, 0, TILE_H / 2);
+    const left = corner(c0, c1, -TILE_W / 2, 0);
+    const plate = [top, right, bottom, left].flat();
+
+    // Grass base + subtle mow bands (alternate diagonal strips).
+    g.poly(plate).fill({ color: day ? 0x6b9c52 : 0x1f2a21, alpha: 1 });
+    const bandFrom = day ? 0x63954b : 0x1c261e;
+    const bandTo = day ? 0x71a358 : 0x222f24;
+    for (let band = 0; band < 14; band++) {
+      // Strip between iso lines of constant (x - y): a quad from tile line
+      // k to k+2 (in tile-diagonal space), clipped by drawing the full
+      // height of the diamond.
+      const k0 = c0 + (band * (c1 - c0)) / 14;
+      const k1 = c0 + ((band + 1) * (c1 - c0)) / 14;
+      const pA = tileToScreen(k0, c0);
+      const pB = tileToScreen(k1, c0);
+      const pC = tileToScreen(k1 + (c1 - c0), c1 + (c1 - c0));
+      const pD = tileToScreen(k0 + (c1 - c0), c1 + (c1 - c0));
+      g.poly([pA.x, pA.y, pB.x, pB.y, pC.x, pC.y, pD.x, pD.y]).fill({
+        color: band % 2 === 0 ? bandFrom : bandTo,
+        alpha: 1,
+      });
+    }
+
+    // Street grid: tile lines as faint paving seams; sector boundaries
+    // (stride multiples) as slightly stronger avenues.
+    const seam = day ? 0xa3a396 : 0x2c3540;
+    const avenue = day ? 0x8f8f84 : 0x343e4a;
+    for (let i = 0; i <= n; i++) {
+      const a = tileToScreen(i, 0);
+      const b = tileToScreen(i, n);
+      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({
+        width: 1,
+        color: i % stride === 0 ? avenue : seam,
+        alpha: day ? 0.5 : 0.55,
+      });
+      const c = tileToScreen(0, i);
+      const d = tileToScreen(n, i);
+      g.moveTo(c.x, c.y).lineTo(d.x, d.y).stroke({
+        width: 1,
+        color: i % stride === 0 ? avenue : seam,
+        alpha: day ? 0.5 : 0.55,
+      });
+    }
+
+    // Rim: darker edge so the plate reads as an island of terrain.
+    g.poly(plate).stroke({ width: 2, color: day ? 0x54452f : 0x141b16, alpha: day ? 0.8 : 0.9 });
+
+    if (day) this.plateDay = g;
+    else this.plateNight = g;
+    return g;
+  }
+
+  /** Dim unincorporated land for a LOCKED sector (discovery UI). */
+  private drawLockedOverlay(): Graphics {
     const g = new Graphics();
     const n = GRID_SIZE;
-    // Filled diamond pad.
     const far = tileToScreen(n, n);
     const corners: ReadonlyArray<[number, number]> = [
       [0, 0],
@@ -252,43 +350,16 @@ export class IsoWorld extends Container {
       [far.x, far.y],
       [far.x / 2 - TILE_W / 4, far.y / 2 + TILE_H / 4],
     ];
-    // OPAQUE pad (2026-09-28 user ruling "the floor still shows the stars"):
-    // at 0.9 the baked starfield bled through the city floor — unlocked pads
-    // must fully cover the sky. Locked pads stay near-transparent (dim voids).
-    g.poly(corners.flat()).fill({
-      color: sectorIndex === 0 ? 0x0a0e1a : 0x080b14,
-      alpha: locked ? 0.06 : 1,
-    });
-
-    // Grid lines: constant-x and constant-y tile edges (fainter when locked).
-    const gridAlpha = locked ? 0.035 : sectorIndex === 0 ? 0.16 : 0.1;
-    for (let i = 0; i <= n; i++) {
-      const a = tileToScreen(i, 0);
-      const b = tileToScreen(i, n);
-      g.moveTo(a.x, a.y).lineTo(b.x, b.y).stroke({
-        width: 1,
-        color: 0x22d3ee,
-        alpha: gridAlpha,
-      });
-      const c = tileToScreen(0, i);
-      const d = tileToScreen(n, i);
-      g.moveTo(c.x, c.y).lineTo(d.x, d.y).stroke({
-        width: 1,
-        color: 0x22d3ee,
-        alpha: gridAlpha,
-      });
+    // Unincorporated land: translucent dark-green wash over the grass.
+    g.poly(corners.flat()).fill({ color: 0x1a241c, alpha: 0.55 });
+    // Dashed neutral-slate boundary.
+    const stroke = { width: 1.5, color: 0x8b929c, alpha: 0.4 };
+    for (let e = 0; e < 4; e++) {
+      const [x1, y1] = corners[e];
+      const [x2, y2] = corners[(e + 1) % 4];
+      drawDashedLine(g, x1, y1, x2, y2, 18, 12, stroke);
     }
-
-    if (locked) {
-      // Dashed boundary + static lock marker (no pulse — reduced-motion safe).
-      const stroke = { width: 1.5, color: 0x22d3ee, alpha: 0.25 };
-      for (let e = 0; e < 4; e++) {
-        const [x1, y1] = corners[e];
-        const [x2, y2] = corners[(e + 1) % 4];
-        drawDashedLine(g, x1, y1, x2, y2, 18, 12, stroke);
-      }
-      drawLockMarker(g, 0, far.y / 2);
-    }
+    drawLockMarker(g, 0, far.y / 2);
     return g;
   }
 
@@ -557,12 +628,29 @@ export class IsoWorld extends Container {
   }
 
   /**
-   * Daylight factor 0..1 (pixel-art day/night): crossfades every building's
-   * day/night/lights frames (or the procedural facade glow in fallback
-   * mode — the sprite decides internally).
+   * Daylight factor 0..1 (pixel-art day/night): crossfades the terrain
+   * plate + every building's day/night/lights frames (or the procedural
+   * facade glow in fallback mode), and lerps a soft daylight lift over the
+   * still-procedural hero art (HQ + monuments — night-native masses).
    */
   setDaylight(daylight: number): void {
+    this.daylightCurrent = daylight;
+    if (this.plateDay) this.plateDay.alpha = daylight;
     for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
+    const scale = 1 + (0.68 - 1) * daylight;
+    const offset = 0.3 * daylight;
+    this.hqDayFilter.matrix = [
+      scale, 0, 0, 0, offset,
+      0, scale, 0, 0, offset,
+      0, 0, scale, 0, offset,
+      0, 0, 0, 1, 0,
+    ];
+    this.landmarkDayFilter.matrix = [
+      scale, 0, 0, 0, offset,
+      0, scale, 0, 0, offset,
+      0, 0, scale, 0, offset,
+      0, 0, 0, 1, 0,
+    ];
   }
 
   /**

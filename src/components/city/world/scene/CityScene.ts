@@ -234,20 +234,11 @@ const MOVE_GLIDE_CAP = 96;
  * player feels the time passing (2026-09-28 user ruling).
  */
 const DAYLIGHT_STEP_MS = 250;
-/** Screen-blend daylight wash over the whole stage (floor + buildings + sky
- *  brighten together). Soft blue-white, never bloom-fed (above fxRoot). */
-const DAY_WASH_COLOR = 0xcfe2f7;
-const DAY_WASH_MAX_ALPHA = 0.3;
-/**
- * Day palette matrix targets (row-major 4×5): channel = c·SCALE + OFFSET.
- * STRONG (procedural fallback): OFFSET ≈ 0.55 puts pure black at light gray,
- * SCALE 0.5 keeps mid-tones separated. PIXEL (art day/night frames mounted):
- * the day art already carries daylight, so the lift only warms the remaining
- * procedural elements (platforms, HQ, landmarks, paths) — day frames are
- * authored pre-compensated for these exact values (gen-city-pixel-art.ts).
- */
-const DAY_MATRIX_STRONG = { scale: 0.5, offset: 0.55 };
-const DAY_MATRIX_PIXEL = { scale: 0.72, offset: 0.26 };
+/** Screen-blend daylight wash over the whole stage (atmosphere unifier —
+ *  since the v2 normal-city redo every element owns AUTHORED day/night art,
+ *  so this is subtle). Soft warm-white, never bloom-fed (above fxRoot). */
+const DAY_WASH_COLOR = 0xf2ead4;
+const DAY_WASH_MAX_ALPHA = 0.14;
 
 export class CityScene {
   private readonly app: Application;
@@ -283,17 +274,14 @@ export class CityScene {
   private frameSamples = 0;
   private lastRenderAt = 0;
   /**
-   * DAY PALETTE LIFT (2026-09-28 user ruling "black areas become shades of
-   * white"): the building art is a NIGHT palette (near-black masses + neon)
-   * and no overlay can turn black into white — a color matrix on the WORLD
-   * can. At full day every channel is mapped c → c·SCALE + OFFSET, so dark
-   * faces land at light gray (~0.56) while emissives stay saturated; the
-   * matrix lerps back to identity as daylight falls, and the filter is
-   * DETACHED at night (zero cost outside daytime). Rides fxRoot (screen
-   * filterArea) BEFORE bloom — see syncBloom.
+   * Aggregate-skyline daylight lift (v2 normal-city redo, 2026-09-28): the
+   * global day ColorMatrix is GONE — buildings, terrain and platforms now
+   * carry AUTHORED day/night art frames — but the beyond-limit aggregate
+   * slabs are still procedural night masses, so they get the same soft
+   * per-layer lerp the HQ/monuments use (identity at night; see
+   * IsoWorld.setDaylight for the hero layers).
    */
-  private readonly dayColor = new ColorMatrixFilter();
-  private dayFilterOn = false;
+  private readonly aggregateDay = new ColorMatrixFilter();
   /** Bloom is currently in the fxRoot filter stack (probe + LOD gated). */
   private bloomAttached = false;
   private readonly world: IsoWorld;
@@ -447,6 +435,8 @@ export class CityScene {
       scene.rootLayer.beams,
       scene.fx
     );
+    // Aggregate skyline daylight lerp (identity at night — applyDaylight).
+    scene.aggregate.filters = [scene.aggregateDay];
     // Ground-level overlays (root veil → paths + district links) sit
     // beneath buildings, veil first so tinted paths stay legible over it.
     scene.world.beneathBuildings.addChild(
@@ -1014,14 +1004,12 @@ export class CityScene {
   }
 
   /**
-   * Attach/detach the fxRoot filter stack: day palette lift first (when
-   * daylight > 0), then threshold bloom (env + capability + LOD + probe
-   * gates). Order matters — bloom must see the LIFTED colors so the daytime
-   * threshold raise lines up with what is on screen.
+   * Attach/detach the fxRoot filter stack: threshold bloom only (env +
+   * capability + LOD + probe gates). Day/night is carried by authored art
+   * frames + scoped hero filters, not a global matrix.
    */
   private syncBloom(): void {
-    const filters: Array<ColorMatrixFilter | AdvancedBloomFilter> = [];
-    if (this.dayFilterOn) filters.push(this.dayColor);
+    const filters: Array<AdvancedBloomFilter> = [];
     this.bloomAttached =
       this.bloomSupported &&
       !this.bloomKilledByProbe &&
@@ -1341,23 +1329,18 @@ export class CityScene {
     this.bloom.bloomScale = 0.85 - 0.3 * v;
     // Buildings crossfade their day/night/lights ART frames (or, in the
     // procedural fallback, dim lit windows to a glass sheen) — same 250 ms
-    // ramp cadence, alpha-only, no redraws.
+    // ramp cadence, alpha-only, no redraws. The terrain plate + hero
+    // filters ride along inside IsoWorld.setDaylight.
     this.world.setDaylight(v);
-    // Channel map: identity·(1−v) → (c·SCALE+OFFSET)·v, alpha passthrough.
-    const m = this.pixelMode ? DAY_MATRIX_PIXEL : DAY_MATRIX_STRONG;
-    const scale = 1 + (m.scale - 1) * v;
-    const offset = m.offset * v;
-    this.dayColor.matrix = [
+    // Aggregate skyline: same soft daylight lerp as the hero layers.
+    const scale = 1 + (0.68 - 1) * v;
+    const offset = 0.3 * v;
+    this.aggregateDay.matrix = [
       scale, 0, 0, 0, offset,
       0, scale, 0, 0, offset,
       0, 0, scale, 0, offset,
       0, 0, 0, 1, 0,
     ];
-    const wantFilter = v > 0.002;
-    if (wantFilter !== this.dayFilterOn) {
-      this.dayFilterOn = wantFilter;
-      this.syncBloom();
-    }
   }
 
   private requestRender(): void {

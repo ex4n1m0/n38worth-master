@@ -23,7 +23,9 @@ import type { Lod } from "@/lib/city/scene/lod";
 import { TILE_H, globalTile, tileToScreen } from "@/lib/city/scene/iso";
 import { tileRefKey, type TileRef } from "@/lib/city/placement";
 
-const PATH_COLOR = 0x2b7a9b;
+/** Asphalt street tone (normal-city direction, 2026-09-28 v2) — reads as a
+ *  road at day, a dim street at night; the Root Sequence still tints it. */
+const PATH_COLOR = 0x70747c;
 const PATH_ALPHA: Record<Lod, number> = { close: 0.75, district: 0.45, world: 0.15 };
 const PATH_WIDTH: Record<Lod, number> = { close: 3, district: 2, world: 1.5 };
 /** HQ ground diamond half-height (HqSprite pedestal) — where its port sits. */
