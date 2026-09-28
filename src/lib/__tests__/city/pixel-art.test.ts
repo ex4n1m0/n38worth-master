@@ -15,7 +15,7 @@ const FAMILIES = [
 ];
 
 describe("CITY_PIXEL_SHEETS manifest (gen-city-pixel-art output)", () => {
-  it("covers all 7 families × 7 tiers with sane geometry", () => {
+  it("covers all 7 families × 7 sheet slots (game tiers 8–14) with sane geometry", () => {
     for (const family of FAMILIES) {
       const tiers = CITY_PIXEL_SHEETS[family];
       expect(tiers, family).toBeDefined();

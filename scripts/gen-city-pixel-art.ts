@@ -1,7 +1,9 @@
 /**
- * Original pixel-art building generator — SimCity 4 edition (2026-09-28 v3,
- * user art-direction ruling: "buildings read as black bricks — aim for
- * SimCity 4000, remove the bloom/gloom").
+ * Original pixel-art building generator — CHROMA SPECTACULAR edition
+ * (2026-09-29 v4, progression rework: 14 building levels. Tiers 1–7 render
+ * the PROCEDURAL vector architecture in the scene; the sheets generated
+ * here carry game tiers 8–14 — sheet slot tN = game tier N+7 — and must
+ * read as the SPECTACULAR, colourful high league).
  *
  * Deterministic, dependency-free art: every sprite is PLOTTED PIXEL BY PIXEL
  * into an RGBA buffer (scanline polygon fills, Bresenham edges — no
@@ -9,22 +11,22 @@
  * 100% original work drawn by code, inspired only by the broad qualities of
  * early-2000s realistic city builders.
  *
- * Art direction (v3 — SimCity 4 contrast pass):
- * - Day frames are TRUE COLOR, BRIGHT and SATURATED: strong sun/shade split
- *   between the two visible faces (~0.74× on the shade wall), LIGHT
- *   sky-blue day glass (the v2 dark-navy glass was the main "black brick"
- *   cause), floor spandrel bands under every window row.
- * - Night frames are MOONLIT, not black: masses keep ~40% luminance with a
- *   cool blue cast (v2 mixed to ~16% → unreadable dark slabs), windows stay
- *   visible as darker insets, lit ratio raised.
- * - Families are normal architecture: stone civic w/ copper dome, concrete
- *   twin towers + bridge, brick industrial silo, stepped beige offices,
- *   glass corporate slab, metal warehouse w/ brown roof, small house.
- * - NO neon rings, coils, halos, shards, beacons, LED strips. The lights
- *   layer is just lit windows (warm), door lamps and tiny red antenna
- *   beacons on tall buildings.
+ * Art direction (v4 — Chroma spectacular):
+ * - Day frames stay TRUE COLOR and BRIGHT (the v3 SC4 contrast discipline
+ *   is kept: strong sun/shade split, light glass, floor spandrel bands) but
+ *   materials are SATURATED and family-accented: gold sandstone + violet
+ *   copper, white concrete + crimson, terracotta + lime, adobe + emerald,
+ *   steel glass + cyan, slate + amber. Each family's accent echoes the
+ *   procedural art's FAMILY_NEON_HEX so family identity carries across the
+ *   two art systems.
+ * - The tier ladder is monumental: colored cornice bands, twin masts,
+ *   GLOWING sky-lobby bands (lights frame), illuminated crown rings,
+ *   garden terraces, sky bridges and a terminal mega-diadem with light
+ *   columns. Night masses stay moonlit-readable (v3 lesson: never black).
+ * - Night = moonlit masses + warm/cool windows + ACCENT-GLOWING crown
+ *   features (the lights frame carries the spectacular read).
  *
- * Output per (family × tier): public/city/pixel/<Family>-t<N>.png — 3
+ * Output per (family × sheet-tier): public/city/pixel/<Family>-t<N>.png — 3
  * DETERMINISTIC VARIANTS (rows) × 3 frames (columns): day | night | lights.
  * Plus city-pixel-art.generated.ts (URL + frame geometry + anchor + height).
  *
@@ -103,10 +105,11 @@ function mix(a: RGB, b: RGB, t: number): RGB {
     Math.round(a[2] + (b[2] - a[2]) * t),
   ];
 }
-/** Night mass: moonlit blue-gray — keep hue + ~40% luminance (v3: readable,
- *  not the v2 near-black mix that made buildings read as "black bricks"). */
+/** Night mass: moonlit blue-gray — keep hue + ~63% luminance (v4 raised
+ *  from v3's 55%: the darkest families/monuments read as black slabs at 55%
+ *  even with additive lights composited; 63% stays night-dark but legible). */
 function nightOf(c: RGB): RGB {
-  return mix(shade(c, 0.55), [46, 54, 80], 0.42);
+  return mix(shade(c, 0.68), [48, 56, 84], 0.4);
 }
 
 // ── pixel canvas ──────────────────────────────────────────────────────────
@@ -228,12 +231,12 @@ class PixCanvas {
   }
 }
 
-// ── shared palette (SimCity-4 contrast pass) ──────────────────────────────
+// ── shared palette (Chroma spectacular v4) ────────────────────────────────
 
 const OUTLINE_DAY: RGB = hexToRgb("#4a4438");
 const OUTLINE_NIGHT: RGB = hexToRgb("#10141f");
-// Day glass is SKY-LIGHT steel blue (SC4 curtain walls read light by day —
-// dark navy glass turned whole facades into "black bricks").
+// Day glass base is SKY-LIGHT steel blue — each family mixes it toward its
+// accent (v4: colored curtain walls are the spectacular read by day).
 const GLASS_DAY: RGB = hexToRgb("#7ea6c9");
 const GLASS_DAY_HI: RGB = hexToRgb("#e2f0fb");
 // Night glass: a visible darker inset against the moonlit walls (v2 #121826
@@ -243,74 +246,97 @@ const WINDOW_WARM: RGB = hexToRgb("#ffd27a");
 const WINDOW_PALE: RGB = hexToRgb("#fff3c9");
 const WINDOW_COOL: RGB = hexToRgb("#cfe0ff");
 const DOOR_LAMP: RGB = hexToRgb("#ffdf9e");
-const BEACON_RED: RGB = [226, 88, 74];
 
 /**
- * Per-family day materials (walls/roof) — night derives via nightOf(). The
- * left/right split is the SC4 sun read: the shade face sits at ~0.72–0.78×
- * the sunlit face (v2 used 0.88–0.92 — too flat to read as architecture).
+ * Per-family day materials (walls/roof) + the family ACCENT (echoes the
+ * procedural scene's FAMILY_NEON_HEX so identity carries across art
+ * systems). Night derives via nightOf(). The left/right split keeps the
+ * sun read: shade face ~0.74× the sunlit face.
  */
 interface FamilyPalette {
   left: RGB; // wall, away from light
   right: RGB; // wall, key light
   roof: RGB;
   trim: RGB; // roof edge / details
+  accent: RGB; // family color: glass tint, cornices, glow features
+  accentNight: RGB; // lights-frame accent (slightly deepened for glow)
 }
 
 const FAMILY_PALETTE: Record<Family, FamilyPalette> = {
-  // Stone civic building with a copper-green dome.
+  // Gold sandstone civic hall with a violet copper dome.
   Cryptographer: {
-    left: shade(hexToRgb("#cfb98e"), 0.74),
-    right: hexToRgb("#cfb98e"),
-    roof: hexToRgb("#7fa98d"),
-    trim: hexToRgb("#5e7862"),
+    left: shade(hexToRgb("#e3cf9e"), 0.76),
+    right: hexToRgb("#e3cf9e"),
+    roof: hexToRgb("#9d7bd8"),
+    trim: hexToRgb("#6d4fa8"),
+    accent: hexToRgb("#b491ff"),
+    accentNight: hexToRgb("#9d78f0"),
   },
-  // Pale concrete twin towers + bridge.
+  // White concrete twin towers, crimson roof steel.
   "Zero-Day": {
-    left: shade(hexToRgb("#c9ced6"), 0.76),
-    right: hexToRgb("#c9ced6"),
-    roof: hexToRgb("#aab0b8"),
-    trim: hexToRgb("#848b94"),
+    left: shade(hexToRgb("#e8e4ea"), 0.76),
+    right: hexToRgb("#e8e4ea"),
+    roof: hexToRgb("#d8455c"),
+    trim: hexToRgb("#a82a3e"),
+    accent: hexToRgb("#ff4a5e"),
+    accentNight: hexToRgb("#e03a4c"),
   },
-  // Brick industrial silo block.
+  // Terracotta plant with lime-green caps and drums.
   Overclocker: {
-    left: shade(hexToRgb("#c4735a"), 0.74),
-    right: hexToRgb("#c4735a"),
-    roof: hexToRgb("#a3aab3"),
-    trim: hexToRgb("#7d848d"),
+    left: shade(hexToRgb("#d97b4a"), 0.76),
+    right: hexToRgb("#d97b4a"),
+    roof: hexToRgb("#8fd23c"),
+    trim: hexToRgb("#5a8f1e"),
+    accent: hexToRgb("#b7ff4a"),
+    accentNight: hexToRgb("#9ce030"),
   },
-  // Beige stepped offices, brown roof trims.
+  // Adobe offices with emerald roof gardens.
   "Cache Keeper": {
-    left: shade(hexToRgb("#d8c8a0"), 0.76),
-    right: hexToRgb("#d8c8a0"),
-    roof: hexToRgb("#9a7550"),
-    trim: hexToRgb("#7a5c40"),
+    left: shade(hexToRgb("#ecd9a8"), 0.76),
+    right: hexToRgb("#ecd9a8"),
+    roof: hexToRgb("#2fbd7f"),
+    trim: hexToRgb("#1d7a52"),
+    accent: hexToRgb("#3ddc97"),
+    accentNight: hexToRgb("#2cc283"),
   },
-  // Blue-glass corporate tower.
+  // Cyan-glass corporate tower.
   "Server Marshal": {
-    left: shade(hexToRgb("#b6c6d8"), 0.78),
-    right: hexToRgb("#b6c6d8"),
-    roof: hexToRgb("#ccd1d7"),
-    trim: hexToRgb("#97a0aa"),
+    left: shade(hexToRgb("#bcd2ea"), 0.78),
+    right: hexToRgb("#bcd2ea"),
+    roof: hexToRgb("#8ec8f0"),
+    trim: hexToRgb("#3f7fb8"),
+    accent: hexToRgb("#6fc6ff"),
+    accentNight: hexToRgb("#54b0ea"),
   },
-  // Metal warehouse, brick-red roof.
+  // Slate warehouse with an amber steel roof.
   "Bot Herder": {
-    left: shade(hexToRgb("#c3cbd4"), 0.75),
-    right: hexToRgb("#c3cbd4"),
-    roof: hexToRgb("#b26852"),
-    trim: hexToRgb("#85503f"),
+    left: shade(hexToRgb("#ccd3dd"), 0.76),
+    right: hexToRgb("#ccd3dd"),
+    roof: hexToRgb("#e89a2f"),
+    trim: hexToRgb("#a8681a"),
+    accent: hexToRgb("#ffb547"),
+    accentNight: hexToRgb("#e89c30"),
   },
-  // Small warm house.
+  // Bright warm house with a coral roof.
   Unassigned: {
-    left: shade(hexToRgb("#e3d5ae"), 0.78),
-    right: hexToRgb("#e3d5ae"),
-    roof: hexToRgb("#9a6a4a"),
-    trim: hexToRgb("#78533a"),
+    left: shade(hexToRgb("#f0e2b8"), 0.78),
+    right: hexToRgb("#f0e2b8"),
+    roof: hexToRgb("#c96a3c"),
+    trim: hexToRgb("#94481f"),
+    accent: hexToRgb("#ffb08a"),
+    accentNight: hexToRgb("#e89070"),
   },
 };
 
 function nightPalette(p: FamilyPalette): FamilyPalette {
-  return { left: nightOf(p.left), right: nightOf(p.right), roof: nightOf(p.roof), trim: nightOf(p.trim) };
+  return {
+    left: nightOf(p.left),
+    right: nightOf(p.right),
+    roof: nightOf(p.roof),
+    trim: nightOf(p.trim),
+    accent: nightOf(p.accent),
+    accentNight: p.accentNight,
+  };
 }
 
 // ── iso geometry ──────────────────────────────────────────────────────────
@@ -414,7 +440,9 @@ function faceWindows(
   rng: () => number,
   litRatio = 0.5,
   wallDay: RGB = OUTLINE_DAY,
-  wallNight: RGB = OUTLINE_NIGHT
+  wallNight: RGB = OUTLINE_NIGHT,
+  glassDay: RGB = GLASS_DAY,
+  glassNight: RGB = GLASS_NIGHT
 ): void {
   const ox = cx + side * hw;
   const ax = -side * hw;
@@ -451,9 +479,9 @@ function faceWindows(
         point(u0 + wU, v0 + wV),
         point(u0, v0 + wV),
       ];
-      day.fillPoly(quad, GLASS_DAY);
+      day.fillPoly(quad, glassDay);
       day.line(quad[0][0], quad[0][1], quad[1][0], quad[1][1], GLASS_DAY_HI);
-      night.fillPoly(quad, GLASS_NIGHT);
+      night.fillPoly(quad, glassNight);
       const r = rng();
       if (r < litRatio) {
         const r2 = rng();
@@ -471,16 +499,21 @@ interface FamilySpec {
   floorH: number;
   hw: number; // tier-1 footprint half-width (px)
   cols: number; // window columns per face
+  /** Central-body width as a fraction of hw — the spectacular-ladder bands
+   *  and light columns hug THIS, never the full tile (hollow/narrow families
+   *  would otherwise get glow strips floating beside the silhouette).
+   *  0 = no central mass (bands skipped; the family carries its own glow). */
+  bodyFrac: number;
 }
 
 const FAMILY_SPEC: Record<Family, FamilySpec> = {
-  Cryptographer: { baseH: 26, floorH: 8, hw: 54, cols: 5 },
-  "Zero-Day": { baseH: 34, floorH: 12, hw: 48, cols: 2 },
-  Overclocker: { baseH: 38, floorH: 11, hw: 40, cols: 3 },
-  "Cache Keeper": { baseH: 26, floorH: 10, hw: 44, cols: 3 },
-  "Server Marshal": { baseH: 40, floorH: 13, hw: 34, cols: 4 },
-  "Bot Herder": { baseH: 22, floorH: 9, hw: 52, cols: 3 },
-  Unassigned: { baseH: 20, floorH: 9, hw: 34, cols: 2 },
+  Cryptographer: { baseH: 30, floorH: 10, hw: 54, cols: 5, bodyFrac: 0.8 },
+  "Zero-Day": { baseH: 38, floorH: 14, hw: 48, cols: 2, bodyFrac: 0 },
+  Overclocker: { baseH: 42, floorH: 13, hw: 40, cols: 3, bodyFrac: 0.44 },
+  "Cache Keeper": { baseH: 30, floorH: 12, hw: 44, cols: 3, bodyFrac: 0.78 },
+  "Server Marshal": { baseH: 46, floorH: 15, hw: 34, cols: 4, bodyFrac: 0.92 },
+  "Bot Herder": { baseH: 26, floorH: 11, hw: 52, cols: 3, bodyFrac: 0.55 },
+  Unassigned: { baseH: 24, floorH: 10, hw: 34, cols: 2, bodyFrac: 0.85 },
 };
 
 function artHeightOf(family: Family, tier: Tier): number {
@@ -508,8 +541,11 @@ function drawBuilding(ctx: FrameCtx): void {
   const pal = FAMILY_PALETTE[family];
   const palN = nightPalette(pal);
   const h = artHeightOf(family, tier);
-  const hw = Math.min(58, spec.hw + Math.floor((tier - 1) * 1.5));
+  const hw = Math.min(60, spec.hw + Math.floor((tier - 1) * 2));
   const hh = Math.round(hw / 2);
+  // Family-tinted curtain glass (v4): the colored-glass spectacular read.
+  const glassDay = mix(GLASS_DAY, pal.accent, 0.34);
+  const glassNight = mix(GLASS_NIGHT, pal.accentNight, 0.2);
 
   /** isoBox into day + night frames (+ windows into all three). */
   const box = (
@@ -535,7 +571,9 @@ function drawBuilding(ctx: FrameCtx): void {
           ctx.day, ctx.night, ctx.lights,
           ...winArgs, side, cols, rows, rng, litRatio,
           shade(side < 0 ? pal.left : pal.right, tint),
-          shade(side < 0 ? palN.left : palN.right, tint)
+          shade(side < 0 ? palN.left : palN.right, tint),
+          shade(glassDay, tint),
+          shade(glassNight, tint)
         );
       }
     }
@@ -737,57 +775,129 @@ function drawBuilding(ctx: FrameCtx): void {
     }
   }
 
-  // ── shared tier ladder (architectural, no glow) ──
+  // ── SPECTACULAR tier ladder (sheet t1..t7 = game tiers 8..14) ──────────
   const topY = baseY - h;
-  if (tier >= 3) {
-    // Plain antenna mast (red beacon dot only in lights).
-    const ax = cx + (family === "Overclocker" ? hw : -hw) * 0.55;
-    ctx.day.line(ax, topY, ax, topY - 12, OUTLINE_DAY);
-    ctx.night.line(ax, topY, ax, topY - 12, OUTLINE_NIGHT);
-    ctx.lights.fillEllipse(ax, topY - 13, 1, 1, BEACON_RED);
+  const acc = pal.accent;
+  const accN = palN.accent;
+  // Bands/columns hug the central BODY width, never the full tile — hollow
+  // or narrow families (gateway, reactor, hangar) would otherwise wear glow
+  // strips floating beside the silhouette.
+  const bw = hw * spec.bodyFrac;
+  /** Face-space horizontal band quad (one visible face). */
+  const faceQuad = (side: -1 | 1, v0: number, v1: number): Array<[number, number]> => {
+    const ox = cx + side * bw;
+    const ax = -side * bw;
+    const ay = (hh * spec.bodyFrac) / 1;
+    const p = (u: number, v: number): [number, number] => [ox + ax * u, baseY + ay * u - h * v];
+    return [p(0.05, v0), p(0.95, v0), p(0.95, v1), p(0.05, v1)];
+  };
+  const band = (v0: number, v1: number, dayC: RGB, nightC: RGB, glow: boolean) => {
+    if (spec.bodyFrac === 0) return;
+    for (const side of [-1, 1] as const) {
+      const q = faceQuad(side, v0, v1);
+      ctx.day.fillPoly(q, dayC);
+      ctx.night.fillPoly(q, nightC);
+      if (glow) ctx.lights.fillPoly(q, acc);
+    }
+  };
+
+  // t1 (game 8) — accent cornice at the parapet + gilded entrance lamps.
+  band(0.9, 0.95, mix(acc, [255, 255, 255], 0.15), shade(accN, 0.95), false);
+  ctx.lights.fillEllipse(cx - hw + 6, baseY - 4, 1, 1, DOOR_LAMP);
+  ctx.lights.fillEllipse(cx + hw - 6, baseY - 4, 1, 1, DOOR_LAMP);
+
+  // t2 (game 9) — twin accent masts with beacon dots.
+  if (tier >= 2) {
+    for (const mx of [-hw * 0.55, hw * 0.55]) {
+      const ax = Math.round(cx + mx);
+      ctx.day.line(ax, topY, ax, topY - 12, OUTLINE_DAY);
+      ctx.night.line(ax, topY, ax, topY - 12, OUTLINE_NIGHT);
+      ctx.day.line(ax, topY - 4, ax, topY - 6, acc, 220);
+      ctx.lights.fillEllipse(ax, topY - 13, 1, 1, acc);
+    }
   }
+
+  // t3 (game 10) — GLOWING sky-lobby band across the upper mass.
+  if (tier >= 3) {
+    band(0.74, 0.79, mix(glassDay, acc, 0.55), mix(glassNight, accN, 0.45), true);
+  }
+
+  // t4 (game 11) — side annexes with accent trim + illuminated crown ring.
   if (tier >= 4) {
-    // Side annexes.
     for (const dx of [-1, 1]) {
       const px = cx + dx * Math.round(hw * 0.95);
       const aH = family === "Unassigned" ? 7 : 9;
       isoBox(ctx.day, px, baseY - 2, 6, 3, aH, shade(pal.left, 0.97), shade(pal.right, 0.97), pal.roof, OUTLINE_DAY);
       isoBox(ctx.night, px, baseY - 2, 6, 3, aH, shade(palN.left, 0.97), shade(palN.right, 0.97), palN.roof, OUTLINE_NIGHT);
+      ctx.day.line(px - 6, baseY - 4 - aH, px + 6, baseY - 4 - aH, acc, 200);
     }
+    ctx.day.strokeEllipse(cx, topY - 2, hw * 0.55, hh * 0.55, acc, 200);
+    ctx.night.strokeEllipse(cx, topY - 2, hw * 0.55, hh * 0.55, shade(accN, 0.9), 200);
+    ctx.lights.strokeEllipse(cx, topY - 2, hw * 0.55, hh * 0.55, acc, 170);
   }
+
+  // t5 (game 12) — garden-terrace setback + gilded finial mast.
   if (tier >= 5) {
-    // Upper setback tier (extra smaller block on top).
+    const sbH = Math.max(8, Math.round(h * 0.16));
     const uHw = Math.round(hw * 0.6);
-    box(cx, topY, uHw, Math.max(8, Math.round(h * 0.16)), 1.02, true, 0.4);
-  }
-  if (tier >= 6) {
-    // Rooftop water tank + AC cluster (classic city skyline furniture).
-    const topAfterSetback = topY - Math.max(8, Math.round(h * 0.16));
-    const wx = cx - Math.round(hw * 0.28);
-    for (const [cv, trimC, outline] of [
-      [ctx.day, pal.trim, OUTLINE_DAY],
-      [ctx.night, palN.trim, OUTLINE_NIGHT],
-    ] as const) {
-      cv.fillRect(wx - 4, topAfterSetback - 10, 9, 8, trimC);
-      cv.line(wx - 4, topAfterSetback - 10, wx + 5, topAfterSetback - 10, outline);
-      cv.fillEllipse(wx, topAfterSetback - 10, 5, 2.5, shade(trimC, 1.1));
-      cv.line(wx - 4, topAfterSetback - 2, wx - 4, topAfterSetback, outline);
-      cv.line(wx + 5, topAfterSetback - 2, wx + 5, topAfterSetback, outline);
+    box(cx, topY, uHw, sbH, 1.02, true, 0.4);
+    const tY = topY - sbH;
+    // Terrace greenery: bright leaf dots on the setback roof (day read).
+    for (let i = 0; i < 4; i++) {
+      const gx = cx + Math.round((rng() * 2 - 1) * uHw * 0.6);
+      const gy = tY + Math.round((rng() * 2 - 1) * (uHw / 2) * 0.5);
+      ctx.day.fillEllipse(gx, gy, 2, 1.2, hex("#3e8e4e"));
+      ctx.night.fillEllipse(gx, gy, 2, 1.2, nightOf(hex("#3e8e4e")));
     }
-    const ax2 = cx + Math.round(hw * 0.3);
-    ctx.day.fillRect(ax2 - 3, topAfterSetback - 6, 7, 5, shade(pal.right, 1.02));
-    ctx.day.line(ax2 - 3, topAfterSetback - 6, ax2 + 4, topAfterSetback - 6, OUTLINE_DAY);
-    ctx.night.fillRect(ax2 - 3, topAfterSetback - 6, 7, 5, shade(palN.right, 1.02));
-    ctx.night.line(ax2 - 3, topAfterSetback - 6, ax2 + 4, topAfterSetback - 6, OUTLINE_NIGHT);
+    ctx.day.line(cx, tY, cx, tY - 10, acc, 230);
+    ctx.lights.fillEllipse(cx, tY - 11, 1.5, 1.5, WINDOW_PALE);
   }
+
+  // t6 (game 13) — second glow band + corner light columns.
+  if (tier >= 6) {
+    band(0.5, 0.55, mix(glassDay, acc, 0.4), mix(glassNight, accN, 0.35), true);
+    if (spec.bodyFrac > 0) {
+      for (const side of [-1, 1]) {
+        const ex = Math.round(cx + side * bw) + (side < 0 ? 1 : -2);
+        ctx.lights.fillRect(ex, topY + 4, 2, Math.max(4, h - 10), acc, 150);
+      }
+    } else {
+      // Gateway: the pillars themselves carry the light columns instead.
+      const pw = Math.round(hw * 0.36);
+      for (const dx of [-hw * 0.54, hw * 0.54]) {
+        const ex = Math.round(cx + dx + (dx < 0 ? pw - 2 : -pw));
+        ctx.lights.fillRect(ex, topY + 4, 2, Math.max(4, h - 10), acc, 150);
+      }
+    }
+  }
+
+  // t7 (game 14) — MEGA-DIADEM: oversized accent crown + double mast.
   if (tier >= 7) {
-    // Crown setback + mast (tallest read, still plain architecture).
-    const setbackTop = topY - Math.max(8, Math.round(h * 0.16));
-    const cHw = Math.round(hw * 0.4);
-    box(cx, setbackTop, cHw, Math.max(9, Math.round(h * 0.14)), 1.03, true, 0.5);
-    ctx.day.line(cx, setbackTop - Math.max(9, Math.round(h * 0.14)), cx, setbackTop - Math.max(9, Math.round(h * 0.14)) - 10, OUTLINE_DAY);
-    ctx.night.line(cx, setbackTop - Math.max(9, Math.round(h * 0.14)), cx, setbackTop - Math.max(9, Math.round(h * 0.14)) - 10, OUTLINE_NIGHT);
-    ctx.lights.fillEllipse(cx, setbackTop - Math.max(9, Math.round(h * 0.14)) - 11, 1, 1, BEACON_RED);
+    const sbH = Math.max(8, Math.round(h * 0.16));
+    const setbackTop = topY - sbH;
+    const cHw = Math.round(hw * 0.42);
+    const cH = Math.max(9, Math.round(h * 0.14));
+    box(cx, setbackTop, cHw, cH, 1.03, true, 0.5);
+    const dY = setbackTop - cH;
+    const dHw = Math.round(hw * 0.55);
+    const dHh = Math.round(dHw / 2);
+    // Diadem slab wider than the crown, accent-roofed, glowing at night.
+    isoBox(ctx.day, cx, dY, dHw, dHh, 6, shade(pal.left, 1.05), shade(pal.right, 1.05), acc, OUTLINE_DAY);
+    isoBox(ctx.night, cx, dY, dHw, dHh, 6, shade(palN.left, 1.05), shade(palN.right, 1.05), shade(accN, 0.95), OUTLINE_NIGHT);
+    ctx.lights.strokePoly([
+      [cx, dY - 6 - dHh],
+      [cx + dHw, dY - 6],
+      [cx, dY - 6 + dHh],
+      [cx - dHw, dY - 6],
+    ], acc, 140);
+    // Double mast + terminal beacons.
+    for (const mx of [-hw * 0.28, hw * 0.28]) {
+      const bx = Math.round(cx + mx);
+      ctx.day.line(bx, dY - 6, bx, dY - 22, OUTLINE_DAY);
+      ctx.night.line(bx, dY - 6, bx, dY - 22, OUTLINE_NIGHT);
+      ctx.lights.fillEllipse(bx, dY - 23, 1.5, 1.5, acc);
+    }
+    ctx.lights.fillEllipse(cx, dY - 28, 2.5, 2.5, WINDOW_PALE);
   }
 
   // ── rooftop clutter (vents; deterministic) ──
@@ -829,7 +939,8 @@ function hex(c: string): RGB {
   return hexToRgb(c);
 }
 
-/** Hero-local iso box with window grids into all three frames. */
+/** Hero-local iso box with window grids into all three frames (v4: the
+ *  curtain glass carries the hero accent color). */
 function heroBox(
   ctx: FrameCtx,
   cx: number,
@@ -842,6 +953,8 @@ function heroBox(
 ): void {
   const palN = nightPalette(pal);
   const hh = Math.round(hw / 2);
+  const glassDay = mix(GLASS_DAY, pal.accent, 0.34);
+  const glassNight = mix(GLASS_NIGHT, pal.accentNight, 0.2);
   isoBox(ctx.day, cx, baseY, hw, hh, h, pal.left, pal.right, pal.roof, OUTLINE_DAY);
   isoBox(ctx.night, cx, baseY, hw, hh, h, palN.left, palN.right, palN.roof, OUTLINE_NIGHT);
   if (h >= 12) {
@@ -851,7 +964,9 @@ function heroBox(
         ctx.day, ctx.night, ctx.lights, cx, baseY, hw, hh, h, side,
         Math.max(1, Math.min(cols, Math.floor(hw / 9))), rows, ctx.rng, litRatio,
         side < 0 ? pal.left : pal.right,
-        side < 0 ? palN.left : palN.right
+        side < 0 ? palN.left : palN.right,
+        glassDay,
+        glassNight
       );
     }
   }
@@ -895,10 +1010,12 @@ function heroMast(ctx: FrameCtx, x: number, topY: number, len: number, beacon: R
 const HQ_BEACON: RGB = hex("#9be8ff");
 
 const HQ_PAL: FamilyPalette = {
-  left: shade(hex("#cfb98e"), 0.74),
-  right: hex("#cfb98e"),
-  roof: hex("#9aa1aa"),
+  left: shade(hex("#e3cf9e"), 0.76),
+  right: hex("#e3cf9e"),
+  roof: hex("#8fb0c9"),
   trim: hex("#7a5c40"),
+  accent: hex("#6fc6ff"),
+  accentNight: hex("#54b0ea"),
 };
 
 /**
@@ -910,6 +1027,11 @@ function drawHq(ctx: FrameCtx, stage: 1 | 2 | 3): void {
   const pal = HQ_PAL;
   const cx = ctx.cx;
   const baseY = ctx.baseY;
+  /** v4 chroma: accent cornice lines across the shaft (day+night read). */
+  const cornice = (y: number, w: number) => {
+    ctx.day.line(cx - w, y, cx + w, y, pal.accent, 210);
+    ctx.night.line(cx - w, y, cx + w, y, nightOf(pal.accent), 210);
+  };
   if (stage === 1) {
     heroBox(ctx, cx, baseY, 46, 22, pal, 5, 0.45);
     heroRoof(ctx, cx, baseY - 22, 46, pal);
@@ -924,7 +1046,13 @@ function drawHq(ctx: FrameCtx, stage: 1 | 2 | 3): void {
     heroBox(ctx, cx, baseY - 96, 29, 9, pal, 0, 0.5);
     heroBox(ctx, cx, baseY - 105, 17, 18, pal, 2, 0.55);
     heroMast(ctx, cx, baseY - 123, 14, HQ_BEACON);
+    cornice(baseY - 20, 42);
+    cornice(baseY - 96, 29);
     ctx.lights.fillEllipse(cx, baseY - 100, 16, 3, HQ_BEACON);
+    // Glowing corner seams on the shaft (night spectacular).
+    for (const side of [-1, 1]) {
+      ctx.lights.fillRect(cx + side * 27 - 1, baseY - 90, 2, 64, pal.accent, 140);
+    }
   } else {
     // Grand spire: podium + wings + shaft + sky lobby + crown + mast.
     heroBox(ctx, cx, baseY, 44, 22, pal, 5, 0.45);
@@ -935,10 +1063,20 @@ function drawHq(ctx: FrameCtx, stage: 1 | 2 | 3): void {
     heroBox(ctx, cx, baseY - 126, 19, 32, pal, 2, 0.55);
     heroBox(ctx, cx, baseY - 158, 11, 16, pal, 1, 0.6);
     heroMast(ctx, cx, baseY - 174, 18, HQ_BEACON);
+    cornice(baseY - 22, 44);
+    cornice(baseY - 116, 30);
+    cornice(baseY - 126, 19);
     // Sky-lobby glow ring + wing door lamps (night identity).
     ctx.lights.fillEllipse(cx, baseY - 121, 17, 3, HQ_BEACON);
     ctx.lights.fillEllipse(cx - 52, baseY - 2, 1, 1, DOOR_LAMP);
     ctx.lights.fillEllipse(cx + 52, baseY - 2, 1, 1, DOOR_LAMP);
+    // Glowing corner seams + crown halo (stage-3 spectacular).
+    for (const side of [-1, 1]) {
+      ctx.lights.fillRect(cx + side * 28 - 1, baseY - 112, 2, 84, pal.accent, 150);
+    }
+    ctx.day.strokeEllipse(cx, baseY - 150, 26, 8, pal.accent, 190);
+    ctx.night.strokeEllipse(cx, baseY - 150, 26, 8, nightOf(pal.accent), 190);
+    ctx.lights.strokeEllipse(cx, baseY - 150, 26, 8, pal.accent, 160);
   }
   contactDiamond(ctx, cx, baseY, Math.round(46 + (stage - 1) * 2));
 }
@@ -956,71 +1094,62 @@ function contactDiamond(ctx: FrameCtx, cx: number, baseY: number, hw: number): v
   ctx.night.strokePoly(diamond, OUTLINE_NIGHT, 110);
 }
 
-// Landmark palettes (accent = LANDMARK_COLORS roster order).
-const LM_PAL: ReadonlyArray<{ pal: FamilyPalette; accent: RGB; accentNight: RGB }> = [
+// Landmark palettes (accent = LANDMARK_COLORS roster order; v4 chroma —
+// brighter walls so the accent glass/trim pops).
+const LM_PAL: ReadonlyArray<FamilyPalette> = [
   // 0 Architect — sky-blue glass spire.
   {
-    pal: {
-      left: shade(hex("#b6c6d8"), 0.78),
-      right: hex("#b6c6d8"),
-      roof: hex("#ccd1d7"),
-      trim: hex("#7dd3fc"),
-    },
+    left: shade(hex("#cfe0f0"), 0.78),
+    right: hex("#cfe0f0"),
+    roof: hex("#9db8cc"),
+    trim: hex("#4aa8d8"),
     accent: hex("#7dd3fc"),
     accentNight: hex("#5cb8e8"),
   },
   // 1 Locksmith — amber limestone citadel.
   {
-    pal: {
-      left: shade(hex("#cfb98e"), 0.72),
-      right: hex("#cfb98e"),
-      roof: hex("#8b95a5"),
-      trim: hex("#f59e0b"),
-    },
+    left: shade(hex("#e0c896"), 0.72),
+    right: hex("#e0c896"),
+    roof: hex("#8b95a5"),
+    trim: hex("#c47f0a"),
     accent: hex("#f59e0b"),
     accentNight: hex("#d98a0b"),
   },
   // 2 Oracle — violet observatory.
   {
-    pal: {
-      left: shade(hex("#c9ced6"), 0.76),
-      right: hex("#c9ced6"),
-      roof: hex("#6d5fae"),
-      trim: hex("#a78bfa"),
-    },
+    left: shade(hex("#ddd6f0"), 0.76),
+    right: hex("#ddd6f0"),
+    roof: hex("#9280e8"),
+    trim: hex("#5a4a94"),
     accent: hex("#a78bfa"),
     accentNight: hex("#8b6fe0"),
   },
   // 3 Clockkeeper — teal sandstone clock tower.
   {
-    pal: {
-      left: shade(hex("#d8c8a0"), 0.74),
-      right: hex("#d8c8a0"),
-      roof: hex("#8b95a5"),
-      trim: hex("#5eead4"),
-    },
+    left: shade(hex("#ecd9a8"), 0.74),
+    right: hex("#ecd9a8"),
+    roof: hex("#8b95a5"),
+    trim: hex("#2fa88e"),
     accent: hex("#5eead4"),
     accentNight: hex("#3fc4ae"),
   },
-  // 4 NullPointer — crimson obsidian obelisk.
+  // 4 NullPointer — crimson obelisk (v4: bright slate-lavender mass — the
+  //  v3 obsidian #4a4f63 read near-black in DAY frames; landmark must read
+  //  against mid-tone day terrain, crimson seams carry the identity).
   {
-    pal: {
-      left: shade(hex("#4a4f63"), 0.8),
-      right: hex("#4a4f63"),
-      roof: hex("#3a3f52"),
-      trim: hex("#ef4444"),
-    },
+    left: shade(hex("#8b91a8"), 0.8),
+    right: hex("#8b91a8"),
+    roof: hex("#6d7389"),
+    trim: hex("#c93a3a"),
     accent: hex("#ef4444"),
     accentNight: hex("#c93a3a"),
   },
   // 5 Banker — gold marble treasury.
   {
-    pal: {
-      left: shade(hex("#dcd6c4"), 0.76),
-      right: hex("#dcd6c4"),
-      roof: hex("#c9a24a"),
-      trim: hex("#a8842f"),
-    },
+    left: shade(hex("#ece2c8"), 0.76),
+    right: hex("#ece2c8"),
+    roof: hex("#d4af4e"),
+    trim: hex("#a8842f"),
     accent: hex("#fbbf24"),
     accentNight: hex("#d99e14"),
   },
@@ -1031,7 +1160,8 @@ const LM_PAL: ReadonlyArray<{ pal: FamilyPalette; accent: RGB; accentNight: RGB 
  * value: taller massing, more ornament, an extra identity tell per stage.
  */
 function drawLandmark(ctx: FrameCtx, index: number, stage: 1 | 2 | 3): void {
-  const { pal, accent } = LM_PAL[index];
+  const pal = LM_PAL[index];
+  const accent = pal.accent;
   const palN = nightPalette(pal);
   const cx = ctx.cx;
   const baseY = ctx.baseY;
@@ -1055,6 +1185,9 @@ function drawLandmark(ctx: FrameCtx, index: number, stage: 1 | 2 | 3): void {
       let total = 0;
       tiers.forEach(([hw, h], i) => {
         heroBox(ctx, cx, y, hw, h, pal, i === 0 ? 3 : 2, 0.55);
+        // Accent cornice at every segment junction (v4: the pale spire
+        // needs colour rhythm — rings alone washed out at game zoom).
+        accentLine(cx - hw, y - h, cx + hw, y - h);
         y -= h;
         total += h;
       });
@@ -1083,17 +1216,19 @@ function drawLandmark(ctx: FrameCtx, index: number, stage: 1 | 2 | 3): void {
           outline
         );
       }
-      // Observation ring(s) — more with stage.
+      // Observation ring(s) — more with stage. Double-stroked so the ring
+      // survives game zoom (hairline ellipses vanished at world scale).
       const rings = stage;
       for (let r = 0; r < rings; r++) {
         const ry = baseY - total * (0.45 + r * 0.22);
         for (const cv of [ctx.day, ctx.night]) {
           cv.strokeEllipse(cx, ry, 30 - r * 4, 8, accent, 190);
+          cv.strokeEllipse(cx, ry + 1, 30 - r * 4, 8, accent, 190);
         }
-        ctx.lights.fillEllipse(cx - (30 - r * 4), ry, 1.5, 1.5, WINDOW_PALE);
-        ctx.lights.fillEllipse(cx + (30 - r * 4), ry, 1.5, 1.5, WINDOW_PALE);
+        ctx.lights.fillEllipse(cx - (30 - r * 4), ry, 2, 2, WINDOW_PALE);
+        ctx.lights.fillEllipse(cx + (30 - r * 4), ry, 2, 2, WINDOW_PALE);
       }
-      ctx.lights.fillEllipse(cx, tipY - 14, 1.5, 1.5, WINDOW_PALE);
+      ctx.lights.fillEllipse(cx, tipY - 14, 2, 2, WINDOW_PALE);
       contactDiamond(ctx, cx, baseY, 22 + stage * 2);
       break;
     }
@@ -1556,15 +1691,20 @@ function emitManifest(metas: SheetMeta[]): void {
     " * AUTO-GENERATED by scripts/gen-city-pixel-art.ts — do not edit by hand.",
     " * Regenerate: npm run gen:city-pixel-art",
     " *",
-    " * Per (family × tier) sheet metadata: 3 variant rows × 3 frame columns",
+    " * PROGRESSION MAPPING (2026-09-29): sheet tier tN renders GAME tier",
+    " * N+7 — the generated sheets are the SPECTACULAR high league (tiers",
+    " * 8–14); tiers 1–7 render the procedural vector architecture (art.ts).",
+    " * Per (family × sheet-tier) sheet: 3 variant rows × 3 frame columns",
     " * (day | night | lights). anchorX/anchorY = ground-contact pixel (the",
     " * footprint diamond center) inside ONE frame; artHeight = massing height",
     " * above the contact (FX anchors, culling margins). Day frames are",
-    " * TRUE-COLOR (v2 normal-city direction: no day-matrix compensation).",
+    " * TRUE-COLOR chroma materials (v4 spectacular pass).",
     " *",
     " * HERO sheets (2026-09-28): the HQ core and the Six goddess monuments",
     " * in 3 VALUE STAGES each (server-derived heroStageOf) — one stage per",
-    " * sheet, ONE variant row (variants: 1), 192px frames.",
+    " * sheet, ONE variant row (variants: 1), 192px frames. Stage 1 renders",
+    " * procedurally in-city (progression rework); stage-1 sheets are kept",
+    " * for the catalog/dev previews.",
     " */",
     "",
     "export interface CityPixelSheet {",
@@ -1630,7 +1770,10 @@ async function writeContactSheet(metas: SheetMeta[]): Promise<void> {
   const frameW = Math.round(FRAME_W / SCALE);
   const maxFrameH = Math.max(...metas.map((m) => m.frameH));
   const cellW = frameW * 3 + 6;
-  const cellH = Math.round(maxFrameH / SCALE) + 6;
+  // Bottom margin ≥ FRAME_PAD_BOTTOM/2 + slack: the ground pad (26px) below
+  // each anchor used to bleed 8px past the cell and crop the last row (v4
+  // QA gate finding) — reserve the full half-pad instead.
+  const cellH = Math.round(maxFrameH / SCALE) + Math.round(FRAME_PAD_BOTTOM / SCALE) + 4;
   const sheet = new PixCanvas(cellW * TIERS.length, cellH * FAMILIES.length);
   // Neutral background so both palettes read.
   for (let y = 0; y < sheet.H; y++) {
@@ -1655,7 +1798,7 @@ async function writeContactSheet(metas: SheetMeta[]): Promise<void> {
         const anchor = meta.anchorY / SCALE;
         for (let y = 0; y < Math.round(meta.frameH / SCALE); y++) {
           for (let x = 0; x < frameW; x++) {
-            sheet.px(cellX + 2 + col * (frameW + 2) + x, cellY + cellH - 4 - anchor + y, sample(src, x * SCALE, y * SCALE));
+            sheet.px(cellX + 2 + col * (frameW + 2) + x, cellY + cellH - 6 - anchor + y, sample(src, x * SCALE, y * SCALE));
           }
         }
       }
@@ -1666,7 +1809,13 @@ async function writeContactSheet(metas: SheetMeta[]): Promise<void> {
   // HERO contact sheet (separate artifact — stages ARE the columns).
   const heroW = Math.round(HERO_FRAME_W / SCALE);
   const heroCellW = heroW * 3 + 8;
-  const heroCellH = Math.round(210 / SCALE) + 8;
+  // Derive from the REAL max hero frame height (a hardcoded 210 cropped the
+  // tallest stage-3 monuments — v4 QA gate finding).
+  const maxHeroFrameH = Math.max(
+    ...HQ_ART_HEIGHTS,
+    ...LANDMARK_ART_HEIGHTS.flat()
+  ) + FRAME_PAD_TOP + FRAME_PAD_BOTTOM;
+  const heroCellH = Math.round(maxHeroFrameH / SCALE) + Math.round(FRAME_PAD_BOTTOM / SCALE) + 4;
   const heroSheet = new PixCanvas(
     heroCellW * 3,
     heroCellH * 7 // 1 HQ row + 6 landmark rows
@@ -1695,7 +1844,7 @@ async function writeContactSheet(metas: SheetMeta[]): Promise<void> {
           for (let x = 0; x < heroW; x++) {
             heroSheet.px(
               cellX + 3 + col * (heroW + 2) + x,
-              cellY + heroCellH - 4 - anchor + y,
+              cellY + heroCellH - 6 - anchor + y,
               heroSample(src, x * SCALE, y * SCALE)
             );
           }

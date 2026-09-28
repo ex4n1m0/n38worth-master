@@ -14,8 +14,11 @@
  *
  * Kill switch: NEXT_PUBLIC_CITY_PIXEL_ART=off disables everything (frames
  * resolve null; the scene keeps today's procedural look + strong day lift).
+ *
+ * PROGRESSION SPLIT (2026-09-29): the sheets render GAME tiers 8–14 only
+ * (sheet slot = game tier − 7) — tiers 1–7 are the procedural architecture,
+ * and hero VALUE stage 1 renders procedurally on both the HQ and monuments.
  */
-
 import { Assets, Rectangle, Texture } from "pixi.js";
 import {
   CITY_HQ_SHEETS,
@@ -122,7 +125,10 @@ function loadSheet(key: string, meta: CityPixelSheet): Promise<void> {
 
 /**
  * Frames for a building, or undefined while the sheet loads (caller keeps
- * the procedural fallback), or null when pixel art is disabled/failed.
+ * the procedural fallback), or null when pixel art is disabled/failed — OR
+ * when the tier renders procedurally by design (2026-09-29 progression
+ * rework): tiers 1–7 ARE the procedural vector architecture; the generated
+ * sheets carry tiers 8–14 (sheet slot = tier − 7).
  */
 export function pixelFramesFor(
   profession: string | null,
@@ -130,11 +136,13 @@ export function pixelFramesFor(
   cardId: number
 ): PixelArtFrames | null | undefined {
   if (!ENABLED) return null;
+  if (tier < 8) return null; // tiers 1–7: procedural is the REAL art
   const family = familyOf(profession);
-  const key = sheetKey(family, tier);
+  const sheetTier = tier - 7; // game tier 8..14 → sheet slot 1..7
+  const key = sheetKey(family, sheetTier);
   const entry = sheets.get(key);
   if (!entry) {
-    ensureSheet(family, tier);
+    ensureSheet(family, sheetTier);
     return undefined;
   }
   if (entry.state === "loading") return undefined;
@@ -160,19 +168,24 @@ function heroFrames(key: string, meta: CityPixelSheet | null | undefined): Pixel
   return entry.variants[0];
 }
 
-/** HQ core frames for a value stage (1..3). */
+/** HQ core frames for a value stage (1..3). Stage 1 renders PROCEDURALLY
+ *  (progression rework 2026-09-29): the generated hero sheets carry the
+ *  climbing (2) and near-max (3) forms only. */
 export function hqFramesFor(stage: number): PixelArtFrames | null | undefined {
   const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+  if (s === 1) return null;
   return heroFrames(`HQ|s${s}`, CITY_HQ_SHEETS[s - 1]);
 }
 
-/** Monument frames for goddess roster index 0..5 + value stage (1..3). */
+/** Monument frames for goddess roster index 0..5 + value stage (1..3).
+ *  Stage 1 renders procedurally (same rule as the HQ). */
 export function landmarkFramesFor(
   index: number,
   stage: number
 ): PixelArtFrames | null | undefined {
   const i = ((index % 6) + 6) % 6;
   const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+  if (s === 1) return null;
   return heroFrames(`LM|${i}|s${s}`, CITY_LANDMARK_SHEETS[String(i)]?.[s - 1]);
 }
 

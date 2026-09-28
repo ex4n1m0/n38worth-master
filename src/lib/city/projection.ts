@@ -102,10 +102,11 @@ export interface CityHeroInput {
 }
 
 /**
- * Visual tier 1–7 from the value/floor ratio (never reads economy state).
- * tier = 1 + floor(log2(max(1, ratio))) clamped to 1..7 → 1×=1 … 2×=2 …
- * 64×+=7. ONE implementation only (AGENTS.md / RTS plan §D2): the client
- * renders the server-sent tier and never recomputes it.
+ * Visual tier 1–14 from the value/floor ratio (never reads economy state).
+ * tier = 1 + floor(log2(max(1, ratio))) clamped to 1..14 → 1×=1 … 2×=2 …
+ * 64×=7 (procedural art) … 128×=8 … 8192×+=14 (spectacular generated art).
+ * ONE implementation only (AGENTS.md / RTS plan §D2): the client renders the
+ * server-sent tier and never recomputes it.
  */
 export function buildingTier(
   playerValue: number,
@@ -114,7 +115,7 @@ export function buildingTier(
   const floor = Math.max(1, valueFloor);
   const ratio = Math.max(1, playerValue / floor);
   const tier = 1 + Math.floor(Math.log2(ratio));
-  return Math.max(1, Math.min(7, tier)) as BuildingTier;
+  return Math.max(1, Math.min(14, tier)) as BuildingTier;
 }
 
 /** Which protection visual applies (hard lock outranks firewall), if any. */

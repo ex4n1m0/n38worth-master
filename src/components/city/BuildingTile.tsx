@@ -50,8 +50,10 @@ export function BuildingTile({
       .replace("{value}", valueText) +
     (protectionName ? ` · ${protectionName}` : "");
 
-  // Tier visual: a stack of 1–7 floor bars under the avatar (CSS-only).
-  const floors = building.tier;
+  // Tier visual: a stack of floor bars under the avatar (CSS-only). Capped
+  // at 7 bars — the 14-level ladder (2026-09-29) would overflow the tile,
+  // and the opacity/width steps below are tuned for ≤7 rows.
+  const floors = Math.min(7, building.tier);
 
   // Protection ring on the avatar — cyan = firewalled, amber = hard-locked
   // (hard lock outranks firewall), matching PlayerCard's status-ring colors.
@@ -95,7 +97,8 @@ export function BuildingTile({
         />
       </div>
 
-      {/* Floor stack — the building grows one bar per stage (1–6 bars).
+      {/* Floor stack — the building grows one bar per stage (1–7 bars;
+          tiers above 7 pin at 7 — see `floors` above).
           Cyan + glow to match the city accent system; tall/bright enough to
           read the stage count at a glance (visual-review feedback). */}
       <div className="flex flex-col-reverse gap-[2px] px-1.5 pt-1" aria-hidden="true">

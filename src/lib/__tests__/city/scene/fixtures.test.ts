@@ -105,19 +105,19 @@ describe("fixture shape (contract match)", () => {
     expect(expired).toBeGreaterThan(0);
   });
 
-  it("keeps values within the 1×–128× fixture band (tiers 1–7 only)", () => {
+  it("keeps values within the 1×–16384× fixture band (tiers 1–14 only)", () => {
     const { ownedCards } = makeCityFixture(1000, 42);
     for (const c of ownedCards) {
       const ratio = c.playerValue / Math.max(1, c.valueFloor);
       expect(ratio).toBeGreaterThanOrEqual(1);
-      expect(ratio).toBeLessThanOrEqual(128);
-      expect(buildingTier(c.playerValue, c.valueFloor)).toBeLessThanOrEqual(7);
+      expect(ratio).toBeLessThanOrEqual(16384);
+      expect(buildingTier(c.playerValue, c.valueFloor)).toBeLessThanOrEqual(14);
     }
   });
 });
 
 describe("tier coverage", () => {
-  it("populates ALL 7 tiers for every QA size ≥ 100", () => {
+  it("populates ALL 14 tiers for every QA size ≥ 100", () => {
     for (const n of SIZES.filter((s) => s >= 100)) {
       const { ownedCards } = makeCityFixture(n, 77);
       const tiers = new Set<BuildingTier>();
@@ -125,7 +125,9 @@ describe("tier coverage", () => {
         if (GODDESS_USERNAMES.includes(c.username)) continue;
         tiers.add(buildingTier(c.playerValue, c.valueFloor));
       }
-      expect([...tiers].sort()).toEqual([1, 2, 3, 4, 5, 6, 7]);
+      expect([...tiers].sort((a, b) => a - b)).toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14,
+      ]);
     }
   });
 });

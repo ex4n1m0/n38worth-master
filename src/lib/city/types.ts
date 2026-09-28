@@ -9,11 +9,15 @@
  * display translation (cardDisplayName / professionName) happens at render.
  */
 
-/** Building tier 1–7, derived from player_value vs value_floor (powers of two).
- * One successful overclock (value ×2) normally = exactly +1 tier. Two
- * documented exceptions (MAINFRAME_CITY_RTS_PLAN.md §D2): ratio ≥64× pins
- * at 7, and values near MAX_PLAYER_VALUE (1e12) can be capped mid-doubling. */
-export type BuildingTier = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+/** Building tier 1–14, derived from player_value vs value_floor (powers of
+ * two). One successful overclock (value ×2) normally = exactly +1 tier.
+ * TWO ART SYSTEMS (2026-09-29 progression rework): tiers 1–7 (1×–64×) render
+ * the PROCEDURAL vector architecture; tiers 8–14 (128×–8192×+) render the
+ * generated spectacular pixel-art sheets (fallback: procedural while loading).
+ * Values near MAX_PLAYER_VALUE (1e12) can cap mid-doubling. */
+export type BuildingTier =
+  | 1 | 2 | 3 | 4 | 5 | 6 | 7
+  | 8 | 9 | 10 | 11 | 12 | 13 | 14;
 
 /** Persisted placement of a building (city_layout row, MAINFRAME_CITY_RTS_PLAN §D6). */
 export interface CityPlacement {

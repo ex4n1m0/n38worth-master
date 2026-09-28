@@ -63,6 +63,12 @@ export class BuildingSprite extends Container {
   /** Emissive-only frame, additive — alpha = facadeGlowAt(daylight). */
   private readonly artLights: Sprite = new Sprite();
   private pixelKey: string | null = null;
+  /**
+   * Mounted sheet art height (tiers 8–14): labels, billboards and FX anchor
+   * on the REAL art extent — tierHeight() only matches the procedural forms
+   * and overshoots the (shorter) high-tier sheets badly at T14.
+   */
+  private pixelArtH: number | null = null;
   private daylightCurrent = 0;
   private readonly silhouette: Graphics = new Graphics();
   private readonly tierExt: Graphics = new Graphics();
@@ -192,7 +198,7 @@ export class BuildingSprite extends Container {
 
     const chip = new Container();
     chip.addChild(plate, label);
-    const top = -tierHeight(this._building.tier);
+    const top = -this.bodyTopHeight();
     chip.y = top - 36;
     chip.visible = true;
     this.addChild(chip);
@@ -304,10 +310,12 @@ export class BuildingSprite extends Container {
       this.building.cardId
     );
     if (!frames) {
-      // null = disabled/failed, undefined = still loading — either way the
-      // procedural layers stay visible until a later ready-pass retries.
+      // null = disabled/failed/tier-renders-procedurally, undefined = still
+      // loading — either way the procedural layers stay visible until a
+      // later ready-pass retries.
       if (this.pixelKey !== null) {
         this.pixelKey = null;
+        this.pixelArtH = null;
         this.setPixelLayersVisible(false);
         this.setProceduralLayersVisible(true);
       }
@@ -321,6 +329,7 @@ export class BuildingSprite extends Container {
   }
 
   private mountPixelFrames(frames: PixelArtFrames): void {
+    this.pixelArtH = frames.artHeight;
     for (const [sprite, tex] of [
       [this.artDay, frames.day],
       [this.artNight, frames.night],
@@ -426,8 +435,8 @@ export class BuildingSprite extends Container {
     drawSelectionBrackets(this.selection, this.building.profession, tier);
     this.selection.visible = wasSelected;
 
-    if (this.lodCurrent !== "world") this.syncBillboards();
     this.syncPixelArt();
+    if (this.lodCurrent !== "world") this.syncBillboards();
   }
 
   /**
@@ -479,7 +488,7 @@ export class BuildingSprite extends Container {
     const neon = professionNeon(this._building.profession);
     // Centered ON TOP of the building (user ruling): floating just above the
     // rooftop art, clear of the tier features beneath it.
-    const y = -tierHeight(this._building.tier) - half - 5;
+    const y = -this.bodyTopHeight() - half - 5;
 
     // OPAQUE plate (2026-09-28 user ruling "make the floor not transparent"):
     // the avatar photo reads as a solid billboard over the scene instead of
@@ -501,9 +510,16 @@ export class BuildingSprite extends Container {
     this.billboards.visible = true;
   }
 
+  /** Real body top (sheet art height when pixel frames are mounted). */
+  private bodyTopHeight(): number {
+    return this.pixelKey !== null && this.pixelArtH !== null
+      ? this.pixelArtH
+      : tierHeight(this._building.tier);
+  }
+
   /** Tier label height (FX anchor point). */
   get topY(): number {
-    return -tierHeight(this.building.tier);
+    return -this.bodyTopHeight();
   }
 }
 

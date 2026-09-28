@@ -150,7 +150,8 @@ const en = {
   catalogTitle: "Buildings Catalog",
   catalogSubtitle:
     "Every building family and tier in the city — hire more, grow value, and watch them rise.",
-  catalogSectionFamilies: "Building families × tier",
+  catalogSectionFamiliesCivic: "Building families × tier — Levels 1–7 (standard)",
+  catalogSectionFamiliesGrand: "Levels 8–14 (spectacular)",
   catalogSectionProtection: "Protection states",
   catalogSectionHq: "HQ core",
   catalogSectionLandmarks: "The Six landmarks",
@@ -381,7 +382,8 @@ const zh: TranslationKeys = {
   catalogTitle: "建筑图鉴",
   catalogSubtitle:
     "城市中的全部建筑家族与层级——雇佣更多建筑、推高身价，看着它们拔地而起。",
-  catalogSectionFamilies: "建筑家族 × 层级",
+  catalogSectionFamiliesCivic: "建筑家族 × 层级 —— 1–7 级(标准)",
+  catalogSectionFamiliesGrand: "8–14 级(奇观)",
   catalogSectionProtection: "保护状态",
   catalogSectionHq: "总部核心",
   catalogSectionLandmarks: "六使纪念碑",

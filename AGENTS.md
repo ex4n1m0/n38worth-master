@@ -256,22 +256,33 @@ n38worth-game-systems review):
 - Rendering stays bounded: aggregate ordinary avatars beyond the
   detailed-display limit, lazy-load heavy avatar media, support keyboard
   interaction and prefers-reduced-motion.
-- **Building art is a generated PIXEL-ART atlas (since 2026-09-28)**:
-  `npm run gen:city-pixel-art` deterministically re-plots
-  `public/city/pixel/*.png` (49 sheets: 7 families × 7 tiers, 3 variants ×
-  day/night/lights frames) + `city-pixel-art.generated.ts` (the manifest —
-  frame geometry, ground-contact anchors). The scene mounts them via
-  `scene/pixel-art.ts` (nearest-neighbor, lazy per family×tier, kill switch
-  `NEXT_PUBLIC_CITY_PIXEL_ART=off` → procedural fallback in art.ts).
-  **v2 normal-city direction (2026-09-28 evening, user ruling): classic
-  SimCity 2000/3000-style NORMAL architecture — stone/concrete/brick/glass
-  palette, no cyberpunk neon/rings/coils; day frames are TRUE COLOR; night =
-  dark masses + warm lit windows only.** Day/night = art-frame crossfade +
-  a grass terrain plate (day/night pair in IsoWorld) + concrete platforms
-  (day/night pair in art.ts) + scoped soft-lift filters for the remaining
-  procedural heroes (HQ/monuments/aggregate). There is NO global day
-  ColorMatrix anymore — add authored day/night pairs to new elements
-  instead of reintroducing one. Variant per card is `pixelVariantOf`
+- **Building art is TWO art systems split by the 14-level progression ladder
+  (2026-09-29 rework)**: `buildingTier` clamps to 1..14 (1×–8192×+ of
+  value_floor). TIERS 1–7 render the PROCEDURAL vector architecture
+  (art.ts) as the REAL art (not a fallback); TIERS 8–14 render the generated
+  pixel sheets — `pixelFramesFor` maps game tier → sheet slot (tier − 7).
+  Hero VALUE stage 1 (HQ + monuments) renders procedurally; stages 2–3 use
+  the hero sheets. The DOM card preview (components/city/BuildingSprite.tsx)
+  follows the same split (SVG procedural echo for T1–7, sheet DAY frame for
+  T8–14, goddess cards show the stage-2 landmark sheet).
+- **The generated atlas** (since 2026-09-28; v4 "chroma spectacular"
+  2026-09-29): `npm run gen:city-pixel-art` deterministically re-plots
+  `public/city/pixel/*.png` (49 sheets: 7 families × 7 sheet slots, 3
+  variants × day/night/lights frames) + `city-pixel-art.generated.ts` (the
+  manifest — frame geometry, ground-contact anchors). The scene mounts them
+  via `scene/pixel-art.ts` (nearest-neighbor, lazy per family×slot, kill
+  switch `NEXT_PUBLIC_CITY_PIXEL_ART=off` → procedural fallback in art.ts).
+  **v4 chroma direction (2026-09-29, user ruling): the generated set is the
+  SPECTACULAR high league — saturated family materials echoing FAMILY_NEON_HEX
+  accents, colored curtain glass, glowing sky-lobby bands, crown rings and a
+  mega-diadem at the top slot; day frames TRUE COLOR and bright, night
+  moonlit-readable (~63% luminance — never black slabs). The v2
+  normal-city restraint now lives in the procedural tiers 1–7.** Day/night =
+  art-frame crossfade + a grass terrain plate (day/night pair in IsoWorld) +
+  concrete platforms (day/night pair in art.ts) + scoped soft-lift filters
+  for the remaining procedural heroes (HQ/monuments/aggregate). There is NO
+  global day ColorMatrix anymore — add authored day/night pairs to new
+  elements instead of reintroducing one. Variant per card is `pixelVariantOf`
   (lib/city/scene/pixel-variant.ts, tested) — deterministic, never random.
   All art is original code-plotted work; never feed copyrighted game assets
   into the pipeline.

@@ -41,7 +41,7 @@ function card(overrides: Partial<Parameters<typeof projectCity>[1][number]>) {
 }
 
 describe("buildingTier", () => {
-  it("maps value/floor ratios to tiers at powers of two (1–7)", () => {
+  it("maps value/floor ratios to tiers at powers of two (1–14)", () => {
     expect(buildingTier(100, 100)).toBe(1); // 1×
     expect(buildingTier(199, 100)).toBe(1);
     expect(buildingTier(200, 100)).toBe(2); // 2×
@@ -49,25 +49,28 @@ describe("buildingTier", () => {
     expect(buildingTier(800, 100)).toBe(4); // 8×
     expect(buildingTier(1600, 100)).toBe(5); // 16×
     expect(buildingTier(3200, 100)).toBe(6); // 32×
-    expect(buildingTier(6400, 100)).toBe(7); // 64×
-    expect(buildingTier(1e12, 100)).toBe(7); // capped
+    expect(buildingTier(6400, 100)).toBe(7); // 64× — top of the procedural league
+    expect(buildingTier(12800, 100)).toBe(8); // 128× — first generated-spectacular tier
+    expect(buildingTier(51200, 100)).toBe(10); // 512×
+    expect(buildingTier(819200, 100)).toBe(14); // 8192×
+    expect(buildingTier(1e12, 100)).toBe(14); // capped
   });
 
   it("one overclock (×2) is exactly +1 tier in the normal range", () => {
     let value = 100;
     let prev = buildingTier(value, 100);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 13; i++) {
       value *= 2;
       const next = buildingTier(value, 100);
-      expect(next).toBe((prev + 1) as 2 | 3 | 4 | 5 | 6 | 7);
+      expect(next).toBe(prev + 1);
       prev = next;
     }
-    // past the top clamp the tier pins at 7 despite further growth
+    // past the top clamp the tier pins at 14 despite further growth
     value *= 2;
-    expect(buildingTier(value, 100)).toBe(7);
+    expect(buildingTier(value, 100)).toBe(14);
   });
 
-  it("treats degenerate floors safely (never NaN / out of 1..7)", () => {
+  it("treats degenerate floors safely (never NaN / out of 1..14)", () => {
     expect(buildingTier(1, 0)).toBe(1); // floor clamps to 1 → ratio 1×
     expect(buildingTier(50, 0)).toBe(6); // 50× against clamped floor 1
     expect(buildingTier(0, 100)).toBe(1); // ratio clamps to 1

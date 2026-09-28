@@ -10,7 +10,7 @@
  * Distribution guarantees (pinned by tests):
  * - professions cycle the REAL PROFESSIONS list (every 17th card is
  *   profession-less so the UNASSIGNED family appears too);
- * - values are log-distributed 1×–128× the floor so ALL 7 tiers populate;
+ * - values are log-distributed 1×–16384× the floor so ALL 14 tiers populate;
  * - ~15% of cards carry a FUTURE block/perm timestamp (~5% expired);
  * - 0–6 goddesses are included (they must project as landmarks, not
  *   buildings — projection.ts filters them).
@@ -113,10 +113,10 @@ export function makeCityFixture(
     const profession =
       i % 17 === 16 ? null : PROFESSIONS[i % PROFESSIONS.length].name;
     const valueFloor = FLOORS[Math.floor(rand() * FLOORS.length)];
-    // Tier ladder coverage: cycle the integer exponent 0..6 by index so all
-    // 7 tiers are guaranteed present for n ≥ 7 (plus a fractional part).
-    const exponent = (i % 7) + rand();
-    const playerValue = Math.round(valueFloor * Math.pow(2, Math.min(exponent, 7)));
+    // Tier ladder coverage: cycle the integer exponent 0..13 by index so all
+    // 14 tiers are guaranteed present for n ≥ 14 (plus a fractional part).
+    const exponent = (i % 14) + rand();
+    const playerValue = Math.round(valueFloor * Math.pow(2, Math.min(exponent, 14)));
     if (profession) {
       familyTotals[profession] = (familyTotals[profession] ?? 0) + 1;
     } else {

@@ -2,13 +2,16 @@
 
 /**
  * Buildings Catalog — production art catalog (2026-09-28, user request: add
- * the buildings collection to the profile menu as "Buildings Catalog").
+ * the buildings collection to the profile menu as "Buildings Catalog";
+ * 2026-09-29 progression rework: 14 levels).
  *
  * Renders the REAL in-game sprites so the catalog always matches the city:
- * 7 families × 7 tiers, the three protection states, HQ core variants and
- * the Six goddess monuments (+ the unowned ghost). All strings arrive
- * PRE-RESOLVED via props (LanguageContext lives in React land — the Pixi
- * code never imports i18n; same contract as CitySceneStrings).
+ * 7 families × 14 tiers in TWO grids — procedural civic architecture at
+ * T1–T7, the generated spectacular sheets at T8–T14 — plus the three
+ * protection states, HQ core variants and the Six goddess monuments (+ the
+ * unowned ghost). All strings arrive PRE-RESOLVED via props
+ * (LanguageContext lives in React land — the Pixi code never imports i18n;
+ * same contract as CitySceneStrings).
  *
  * Day/night is the same authored-art system the city uses: buildings
  * crossfade their generated day/night/lights frames (BuildingSprite
@@ -25,11 +28,12 @@ import { LandmarkSprite } from "@/components/city/world/scene/landmarks";
 import { onPixelArtReady } from "@/components/city/world/scene/pixel-art";
 import { professionNeon } from "@/components/city/world/scene/art";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
-import type { CityBuilding } from "@/lib/city/types";
+import type { CityBuilding, BuildingTier } from "@/lib/city/types";
 
 /** Pre-resolved, locale-aware labels (built by the page via useLanguage). */
 export interface CatalogStrings {
-  sectionFamilies: string;
+  sectionFamiliesCivic: string;
+  sectionFamiliesGrand: string;
   sectionProtection: string;
   sectionHq: string;
   sectionLandmarks: string;
@@ -49,7 +53,10 @@ export interface CatalogStrings {
 const LEFT = 170;
 const COL_W = 150;
 const ROW_H = 182;
-const TIER_TAGS = ["T1 · 1×", "T2 · 2×", "T3 · 4×", "T4 · 8×", "T5 · 16×", "T6 · 32×", "T7 · 64×+"];
+/** 14 progression levels, two art systems: procedural civic (T1–T7) then
+ *  the generated spectacular sheets (T8–T14) — one 7-column grid each. */
+const TIER_TAGS_CIVIC = ["T1 · 1×", "T2 · 2×", "T3 · 4×", "T4 · 8×", "T5 · 16×", "T6 · 32×", "T7 · 64×"];
+const TIER_TAGS_GRAND = ["T8 · 128×", "T9 · 256×", "T10 · 512×", "T11 · 1024×", "T12 · 2048×", "T13 · 4096×", "T14 · 8192×+"];
 
 /** Canvas backdrop: soft day-sky blue vs the scene's night navy. */
 const BG_DAY = 0x8fb4d6;
@@ -68,7 +75,7 @@ const ROLE_FILLS: Record<Role, { day: number; night: number }> = {
 function fakeBuilding(
   cardId: number,
   profession: string | null,
-  tier: 1 | 2 | 3 | 4 | 5 | 6 | 7,
+  tier: BuildingTier,
   protection: CityBuilding["protection"] = null
 ): CityBuilding {
   return {
@@ -157,8 +164,10 @@ export default function BuildingsCatalogMount({
 
       // Section vertical layout (measured before the canvas is sized).
       let y = 96; // header + tier column labels
-      const gridTop = y;
-      y += s.familyNames.length * ROW_H + 30;
+      const civicTop = y;
+      y += s.familyNames.length * ROW_H + 26;
+      const grandTop = y + 56; // section header + tier labels again
+      y = grandTop + s.familyNames.length * ROW_H + 30;
       const protTop = y;
       y += 200;
       const hqTop = y;
@@ -201,21 +210,41 @@ export default function BuildingsCatalogMount({
 
       const colX = (col: number) => LEFT + col * COL_W + COL_W / 2;
 
-      // ── Section A: families × tiers ──────────────────────────────────
-      root.addChild(label(s.sectionFamilies, 20, 26, "section"));
-      TIER_TAGS.forEach((tag, col) => {
+      // ── Sections A1/A2: families × tiers — civic (T1–T7, procedural) and
+      //     grand (T8–T14, generated spectacular) ────────────────────────
+      root.addChild(label(s.sectionFamiliesCivic, 20, 26, "section"));
+      TIER_TAGS_CIVIC.forEach((tag, col) => {
         root.addChild(label(tag, colX(col), 66, "sub", 0.5));
       });
       s.familyNames.forEach((name, row) => {
-        const baseY = gridTop + row * ROW_H + 110;
+        const baseY = civicTop + row * ROW_H + 110;
         const profession = s.familyProfessions[row] ?? null;
         root.addChild(label(name, LEFT - 24, baseY - 55, "family", 1, professionNeon(profession)));
         for (let tier = 1 as const; tier <= 7; tier++) {
           const sprite = new BuildingSprite(
-            fakeBuilding(100 + row * 9 + tier * 3, profession, tier as 1 | 2 | 3 | 4 | 5 | 6 | 7)
+            fakeBuilding(100 + row * 9 + tier * 3, profession, tier as BuildingTier)
           );
           sprite.setLod("close");
           sprite.position.set(colX(tier - 1), baseY);
+          root.addChild(sprite);
+          buildingSprites.push(sprite);
+        }
+      });
+
+      root.addChild(label(s.sectionFamiliesGrand, 20, grandTop - 56, "section"));
+      TIER_TAGS_GRAND.forEach((tag, col) => {
+        root.addChild(label(tag, colX(col), grandTop - 16, "sub", 0.5));
+      });
+      s.familyNames.forEach((name, row) => {
+        const baseY = grandTop + row * ROW_H + 110;
+        const profession = s.familyProfessions[row] ?? null;
+        root.addChild(label(name, LEFT - 24, baseY - 55, "family", 1, professionNeon(profession)));
+        for (let tier = 8 as const; tier <= 14; tier++) {
+          const sprite = new BuildingSprite(
+            fakeBuilding(200 + row * 9 + tier * 3, profession, tier as BuildingTier)
+          );
+          sprite.setLod("close");
+          sprite.position.set(colX(tier - 8), baseY);
           root.addChild(sprite);
           buildingSprites.push(sprite);
         }

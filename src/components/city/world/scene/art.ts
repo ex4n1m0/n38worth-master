@@ -30,10 +30,14 @@
  * (wide-dome / hollow-gate / round-column / offset-stack / uniform-slab /
  * tri-lobed-hangar), so hue only reinforces what shape already encodes.
  *
- * Tier ladder 1–7 = modular layers (§"Upgrade presentation"): every tier adds
+ * Tier ladder = modular layers (§"Upgrade presentation"): every tier adds
  * one visible structural layer (taller family stack) PLUS one architectural
  * feature — antenna at 3, side pods at 4, halo ring at 5, crown at 6,
- * megastructure cap at 7 — so the tier reads WITHOUT labels at close zoom.
+ * megastructure cap at 7, twin masts/double halo/sky pods/crown stack/
+ * tri-beacons/grand ring/apex spire at 8–14 — so the tier reads WITHOUT
+ * labels at close zoom. Tiers 1–7 are the REAL procedural architecture;
+ * tiers 8–14 render the generated pixel sheets (this module is their
+ * loading fallback + kill-switch art).
  *
  * Color canon (kept in lockstep with the DOM BuildingTile):
  * - firewall ring = cyan #22d3ee (tailwind cyan-400)
@@ -153,7 +157,7 @@ export function familyTopHeight(profession: string | null, tier: BuildingTier): 
 export const PLATFORM_HALF_W = TILE_W / 2 - 8;
 export const PLATFORM_HALF_H = TILE_H / 2 - 4;
 
-/** Total placeholder body height for a tier (1..7) — shared FX anchor. */
+/** Total placeholder body height for a tier (1..14) — shared FX anchor. */
 export function tierHeight(tier: BuildingTier): number {
   return 22 + tier * 14;
 }
@@ -690,9 +694,13 @@ export function familyArt(profession: string | null): FamilyArtSpec {
 // ── shared tier features (progressive, family-agnostic) ───────────────────
 
 /**
- * Tier 3..7 architectural features — one NEW feature per tier so the ladder
+ * Tier 3..14 architectural features — one NEW feature per tier so the ladder
  * reads without labels: antenna (3), side pods (4), halo ring (5), crown (6),
- * megastructure cap (7). Bodies draw into `g` (mass), lights into `e` (neon).
+ * megastructure cap (7), then the 8–14 rungs (twin masts at 8, double halo
+ * at 9, sky pods at 10, crown stack at 11, tri-beacons at 12, grand ring at
+ * 13, apex spire at 14). Tiers 8–14 normally render the generated pixel-art
+ * sheets — this ladder is their loading fallback (and the kill-switch art).
+ * Bodies draw into `g` (mass), lights into `e` (neon).
  */
 export function drawTierFeatures(
   g: Graphics,
@@ -736,6 +744,46 @@ export function drawTierFeatures(
     drawIsoBox(g, 0, top - 12, w * 1.02, h * 1.02, 8, shade(spec.mass, 1.35), 0.96, neon);
     e.circle(0, top - 24, 3).fill({ color: 0xffffff, alpha: 0.95 });
     e.circle(0, top - 24, 6).stroke({ width: 1.5, color: shade(neon, 1.5), alpha: 0.8 });
+  }
+  if (tier >= 8) {
+    // Twin masts: a second antenna mirrors the tier-3 one.
+    const ax = spec === overclockerArt ? -w * 0.55 : w * 0.55;
+    e.moveTo(ax, top - 20).lineTo(ax, top - 38).stroke({ width: 1.5, color: shade(neon, 1.2), alpha: 0.95 });
+    e.circle(ax, top - 39, 1.8).fill({ color: shade(neon, 1.6) });
+  }
+  if (tier >= 9) {
+    // Double halo: a second, tighter ring above the tier-5 one.
+    e.ellipse(0, top * 0.3, w * 0.62, h * 0.62)
+      .stroke({ width: 1.5, color: shade(neon, 1.45), alpha: 0.6 });
+  }
+  if (tier >= 10) {
+    // Sky pods: the tier-4 pod shape re-mounted at the upper third.
+    const podY = top * 0.68;
+    drawIsoBox(g, -w * 0.72, podY, w * 0.18, h * 0.18, 9, shade(spec.mass, 1.15), 1, neon);
+    drawIsoBox(g, w * 0.72, podY, w * 0.18, h * 0.18, 9, shade(spec.mass, 1.15), 1, neon);
+  }
+  if (tier >= 11) {
+    // Crown stack: a second, smaller cap plate over the tier-6 crown.
+    drawIsoBox(g, 0, top - 22, w * 0.5, h * 0.5, 7, shade(spec.mass, 1.75), 1, neon);
+  }
+  if (tier >= 12) {
+    // Tri-beacons around the crown stack rim.
+    for (let i = 0; i < 3; i++) {
+      const bx = w * 0.55 * Math.cos((i * Math.PI * 2) / 3 + 0.5);
+      const by = top - 30 + h * 0.4 * Math.sin((i * Math.PI * 2) / 3 + 0.5);
+      e.circle(bx, by, 1.7).fill({ color: shade(neon, 1.7) });
+    }
+  }
+  if (tier >= 13) {
+    // Grand ring: a wide elevated halo just under the apex.
+    e.ellipse(0, top - 34, w * 0.9, h * 0.9)
+      .stroke({ width: 2, color: shade(neon, 1.55), alpha: 0.65 });
+  }
+  if (tier >= 14) {
+    // Apex spire: the terminal mast with a white beacon.
+    e.moveTo(0, top - 30).lineTo(0, top - 58).stroke({ width: 2, color: shade(neon, 1.3), alpha: 0.95 });
+    e.circle(0, top - 60, 2.6).fill({ color: 0xffffff, alpha: 0.95 });
+    e.circle(0, top - 60, 5).stroke({ width: 1.5, color: shade(neon, 1.6), alpha: 0.85 });
   }
 }
 

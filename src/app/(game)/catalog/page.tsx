@@ -32,7 +32,8 @@ export default function CatalogPage() {
     const professions = PROFESSIONS.map((p) => p.name as string | null);
     const stage = (n: number) => t.catalogStage.replace("{n}", String(n));
     return {
-      sectionFamilies: t.catalogSectionFamilies,
+      sectionFamiliesCivic: t.catalogSectionFamiliesCivic,
+      sectionFamiliesGrand: t.catalogSectionFamiliesGrand,
       sectionProtection: t.catalogSectionProtection,
       sectionHq: t.catalogSectionHq,
       sectionLandmarks: t.catalogSectionLandmarks,
@@ -90,7 +91,7 @@ export default function CatalogPage() {
       <ul className="sr-only">
         {strings.familyNames.map((name, i) => (
           <li key={name + i}>
-            {name} — T1–T7
+            {name} — T1–T14
           </li>
         ))}
       </ul>
