@@ -520,7 +520,7 @@ function BrowsePlayersSection({
                   key={player.id}
                   style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
                 >
-                  <PlayerCard {...player} leaderboardMode comboSelection={comboSelection} />
+                  <PlayerCard {...player} leaderboardMode showBuilding comboSelection={comboSelection} />
                 </div>
               )
             )}

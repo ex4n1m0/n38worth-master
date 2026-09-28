@@ -184,7 +184,7 @@ export default function PlayersPage() {
                 blockSellUntil?: string | null;
                 permBlockUntil?: string | null;
               }) => (
-                <PlayerCard key={player.id} {...player} />
+                <PlayerCard key={player.id} {...player} showBuilding />
               )
             )}
           </div>

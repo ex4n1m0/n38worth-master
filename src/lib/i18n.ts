@@ -165,6 +165,10 @@ const en = {
   catalogUnowned: "unowned",
   catalogStage: "Stage {n}",
   catalogStageLegend: "Final form appears only near the current game max value",
+
+  // ── Building preview on avatar cards ──
+  cardBuildingTier: "Becomes a Tier {tier} building in your city",
+  cardBuildingLandmark: "Becomes a landmark in your city",
   muteSounds: "Mute sounds",
   unmuteSounds: "Unmute sounds",
   coachCredits: "Earn credits when other players hire your cards, plus portfolio rewards every 30 minutes. Your value grows every time you get hired.",
@@ -392,6 +396,10 @@ const zh: TranslationKeys = {
   catalogUnowned: "未拥有",
   catalogStage: "阶段 {n}",
   catalogStageLegend: "最终形态只在接近当前游戏最高身价时出现",
+
+  // ── 卡牌上的建筑预览 ──
+  cardBuildingTier: "将在我方城市中建成 {tier} 级建筑",
+  cardBuildingLandmark: "将在我方城市中成为地标",
   muteSounds: "静音",
   unmuteSounds: "取消静音",
   coachCredits: "其他玩家雇佣你的卡牌时你将获得信用点，此外每 30 分钟还有投资组合奖励。你每次被雇佣，身价都会上涨。",

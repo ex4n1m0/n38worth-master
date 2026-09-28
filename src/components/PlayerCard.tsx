@@ -36,6 +36,8 @@ import {
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
+import { BuildingSprite, BUILDING_SPRITE_ENABLED } from "@/components/city/BuildingSprite";
+import { buildingTier } from "@/lib/city/projection";
 import { cardDisplayName } from "@/lib/display-names";
 import { WarDeleteButton } from "@/components/WarDeleteButton";
 import { PhotoAttribution } from "@/components/PhotoAttribution";
@@ -98,6 +100,9 @@ interface PlayerCardProps {
   onboardingComplete?: number;
   actionsOnly?: boolean;
   leaderboardMode?: boolean;
+  /** Show the pixel-art preview of the building hiring this card adds to
+      the city (buildings browse grid), sized equal to the avatar. */
+  showBuilding?: boolean;
   /** Bypass hidden-Avatar masking and always show the real avatar (served via
       the public, CDN-cached /api/avatar route). Used on profile showcases. */
   alwaysShowAvatar?: boolean;
@@ -141,6 +146,7 @@ function PlayerCardImpl({
   avatarRevealUntil,
   leaderboardMode = false,
   alwaysShowAvatar = false,
+  showBuilding = false,
   comboSelection,
 }: PlayerCardProps) {
   const { data: session } = useSession();
@@ -698,6 +704,14 @@ function PlayerCardImpl({
 
   const showMeta = effectiveProfession || leaderboardMode;
 
+  // Building preview (buildings browse grid): the pixel-art sprite of the
+  // exact building hiring this card would add to the city — same
+  // family/tier/variant derivation as the city scene.
+  const showBuildingRow = showBuilding && BUILDING_SPRITE_ENABLED;
+  const buildingTitle = isGoddess
+    ? t.cardBuildingLandmark
+    : t.cardBuildingTier.replace("{tier}", String(buildingTier(playerValue, valueFloor)));
+
   // Status ring (identity) replaces the action ring when the card is locked
   // down: cyan = firewalled, amber = hard-locked. The action affordance
   // stays visible via the colored GET/OVERCLOCK/BREACH label.
@@ -792,7 +806,10 @@ function PlayerCardImpl({
 
         <div
           className={cn(
-            "relative w-full aspect-square rounded-lg overflow-hidden ring-2 transition-all",
+            "relative aspect-square rounded-lg overflow-hidden ring-2 transition-all",
+            // Building-preview cards shrink the avatar to match the building
+            // sprite's width (both 2/3 of the card — see the preview row).
+            showBuildingRow ? "w-2/3" : "w-full",
             statusRing ?? ringColor
           )}
         >
@@ -975,38 +992,87 @@ function PlayerCardImpl({
           </div>
         )}
 
-        {showMeta && (
-          <div className="w-full mt-2 text-center space-y-1">
-            {professionBadge && (
-              <div className="flex justify-center">{professionBadge}</div>
-            )}
-            {leaderboardMode && ownerName && (
-              <div className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-semibold leading-tight">
-                {ownerName !== session?.user?.name && (
-                  <span className="text-[9px] font-medium tracking-widest text-white/50 uppercase leading-none shrink-0">
-                    {t.boss}
-                  </span>
+        {showBuildingRow ? (
+          // Preview column: the building sprite at the SAME width as the
+          // avatar above (both 2/3 of the card — avatar shrunk to meet it),
+          // with the profession badge / owner line stacked back below so the
+          // card's total height stays roughly what it was.
+          <div className="w-full mt-1.5 flex flex-col items-center gap-1.5">
+            <BuildingSprite
+              cardId={id}
+              profession={effectiveProfession}
+              playerValue={playerValue}
+              valueFloor={valueFloor}
+              goddessUsername={isGoddess ? username : undefined}
+              title={buildingTitle}
+              className="w-2/3"
+            />
+            {showMeta && (
+              <div className="w-full text-center space-y-1">
+                {professionBadge}
+                {leaderboardMode && ownerName && (
+                  <div className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-semibold leading-tight">
+                    {ownerName !== session?.user?.name && (
+                      <span className="text-[9px] font-medium tracking-widest text-white/50 uppercase leading-none shrink-0">
+                        {t.boss}
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "flex items-center gap-1 justify-center max-w-full min-w-0",
+                        ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
+                      )}
+                    >
+                      <Terminal className="h-3 w-3 shrink-0" />
+                      <span className="truncate">
+                        {ownerName === session?.user?.name ? t.mine : ownerName}
+                      </span>
+                    </span>
+                  </div>
                 )}
-                <span
-                  className={cn(
-                    "flex items-center gap-1 justify-center max-w-full min-w-0",
-                    ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
-                  )}
-                >
-                  <Terminal className="h-3 w-3 shrink-0" />
-                  <span className="truncate">
-                    {ownerName === session?.user?.name ? t.mine : ownerName}
-                  </span>
-                </span>
-              </div>
-            )}
-            {leaderboardMode && !ownerName && (
-              <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-white leading-tight">
-                <Terminal className="h-3 w-3 shrink-0" />
-                <span className="truncate">{t.lost}</span>
+                {leaderboardMode && !ownerName && (
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-white leading-tight">
+                    <Terminal className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{t.lost}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
+        ) : (
+          showMeta && (
+            <div className="w-full mt-2 text-center space-y-1">
+              {professionBadge && (
+                <div className="flex justify-center">{professionBadge}</div>
+              )}
+              {leaderboardMode && ownerName && (
+                <div className="flex items-center justify-center gap-1 min-w-0 text-[11px] font-semibold leading-tight">
+                  {ownerName !== session?.user?.name && (
+                    <span className="text-[9px] font-medium tracking-widest text-white/50 uppercase leading-none shrink-0">
+                      {t.boss}
+                    </span>
+                  )}
+                  <span
+                    className={cn(
+                      "flex items-center gap-1 justify-center max-w-full min-w-0",
+                      ownerName === session?.user?.name ? "text-yellow-300/90" : "text-white"
+                    )}
+                  >
+                    <Terminal className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      {ownerName === session?.user?.name ? t.mine : ownerName}
+                    </span>
+                  </span>
+                </div>
+              )}
+              {leaderboardMode && !ownerName && (
+                <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-white leading-tight">
+                  <Terminal className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{t.lost}</span>
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {leaderboardMode && (
