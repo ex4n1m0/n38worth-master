@@ -79,7 +79,7 @@ import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
 import { SatelliteLayer } from "./SatelliteLayer";
 import { UniverseLayer } from "./UniverseLayer";
-import { RoadsLayer, type RoadAnchor } from "./RoadsLayer";
+import { RoadsLayer } from "./RoadsLayer";
 import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
 import { onPixelArtReady, pixelArtActive } from "./pixel-art";
 import { mulberry32 } from "./art";
@@ -409,8 +409,6 @@ export class CityScene {
       scene.rootLayer.beams,
       scene.fx
     );
-    // A mini city arriving/leaving re-paves the country roads.
-    scene.universe.onMinisChanged = () => scene.syncRoads();
     // Aggregate skyline daylight lerp (identity at night — applyDaylight).
     scene.aggregate.filters = [scene.aggregateDay];
     // Ground-level overlays (root veil → paths + district links) sit
@@ -929,20 +927,18 @@ export class CityScene {
   }
 
   /**
-   * Country roads (pure decoration): HQ → every satellite cluster + every
-   * live universe mini. Insets clear the destination pads (their radius in
-   * tiles + a shoulder) so paving stops at each city's rim.
+   * Country roads (pure decoration): one straight connector per SATELLITE
+   * cluster, along the same corridor the core→core pulses travel. Each road
+   * is clipped to the countryside gap — it starts where the corridor exits
+   * the city's unlocked sector union (so it never crosses a building) and
+   * ends at the cluster pad's rim. Universe cities get NO roads: there is no
+   * ownership relationship, and paving to arbitrary ranked cities read as
+   * random lines (2026-09-28 user ruling).
    */
   private syncRoads(): void {
     if (this.destroyed) return;
     const hq = worldPointOfTile(HQ_TILE);
-    const anchors: RoadAnchor[] = this.satellites
-      .roadAnchors()
-      .map((a) => ({ ...a, inset: 10 }));
-    for (const a of this.universe.roadAnchors()) {
-      anchors.push({ ...a, inset: 8 });
-    }
-    this.roads.sync(hq, anchors);
+    this.roads.sync(hq, this.satellites.roadAnchors(), this.world.sectorCount);
   }
 
   // ── re-rank glide (value-orbit placement) ─────────────────────────────

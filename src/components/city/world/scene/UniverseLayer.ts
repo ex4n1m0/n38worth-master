@@ -207,21 +207,6 @@ export class UniverseLayer extends Container {
     for (const [u, mini] of this.minis) mini.relay.setSelected(u === username);
   }
 
-  /** World-px anchors of every live mini (country-road endpoints). */
-  roadAnchors(): Array<{ x: number; y: number }> {
-    const out: Array<{ x: number; y: number }> = [];
-    for (const mini of this.minis.values()) {
-      out.push({ x: mini.container.x, y: mini.container.y });
-    }
-    return out;
-  }
-
-  /**
-   * Optional hook fired whenever the live-mini SET changes (built/destroyed)
-   * — the scene re-syncs country roads to the new endpoints.
-   */
-  onMinisChanged: (() => void) | null = null;
-
   private selectedBuilding: { username: string; cardId: number } | null = null;
   private selectedHq: string | null = null;
 
@@ -645,7 +630,6 @@ export class UniverseLayer extends Container {
     // Honor a live HQ/building selection in the freshly built city.
     relay.setSelected(this.selectedHq === city.username);
     this.applyBuildingSelection();
-    this.onMinisChanged?.();
   }
 
   private destroyMini(username: string): void {
@@ -656,7 +640,6 @@ export class UniverseLayer extends Container {
     this.minis.delete(username);
     const i = this.miniOrder.indexOf(username);
     if (i >= 0) this.miniOrder.splice(i, 1);
-    this.onMinisChanged?.();
   }
 
   private clearMinis(): void {
