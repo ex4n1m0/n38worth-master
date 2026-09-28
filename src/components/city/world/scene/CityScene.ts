@@ -26,6 +26,12 @@
  * - Locale-aware STRINGS (tier-up flash, lost-signal chip, HQ CORE tag,
  *   display names, sector labels) supplied by the React shell via
  *   setStrings() — the scene itself never imports i18n.
+ * - Day/night cycle (2026-09-28): 1 real hour = 1 game day — 30 real
+ *   minutes of day, 30 of night (daylight.ts). Daylight crossfades a blue
+ *   day sky over the night backdrop and adds a screen-blend wash that
+ *   brightens floor + buildings; night keeps the current dark ambience.
+ *   The wall clock is sampled on a slow interval and eased between samples
+ *   (render-on-demand friendly; reduced motion snaps).
  *
  * The scene is a RENDERER of server state: tier / protection / sectors /
  * placements all arrive via the projection and are never recomputed here.
@@ -47,6 +53,7 @@ import {
   resolveMotion,
   type MotionPolicy,
 } from "@/lib/city/scene/motion";
+import { daylightAt } from "@/lib/city/scene/daylight";
 import { clampCamera, ZOOM_MIN, type CameraState } from "@/lib/city/scene/camera";
 import { visibleWorldRect } from "@/lib/city/scene/culling";
 import { TILE_W, pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
@@ -73,6 +80,7 @@ import { FxLayer } from "./FxLayer";
 import { BuildingSprite } from "./BuildingSprite";
 import { SatelliteLayer } from "./SatelliteLayer";
 import { UniverseLayer } from "./UniverseLayer";
+import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
 import { mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
@@ -169,20 +177,61 @@ function buildSkyTexture(app: Application, w: number, h: number): Texture {
   return tex;
 }
 
+/**
+ * DAY sky gradient (day/night cycle, 2026-09-28): deep blue zenith → pale
+ * horizon with a soft baked sun glow high-right. Crossfades over the night
+ * texture (skyDay.alpha = daylight factor) so dawn/dusk are continuous. No
+ * stars — they fade in with the night layer underneath as daylight drops.
+ */
+function buildDaySkyTexture(app: Application, w: number, h: number): Texture {
+  const grad = new FillGradient({
+    type: "linear",
+    start: { x: 0, y: 0 },
+    end: { x: 0, y: 1 },
+    colorStops: [
+      { offset: 0, color: "#3e6fb4" },
+      { offset: 0.45, color: "#6f9ed8" },
+      { offset: 0.78, color: "#b7d3ec" },
+      { offset: 1, color: "#8fb2d4" },
+    ],
+    textureSpace: "local",
+  });
+  const g = new Graphics();
+  g.rect(0, 0, w, h).fill(grad);
+  // Sun: layered glow discs (deterministic position, zero runtime cost).
+  const sx = Math.round(w * 0.72);
+  const sy = Math.round(h * 0.18);
+  const spread = Math.max(w, h);
+  g.circle(sx, sy, spread * 0.16).fill({ color: 0xfff3d6, alpha: 0.16 });
+  g.circle(sx, sy, spread * 0.085).fill({ color: 0xfff8e6, alpha: 0.28 });
+  g.circle(sx, sy, 26).fill({ color: 0xffffff, alpha: 0.85 });
+  const tex = app.renderer.generateTexture(g);
+  g.destroy();
+  return tex;
+}
+
 /** Initial/reset zoom: district LOD — the core + landmark ring read clearly
  *  while the wider sector grid stays in frame. */
 const HOME_ZOOM = 0.75;
-
-/**
- * Name chips shown at close LOD (buildings near the camera center, nearest
- * first, the selected building always included) — bounded rendering budget.
- */
-const NAME_CHIP_CAP = 12;
 
 /** Re-rank glide duration (value change → drift to the new ring). */
 const MOVE_GLIDE_MS = 460;
 /** Max simultaneous glides — past this (mass re-rank) the rest snap. */
 const MOVE_GLIDE_CAP = 96;
+
+/**
+ * Day/night cycle (daylight.ts — 1 real hour = 1 game day, 30 real minutes
+ * day / 30 night). The wall clock is sampled on a slow interval and the
+ * visuals EASE to the new daylight factor; the ramps in daylightAt() mean
+ * each sampled step is small, so the crossfade reads as continuous dawn or
+ * dusk rather than discrete jumps.
+ */
+const DAYLIGHT_SAMPLE_MS = 15_000;
+const DAYLIGHT_EASE_MS = 12_000;
+/** Screen-blend daylight wash over the whole stage (floor + buildings + sky
+ *  brighten together). Soft blue-white, never bloom-fed (above fxRoot). */
+const DAY_WASH_COLOR = 0xcfe2f7;
+const DAY_WASH_MAX_ALPHA = 0.3;
 
 export class CityScene {
   private readonly app: Application;
@@ -192,6 +241,18 @@ export class CityScene {
   private readonly fxRoot = new Container();
   /** Static night-sky backdrop (behind fxRoot, never filtered). */
   private sky!: Sprite;
+  /** Day-sky crossfade layer (alpha = daylight; sits directly over `sky`). */
+  private skyDay!: Sprite;
+  /** Screen-blend daylight wash above fxRoot (brightens floor + buildings). */
+  private dayWash!: Graphics;
+  /** Day/night state: current eased factor 0..1 + the ease-in-flight target. */
+  private daylight = 0;
+  private daylightFrom = 0;
+  private daylightTarget = 0;
+  private daylightStartMs = 0;
+  private daylightEaseActive = false;
+  /** Slow wall-clock sampler driving the cycle (render-on-demand friendly). */
+  private daylightTimer: ReturnType<typeof setInterval> | null = null;
   /** Threshold bloom (study §Track B) — dark palette makes it selective. */
   private readonly bloom = new AdvancedBloomFilter({
     threshold: 0.55,
@@ -255,6 +316,8 @@ export class CityScene {
   private dirty = true;
   private raf = 0;
   private destroyed = false;
+  /** Unsubscribe for avatar-texture arrivals (billboards need a re-render). */
+  private avatarReadyTeardown: (() => void) | null = null;
 
   private constructor(
     app: Application,
@@ -311,13 +374,35 @@ export class CityScene {
     // Night relight stack (study §A5/§B1): static sky behind everything, the
     // whole world inside ONE screen-sized filtered container — with the dark
     // night palette, a threshold bloom on that pass is effectively selective
-    // (only emissives clear the threshold) without per-building layers.
+    // (only emissives clear the threshold) without per-building layers. The
+    // DAY layer (day/night cycle) crossfades over the night sky, and the
+    // daylight wash sits ABOVE fxRoot so it never feeds the bloom filter.
     scene.sky = new Sprite(buildSkyTexture(app, app.renderer.width, app.renderer.height));
+    scene.skyDay = new Sprite(
+      buildDaySkyTexture(app, app.renderer.width, app.renderer.height)
+    );
+    scene.skyDay.alpha = 0;
+    scene.dayWash = new Graphics()
+      .rect(0, 0, app.renderer.width, app.renderer.height)
+      .fill({ color: DAY_WASH_COLOR, alpha: DAY_WASH_MAX_ALPHA });
+    scene.dayWash.blendMode = "screen";
+    scene.dayWash.alpha = 0;
     scene.fxRoot.addChild(scene.worldContainer);
     scene.fxRoot.filterArea = new Rectangle(0, 0, app.renderer.width, app.renderer.height);
-    app.stage.addChild(scene.sky, scene.fxRoot);
+    app.stage.addChild(scene.sky, scene.skyDay, scene.fxRoot, scene.dayWash);
     scene.bloomSupported = CITY_BLOOM_ENV && scene.detectWebGL2();
     scene.syncBloom();
+
+    // Day/night cycle: apply the CURRENT daylight immediately (opening at
+    // :15–:45 real = daytime right away), then sample the wall clock slowly.
+    scene.daylight = scene.daylightFrom = scene.daylightTarget = daylightAt(
+      Date.now()
+    );
+    scene.applyDaylight();
+    scene.daylightTimer = setInterval(
+      () => scene.sampleDaylight(),
+      DAYLIGHT_SAMPLE_MS
+    );
 
     // Root beams ride ABOVE the skyline (under FX chips); the veil mounts
     // beneath paths/buildings as a ground-level wash. The shared UNIVERSE
@@ -367,6 +452,9 @@ export class CityScene {
     scene.ro = ro;
 
     app.canvas.addEventListener("webglcontextlost", scene.onContextLost);
+    // Billboard textures arrive async — each arrival requests one render so
+    // plates pop in without a camera nudge (sprites mount themselves).
+    scene.avatarReadyTeardown = onAvatarTextureReady(() => scene.requestRender());
 
     scene.applyCamera(rig.state);
     scene.requestRender();
@@ -380,7 +468,11 @@ export class CityScene {
     this.strings = { ...this.strings, ...strings };
     // Refresh everything that baked a string in.
     if (this.lastProjection) {
-      this.world.syncHq(this.lastProjection.owner.profession, this.strings.coreTag);
+      this.world.syncHq(
+        this.lastProjection.owner.profession,
+        this.strings.coreTag,
+        this.strings.displayName(this.lastProjection.owner.username)
+      );
       this.world.syncSectorInfo(
         this.lastProjection.sectorInfo,
         this.strings.sectorLabel
@@ -559,7 +651,11 @@ export class CityScene {
     // A goddess lost/gained mid-sequence re-anchors the beams on the next
     // confirmed projection (all six ring positions — see applyRoot, M2).
     if (this.lastRootState.active) this.applyRoot(false);
-    this.world.syncHq(projection.owner.profession, this.strings.coreTag);
+    this.world.syncHq(
+      projection.owner.profession,
+      this.strings.coreTag,
+      this.strings.displayName(projection.owner.username)
+    );
     this.world.setLod(this.lod);
     // Sprites created by THIS sync must match an in-flight detail fade.
     if (this.lod === "close" && this.detailAlpha < 1) {
@@ -929,51 +1025,18 @@ export class CityScene {
   }
 
   /**
-   * Bounded name-chip pass (close LOD only): show plated name chips for the
-   * NAME_CHIP_CAP buildings nearest the camera center (the selected building
-   * always gets one, with the stronger plate + leader line). District/world
-   * LOD shows none — except the selection chip, which is always labeled.
-   * Runs on sync / camera settle / selection change — never per frame.
+   * Name chips are SELECTION-ONLY (2026-09-28 user ruling): the tapped
+   * building gets the strong plate + leader line and every other building
+   * stays unlabeled — ambient identity reads through the rooftop avatar
+   * billboards instead. Runs on sync / selection change / camera settle —
+   * never per frame.
    */
   private updateNameChips(): void {
     if (this.destroyed) return;
-    const sprites = [...this.world.allSprites];
-    if (this.lod !== "close") {
-      for (const s of sprites) {
-        const isSel = s.building.cardId === this.selectedCardId;
-        if (isSel) {
-          s.showLabel(this.strings.displayName(s.building.username), {
-            strong: true,
-          });
-        } else {
-          s.hideLabel();
-        }
-      }
-      this.requestRender();
-      return;
-    }
-    const cam = this.rig.state;
-    const scored = sprites
-      .map((s) => ({
-        sprite: s,
-        // Screen-px distance to the viewport center (the +viewport/2 offsets
-        // cancel), so "nearest" matches what the player actually sees.
-        d: Math.hypot(
-          (s.x - cam.x) * cam.zoom,
-          (s.y - cam.y) * cam.zoom
-        ),
-      }))
-      .sort((a, b) => a.d - b.d);
-    const chosen = new Set<number>();
-    if (this.selectedCardId !== null) chosen.add(this.selectedCardId);
-    for (const { sprite } of scored) {
-      if (chosen.size >= NAME_CHIP_CAP) break;
-      chosen.add(sprite.building.cardId);
-    }
-    for (const s of sprites) {
-      if (chosen.has(s.building.cardId)) {
+    for (const s of this.world.allSprites) {
+      if (s.building.cardId === this.selectedCardId) {
         s.showLabel(this.strings.displayName(s.building.username), {
-          strong: s.building.cardId === this.selectedCardId,
+          strong: true,
         });
       } else {
         s.hideLabel();
@@ -1095,7 +1158,18 @@ export class CityScene {
     this.fxRoot.filterArea = new Rectangle(0, 0, w, h);
     this.sky.destroy({ texture: true });
     this.sky = new Sprite(buildSkyTexture(this.app, w, h));
+    this.skyDay.destroy({ texture: true });
+    this.skyDay = new Sprite(buildDaySkyTexture(this.app, w, h));
+    this.skyDay.alpha = this.daylight;
+    this.dayWash.destroy();
+    this.dayWash = new Graphics()
+      .rect(0, 0, w, h)
+      .fill({ color: DAY_WASH_COLOR, alpha: DAY_WASH_MAX_ALPHA });
+    this.dayWash.blendMode = "screen";
+    this.dayWash.alpha = this.daylight;
     this.app.stage.addChildAt(this.sky, 0);
+    this.app.stage.addChildAt(this.skyDay, 1);
+    this.app.stage.addChild(this.dayWash);
     this.rig.onResize();
     this.requestRender();
   }
@@ -1143,6 +1217,59 @@ export class CityScene {
     return true;
   }
 
+  /**
+   * Wall-clock sample (interval-driven, render-on-demand friendly): compute
+   * the target daylight and, when it moved, start an ease toward it. The
+   * ±1-game-hour ramps in daylightAt() mean consecutive samples differ by
+   * only ~0.05 — the ease below merely smooths those steps into a glide.
+   * Reduced motion snaps instead (a 12s crossfade is still "motion").
+   */
+  private sampleDaylight(): void {
+    if (this.destroyed) return;
+    const target = daylightAt(Date.now());
+    if (Math.abs(target - this.daylight) < 0.004) {
+      this.daylightTarget = target;
+      return;
+    }
+    this.daylightFrom = this.daylight;
+    this.daylightTarget = target;
+    this.daylightStartMs = performance.now();
+    if (this.policy.reduced) {
+      this.daylightEaseActive = false;
+      this.daylight = target;
+      this.applyDaylight();
+    } else {
+      this.daylightEaseActive = true;
+    }
+    this.requestRender();
+  }
+
+  /** Advance the daylight ease. True while active (keeps the ticker alive). */
+  private updateDaylight(now: number): boolean {
+    if (!this.daylightEaseActive) return false;
+    const p = clamp01((now - this.daylightStartMs) / DAYLIGHT_EASE_MS);
+    this.daylight =
+      this.daylightFrom + (this.daylightTarget - this.daylightFrom) * easeOutCubic(p);
+    if (p >= 1) this.daylightEaseActive = false;
+    this.applyDaylight();
+    return true;
+  }
+
+  /**
+   * Apply the current daylight factor: day-sky crossfade alpha, the
+   * screen-blend wash that brightens floor + buildings together, and a
+   * raised bloom threshold / lowered bloom scale — the brighter daytime
+   * scene must not glow out, and the night ambience (threshold 0.55, scale
+   * 0.85) stays exactly as it was once night returns.
+   */
+  private applyDaylight(): void {
+    const v = this.daylight;
+    this.skyDay.alpha = v;
+    this.dayWash.alpha = v;
+    this.bloom.threshold = 0.55 + 0.25 * v;
+    this.bloom.bloomScale = 0.85 - 0.3 * v;
+  }
+
   private requestRender(): void {
     if (this.destroyed) return;
     this.dirty = true;
@@ -1162,10 +1289,18 @@ export class CityScene {
     if (this.universe.update(performance.now())) busy = true;
     if (this.updateMoves(performance.now())) busy = true;
     if (this.updateDetailFade(performance.now())) busy = true;
+    if (this.updateDaylight(performance.now())) busy = true;
     if (this.dirty || busy) {
       this.dirty = false;
       this.updateFrameProbe(performance.now());
-      this.app.render();
+      // A throw inside app.render() (e.g. a bad GPU upload) must not kill
+      // the render-on-demand loop forever — log it and let the next
+      // requestRender retry (2026-09-28 zoom-blank postmortem).
+      try {
+        this.app.render();
+      } catch (err) {
+        console.error("[city] render failed", err);
+      }
     }
     if (busy) this.requestRender();
   };
@@ -1174,11 +1309,20 @@ export class CityScene {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.daylightTimer !== null) {
+      clearInterval(this.daylightTimer);
+      this.daylightTimer = null;
+    }
     this.ro.disconnect();
     this.rig.destroy();
     this.fx.clearShots();
     this.fxRoot.filters = []; // release the bloom framebuffers first
     this.app.canvas.removeEventListener("webglcontextlost", this.onContextLost);
     this.app.destroy({ removeView: true }, { children: true, texture: true });
+    this.avatarReadyTeardown?.();
+    this.avatarReadyTeardown = null;
+    // Mounted billboard textures died with the app; free the never-mounted
+    // stragglers and empty the cache (a remount must reload, never reuse).
+    resetAvatarTextures();
   }
 }

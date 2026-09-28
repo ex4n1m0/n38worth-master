@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link2, Sparkles } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
@@ -11,6 +11,7 @@ import {
   familyHex,
 } from "@/lib/city/district";
 import { useComboDock } from "@/components/ComboDock";
+import { CityPanelHead } from "./CityPanelHead";
 
 /**
  * Profession-district panel (DOM, in the world shell — Phase C).
@@ -36,25 +37,31 @@ export function DistrictPanel({
   const { t, locale } = useLanguage();
   const { play } = useSound();
   const setOpen = useComboDock((s) => s.setOpen);
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   const presence = useMemo(() => districtsFromFamilies(families), [families]);
 
   return (
     <section
-      className={`city-world-district ${presence.complete ? "city-world-district-complete" : ""}`}
+      className={`city-world-district ${presence.complete ? "city-world-district-complete" : ""} ${
+        collapsed ? "city-panel-collapsed" : ""
+      }`}
       aria-label={t.cityDistrictTitle}
     >
-      <header className="flex items-center gap-1.5">
-        <Link2 className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-t1-300">
-          {t.cityDistrictTitle}
-        </h3>
-        <span className="ml-auto text-[10px] font-bold tabular-nums text-gray-500">
-          {t.cityDistrictCount.replace("{count}", String(presence.present.length))}
-        </span>
+      <header>
+        <CityPanelHead
+          title={t.cityDistrictTitle}
+          icon={<Link2 className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          count={t.cityDistrictCount.replace("{count}", String(presence.present.length))}
+          collapsed={collapsed}
+          onToggle={toggle}
+          bodyId="city-district-body"
+        />
       </header>
 
-      <ul className="city-world-district-list">
+      <div id="city-district-body" hidden={collapsed}>
+        <ul className="city-world-district-list">
         {DISTRICT_PROFESSIONS.map((name) => {
           const owned = presence.present.includes(name);
           return (
@@ -106,6 +113,7 @@ export function DistrictPanel({
           ) : null}
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

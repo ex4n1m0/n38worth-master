@@ -453,11 +453,13 @@ export class UniverseLayer extends Container {
     container.addChild(cityBox);
 
     // Pad: same violet-family skirt as satellites, slightly cooler.
+    // OPAQUE floor (2026-09-28 user ruling) — the starfield must not show
+    // through a floating city's ground.
     const pad = new Graphics();
     const e = 6.5;
     pad
       .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
-      .fill({ color: 0x0a0e1a, alpha: 0.5 });
+      .fill({ color: 0x0a0e1a, alpha: 1 });
     pad
       .poly([0, -e * 32, e * 64, 0, 0, e * 32, -e * 64, 0])
       .stroke({ width: 1.25, color: UNIVERSE_TINT, alpha: 0.22 });

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Satellite } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { cardDisplayName } from "@/lib/display-names";
 import { formatCompact } from "@/lib/utils";
 import type { CityNeighbor } from "@/lib/city/types";
+import { CityPanelHead } from "./CityPanelHead";
 
 /**
  * Satellite cities panel — the a11y/keyboard bridge for the steal surface.
@@ -28,22 +29,29 @@ export function SatellitePanel({
 }) {
   const { t, locale } = useLanguage();
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
   const selectedForeign = useCityWorldStore((s) => s.selectedForeign);
 
   if (neighbors.length === 0) return null;
 
   return (
-    <section className="city-world-landmarks" aria-label={t.citySatellitesTitle}>
-      <header className="flex items-center gap-1.5">
-        <Satellite className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-t1-300">
-          {t.citySatellitesTitle}
-        </h3>
-        <span className="ml-auto text-[10px] font-bold tabular-nums text-gray-500">
-          {t.citySatellitesCount.replace("{count}", String(neighbors.length))}
-        </span>
+    <section
+      className={`city-world-landmarks ${collapsed ? "city-panel-collapsed" : ""}`}
+      aria-label={t.citySatellitesTitle}
+    >
+      <header className="mb-0.5">
+        <CityPanelHead
+          title={t.citySatellitesTitle}
+          icon={<Satellite className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          count={t.citySatellitesCount.replace("{count}", String(neighbors.length))}
+          collapsed={collapsed}
+          onToggle={toggle}
+          bodyId="city-satellites-body"
+        />
       </header>
 
+      <div id="city-satellites-body" hidden={collapsed}>
       <ul className="city-world-district-list">
         {neighbors.map((neighbor, i) => {
           const open = expanded === i;
@@ -138,6 +146,7 @@ export function SatellitePanel({
           );
         })}
       </ul>
+      </div>
     </section>
   );
 }

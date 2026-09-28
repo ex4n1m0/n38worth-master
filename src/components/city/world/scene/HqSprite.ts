@@ -13,6 +13,7 @@ import { Container, Graphics, Text } from "pixi.js";
 import {
   COLOR_SELECTION,
   drawIsoBox,
+  makeTextChip,
   professionMass,
   professionNeon,
   shade,
@@ -23,6 +24,9 @@ export class HqSprite extends Container {
   private drawnProfession: string | null | undefined;
   private tagText: Text | null = null;
   private drawnTag = "";
+  /** Owner display-name plate above the CORE tag (always visible). */
+  private ownerChip: Container | null = null;
+  private drawnOwner = "";
 
   constructor(profession: string | null) {
     super();
@@ -63,10 +67,40 @@ export class HqSprite extends Container {
     this.addChild(this.tagText);
   }
 
+  /**
+   * Owner name plate (2026-09-28): the CITY OWNER's display name sits above
+   * the CORE tag at EVERY zoom — the home city reads like the satellite
+   * clusters, which carry their owner's plate. Locale resolved by the shell.
+   */
+  setOwnerName(name: string): void {
+    if (name === this.drawnOwner && this.ownerChip) return;
+    this.drawnOwner = name;
+    if (this.ownerChip) {
+      this.removeChild(this.ownerChip);
+      this.ownerChip.destroy({ children: true });
+      this.ownerChip = null;
+    }
+    if (!name) return;
+    const chip = makeTextChip(name, {
+      fontSize: 12,
+      borderColor: COLOR_SELECTION,
+    });
+    chip.position.set(0, -154);
+    this.addChild(chip);
+    this.ownerChip = chip;
+  }
+
   private draw(profession: string | null): void {
     const neon = professionNeon(profession);
     const mass = professionMass(profession);
     this.removeChildren();
+    // removeChildren wipes the CORE tag + owner plate with the art — reset
+    // their caches so the next setTag/setOwnerName (syncHq always re-runs
+    // both after sync) rebuilds them.
+    this.tagText = null;
+    this.drawnTag = "";
+    this.ownerChip = null;
+    this.drawnOwner = "";
 
     // Wide pedestal platform (one and a half tiles across) — wet slab.
     const ground = new Graphics();

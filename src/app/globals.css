@@ -1528,32 +1528,28 @@ button {
   background: rgba(15, 23, 42, 0.6);
 }
 
-/* World-LOD summary overlay (Phase D) — bottom-right, display-only.
- * Flex column + max-height: the title and BUILDINGS/PORTFOLIO totals stay
- * pinned; only the family list can scroll (short mobile canvases). */
+/* City overview panel (Phase D) — SIDE COLUMN card since 2026-09-28 (moved
+ * off the canvas overlay per user request; first slot above the district
+ * panel). Flex column + max-height: the head and BUILDINGS/PORTFOLIO totals
+ * stay pinned; only the family list can scroll. Slim-bar disclosure via
+ * CityPanelHead like every other panel. */
 .city-world-summary {
-  position: absolute;
-  right: 0.625rem;
-  bottom: 0.625rem;
-  width: min(15rem, 60%);
-  max-height: calc(100% - 1.25rem);
   display: flex;
   flex-direction: column;
+  max-height: 420px;
   padding: 0.625rem 0.75rem;
   border-radius: 0.75rem;
   border: 1px solid rgb(31 41 55);
   background: rgba(3, 7, 18, 0.85);
-  backdrop-filter: blur(6px);
-  pointer-events: none; /* display-only — camera gestures pass through */
 }
-.city-world-summary-title {
-  font-size: 0.6875rem;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgb(161 161 170);
-  margin-bottom: 0.375rem;
-  flex-shrink: 0;
+.city-world-summary-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 .city-world-summary-list {
   display: flex;
@@ -1576,27 +1572,14 @@ button {
   font-weight: 600;
   color: rgb(209 213 219);
 }
-/* Compact two-column family grid. On small viewports the panel moves to a
- * top-anchored card below the HUD row: the stage is ≥420px tall and starts
- * ~250px down the page, so a bottom-anchored panel sits below the initial
- * viewport fold and the totals were only reachable after page scroll. */
+/* Compact two-column family grid on small viewports (the overview is a side
+ * card below the map there). */
 @media (max-width: 640px) {
-  .city-world-summary {
-    top: 3.25rem; /* clear the HUD button row */
-    right: 0.625rem;
-    left: 0.625rem;
-    bottom: auto;
-    width: auto;
-    max-height: none;
-    padding: 0.5rem 0.625rem;
-  }
   .city-world-summary-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.1875rem 0.625rem;
     overflow: visible;
-    pointer-events: none; /* fits by construction — gestures pass through */
-    touch-action: auto;
   }
   .city-world-summary-row {
     font-size: 0.625rem;
@@ -1674,8 +1657,24 @@ button {
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
-    border-top: 2px solid rgb(34, 211, 238);
+    border-top: 2px solid rgb(34 211 238);
     padding-bottom: calc(0.625rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* Minimized inspector (2026-09-28): one slim bar instead of the sheet —
+   restore re-opens the profile, X deselects. Overrides the mobile sheet's
+   scroll box (the bar always fits). */
+.city-world-inspector-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: min(280px, calc(100% - 1.25rem));
+  padding: 0.375rem 0.5rem;
+}
+@media (max-width: 640px) {
+  .city-world-inspector-bar {
+    max-height: none;
+    overflow: visible;
   }
 }
 .city-world-link {
@@ -1840,4 +1839,11 @@ button {
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Slim-bar disclosure (2026-09-28): a collapsed info panel is just its
+   header row — kill the header's expanded-state bottom margin so the bar
+   reads as one line (placed late so it wins equal-specificity header rules). */
+.city-panel-collapsed > header {
+  margin-bottom: 0;
 }

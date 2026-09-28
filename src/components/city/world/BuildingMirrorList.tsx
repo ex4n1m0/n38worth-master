@@ -17,6 +17,7 @@ import {
   type CityBuilding,
   type CityProjection,
 } from "@/lib/city/types";
+import { CityPanelHead } from "./CityPanelHead";
 
 const ROW_SELECTOR = "a[data-city-mirror-row], button[data-city-mirror-row]";
 
@@ -103,6 +104,8 @@ export function BuildingMirrorList({
   const { play } = useSound();
   const zoom = useCityWorldStore((s) => s.camera.zoom);
   const { listRef, focusIndex, setFocusIndex, handleKeyDown } = useListKeyboard();
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   const rows = useMemo<MirrorRow[]>(() => {
     const budget = mirrorNodeBudget(lodFor(zoom));
@@ -149,16 +152,21 @@ export function BuildingMirrorList({
   }, [rows.length, focusIndex, setFocusIndex]);
 
   return (
-    <section className="city-world-mirror" aria-label={t.cityMirrorLabel}>
-      <header className="flex items-center gap-1.5">
-        <Building2 className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-t1-300">
-          {t.cityMirrorLabel}
-        </h3>
-        <span className="ml-auto text-[10px] font-bold tabular-nums text-gray-500">
-          {formatCompact(rows.length)}
-        </span>
+    <section
+      className={`city-world-mirror ${collapsed ? "city-panel-collapsed" : ""}`}
+      aria-label={t.cityMirrorLabel}
+    >
+      <header>
+        <CityPanelHead
+          title={t.cityMirrorLabel}
+          icon={<Building2 className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          count={formatCompact(rows.length)}
+          collapsed={collapsed}
+          onToggle={toggle}
+          bodyId="city-buildings-body"
+        />
       </header>
+      <div id="city-buildings-body" hidden={collapsed}>
       {rows.length === 0 ? (
         <p className="px-1 py-2 text-xs text-gray-500">{t.cityMirrorEmpty}</p>
       ) : (
@@ -234,6 +242,7 @@ export function BuildingMirrorList({
           </div>
         </div>
       )}
+      </div>
     </section>
   );
 }

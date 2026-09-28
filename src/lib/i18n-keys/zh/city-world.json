@@ -68,5 +68,9 @@
   "cityUniverseChipUnranked": "宇宙 · {count} 座城市",
   "cityUniverseVisit": "查看城市",
   "cityUniverseSummaryLabel": "共享宇宙",
-  "cityUniverseSelected": "{name} 的城市"
+  "cityUniverseSelected": "{name} 的城市",
+  "cityPanelHide": "收起{title}",
+  "cityPanelShow": "展开{title}",
+  "cityInspectorMinimize": "收起建筑详情",
+  "cityInspectorRestore": "展开建筑详情"
 }

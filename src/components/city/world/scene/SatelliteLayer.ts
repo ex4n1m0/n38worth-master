@@ -510,7 +510,9 @@ export class SatelliteLayer extends Container {
 
   // ── internals ─────────────────────────────────────────────────────────
 
-  /** Faint violet pad diamond under one mini city (radius + skirt). */
+  /** Faint violet pad diamond under one mini city (radius + skirt).
+   *  OPAQUE floor (2026-09-28 user ruling, universe parity) — stars must
+   *  not show through a floating city's ground. */
   private drawPad(cluster: Cluster): void {
     const g = cluster.pad;
     g.clear();
@@ -523,7 +525,7 @@ export class SatelliteLayer extends Container {
       [0, e * (TILE_H / 2)],
       [-e * (TILE_W / 2), 0],
     ];
-    g.poly(corners.flat()).fill({ color: 0x0a0e1a, alpha: 0.55 });
+    g.poly(corners.flat()).fill({ color: 0x0a0e1a, alpha: 1 });
     const stroke = { width: 1.5, color: SATELLITE_ACCENT, alpha: 0.28 };
     for (let i = 0; i < 4; i++) {
       const [x1, y1] = corners[i];

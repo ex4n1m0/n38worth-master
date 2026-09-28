@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { Globe } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
@@ -12,6 +13,7 @@ import {
 import { useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { UNASSIGNED_FAMILY, type CityProjection } from "@/lib/city/types";
 import { formatCompact } from "@/lib/utils";
+import { CityPanelHead } from "./CityPanelHead";
 
 /**
  * WORLD-LOD summary overlay (Phase D): one bounded line per profession
@@ -29,20 +31,34 @@ import { formatCompact } from "@/lib/utils";
  */
 export function WorldSummary({ projection }: { projection: CityProjection }) {
   const { t, locale } = useLanguage();
-  const lod = useCityWorldStore((s) => s.lod);
   const universe = useCityWorldStore((s) => s.universeSummary);
   const selectedUniverse = useCityWorldStore((s) => s.selectedUniverseCity);
   const rows = useMemo(
     () => worldSummaryRows(projection.families),
     [projection.families]
   );
-
-  if (lod !== "world") return null;
+  // Slim-bar disclosure (2026-09-28): the overview lives in the SIDE COLUMN
+  // now (moved off the canvas overlay per user request — it used to blanket
+  // the mobile map). Same collapse affordance as every other panel.
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   return (
-    <section className="city-world-summary" aria-label={t.citySummaryLabel}>
-      <h3 className="city-world-summary-title">{t.citySummaryLabel}</h3>
-      <ul className="city-world-summary-list">
+    <section
+      className={`city-world-summary ${collapsed ? "city-panel-collapsed" : ""}`}
+      aria-label={t.citySummaryLabel}
+    >
+      <header>
+        <CityPanelHead
+          title={t.citySummaryLabel}
+          icon={<Globe className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          collapsed={collapsed}
+          onToggle={toggle}
+          bodyId="city-overview-body"
+        />
+      </header>
+      <div id="city-overview-body" hidden={collapsed} className="city-world-summary-body">
+        <ul className="city-world-summary-list">
         {rows.map((row) => (
           <li key={row.profession} className="city-world-summary-row">
             <span
@@ -104,6 +120,7 @@ export function WorldSummary({ projection }: { projection: CityProjection }) {
           </a>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

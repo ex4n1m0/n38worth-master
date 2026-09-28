@@ -25,9 +25,10 @@
  * also drives the depth-fog tint (night atmosphere).
  */
 
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import { UNASSIGNED_FAMILY, type CityBuilding } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
+import { avatarTexture, loadAvatarTexture } from "./avatars";
 import {
   COLOR_SELECTION,
   drawFacadeWindows,
@@ -51,6 +52,8 @@ export class BuildingSprite extends Container {
   /** Family emissives (coils/beacons/strips) — always visible, bloom feed. */
   private readonly emissive: Graphics = new Graphics();
   private readonly windows: Graphics = new Graphics();
+  /** Avatar billboard — single rooftop plate (see syncBillboards). */
+  private readonly billboards = new Container();
   private readonly identity: Graphics = new Graphics();
   private readonly status: Graphics = new Graphics();
   private readonly selection: Graphics = new Graphics();
@@ -66,6 +69,10 @@ export class BuildingSprite extends Container {
   private labelKey = "";
   /** Viewport-cull reason bit (see setCulled — culling owns `visible`). */
   private cullHidden = false;
+  /** Current LOD band (billboards mount only in "close"). */
+  private lodCurrent: Lod = "district";
+  /** Mounted billboard identity (username|tier|profession — avoids remounts). */
+  private billboardsKey = "";
 
   constructor(building: CityBuilding) {
     super();
@@ -76,6 +83,7 @@ export class BuildingSprite extends Container {
       this.tierExt,
       this.emissive,
       this.windows,
+      this.billboards,
       this.identity,
       this.status,
       this.selection,
@@ -83,8 +91,10 @@ export class BuildingSprite extends Container {
     );
     // SELECTION IS OFF BY DEFAULT (Pixi Graphics defaults to visible=true —
     // leaving it true made EVERY building wear the selection wireframe, so
-    // selected vs unselected rendered pixel-identical).
+    // selected vs unselected rendered pixel-identical). Billboards likewise
+    // stay dark until a close-LOD setLod mounts them.
     this.selection.visible = false;
+    this.billboards.visible = false;
     this.redraw();
   }
 
@@ -185,20 +195,32 @@ export class BuildingSprite extends Container {
     }
   }
 
-  /** LOD: windows + identity markers only at close zoom (bounded rendering).
-   * Alpha resets to 1 so the scene's detail fade restarts cleanly per swap;
-   * the fade itself is driven by CityScene (one tween for ALL sprites). */
+  /** LOD: windows + identity markers at close zoom; avatar billboards from
+   * DISTRICT zoom up (bounded rendering — the plates are the card-identity
+   * read at the default framing too, 2026-09-28 user ruling). Alpha resets
+   * to 1 so the scene's detail fade restarts cleanly per swap; the fade
+   * itself is driven by CityScene (one tween for ALL sprites). */
   setLod(lod: Lod): void {
+    this.lodCurrent = lod;
     const close = lod === "close";
     this.windows.visible = close;
     this.identity.visible = close;
     this.windows.alpha = 1;
     this.identity.alpha = 1;
+    this.billboards.alpha = 1;
+    if (lod !== "world") {
+      this.syncBillboards();
+    } else {
+      this.billboards.visible = false;
+    }
   }
 
   /**
    * Detail-layer alpha for the LOD-swap fade-in (windows + identity layers
-   * only — the silhouette never fades). Applied by the scene's single tween.
+   * only — the silhouette never fades, and billboards stay at full alpha:
+   * they are already on screen at district zoom, so re-fading them on every
+   * close-LOD entry would blink plates that never left). Applied by the
+   * scene's single tween.
    */
   setDetailAlpha(alpha: number): void {
     this.windows.alpha = alpha;
@@ -207,14 +229,16 @@ export class BuildingSprite extends Container {
 
   /**
    * Viewport culling (Phase D bounded rendering). Culling owns `visible`
-   * EXCLUSIVELY: setLod never hides a whole sprite (only the windows/identity
-   * sublayers), so a single `cullHidden` reason cannot fight the LOD system.
-   * If a future LOD band hides whole sprites, add a second reason bit here.
+   * EXCLUSIVELY: setLod never hides a whole sprite (only the windows/
+   * identity/billboard sublayers), so a single `cullHidden` reason cannot
+   * fight the LOD system. Re-entering the viewport at close zoom resumes
+   * billboard loading (off-screen sprites never start loads).
    */
   setCulled(hidden: boolean): void {
     if (this.cullHidden === hidden) return; // idempotent — no dirty churn
     this.cullHidden = hidden;
     this.visible = !hidden;
+    if (!hidden && this.lodCurrent !== "world") this.syncBillboards();
   }
 
   /**
@@ -231,9 +255,11 @@ export class BuildingSprite extends Container {
     const key = `${this.building.profession ?? ""}|${this.building.tier}|${this.building.protection}`;
     if (key === this.drawnKey) return;
     this.drawnKey = key;
-    // Tier changed → chip/leader heights are stale; force a rebuild on the
-    // next showLabel (the scene re-runs the chip pass after every sync).
+    // Tier changed → chip/leader heights + billboard plates are stale; force
+    // a rebuild on the next showLabel / syncBillboards (the scene re-runs
+    // both passes after every sync).
     this.labelKey = "";
+    this.billboardsKey = "";
 
     const spec = familyArt(this.building.profession);
     const neon = professionNeon(this.building.profession);
@@ -270,6 +296,79 @@ export class BuildingSprite extends Container {
     this.selection.clear();
     drawSelectionBrackets(this.selection, this.building.profession, tier);
     this.selection.visible = wasSelected;
+
+    if (this.lodCurrent !== "world") this.syncBillboards();
+  }
+
+  /**
+   * Avatar billboard (2026-09-28): ONE avatar plate centered above the
+   * rooftop — the card identifies by FACE at district zoom and closer
+   * without covering the building shape. (The original four facade-edge
+   * plates always showed 2–3 at once in iso and read as clutter — user
+   * ruling.) Textures load lazily and dedupe per username (avatars.ts); a
+   * failed load is final and simply renders no plate. Only viewport sprites
+   * ever start a load (bounded rendering).
+   */
+  private syncBillboards(): void {
+    if (this.cullHidden) return;
+    const tex = avatarTexture(this._building.username);
+    if (tex === undefined) {
+      // Not cached yet: start (or join) the load; the scene's ready-listener
+      // re-renders on arrival and this continuation mounts it if the sprite
+      // is still on-screen at a plate-bearing LOD.
+      void loadAvatarTexture(this._building.username).then((loaded) => {
+        if (
+          loaded &&
+          !this.destroyed &&
+          this.lodCurrent !== "world" &&
+          !this.cullHidden
+        ) {
+          this.mountBillboards(loaded);
+        }
+      });
+      return;
+    }
+    if (tex === null) return; // failed avatar — no billboards for this card
+    this.mountBillboards(tex);
+  }
+
+  /** Build (or reuse) the single rooftop plate — identity-keyed, tier-scaled. */
+  private mountBillboards(tex: Texture): void {
+    const key = `${this._building.username}|${this._building.tier}|${this._building.profession ?? ""}`;
+    if (key === this.billboardsKey && this.billboards.children.length > 0) {
+      this.billboards.visible = true;
+      return;
+    }
+    this.billboardsKey = key;
+    for (const child of this.billboards.removeChildren()) child.destroy();
+
+    // Plate size grows mildly with tier (T1 16px → T7 22px): readable at the
+    // default district framing, never wide enough to swallow the silhouette.
+    const size = 15 + this._building.tier;
+    const half = size / 2;
+    const neon = professionNeon(this._building.profession);
+    // Centered ON TOP of the building (user ruling): floating just above the
+    // rooftop art, clear of the tier features beneath it.
+    const y = -tierHeight(this._building.tier) - half - 5;
+
+    // OPAQUE plate (2026-09-28 user ruling "make the floor not transparent"):
+    // the avatar photo reads as a solid billboard over the scene instead of
+    // washing into it.
+    const frame = new Graphics();
+    frame
+      .roundRect(-half - 1.5, y - half - 1.5, size + 3, size + 3, 3)
+      .fill({ color: 0x0b1220, alpha: 1 });
+    frame
+      .roundRect(-half - 1.5, y - half - 1.5, size + 3, size + 3, 3)
+      .stroke({ width: 1.5, color: neon, alpha: 1 });
+    this.billboards.addChild(frame);
+    const plate = new Sprite(tex);
+    plate.anchor.set(0.5);
+    plate.width = size;
+    plate.height = size;
+    plate.position.set(0, y);
+    this.billboards.addChild(plate);
+    this.billboards.visible = true;
   }
 
   /** Tier label height (FX anchor point). */

@@ -307,8 +307,15 @@ export class LandmarkSprite extends Container {
     this.setOwned(owned);
   }
 
-  /** Ownership flip (server projection) — full redraw. */
+  /** Ownership flip (server projection) — full redraw.
+   *
+   * UNOWNED MONUMENTS RENDER NOTHING (2026-09-28 user ruling): the reserved
+   * ring tile + moat stay as empty space — "acquire to awaken" is told by
+   * The Six panel, not by dim placeholder art. `visible=false` also keeps
+   * landmarkHitAt from selecting ghosts; applyCull re-checks `owned` so the
+   * viewport pass can never un-hide a dormant monument. */
   setOwned(owned: boolean): void {
+    this.visible = owned;
     if (owned === this.drawnOwned) return;
     this.drawnOwned = owned;
     this.redraw();

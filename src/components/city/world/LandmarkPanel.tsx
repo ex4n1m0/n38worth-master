@@ -1,12 +1,14 @@
 "use client";
 
 import { ExternalLink, Landmark as LandmarkIcon, X } from "lucide-react";
+import { useCallback, useState } from "react";
 import { useLanguage } from "@/components/LanguageContext";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { cardDisplayName } from "@/lib/display-names";
 import { GODDESS_USERNAMES, goddessPower } from "@/lib/goddesses";
 import { LANDMARK_HEX_COLORS } from "@/lib/city/landmark-colors";
 import type { CityLandmark } from "@/lib/city/types";
+import { CityPanelHead } from "./CityPanelHead";
 
 /**
  * The Six landmarks panel (Phase E): the goddess-collection a11y bridge.
@@ -28,6 +30,8 @@ export function LandmarkPanel({
 }) {
   const { t, locale } = useLanguage();
   const selectedLandmark = useCityWorldStore((s) => s.selectedLandmark);
+  const [collapsed, setCollapsed] = useState(false);
+  const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   const ownedCount = landmarks.filter((l) => l.owned).length;
   const detail =
@@ -36,17 +40,22 @@ export function LandmarkPanel({
       : null;
 
   return (
-    <section className="city-world-landmarks" aria-label={t.cityLandmarksTitle}>
-      <header className="flex items-center gap-1.5">
-        <LandmarkIcon className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />
-        <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-t1-300">
-          {t.cityLandmarksTitle}
-        </h3>
-        <span className="ml-auto text-[10px] font-bold tabular-nums text-gray-500">
-          {t.cityLandmarksCount.replace("{count}", String(ownedCount))}
-        </span>
+    <section
+      className={`city-world-landmarks ${collapsed ? "city-panel-collapsed" : ""}`}
+      aria-label={t.cityLandmarksTitle}
+    >
+      <header className="mb-0.5">
+        <CityPanelHead
+          title={t.cityLandmarksTitle}
+          icon={<LandmarkIcon className="h-4 w-4 shrink-0 text-t1-400" aria-hidden="true" />}
+          count={t.cityLandmarksCount.replace("{count}", String(ownedCount))}
+          collapsed={collapsed}
+          onToggle={toggle}
+          bodyId="city-six-body"
+        />
       </header>
 
+      <div id="city-six-body" hidden={collapsed}>
       <ul className="city-world-district-list">
         {GODDESS_USERNAMES.map((username, i) => {
           const owned = landmarks[i]?.owned ?? false;
@@ -125,6 +134,7 @@ export function LandmarkPanel({
           </a>
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

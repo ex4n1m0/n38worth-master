@@ -1,6 +1,15 @@
 "use client";
 
-import { ExternalLink, Loader2, ShieldCheck, X, Zap } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Loader2,
+  ShieldCheck,
+  X,
+  Zap,
+} from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/event-feed";
 import { useLanguage } from "@/components/LanguageContext";
@@ -67,6 +76,80 @@ function findForeign(
 }
 
 /**
+ * Minimized inspector (2026-09-28 slim-bar disclosure): one slim bar instead
+ * of the full bottom sheet — restore re-opens the profile, X deselects. The
+ * avatar thumbnail keeps the SELECTED building identifiable while the map
+ * stays fully visible.
+ */
+function InspectorBar({
+  username,
+  displayName,
+  onRestore,
+  onClose,
+  restoreAria,
+  closeAria,
+  avatarAlt,
+}: {
+  username: string;
+  displayName: string;
+  onRestore: () => void;
+  onClose: () => void;
+  restoreAria: string;
+  closeAria: string;
+  avatarAlt: string;
+}) {
+  return (
+    <aside
+      className="city-world-inspector city-world-inspector-bar"
+      role="region"
+      aria-label={displayName}
+    >
+      <button
+        type="button"
+        onClick={onRestore}
+        aria-expanded="false"
+        aria-controls="city-inspector-body"
+        aria-label={restoreAria}
+        className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-0.5 py-0.5 text-left transition-colors hover:bg-gray-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-t1-400"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
+            route, not a static asset; next/image adds nothing here. */}
+        <img
+          src={`/api/avatar/${encodeURIComponent(username)}`}
+          alt={avatarAlt}
+          width={20}
+          height={20}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => {
+            const img = e.currentTarget;
+            if (img.dataset.fallbackApplied) return;
+            img.dataset.fallbackApplied = "1";
+            img.src = "/NEW_HIDDEN.webp";
+          }}
+          className="h-5 w-5 shrink-0 rounded object-cover ring-1 ring-gray-700"
+        />
+        <span className="min-w-0 truncate text-xs font-bold text-white">
+          {displayName}
+        </span>
+        <ChevronUp
+          className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-500"
+          aria-hidden="true"
+        />
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={closeAria}
+        className="city-world-btn shrink-0"
+      >
+        <X className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </aside>
+  );
+}
+
+/**
  * DOM inspector for the selected building — a short avatar profile with the
  * OWNER ACTIONS from the Avatars tab: OVERCLOCK (costs 100% of the card's
  * value, doubles it → the building re-ranks toward the core on the next
@@ -99,6 +182,12 @@ export function BuildingInspector({
   const { data: myCredits } = useCredits();
   const selectedCardId = useCityWorldStore((s) => s.selectedCardId);
   const selectedForeign = useCityWorldStore((s) => s.selectedForeign);
+  // Slim-bar disclosure: minimize keeps the SELECTION (unlike X, which
+  // deselects) and a NEW selection always re-opens the full sheet.
+  const [minimized, setMinimized] = useState(false);
+  useEffect(() => {
+    setMinimized(false);
+  }, [selectedCardId, selectedForeign]);
 
   const foreign =
     selectedForeign !== null && neighbors && neighbors.length > 0
@@ -243,6 +332,37 @@ export function BuildingInspector({
 
   if (selectedCardId === null && foreign === null) return null;
 
+  // ── minimized: slim bar over the map, selection preserved ──────────────
+  if (minimized) {
+    const activeUsername = foreign
+      ? foreign.building.username
+      : selectedCardId !== null
+        ? indexBuildings(families).get(selectedCardId)?.username
+        : undefined;
+    if (!activeUsername) return null;
+    return (
+      <InspectorBar
+        username={activeUsername}
+        displayName={cardDisplayName(activeUsername, locale)}
+        onRestore={() => {
+          play("toggle");
+          setMinimized(false);
+        }}
+        onClose={() =>
+          foreign
+            ? getCityWorldStore().selectForeign(null)
+            : getCityWorldStore().select(null)
+        }
+        restoreAria={t.cityInspectorRestore}
+        closeAria={t.cityInspectorClose}
+        avatarAlt={t.cityInspectorAvatarAlt.replace(
+          "{name}",
+          cardDisplayName(activeUsername, locale)
+        )}
+      />
+    );
+  }
+
   // ── satellite (foreign) building: profile + steal ──────────────────────
   if (foreign) {
     const { neighbor, building } = foreign;
@@ -266,6 +386,7 @@ export function BuildingInspector({
           : "ring-gray-700";
     return (
       <aside
+        id="city-inspector-body"
         className="city-world-inspector"
         role="region"
         aria-label={t.cityInspectorTitle}
@@ -296,14 +417,29 @@ export function BuildingInspector({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => getCityWorldStore().selectForeign(null)}
-            aria-label={t.cityInspectorClose}
-            className="city-world-btn shrink-0"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                play("toggle");
+                setMinimized(true);
+              }}
+              aria-label={t.cityInspectorMinimize}
+              aria-expanded="true"
+              aria-controls="city-inspector-body"
+              className="city-world-btn"
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => getCityWorldStore().selectForeign(null)}
+              aria-label={t.cityInspectorClose}
+              className="city-world-btn"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
         </header>
 
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
@@ -426,6 +562,7 @@ export function BuildingInspector({
 
   return (
     <aside
+      id="city-inspector-body"
       className="city-world-inspector"
       role="region"
       aria-label={t.cityInspectorTitle}
@@ -461,14 +598,29 @@ export function BuildingInspector({
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => getCityWorldStore().select(null)}
-          aria-label={t.cityInspectorClose}
-          className="city-world-btn shrink-0"
-        >
-          <X className="h-4 w-4" aria-hidden="true" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              play("toggle");
+              setMinimized(true);
+            }}
+            aria-label={t.cityInspectorMinimize}
+            aria-expanded="true"
+            aria-controls="city-inspector-body"
+            className="city-world-btn"
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={() => getCityWorldStore().select(null)}
+            aria-label={t.cityInspectorClose}
+            className="city-world-btn"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">

@@ -68,5 +68,9 @@
   "cityUniverseChipUnranked": "Universe · {count} cities",
   "cityUniverseVisit": "View city",
   "cityUniverseSummaryLabel": "Shared universe",
-  "cityUniverseSelected": "{name}'s city"
+  "cityUniverseSelected": "{name}'s city",
+  "cityPanelHide": "Hide {title}",
+  "cityPanelShow": "Show {title}",
+  "cityInspectorMinimize": "Minimize building details",
+  "cityInspectorRestore": "Show building details"
 }

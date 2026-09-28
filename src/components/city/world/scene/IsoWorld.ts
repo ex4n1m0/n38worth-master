@@ -252,9 +252,12 @@ export class IsoWorld extends Container {
       [far.x, far.y],
       [far.x / 2 - TILE_W / 4, far.y / 2 + TILE_H / 4],
     ];
+    // OPAQUE pad (2026-09-28 user ruling "the floor still shows the stars"):
+    // at 0.9 the baked starfield bled through the city floor — unlocked pads
+    // must fully cover the sky. Locked pads stay near-transparent (dim voids).
     g.poly(corners.flat()).fill({
       color: sectorIndex === 0 ? 0x0a0e1a : 0x080b14,
-      alpha: locked ? 0.06 : 0.9,
+      alpha: locked ? 0.06 : 1,
     });
 
     // Grid lines: constant-x and constant-y tile edges (fainter when locked).
@@ -445,7 +448,7 @@ export class IsoWorld extends Container {
   }
 
   /** HQ core at sector 0 center (own-card representation, §D4). */
-  syncHq(profession: string | null, coreTag: string): void {
+  syncHq(profession: string | null, coreTag: string, ownerName: string): void {
     if (!this.hq) {
       this.hq = new HqSprite(profession);
       const p = worldPointOfTile(HQ_TILE);
@@ -458,6 +461,7 @@ export class IsoWorld extends Container {
       this.hq.setProfession(profession);
     }
     this.hq.setTag(coreTag);
+    this.hq.setOwnerName(ownerName);
   }
 
   spriteFor(cardId: number): BuildingSprite | undefined {
@@ -563,15 +567,19 @@ export class IsoWorld extends Container {
     if (this.hq) {
       this.hq.visible = pointVisible(rect, this.hq.x, this.hq.y, 150, TILE_W * 0.75);
     }
-    // Landmarks use their per-monument art heights (landmarks.ts).
+    // Landmarks use their per-monument art heights (landmarks.ts). Dormant
+    // monuments stay hidden even in-viewport (setOwned rules them invisible;
+    // the viewport pass must never un-hide one).
     this.landmarkSprites.forEach((landmark, i) => {
-      landmark.visible = pointVisible(
-        rect,
-        landmark.x,
-        landmark.y,
-        landmarkArtHeight(i),
-        TILE_W * 0.62
-      );
+      landmark.visible =
+        landmark.owned &&
+        pointVisible(
+          rect,
+          landmark.x,
+          landmark.y,
+          landmarkArtHeight(i),
+          TILE_W * 0.62
+        );
     });
   }
 }
