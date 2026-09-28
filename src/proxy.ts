@@ -14,6 +14,7 @@ const PROTECTED_ROUTES = [
   "/history",
   "/transactions",
   "/city",
+  "/catalog",
 ];
 
 // Routes that require a completed avatar (profile photo uploaded)
