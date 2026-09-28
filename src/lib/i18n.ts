@@ -108,7 +108,7 @@ const en = {
   somethingWrong: "Something went wrong. Please try again.",
   quickPlayFailed: "Quick play failed",
 
-  landingTagline: "the human trading simulation",
+  landingTagline: "the city trading simulation",
   landingToggleSound: "Toggle sound",
   landingStartHere: "Start Here",
   kinLabel: "From the same maker",
@@ -314,7 +314,7 @@ const zh: TranslationKeys = {
   somethingWrong: "出错了，请重试。",
   quickPlayFailed: "快速开始失败",
 
-  landingTagline: "人类交易模拟系统",
+  landingTagline: "城市交易模拟系统",
   landingToggleSound: "切换音效",
   landingStartHere: "从这里开始",
   kinLabel: "出自同一作者",

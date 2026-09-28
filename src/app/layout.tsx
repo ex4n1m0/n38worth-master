@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
-  description: "The human trading simulation — hire, overclock and trade avatars inside the mainframe.",
+  description: "The city trading simulation — hire, overclock and trade avatars inside the mainframe.",
   keywords: ["trading", "game", "social", "MMO", "multiplayer", "simulation", "matrix"],
   openGraph: {
     title: "n38worth",
-    description: "The human trading simulation — hire, overclock and trade avatars inside the mainframe.",
+    description: "The city trading simulation — hire, overclock and trade avatars inside the mainframe.",
     siteName: "n38worth",
     type: "website",
     url: "https://n38worth.com",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "n38worth",
-    description: "The human trading simulation — hire, overclock and trade avatars inside the mainframe.",
+    description: "The city trading simulation — hire, overclock and trade avatars inside the mainframe.",
     // images generated dynamically by src/app/twitter-image.tsx
   },
   icons: {

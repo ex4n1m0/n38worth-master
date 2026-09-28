@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export const runtime = "nodejs";
-export const alt = "n38worth — the human trading simulation";
+export const alt = "n38worth — the city trading simulation";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/jpeg";
 

@@ -256,7 +256,7 @@ function ogSvg(w: number, h: number): string {
   <!-- Tagline + action line -->
   <text x="${w / 2}" y="400" text-anchor="middle"
         font-family="Consolas, 'Courier New', monospace" font-weight="bold"
-        font-size="30" letter-spacing="12" fill="#e8ffe8">THE HUMAN TRADING SIMULATION</text>
+        font-size="30" letter-spacing="12" fill="#e8ffe8">THE CITY TRADING SIMULATION</text>
   <text x="${w / 2}" y="455" text-anchor="middle"
         font-family="Consolas, 'Courier New', monospace"
         font-size="24" fill="#00ff41" opacity="0.9">hire · overclock · trade</text>
