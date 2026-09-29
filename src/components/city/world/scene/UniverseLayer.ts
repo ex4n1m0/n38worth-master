@@ -177,13 +177,6 @@ export class UniverseLayer extends Container {
   }
   private daylightCurrent = 0;
 
-  /** Pixel-art texture-ready pass (late hero sheets mount in place). */
-  refreshPixelArt(): void {
-    for (const mini of this.minis.values()) {
-      mini.relay.syncPixelArt();
-      for (const m of mini.monuments) m.syncPixelArt();
-    }
-  }
 
   /** Selection ring on a universe city's marker + mini relay plate border. */
   setSelected(username: string | null): void {

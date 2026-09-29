@@ -46,12 +46,6 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Generated city building art (public/city/pixel) is a STATIC asset — the
-  // canvas fetches it directly, so it must never hit the login wall.
-  if (pathname.startsWith("/city/pixel/")) {
-    return NextResponse.next();
-  }
-
   // Protect game pages - redirect to login if not authenticated
   const isProtectedRoute = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + "/")

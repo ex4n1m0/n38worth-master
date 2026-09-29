@@ -81,7 +81,6 @@ import { SatelliteLayer } from "./SatelliteLayer";
 import { UniverseLayer } from "./UniverseLayer";
 import { RoadsLayer } from "./RoadsLayer";
 import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
-import { onPixelArtReady, pixelArtActive } from "./pixel-art";
 import { mulberry32 } from "./art";
 
 /** City payload the scene consumes (public route + owner.profession). */
@@ -314,13 +313,6 @@ export class CityScene {
   private destroyed = false;
   /** Unsubscribe for avatar-texture arrivals (billboards need a re-render). */
   private avatarReadyTeardown: (() => void) | null = null;
-  /**
-   * PIXEL-ART MODE (engine upgrade 2026-09-28): true once generated building
-   * sheets are mounted — switches the day matrix to the soft pixel lift and
-   * keeps frames/ daylight crossfades authoritative for buildings.
-   */
-  private pixelMode = false;
-  private pixelArtTeardown: (() => void) | null = null;
 
   private constructor(
     app: Application,
@@ -450,20 +442,6 @@ export class CityScene {
     // Billboard textures arrive async — each arrival requests one render so
     // plates pop in without a camera nudge (sprites mount themselves).
     scene.avatarReadyTeardown = onAvatarTextureReady(() => scene.requestRender());
-    // Pixel-art sheets arrive async too: the first ready sheet flips pixel
-    // mode (soft day matrix — applyDaylight re-runs so the lift retargets
-    // live), every arrival re-checks all sprites and mounts frames in place.
-    scene.pixelArtTeardown = onPixelArtReady(() => {
-      const active = pixelArtActive();
-      const modeChanged = active !== scene.pixelMode;
-      scene.pixelMode = active;
-      scene.world.refreshPixelArt();
-      scene.satellites.refreshPixelArt();
-      scene.universe.refreshPixelArt();
-      if (modeChanged) scene.applyDaylight();
-      scene.updateCulling();
-      scene.requestRender();
-    });
 
     scene.applyCamera(rig.state);
     scene.requestRender();
@@ -1381,8 +1359,6 @@ export class CityScene {
     this.app.destroy({ removeView: true }, { children: true, texture: true });
     this.avatarReadyTeardown?.();
     this.avatarReadyTeardown = null;
-    this.pixelArtTeardown?.();
-    this.pixelArtTeardown = null;
     // Mounted billboard textures died with the app; free the never-mounted
     // stragglers and empty the cache (a remount must reload, never reuse).
     resetAvatarTextures();

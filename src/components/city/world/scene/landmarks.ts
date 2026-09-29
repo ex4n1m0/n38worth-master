@@ -16,19 +16,22 @@
  * world-state mapping Phase E asks for. NOTE (L1): "owned" is ownership only;
  * power TOGGLES and the Architect's all-powers grant are NOT represented
  * here (that would need a server-computed powerActive flag). All art
- * is procedural placeholder Graphics (PLACEHOLDER_ART, art.ts) and 100%
- * STATIC: landmark identity never animates per-frame, so the render-on-
- * demand ticker and prefers-reduced-motion need no special handling here.
- * State transitions (acquired / lost / selected / LOD swap) redraw once.
+ * is procedural vector Graphics and 100% STATIC: landmark identity never
+ * animates per-frame, so the render-on-demand ticker and
+ * prefers-reduced-motion need no special handling here. State transitions
+ * (acquired / lost / selected / stage swap / LOD swap) redraw once.
+ *
+ * VALUE STAGES (2026-09-29, pixel-sheet retirement): each monument grows a
+ * procedural ELABORATION per server-derived stage (1..3) — taller masts,
+ * extra rings, orbit shards — keeping its identity silhouette. The stage
+ * heights live in LANDMARK_STAGE_HEIGHTS.
  */
 
-import { ColorMatrixFilter, Container, Graphics, Sprite } from "pixi.js";
+import { ColorMatrixFilter, Container, Graphics } from "pixi.js";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { Lod } from "@/lib/city/scene/lod";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
-import { facadeGlowAt } from "@/lib/city/scene/daylight";
-import { landmarkFramesFor } from "./pixel-art";
 import {
   COLOR_SELECTION,
   drawIsoBox,
@@ -37,24 +40,31 @@ import {
 } from "./art";
 
 /**
- * Monument body heights (negative-up art extent, UNSCALED) — matched to each
- * draw function's tallest point.
+ * Monument body heights (art extent above the tile, UNSCALED) per value
+ * stage — matched to each draw function's tallest point at that stage.
  */
-export const LANDMARK_ART_HEIGHTS: readonly number[] = [
-  158, 100, 92, 112, 122, 84,
+export const LANDMARK_STAGE_HEIGHTS: readonly (readonly [number, number, number])[] = [
+  [158, 194, 214], // 0 Architect
+  [100, 126, 158], // 1 Locksmith
+  [92, 110, 132],  // 2 Oracle
+  [112, 132, 158], // 3 Clockkeeper
+  [122, 158, 186], // 4 NullPointer
+  [84, 106, 128],  // 5 Banker
 ];
 
 /**
- * Monument upscaling: monuments must dominate the skyline — tier-7 buildings
- * reach ~120px, so the ring reads as MONUMENTAL architecture only above
- * that. Applied as container scale so art, pads and selection rings grow
- * together.
+ * Monument upscaling: monuments must dominate the skyline — grand-league
+ * buildings reach ~230px, so the ring reads as MONUMENTAL architecture
+ * above the ordinary towers' podiums. Applied as container scale so art,
+ * pads and selection rings grow together.
  */
 export const MONUMENT_SCALE = 1.3;
 
-/** Scaled art height of monument i (culling margins, label/beam anchors). */
-export function landmarkArtHeight(index: number): number {
-  return Math.round((LANDMARK_ART_HEIGHTS[index] ?? 90) * MONUMENT_SCALE);
+/** Scaled art height of monument i at a value stage (culling, label anchors). */
+export function landmarkArtHeight(index: number, stage = 1): number {
+  const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
+  const row = LANDMARK_STAGE_HEIGHTS[index] ?? LANDMARK_STAGE_HEIGHTS[0];
+  return Math.round((row[s - 1] ?? row[0]) * MONUMENT_SCALE);
 }
 
 /** Base pad: wider than a building platform — monuments read as 2-tile. */
@@ -79,8 +89,10 @@ function drawMonumentPad(g: Graphics, color: number, owned: boolean): void {
   });
 }
 
+type MonumentStage = 1 | 2 | 3;
+
 /** 0 — The Architect ("Goddess"): root spire + orbit ring, the tallest. */
-function drawArchitectSpire(g: Graphics, owned: boolean): void {
+function drawArchitectSpire(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[0];
   const a = owned ? 1 : 0.42;
   // Tapering spire segments (night massing, neon-rimmed when owned).
@@ -101,10 +113,36 @@ function drawArchitectSpire(g: Graphics, owned: boolean): void {
       g.circle(dx, -96, 3).fill({ color: 0xffffff, alpha: 0.9 });
     }
   }
+  if (stage >= 2) {
+    // Root mast — the spire climbs another segment with a second ring.
+    drawIsoBox(g, 0, -126, 8, 4, 28, shade(color, 0.55), a, owned ? color : undefined);
+    g.poly([0, -182, 5, -166, 0, -158, -5, -166]).fill({
+      color: owned ? 0xffffff : 0x334155,
+      alpha: a,
+    });
+    if (owned) {
+      g.ellipse(0, -134, 26, 8).stroke({ width: 1.5, color, alpha: 0.7 });
+      g.circle(0, -186, 2).fill({ color: 0xffffff, alpha: 0.9 });
+    }
+  }
+  if (stage >= 3) {
+    // Command halo + twin obelisk shards — the skyline's crown.
+    if (owned) {
+      g.ellipse(0, -162, 32, 10).stroke({ width: 1.5, color, alpha: 0.65 });
+      g.ellipse(0, -182, 20, 6.5).stroke({ width: 1.2, color, alpha: 0.5 });
+    }
+    for (const dx of [-26, 26]) {
+      g.poly([dx, -128, dx + 4, -128, dx + 2.5, -172, dx - 2.5, -172]).fill({
+        color: shade(color, owned ? 0.6 : 0.3),
+        alpha: a,
+      });
+      if (owned) g.circle(dx, -175, 2).fill({ color: 0xffffff, alpha: 0.85 });
+    }
+  }
 }
 
 /** 1 — The Locksmith ("Goddess of Fate"): fortified citadel + padlock. */
-function drawLocksmithCitadel(g: Graphics, owned: boolean): void {
+function drawLocksmithCitadel(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[1];
   const a = owned ? 1 : 0.42;
   // Two fortress towers + connecting wall (night massing).
@@ -130,10 +168,41 @@ function drawLocksmithCitadel(g: Graphics, owned: boolean): void {
     g.circle(0, -64, 3.2).fill({ color: 0xfffbeb, alpha: 0.95 });
     g.poly([0, -63, 2.5, -56, -2.5, -56]).fill({ color: 0xfffbeb, alpha: 0.95 });
   }
+  if (stage >= 2) {
+    // Tower extensions + the crown wall + the great key emblem.
+    drawIsoBox(g, -20, -64, 13, 6.5, 26, shade(color, 0.34), a, owned ? color : undefined);
+    drawIsoBox(g, 20, -64, 13, 6.5, 26, shade(color, 0.3), a, owned ? color : undefined);
+    drawIsoBox(g, 0, -90, 18, 9, 8, shade(color, 0.42), a, owned ? color : undefined);
+    if (owned) {
+      // Floating key: bow circle + stem + teeth, the citadel's seal.
+      g.circle(0, -106, 5).stroke({ width: 2, color: shade(color, 1.4), alpha: 0.95 });
+      g.moveTo(0, -101).lineTo(0, -114).stroke({ width: 2, color: shade(color, 1.4), alpha: 0.95 });
+      g.moveTo(0, -110).lineTo(4, -110).stroke({ width: 2, color: shade(color, 1.4), alpha: 0.95 });
+      g.moveTo(0, -114).lineTo(5, -114).stroke({ width: 2, color: shade(color, 1.4), alpha: 0.95 });
+    }
+  }
+  if (stage >= 3) {
+    // Side turrets + watch beacons on every crown.
+    for (const dx of [-36, 36]) {
+      drawIsoBox(g, dx, 2, 8, 4, 44, shade(color, 0.26), a, owned ? color : undefined);
+      drawIsoBox(g, dx, -42, 9, 4.5, 6, shade(color, 0.4), a);
+      if (owned) g.circle(dx, -44, 2.2).fill({ color: 0xfffbeb, alpha: 0.9 });
+    }
+    if (owned) {
+      g.circle(-20, -93, 2.2).fill({ color: 0xfffbeb, alpha: 0.9 });
+      g.circle(20, -93, 2.2).fill({ color: 0xfffbeb, alpha: 0.9 });
+      // Containment shackle arc over the crown wall.
+      g.moveTo(-16, -98).arc(0, -98, 16, Math.PI, 0).stroke({
+        width: 2,
+        color: shade(color, 1.3),
+        alpha: 0.85,
+      });
+    }
+  }
 }
 
 /** 2 — The Oracle ("Goddess of Knowledge"): observatory + sensor eye. */
-function drawOracleObservatory(g: Graphics, owned: boolean): void {
+function drawOracleObservatory(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[2];
   const a = owned ? 1 : 0.42;
   // Cylinder base + dome (night massing).
@@ -163,10 +232,33 @@ function drawOracleObservatory(g: Graphics, owned: boolean): void {
       alpha: 0.4,
     });
   }
+  if (stage >= 2) {
+    // Sensor mast — stacked relay dishes climb above the dome.
+    g.moveTo(0, -64).lineTo(0, -92).stroke({ width: 2.5, color: shade(color, 0.5), alpha: a });
+    for (const [ry, rr] of [[-74, 7], [-86, 6]] as const) {
+      g.arc(0, ry, rr, -Math.PI * 0.85, -Math.PI * 0.15).stroke({
+        width: 1.5,
+        color: owned ? shade(color, 1.3) : 0x475569,
+        alpha: a,
+      });
+    }
+    if (owned) g.circle(0, -96, 2.2).fill({ color: 0xffffff, alpha: 0.9 });
+  }
+  if (stage >= 3) {
+    // Twin side masts + the insight halo.
+    for (const dx of [-16, 16]) {
+      g.moveTo(dx, -60).lineTo(dx, -100).stroke({ width: 1.5, color: shade(color, 0.5), alpha: a });
+      if (owned) g.circle(dx, -103, 1.8).fill({ color, alpha: 0.9 });
+    }
+    if (owned) {
+      g.ellipse(0, -96, 24, 8).stroke({ width: 1.5, color, alpha: 0.7 });
+      g.ellipse(0, -96, 24, 8).fill({ color, alpha: 0.06 });
+    }
+  }
 }
 
 /** 3 — The Clockkeeper ("Goddess of Time"): clock tower + chrono rings. */
-function drawClockkeeperTower(g: Graphics, owned: boolean): void {
+function drawClockkeeperTower(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[3];
   const a = owned ? 1 : 0.42;
   // Tower shaft (night massing).
@@ -197,10 +289,30 @@ function drawClockkeeperTower(g: Graphics, owned: boolean): void {
     g.ellipse(0, -92, 22, 7).fill({ color, alpha: 0.08 });
     g.ellipse(0, -104, 13, 4.5).stroke({ width: 1.5, color, alpha: 0.5 });
   }
+  if (stage >= 2) {
+    // Shaft extension + a second chrono ring at a quicker cadence.
+    drawIsoBox(g, 0, -74, 12, 6, 30, shade(color, 0.32), a, owned ? color : undefined);
+    if (owned) {
+      g.ellipse(0, -118, 18, 6).stroke({ width: 1.5, color, alpha: 0.7 });
+      g.circle(0, -122, 2.2).fill({ color: 0xffffff, alpha: 0.9 });
+    }
+  }
+  if (stage >= 3) {
+    // The midnight bell + twin side escapement wheels.
+    g.poly([0, -148, 6, -132, -6, -132]).fill({
+      color: owned ? shade(color, 1.4) : 0x334155,
+      alpha: a,
+    });
+    if (owned) g.circle(0, -150, 2).fill({ color: 0xffffff, alpha: 0.95 });
+    for (const dx of [-14, 14]) {
+      g.circle(dx, -96, 5).stroke({ width: 1.5, color, alpha: owned ? 0.6 : 0.25 * a });
+      g.moveTo(dx - 5, -96).lineTo(dx + 5, -96).stroke({ width: 1, color, alpha: owned ? 0.5 : 0.2 * a });
+    }
+  }
 }
 
 /** 4 — NullPointer ("Goddess of War"): fractured obelisk, held by force. */
-function drawWarObelisk(g: Graphics, owned: boolean): void {
+function drawWarObelisk(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[4];
   const a = owned ? 1 : 0.42;
   const stone = owned ? shade(color, 0.22) : 0x1e293b;
@@ -232,10 +344,35 @@ function drawWarObelisk(g: Graphics, owned: boolean): void {
       alpha: 0.7,
     });
   }
+  if (stage >= 2) {
+    // The fracture climbs — a third displaced shard + outer ring.
+    g.poly([-5, -120, 6, -122, 3, -150, -4, -146]).fill({ color: stone, alpha: a });
+    g.moveTo(-2, -128).lineTo(4, -134).stroke({ width: 2, color: glow, alpha: owned ? 0.9 : 0.35 });
+    if (owned) {
+      g.ellipse(0, 0, TILE_W * 0.52, TILE_H * 0.52).stroke({ width: 1.5, color, alpha: 0.5 });
+      g.circle(0, -154, 2.2).fill({ color, alpha: 0.9 });
+    }
+  }
+  if (stage >= 3) {
+    // Orbiting war shards + the white-hot apex spike.
+    for (let i = 0; i < 3; i++) {
+      const sx = (i - 1) * 18;
+      const sy = -108 - (i % 2) * 22;
+      g.poly([sx, sy - 7, sx + 4, sy, sx, sy + 6, sx - 4, sy]).fill({
+        color: owned ? shade(color, 1.2) : 0x334155,
+        alpha: a * 0.95,
+      });
+    }
+    g.moveTo(0, -150).lineTo(0, -178).stroke({ width: 2, color: glow, alpha: owned ? 0.95 : 0.4 });
+    if (owned) {
+      g.circle(0, -180, 2.6).fill({ color: 0xffffff, alpha: 0.95 });
+      g.circle(0, -180, 5).stroke({ width: 1.5, color, alpha: 0.8 });
+    }
+  }
 }
 
 /** 5 — The Banker ("Goddess of Wealth"): stepped treasury pyramid. */
-function drawBankerPyramid(g: Graphics, owned: boolean): void {
+function drawBankerPyramid(g: Graphics, owned: boolean, stage: MonumentStage): void {
   const color = LANDMARK_COLORS[5];
   const a = owned ? 1 : 0.42;
   // Four stepped tiers (front faces + shading), monumentally wide — night
@@ -271,9 +408,37 @@ function drawBankerPyramid(g: Graphics, owned: boolean): void {
     g.circle(-16, y - 8, 2).fill({ color: 0xfffbeb, alpha: 0.9 });
     g.circle(16, y - 8, 2).fill({ color: 0xfffbeb, alpha: 0.9 });
   }
+  if (stage >= 2) {
+    // Treasury colonnade — a ring of gold-capped columns around the base.
+    for (const dx of [-38, -19, 19, 38]) {
+      g.rect(dx - 2, -26, 4, 26).fill({ color: shade(color, 0.4), alpha: a });
+      g.circle(dx, -28, 2.2).fill({
+        color: owned ? 0xfffbeb : 0x334155,
+        alpha: a,
+      });
+    }
+    if (owned) {
+      // Second coin orbit, wider — the compound interest ring.
+      g.ellipse(0, y - 10, 24, 7).stroke({ width: 1.2, color, alpha: 0.5 });
+    }
+  }
+  if (stage >= 3) {
+    // Crown tier + the golden flame apex.
+    g.poly([-7, y, 0, y + 4.5, 7, y, 0, y - 4.5]).fill({ color: shade(color, 0.5), alpha: a });
+    g.moveTo(0, y - 14).lineTo(0, y - 34).stroke({ width: 2, color: owned ? shade(color, 1.5) : shade(color, 0.5), alpha: a });
+    g.poly([0, y - 46, 4, y - 34, 0, y - 30, -4, y - 34]).fill({
+      color: owned ? 0xfffbeb : 0x334155,
+      alpha: a,
+    });
+    if (owned) {
+      for (const dx of [-12, 12]) {
+        g.circle(dx, y - 40, 1.8).fill({ color: 0xfffbeb, alpha: 0.9 });
+      }
+    }
+  }
 }
 
-const LANDMARK_DRAW: ReadonlyArray<(g: Graphics, owned: boolean) => void> = [
+const LANDMARK_DRAW: ReadonlyArray<(g: Graphics, owned: boolean, stage: MonumentStage) => void> = [
   drawArchitectSpire,
   drawLocksmithCitadel,
   drawOracleObservatory,
@@ -292,11 +457,6 @@ export function landmarkIndexFor(username: string): number {
  * the name chip shows at close LOD; the selection ring mirrors mirror-list/
  * panel focus. `owned` + `stage` arrive from the city projection — never
  * client-derived.
- *
- * HERO PIXEL ART (2026-09-28): three value-driven stages mount the
- * generated Landmark-i-s{1..3} sheets (day/night/lights). The procedural
- * monument below is the fallback and carries its own scoped day-lift
- * filter; the identity pad/ground ring stays procedural in both modes.
  */
 export class LandmarkSprite extends Container {
   readonly username: string;
@@ -306,11 +466,6 @@ export class LandmarkSprite extends Container {
   private labelKey = "";
   private selection: Graphics | null = null;
   private lod: Lod = "district";
-  /** Pixel-art day/night/lights frames (hero stages). */
-  private readonly artDay = new Sprite();
-  private readonly artNight = new Sprite();
-  private readonly artLights = new Sprite();
-  private pixelKey: string | null = null;
   private stageCurrent = 0;
   private daylightCurrent = 0;
   /** Procedural monument body + scoped day lift (identity at night). */
@@ -321,13 +476,9 @@ export class LandmarkSprite extends Container {
     super();
     this.index = ((index % GODDESS_USERNAMES.length) + GODDESS_USERNAMES.length) % GODDESS_USERNAMES.length;
     this.username = GODDESS_USERNAMES[this.index];
-    this.stageCurrent = stage;
+    this.stageCurrent = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
     this.scale.set(MONUMENT_SCALE);
     this.body.filters = [this.bodyDay];
-    this.artLights.blendMode = "add";
-    this.artDay.visible = false;
-    this.artNight.visible = false;
-    this.artLights.visible = false;
     this.setOwned(owned);
   }
 
@@ -343,15 +494,14 @@ export class LandmarkSprite extends Container {
     if (owned === this.drawnOwned) return;
     this.drawnOwned = owned;
     this.redraw();
-    this.syncPixelArt();
   }
 
-  /** Value-stage swap (server-derived 1..3) — remounts the pixel frames. */
+  /** Value-stage swap (server-derived 1..3) — rebuilds the elaboration. */
   setStage(stage: number): void {
     const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
     if (s === this.stageCurrent) return;
     this.stageCurrent = s;
-    this.syncPixelArt();
+    this.redraw();
     if (this.labelChip) {
       this.labelChip.position.set(0, -(this.artHeightPx() + 24));
     }
@@ -362,69 +512,25 @@ export class LandmarkSprite extends Container {
   }
 
   /**
-   * Daylight factor 0..1 (authored frames, mirrors BuildingSprite/HqSprite):
-   * day frame crossfades over night, additive identity lights dim to a
-   * sheen. The fallback body lerps its own scoped lift instead.
+   * Daylight factor 0..1: the procedural body lerps its scoped lift (this
+   * IS the hero's authored day state — identity at night, civic stone by
+   * day).
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
-    if (this.pixelKey !== null) {
-      this.artDay.alpha = daylight;
-      this.artLights.alpha = facadeGlowAt(daylight);
-    } else {
-      const scale = 1 + (0.68 - 1) * daylight;
-      const offset = 0.3 * daylight;
-      this.bodyDay.matrix = [
-        scale, 0, 0, 0, offset,
-        0, scale, 0, 0, offset,
-        0, 0, scale, 0, offset,
-        0, 0, 0, 1, 0,
-      ];
-    }
+    const scale = 1 + (0.68 - 1) * daylight;
+    const offset = 0.3 * daylight;
+    this.bodyDay.matrix = [
+      scale, 0, 0, 0, offset,
+      0, scale, 0, 0, offset,
+      0, 0, scale, 0, offset,
+      0, 0, 0, 1, 0,
+    ];
   }
 
-  /** Mount (or fall back from) the generated monument frames for the stage. */
-  syncPixelArt(): void {
-    const frames = landmarkFramesFor(this.index, this.stageCurrent);
-    if (!frames) {
-      if (this.pixelKey !== null) {
-        this.pixelKey = null;
-        this.artDay.visible = false;
-        this.artNight.visible = false;
-        this.artLights.visible = false;
-        this.body.visible = true;
-        this.setDaylight(this.daylightCurrent);
-      }
-      return;
-    }
-    const key = `${frames.day.source.uid}|${this.index}|${this.stageCurrent}`;
-    if (key === this.pixelKey) return;
-    this.pixelKey = key;
-    for (const [sprite, tex] of [
-      [this.artDay, frames.day],
-      [this.artNight, frames.night],
-      [this.artLights, frames.lights],
-    ] as const) {
-      sprite.texture = tex;
-      sprite.anchor.set(frames.anchorX / frames.frameW, frames.anchorY / frames.frameH);
-      sprite.position.set(0, 0);
-      sprite.visible = true;
-    }
-    this.artDay.alpha = this.daylightCurrent;
-    this.artLights.alpha = facadeGlowAt(this.daylightCurrent);
-    this.body.visible = false;
-    if (this.labelChip) {
-      this.labelChip.position.set(0, -(this.artHeightPx() + 24));
-    }
-  }
-
-  /** Scaled art height above the tile (pixel stage art or fallback body). */
+  /** Scaled art height above the tile at the CURRENT value stage. */
   artHeightPx(): number {
-    if (this.pixelKey !== null) {
-      const frames = landmarkFramesFor(this.index, this.stageCurrent);
-      if (frames) return Math.round(frames.artHeight * MONUMENT_SCALE);
-    }
-    return landmarkArtHeight(this.index);
+    return landmarkArtHeight(this.index, this.stageCurrent);
   }
 
   /** Display-name chip (resolved locale text from the React shell). */
@@ -484,16 +590,14 @@ export class LandmarkSprite extends Container {
     const pad = new Graphics();
     drawMonumentPad(pad, LANDMARK_COLORS[this.index], owned);
     const g = new Graphics();
-    LANDMARK_DRAW[this.index](g, owned);
+    LANDMARK_DRAW[this.index](g, owned, this.stageCurrent as MonumentStage);
     this.body.addChild(g);
-    this.body.visible = this.pixelKey === null;
-    this.addChild(pad, this.artDay, this.artNight, this.artLights, this.body, ...keep);
+    this.addChild(pad, this.body, ...keep);
+    this.setDaylight(this.daylightCurrent);
   }
 }
 
-/** Beam anchor point of a landmark (monument tip) for the Root Sequence.
- *  Fallback-body approximation — pixel-mode callers use the sprite's live
- *  artHeightPx() instead (stage art heights differ). */
-export function landmarkBeamAnchor(index: number): { dx: number; dy: number } {
-  return { dx: 0, dy: -(landmarkArtHeight(index) - 14) };
+/** Beam anchor point of a landmark (monument tip) for the Root Sequence. */
+export function landmarkBeamAnchor(index: number, stage = 1): { dx: number; dy: number } {
+  return { dx: 0, dy: -(landmarkArtHeight(index, stage) - 14) };
 }

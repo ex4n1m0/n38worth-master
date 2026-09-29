@@ -11,9 +11,9 @@
 
 /** Building tier 1–14, derived from player_value vs value_floor (powers of
  * two). One successful overclock (value ×2) normally = exactly +1 tier.
- * TWO ART SYSTEMS (2026-09-29 progression rework): tiers 1–7 (1×–64×) render
- * the PROCEDURAL vector architecture; tiers 8–14 (128×–8192×+) render the
- * generated spectacular pixel-art sheets (fallback: procedural while loading).
+ * ONE ART SYSTEM, TWO LEAGUES (2026-09-29): tiers 1–7 (1×–64×) render the
+ * CIVIC procedural vector architecture; tiers 8–14 (128×–8192×+) render the
+ * GRAND procedural megaforms (each family's bespoke spectacular form).
  * Values near MAX_PLAYER_VALUE (1e12) can cap mid-doubling. */
 export type BuildingTier =
   | 1 | 2 | 3 | 4 | 5 | 6 | 7

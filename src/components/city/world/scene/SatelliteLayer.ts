@@ -334,9 +334,8 @@ export class SatelliteLayer extends Container {
   }
 
   /**
-   * Daylight factor for the hero sprites (relay + monuments mount authored
-   * day/night frames like everything else since 2026-09-28) AND the grass
-   * pads (day variant crossfades over the night one).
+   * Daylight factor for the hero sprites (relay + monuments scoped lifts)
+   * AND the grass pads (day variant crossfades over the night one).
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
@@ -348,13 +347,6 @@ export class SatelliteLayer extends Container {
   }
   private daylightCurrent = 0;
 
-  /** Pixel-art texture-ready pass (late hero sheets mount in place). */
-  refreshPixelArt(): void {
-    for (const cluster of this.clusters.values()) {
-      cluster.relay.syncPixelArt();
-      for (const m of cluster.monuments) m.syncPixelArt();
-    }
-  }
 
   /** Reduced-motion policy change: pulses stop entirely when reduced. */
   setPulseEnabled(enabled: boolean): void {

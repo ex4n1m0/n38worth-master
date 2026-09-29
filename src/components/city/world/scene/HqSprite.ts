@@ -8,14 +8,16 @@
  * Profession only picks the fallback beacon color; nothing about the HQ
  * encodes economy state.
  *
- * HERO PIXEL ART (2026-09-28): three value-driven stages mount the
- * generated HQ-s{1..3} sheets (day/night/lights, same contract as ordinary
- * buildings — server-derived stage via projection.ts heroStageOf, the
- * client only renders). The procedural tower below is the fallback (pixel
- * art disabled/failed) and carries its own scoped day-lift filter.
+ * PROCEDURAL HERO ART (2026-09-29, pixel-sheet retirement): three
+ * value-driven stages of a CIVIC TOWER, all vector Graphics — stage 1 the
+ * civic form, stage 2 the climbing tower (ring balcony + mast), stage 3 the
+ * near-max megaform (stacked setbacks, twin balconies, crown diadem +
+ * beacon). Server-derived stage via projection.ts heroStageOf; the client
+ * only renders. The scoped ColorMatrix lift below is the hero's authored
+ * day state (no scene-wide day matrix exists).
  */
 
-import { ColorMatrixFilter, Container, Graphics, Sprite, Text } from "pixi.js";
+import { ColorMatrixFilter, Container, Graphics, Text } from "pixi.js";
 import {
   COLOR_SELECTION,
   drawIsoBox,
@@ -25,9 +27,10 @@ import {
   professionNeon,
   shade,
 } from "./art";
-import { facadeGlowAt } from "@/lib/city/scene/daylight";
-import { hqFramesFor, type PixelArtFrames } from "./pixel-art";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
+
+/** Art extent (px above the tile) per value stage 1..3 — tag/plate/FX anchor. */
+const HQ_STAGE_HEIGHTS = [118, 152, 190] as const;
 
 export class HqSprite extends Container {
   private drawnProfession: string | null | undefined;
@@ -40,17 +43,9 @@ export class HqSprite extends Container {
   /** Concrete platform pair under the tower (like ordinary buildings). */
   private readonly platformNight = new Graphics();
   private readonly platformDay = new Graphics();
-  /** Pixel-art day/night/lights frames (hero stages). */
-  private readonly artDay = new Sprite();
-  private readonly artNight = new Sprite();
-  private readonly artLights = new Sprite();
-  private pixelKey: string | null = null;
   private stageCurrent = 0;
   private daylightCurrent = 0;
-  /**
-   * Procedural fallback body + its scoped day lift (identity at night).
-   * Hidden entirely while pixel frames are mounted.
-   */
+  /** Procedural hero body + its scoped day lift (identity at night). */
   private readonly body = new Container();
   private readonly bodyDay = new ColorMatrixFilter();
   /** Selection ring (2026-09-28 "select the core building"). */
@@ -59,15 +54,10 @@ export class HqSprite extends Container {
   constructor(profession: string | null, stage = 1) {
     super();
     this.drawnProfession = profession;
-    this.stageCurrent = stage;
+    this.stageCurrent = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
     this.body.filters = [this.bodyDay];
-    this.addChild(this.platformNight, this.platformDay, this.artDay, this.artNight, this.artLights, this.body);
-    this.artLights.blendMode = "add";
-    this.artDay.visible = false;
-    this.artNight.visible = false;
-    this.artLights.visible = false;
-    // Command ring on the platform — marks the HQ as the camera reset anchor
-    // (outside `body` so it survives the pixel-art swap).
+    this.addChild(this.platformNight, this.platformDay, this.body);
+    // Command ring on the platform — marks the HQ as the camera reset anchor.
     const ring = new Graphics();
     ring.ellipse(0, 0, TILE_W * 0.62, TILE_H * 0.62).stroke({
       width: 1.5,
@@ -85,7 +75,6 @@ export class HqSprite extends Container {
     this.selRing.visible = false;
     this.addChild(this.selRing);
     this.draw(profession);
-    this.syncPixelArt();
     this.setDaylight(0);
   }
 
@@ -101,74 +90,32 @@ export class HqSprite extends Container {
     this.draw(profession);
   }
 
-  /** Value-stage swap (server-derived 1..3) — remounts the pixel frames. */
+  /** Value-stage swap (server-derived 1..3) — rebuilds the tower body.
+   *  draw() resets the tag/plate caches; the shell always re-runs
+   *  setTag/setOwnerName after a stage sync (IsoWorld.syncHq). */
   setStage(stage: number): void {
     const s = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
     if (s === this.stageCurrent) return;
     this.stageCurrent = s;
-    this.syncPixelArt();
+    this.draw(this.drawnProfession ?? null);
   }
 
   /**
-   * Daylight factor 0..1 (authored frames, mirrors BuildingSprite): day
-   * frame crossfades over night, additive lights dim to the glass sheen.
-   * The fallback body lerps its own scoped lift instead.
+   * Daylight factor 0..1: the day platform crossfades over the night one
+   * and the hero body lerps its own scoped lift (no authored frame pair to
+   * crossfade — this IS the hero's day state).
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     this.platformDay.alpha = daylight;
-    if (this.pixelKey !== null) {
-      this.artDay.alpha = daylight;
-      this.artLights.alpha = facadeGlowAt(daylight);
-    } else {
-      const scale = 1 + (0.68 - 1) * daylight;
-      const offset = 0.3 * daylight;
-      this.bodyDay.matrix = [
-        scale, 0, 0, 0, offset,
-        0, scale, 0, 0, offset,
-        0, 0, scale, 0, offset,
-        0, 0, 0, 1, 0,
-      ];
-    }
-  }
-
-  /** Mount (or fall back from) the generated hero frames for the stage. */
-  syncPixelArt(): void {
-    const frames = hqFramesFor(this.stageCurrent);
-    if (!frames) {
-      if (this.pixelKey !== null) {
-        this.pixelKey = null;
-        this.artDay.visible = false;
-        this.artNight.visible = false;
-        this.artLights.visible = false;
-        this.body.visible = true;
-        this.setDaylight(this.daylightCurrent);
-      }
-      return;
-    }
-    const key = `${frames.day.source.uid}|${this.stageCurrent}`;
-    if (key === this.pixelKey) return;
-    this.pixelKey = key;
-    this.mountFrames(frames);
-  }
-
-  private mountFrames(frames: PixelArtFrames): void {
-    for (const [sprite, tex] of [
-      [this.artDay, frames.day],
-      [this.artNight, frames.night],
-      [this.artLights, frames.lights],
-    ] as const) {
-      sprite.texture = tex;
-      sprite.anchor.set(frames.anchorX / frames.frameW, frames.anchorY / frames.frameH);
-      sprite.position.set(0, 0);
-      sprite.visible = true;
-    }
-    this.artDay.alpha = this.daylightCurrent;
-    this.artLights.alpha = facadeGlowAt(this.daylightCurrent);
-    this.body.visible = false;
-    // Stage art changes the body height — rehang the tag/plate on it.
-    if (this.tagText) this.tagText.position.set(0, -(this.artExtentPx() + 20));
-    if (this.ownerChip) this.ownerChip.position.set(0, -(this.artExtentPx() + 46));
+    const scale = 1 + (0.68 - 1) * daylight;
+    const offset = 0.3 * daylight;
+    this.bodyDay.matrix = [
+      scale, 0, 0, 0, offset,
+      0, scale, 0, 0, offset,
+      0, 0, scale, 0, offset,
+      0, 0, 0, 1, 0,
+    ];
   }
 
   /** Small "CORE/HQ" tag over the beacon (i18n label, Phase C polish e). */
@@ -220,19 +167,15 @@ export class HqSprite extends Container {
     this.ownerChip = chip;
   }
 
-  /** Body height above the tile (pixel stage art or fallback tower) — tag,
-   *  owner plate and FX anchors hang off this. */
+  /** Body height above the tile — tag, owner plate and FX anchors hang here. */
   artExtentPx(): number {
-    if (this.pixelKey !== null) {
-      const frames = hqFramesFor(this.stageCurrent);
-      if (frames) return frames.artHeight;
-    }
-    return 118;
+    return HQ_STAGE_HEIGHTS[this.stageCurrent - 1] ?? HQ_STAGE_HEIGHTS[0];
   }
 
   private draw(profession: string | null): void {
     const neon = professionNeon(profession);
     const mass = professionMass(profession);
+    const stage = this.stageCurrent;
     this.body.removeChildren();
     // removeChildren wipes the CORE tag + owner plate with the art — reset
     // their caches so the next setTag/setOwnerName (syncHq always re-runs
@@ -248,9 +191,9 @@ export class HqSprite extends Container {
     drawPlatform(this.platformDay, "day");
     this.platformDay.alpha = this.daylightCurrent;
 
-    // NORMAL-CITY v2 (2026-09-28): the fallback HQ reads as a civic tower —
-    // stone pedestal, concrete massing, warm lit windows — the profession
-    // hue only survives in the tiny beacon ring. (Scoped day lift above.)
+    // NORMAL-CITY v2 (2026-09-28): the HQ reads as a civic tower — stone
+    // pedestal, concrete massing, warm lit windows — the profession hue only
+    // survives in the tiny beacon ring. (Scoped day lift above.)
 
     // Wide stone pedestal (one and a half tiles across).
     const ground = new Graphics();
@@ -262,33 +205,79 @@ export class HqSprite extends Container {
       .stroke({ width: 2, color: 0x84806f, alpha: 0.7 });
     this.body.addChild(ground);
 
-    // Central tower: three stacked massing boxes.
     const core = new Graphics();
-    drawIsoBox(core, 0, 0, 44, 22, 46, mass);
-    drawIsoBox(core, 0, -46, 30, 15, 34, shade(mass, 1.5));
-    drawIsoBox(core, 0, -80, 16, 8, 26, shade(mass, 1.9));
-    this.body.addChild(core);
-
-    // Warm lit window rows (the tower at night).
     const lit = new Graphics();
-    for (let i = 0; i < 5; i++) {
-      const y = -10 - i * 16;
-      lit.rect(-26, y, 52, 2).fill({ color: 0xffd27a, alpha: 0.8 });
+
+    if (stage === 1) {
+      // Civic tower: three stacked massing boxes.
+      drawIsoBox(core, 0, 0, 44, 22, 46, mass);
+      drawIsoBox(core, 0, -46, 30, 15, 34, shade(mass, 1.5));
+      drawIsoBox(core, 0, -80, 16, 8, 26, shade(mass, 1.9));
+      for (let i = 0; i < 5; i++) {
+        const y = -10 - i * 16;
+        lit.rect(-26, y, 52, 2).fill({ color: 0xffd27a, alpha: 0.8 });
+      }
+    } else if (stage === 2) {
+      // Climbing tower: four setbacks + a ring balcony + mast beacon.
+      drawIsoBox(core, 0, 0, 46, 23, 46, mass);
+      drawIsoBox(core, 0, -46, 34, 17, 36, shade(mass, 1.4));
+      drawIsoBox(core, 0, -82, 22, 11, 28, shade(mass, 1.7));
+      drawIsoBox(core, 0, -110, 14, 7, 16, shade(mass, 2.0));
+      lit.ellipse(0, -70, 42, 21).stroke({ width: 1.5, color: shade(neon, 1.3), alpha: 0.75 });
+      for (let i = 0; i < 7; i++) {
+        const y = -10 - i * 15;
+        const w = i < 3 ? 28 : i < 5 ? 20 : 12;
+        lit.rect(-w, y, w * 2, 2).fill({ color: 0xffd27a, alpha: 0.8 });
+      }
+      lit.moveTo(0, -126).lineTo(0, -138).stroke({ width: 2, color: shade(neon, 1.2) });
+    } else {
+      // Near-max megaform: five setbacks, twin balconies, crown diadem +
+      // beacon mast — the skyline's civic crown.
+      drawIsoBox(core, 0, 0, 48, 24, 46, mass);
+      drawIsoBox(core, 0, -46, 36, 18, 38, shade(mass, 1.35));
+      drawIsoBox(core, 0, -84, 26, 13, 30, shade(mass, 1.6));
+      drawIsoBox(core, 0, -114, 18, 9, 22, shade(mass, 1.85));
+      drawIsoBox(core, 0, -136, 12, 6, 14, shade(mass, 2.1));
+      lit.ellipse(0, -56, 44, 22).stroke({ width: 1.5, color: shade(neon, 1.3), alpha: 0.7 });
+      lit.ellipse(0, -104, 30, 15).stroke({ width: 1.5, color: shade(neon, 1.4), alpha: 0.7 });
+      for (let i = 0; i < 8; i++) {
+        const y = -10 - i * 15;
+        const w = i < 3 ? 30 : i < 5 ? 22 : i < 7 ? 15 : 9;
+        lit.rect(-w, y, w * 2, 2).fill({ color: 0xffd27a, alpha: 0.8 });
+      }
+      // Crown diadem: wide cap + corner pins.
+      drawIsoBox(core, 0, -150, 22, 11, 8, shade(mass, 2.2), 1, neon);
+      for (const [px, py] of [[-18, 0], [18, 0], [0, -9], [0, 9]] as const) {
+        lit.circle(px, -158 + py * 0.4, 1.8).fill({ color: shade(neon, 1.6) });
+      }
+      lit.ellipse(0, -166, 28, 10).stroke({ width: 1.5, color: shade(neon, 1.5), alpha: 0.8 });
+      lit.moveTo(0, -158).lineTo(0, -174).stroke({ width: 2, color: shade(neon, 1.3) });
     }
+    this.body.addChild(core);
     this.body.addChild(lit);
 
     // Beacon at the tower tip — white lamp with a faint profession-hued ring.
+    const tipY = stage === 1 ? -112 : stage === 2 ? -141 : -178;
     const beacon = new Graphics();
-    beacon.circle(0, -112, 4).fill({ color: 0xffffff, alpha: 0.9 });
-    beacon.circle(0, -112, 7).stroke({ width: 1.5, color: neon, alpha: 0.5 });
+    beacon.circle(0, tipY, stage === 3 ? 4.5 : 4).fill({ color: 0xffffff, alpha: 0.9 });
+    beacon.circle(0, tipY, stage === 3 ? 8 : 7).stroke({ width: 1.5, color: neon, alpha: 0.5 });
     this.body.addChild(beacon);
 
-    // Two side annexes.
+    // Side annexes (pylons grow with the stage).
     const pylons = new Graphics();
-    drawIsoBox(pylons, -54, 6, 12, 6, 30, shade(mass, 0.85));
-    drawIsoBox(pylons, 54, 6, 12, 6, 30, shade(mass, 0.85));
+    const pylonH = stage === 1 ? 30 : stage === 2 ? 40 : 48;
+    drawIsoBox(pylons, -54, 6, 12, 6, pylonH, shade(mass, 0.85));
+    drawIsoBox(pylons, 54, 6, 12, 6, pylonH, shade(mass, 0.85));
+    if (stage >= 2) {
+      // Pylon caps light up as the HQ climbs.
+      pylons.circle(-54, 6 - pylonH - 3, 1.8).fill({ color: shade(neon, 1.6) });
+      pylons.circle(54, 6 - pylonH - 3, 1.8).fill({ color: shade(neon, 1.6) });
+    }
+    if (stage === 3) {
+      // Podium annex pods flank the pedestal at near-max.
+      drawIsoBox(pylons, -76, 10, 10, 5, 18, shade(mass, 0.8));
+      drawIsoBox(pylons, 76, 10, 10, 5, 18, shade(mass, 0.8));
+    }
     this.body.addChild(pylons);
-
-    this.body.visible = this.pixelKey === null;
   }
 }

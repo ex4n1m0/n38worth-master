@@ -24,8 +24,7 @@
     "rebrand:goddess-art": "npx tsx scripts/rebrand-goddess-art.ts",
     "city:flag": "npx tsx scripts/city-flag.ts",
     "gen:scifi-art": "npx tsx scripts/gen-scifi-art.ts",
-    "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts",
-    "gen:city-pixel-art": "npx tsx scripts/gen-city-pixel-art.ts"
+    "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

@@ -195,9 +195,8 @@ export class IsoWorld extends Container {
     super();
     this._sectorCount = Math.max(1, Math.min(9, sectorCount));
     this.buildingsLayer.sortableChildren = true; // depth = zIndex (x+y)
-    // Hero layers carry NO filter since the 2026-09-28 hero pixel-art pass:
-    // HQ + monuments mount authored day/night frames and own a scoped
-    // fallback lift inside their sprites (see HqSprite/LandmarkSprite).
+    // Hero layers carry no filter: HQ + monuments own a scoped day lift
+    // inside their sprites (see HqSprite/LandmarkSprite).
     // landmarkLayer sits ABOVE buildingsLayer deliberately: the six monuments
     // are the sector's key landmarks — ordinary towers must never occlude
     // them (image-analyst Phase E gate: buildings stacked on monument
@@ -682,8 +681,8 @@ export class IsoWorld extends Container {
   }
 
   /**
-   * HQ body hit (2026-09-28 "select the core building"): the core's pixel
-   * art is wider than its tile — tap anywhere on the body (pad to art tip,
+   * HQ body hit (2026-09-28 "select the core building"): the core's art is
+   * wider than its tile — tap anywhere on the body (pad to art tip,
    * generous width) to select it. Monuments hit-test FIRST, so their art
    * keeps priority where the two overlap on screen.
    */
@@ -721,10 +720,8 @@ export class IsoWorld extends Container {
   }
 
   /**
-   * Daylight factor 0..1 (pixel-art day/night): crossfades the terrain
-   * plate + every building's AND hero's day/night/lights frames (or the
-   * scoped fallback lifts inside the hero sprites — HQ + monuments own
-   * their day states since the 2026-09-28 hero pixel-art pass).
+   * Daylight factor 0..1: crossfades the terrain plate + platform day/night
+   * pairs and drives every building's facade glow and the hero scoped lifts.
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
@@ -733,17 +730,6 @@ export class IsoWorld extends Container {
     for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
     this.hq?.setDaylight(daylight);
     for (const landmark of this.landmarkSprites) landmark.setDaylight(daylight);
-  }
-
-  /**
-   * Pixel-art texture-ready pass: a sheet finished loading — re-check every
-   * sprite INCLUDING the heroes (mounting frames in place) so late arrivals
-   * swap cleanly.
-   */
-  refreshPixelArt(): void {
-    for (const sprite of this.sprites.values()) sprite.syncPixelArt();
-    this.hq?.syncPixelArt();
-    for (const landmark of this.landmarkSprites) landmark.syncPixelArt();
   }
 
   /** Building-sprite counts for the dev perf overlay (post-cull). */
@@ -768,7 +754,7 @@ export class IsoWorld extends Container {
     if (this.hq) {
       this.hq.visible = pointVisible(rect, this.hq.x, this.hq.y, this.hq.artExtentPx() + 32, TILE_W * 0.75);
     }
-    // Landmarks use their LIVE art heights (stage pixel art or fallback).
+    // Landmarks use their LIVE art heights (per value stage).
     // Dormant monuments stay hidden even in-viewport (setOwned rules them
     // invisible; the viewport pass must never un-hide one).
     this.landmarkSprites.forEach((landmark) => {

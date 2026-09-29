@@ -40,11 +40,11 @@ export const FAMILY_HEX: Readonly<Record<string, string>> = Object.freeze({
 
 /**
  * MASS palette (SC4 contrast pass, 2026-09-28): mid-tone, family-hued
- * building masses for the PROCEDURAL renderers (aggregate rim slabs, HQ
- * tower, pixel-art fallback). The old blue-black night palette read as
- * "black bricks" next to the bright v3 pixel-art buildings. The scene's day
- * ColorMatrix lift carries these to daylight; FAMILY_NEON_HEX below stays
- * the emissive accent the Pixi scene lights windows/edges with.
+ * building masses for the PROCEDURAL renderers (ordinary buildings, grand
+ * megaforms, aggregate rim slabs, HQ tower). The old blue-black night
+ * palette read as "black bricks". FAMILY_NEON_HEX below stays the emissive
+ * accent the Pixi scene lights windows/edges with (and mixes INTO the grand
+ * league's chroma glass).
  */
 export const FAMILY_MASS_HEX: Readonly<Record<string, string>> = Object.freeze({
   Cryptographer: "#6b5f49", // warm stone

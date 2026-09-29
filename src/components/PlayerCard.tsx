@@ -36,7 +36,7 @@ import {
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import { RenameNpcDialog } from "@/components/RenameNpcDialog";
 import { PermBlockButton } from "@/components/PermBlockButton";
-import { BuildingSprite, BUILDING_SPRITE_ENABLED } from "@/components/city/BuildingSprite";
+import { BuildingSprite } from "@/components/city/BuildingSprite";
 import { buildingTier } from "@/lib/city/projection";
 import { cardDisplayName } from "@/lib/display-names";
 import { WarDeleteButton } from "@/components/WarDeleteButton";
@@ -100,7 +100,7 @@ interface PlayerCardProps {
   onboardingComplete?: number;
   actionsOnly?: boolean;
   leaderboardMode?: boolean;
-  /** Show the pixel-art preview of the building hiring this card adds to
+  /** Show the procedural art preview of the building hiring this card adds to
       the city (buildings browse grid), sized equal to the avatar. */
   showBuilding?: boolean;
   /** Bypass hidden-Avatar masking and always show the real avatar (served via
@@ -704,10 +704,10 @@ function PlayerCardImpl({
 
   const showMeta = effectiveProfession || leaderboardMode;
 
-  // Building preview (buildings browse grid): the pixel-art sprite of the
+  // Building preview (buildings browse grid): the procedural art of the
   // exact building hiring this card would add to the city — same
-  // family/tier/variant derivation as the city scene.
-  const showBuildingRow = showBuilding && BUILDING_SPRITE_ENABLED;
+  // family/tier derivation as the city scene.
+  const showBuildingRow = showBuilding;
   const buildingTitle = isGoddess
     ? t.cardBuildingLandmark
     : t.cardBuildingTier.replace("{tier}", String(buildingTier(playerValue, valueFloor)));

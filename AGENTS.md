@@ -53,7 +53,6 @@
 - Rebrand: rename `users.profession` rows (one-time): `npm run rebrand:professions`
 - Rebrand: swap goddess avatar art to statics (one-time): `npm run rebrand:goddess-art`
 - Regenerate sci-fi placeholder art: `npm run gen:scifi-art`
-- Regenerate city pixel-art building sheets: `npm run gen:city-pixel-art`
 
 ## Theme eras: fantasy → sci-fi (2026-09) → CITY BUILDING (2026-09-29)
 The game is now themed as **"The City Building Simulation"** — a city building
@@ -71,8 +70,8 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
   filenames (TheOracle.webp holds The Surveyor's art, etc.) — they are DB
   avatarUrl contracts.
 - **Professions: DB values stay** (Cryptographer, Zero-Day, Overclocker, Cache
-  Keeper, Server Marshal, Bot Herder — also the art-family keys and pixel-sheet
-  filenames). The city DISPLAY names live in `professions.ts`
+  Keeper, Server Marshal, Bot Herder — also the art-family keys in the city
+  scene). The city DISPLAY names live in `professions.ts`
   (`PROFESSION_DISPLAY_NAMES`): Notary / Auctioneer / Renovator / Vault
   Keeper / City Planner / Prospector — perks are "Trade Secrets" (行业秘诀).
   Render via `professionName(name, locale)` / `professionPerk(name, locale)`;
@@ -272,34 +271,28 @@ n38worth-game-systems review):
 - Rendering stays bounded: aggregate ordinary avatars beyond the
   detailed-display limit, lazy-load heavy avatar media, support keyboard
   interaction and prefers-reduced-motion.
-- **Building art is TWO art systems split by the 14-level progression ladder
-  (2026-09-29 rework)**: `buildingTier` clamps to 1..14 (1×–8192×+ of
-  value_floor). TIERS 1–7 render the PROCEDURAL vector architecture
-  (art.ts) as the REAL art (not a fallback); TIERS 8–14 render the generated
-  pixel sheets — `pixelFramesFor` maps game tier → sheet slot (tier − 7).
-  Hero VALUE stage 1 (HQ + monuments) renders procedurally; stages 2–3 use
-  the hero sheets. The DOM card preview (components/city/BuildingSprite.tsx)
-  follows the same split (SVG procedural echo for T1–7, sheet DAY frame for
-  T8–14, goddess cards show the stage-2 landmark sheet).
-- **The generated atlas** (since 2026-09-28; v4 "chroma spectacular"
-  2026-09-29): `npm run gen:city-pixel-art` deterministically re-plots
-  `public/city/pixel/*.png` (49 sheets: 7 families × 7 sheet slots, 3
-  variants × day/night/lights frames) + `city-pixel-art.generated.ts` (the
-  manifest — frame geometry, ground-contact anchors). The scene mounts them
-  via `scene/pixel-art.ts` (nearest-neighbor, lazy per family×slot, kill
-  switch `NEXT_PUBLIC_CITY_PIXEL_ART=off` → procedural fallback in art.ts).
-  **v4 chroma direction (2026-09-29, user ruling): the generated set is the
-  SPECTACULAR high league — saturated family materials echoing FAMILY_NEON_HEX
-  accents, colored curtain glass, glowing sky-lobby bands, crown rings and a
-  mega-diadem at the top slot; day frames TRUE COLOR and bright, night
-  moonlit-readable (~63% luminance — never black slabs). The v2
-  normal-city restraint now lives in the procedural tiers 1–7.** Day/night =
-  art-frame crossfade + a grass terrain plate (day/night pair in IsoWorld) +
-  concrete platforms (day/night pair in art.ts) + scoped soft-lift filters
-  for the remaining procedural heroes (HQ/monuments/aggregate). There is NO
-  global day ColorMatrix anymore — add authored day/night pairs to new
-  elements instead of reintroducing one. Variant per card is `pixelVariantOf`
-  (lib/city/scene/pixel-variant.ts, tested) — deterministic, never random.
+- **Building art is ONE procedural system in two leagues over the 14-level
+  progression ladder (2026-09-29 pixel-sheet retirement, user ruling)**:
+  `buildingTier` clamps to 1..14 (1×–8192×+ of value_floor). TIERS 1–7 render
+  the CIVIC vector architecture (art.ts modular family stack + shared tier
+  features); TIERS 8–14 render the GRAND league — each family's bespoke
+  `drawGrand()` megaform (self-contained spectacular architecture, one more
+  elaboration per tier, `step = tier − 8`; chroma glass mixes the neon accent
+  into the mass via `mixRGB`). The HQ core and the Six monuments render
+  procedural value-stage elaborations for ALL THREE stages (stage 2–3 are
+  taller crowned forms, not separate assets). The DOM card preview
+  (components/city/BuildingSprite.tsx) is an SVG echo of the same two leagues
+  for every tier, and goddess cards show their monument echo.
+- **The generated pixel atlas is RETIRED** (2026-09-28→2026-09-29): the
+  49 PNG sheets, `scene/pixel-art.ts` loader, `city-pixel-art.generated.ts`
+  manifest, `pixelVariantOf` variant module, its test, the
+  `gen:city-pixel-art` script and the `/city/pixel/` proxy bypass are all
+  DELETED — do not reintroduce sheet-based building art; extend art.ts /
+  landmarks.ts instead. Day/night = authored state pairs: grass terrain plate
+  (day/night in IsoWorld) + concrete platforms (day/night pair in art.ts) +
+  lit-window glow dimming (`facadeGlowAt`) + scoped soft-lift filters for the
+  hero bodies (HQ/monuments/aggregate). There is NO global day ColorMatrix —
+  add authored day/night pairs to new elements instead of reintroducing one.
   All art is original code-plotted work; never feed copyrighted game assets
   into the pipeline.
 - Economy-touching city work follows: map paths → state invariants → review
