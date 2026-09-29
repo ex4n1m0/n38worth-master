@@ -11,7 +11,7 @@ import {
   rootSequenceKey,
   type RootSequenceVisualState,
 } from "@/lib/city/root-sequence";
-import type { CityScene } from "./scene/CityScene";
+import type { CitySceneApi } from "./scene-api";
 
 /** /api/goddess-countdown payload (public, CDN-cached). */
 interface CountdownData {
@@ -63,7 +63,7 @@ export function RootSequenceHud({
   sceneEpoch,
 }: {
   ownerUsername: string;
-  sceneRef: RefObject<CityScene | null>;
+  sceneRef: RefObject<CitySceneApi | null>;
   /** Bumped by CityWorld when the scene (re)mounts — re-push current state. */
   sceneEpoch: number;
 }) {

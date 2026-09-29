@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import type { CityScene, CitySceneProjection } from "./scene/CityScene";
+import type { CitySceneApi, CitySceneProjection } from "./scene-api";
 import type { UniversePayload } from "@/lib/city/universe";
 import { DistrictOverview, SceneErrorBoundary } from "./SceneErrorBoundary";
 
-/** pixi.js chunk — client-only, never in the server bundle (ADR §D1). */
+/** Renderer chunk (pixi or three — scene-api flag pick) — client-only. */
 const CitySceneMount = dynamic(() => import("./CitySceneMount"), {
   ssr: false,
   loading: () => <div className="city-world-loading" aria-hidden="true" />,
@@ -16,7 +16,7 @@ interface CitySceneHostProps {
   projection: CitySceneProjection;
   /** Shared universe map payload (null while loading / on failure). */
   universe: UniversePayload | null;
-  onSceneReady: (scene: CityScene) => void;
+  onSceneReady: (scene: CitySceneApi) => void;
 }
 
 /**

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { CityProjection } from "@/lib/city/types";
 import type { UniversePayload } from "@/lib/city/universe";
 import { cityWorldStore } from "@/lib/city/scene/store";
-import type { CityScene } from "./scene/CityScene";
+import type { CitySceneApi } from "./scene-api";
 import { CitySceneHost } from "./CitySceneHost";
 import { CityHud, type CityHudActions } from "./CityHud";
 import { BuildingInspector } from "./BuildingInspector";
@@ -42,7 +42,7 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
   // public, so a logged-in VISITOR of someone else's city must not get the
   // owner-only combo button in the district panel.
   const isOwner = session?.user?.name === projection.owner.username;
-  const sceneRef = useRef<CityScene | null>(null);
+  const sceneRef = useRef<CitySceneApi | null>(null);
   // Bumped when the Pixi scene (re)mounts so the Root Sequence driver can
   // re-push its current state into the fresh instance.
   const [sceneEpoch, setSceneEpoch] = useState(0);

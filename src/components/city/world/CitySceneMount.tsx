@@ -13,22 +13,25 @@ import {
 } from "@/lib/missions-data";
 import { formatCompact } from "@/lib/utils";
 import type { UniversePayload } from "@/lib/city/universe";
-import { CityScene, type CitySceneProjection, type CitySceneStrings } from "./scene/CityScene";
+import { cityRenderer } from "@/lib/city/renderer-flag";
+import type { CitySceneApi, CitySceneProjection, CitySceneStrings } from "./scene-api";
 
 interface CitySceneMountProps {
   projection: CitySceneProjection;
   /** Shared universe map payload (null while loading / on failure). */
   universe: UniversePayload | null;
-  onSceneReady: (scene: CityScene) => void;
+  onSceneReady: (scene: CitySceneApi) => void;
   onContextLost: () => void;
   /** Mount-time failure (WebGL unavailable, chunk error, init throw). */
   onError: () => void;
 }
 
 /**
- * The actual Pixi mount (loaded via next/dynamic ssr:false from
- * CitySceneHost, so pixi.js never enters the server bundle). Owns the
- * CityScene lifecycle plus the store↔scene wiring:
+ * The actual scene mount (loaded via next/dynamic ssr:false from
+ * CitySceneHost, so neither renderer enters the server bundle). Picks the
+ * RENDERER CHUNK by flag (pixi default / three behind ?renderer=three or
+ * NEXT_PUBLIC_CITY_RENDERER) and owns the scene lifecycle plus the
+ * store↔scene wiring:
  *
  * - store.selectedCardId → scene selection visuals + floating name chip
  * - store.reducedMotion → motion policy swap (glides/fades snap off)
@@ -50,7 +53,7 @@ export default function CitySceneMount({
   const { t, locale } = useLanguage();
   const { play } = useSound();
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<CityScene | null>(null);
+  const sceneRef = useRef<CitySceneApi | null>(null);
 
   // Locale-aware strings for the imperative scene (canvas Text: HQ CORE tag,
   // tier-up flash chip, lost-signal chip, floating display names, sector
@@ -81,6 +84,21 @@ export default function CitySceneMount({
           return finalGoddessLabel(info.unlockThreshold, locale);
         }
         return missionLabel(tier - 1, locale);
+      },
+      // Civic landmark names (locale-resolved; scene chips + inspector).
+      civicName: (kind) => {
+        switch (kind) {
+          case "police":
+            return t.cityCivicPolice;
+          case "fire":
+            return t.cityCivicFire;
+          case "school":
+            return t.cityCivicSchool;
+          case "hospital":
+            return t.cityCivicHospital;
+          default:
+            return kind;
+        }
       },
     }),
     [t, locale]
@@ -114,11 +132,17 @@ export default function CitySceneMount({
     const host = hostRef.current;
     if (!host) return;
     let disposed = false;
-    let scene: CityScene | null = null;
+    let scene: CitySceneApi | null = null;
 
     (async () => {
       try {
-        const created = await CityScene.create({
+        // Renderer chunk pick (flag): exactly ONE of the two engine chunks
+        // is ever fetched for a viewer.
+        const { createScene } =
+          cityRenderer() === "three"
+            ? await import("./scene3d/ThreeScene")
+            : await import("./scene/CityScene");
+        const created = await createScene({
           host,
           sectorCount: Math.max(1, Math.min(9, latest.current.projection.owner.sectorsUnlocked)),
           reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -189,6 +213,9 @@ export default function CitySceneMount({
       if (state.selectedLandmark !== prev.selectedLandmark) {
         scene.setSelectedLandmark(state.selectedLandmark);
       }
+      if (state.selectedCivic !== prev.selectedCivic) {
+        scene.setSelectedCivic(state.selectedCivic);
+      }
       if (state.selectedUniverseCity !== prev.selectedUniverseCity) {
         scene.setSelectedUniverseCity(state.selectedUniverseCity);
       }
@@ -205,6 +232,7 @@ export default function CitySceneMount({
         (state.selectedCardId !== null && state.selectedCardId !== prev.selectedCardId) ||
         (state.selectedForeign !== null && state.selectedForeign !== prev.selectedForeign) ||
         (state.selectedLandmark !== null && state.selectedLandmark !== prev.selectedLandmark) ||
+        (state.selectedCivic !== null && state.selectedCivic !== prev.selectedCivic) ||
         (state.selectedUniverseCity !== null && state.selectedUniverseCity !== prev.selectedUniverseCity) ||
         (state.selectedUniverseBuilding !== null &&
           state.selectedUniverseBuilding !== prev.selectedUniverseBuilding) ||

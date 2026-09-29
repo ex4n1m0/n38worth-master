@@ -39,7 +39,13 @@
 
 import { Application, ColorMatrixFilter, Container, FillGradient, Graphics, Sprite, Texture } from "pixi.js";
 import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
-import type { CityBuilding, CityProjection, CitySectorInfo } from "@/lib/city/types";
+import type {
+  CityBuilding,
+  CityProjection,
+  CitySectorInfo,
+  CivicKind,
+} from "@/lib/city/types";
+import { CIVIC_KINDS } from "@/lib/city/types";
 import {
   rootSequenceKey,
   type RootSequenceVisualState,
@@ -56,7 +62,7 @@ import { daylightAt, nextDaylightBoundaryAt } from "@/lib/city/scene/daylight";
 import { clampCamera, ZOOM_MIN, type CameraState } from "@/lib/city/scene/camera";
 import { visibleWorldRect } from "@/lib/city/scene/culling";
 import { TILE_W, pickTile, sectorWorldBounds } from "@/lib/city/scene/iso";
-import { rankArrangeTiles, type TileRef } from "@/lib/city/placement";
+import { rankArrangeTiles, civicTileRef, type TileRef } from "@/lib/city/placement";
 import type { UniversePayload } from "@/lib/city/universe";
 import {
   districtRepresentatives,
@@ -105,8 +111,10 @@ export interface CitySceneStrings {
   /** Satellite "+N more" plate text, pre-localized. */
   satelliteMoreLabel: (count: number) => string;
   /** Sector identity resolver — Boot → cityBootSector, others →
-   *  missionLabel/finalGoddessLabel (locale resolved in React land). */
+   *   missionLabel/finalGoddessLabel (locale resolved in React land). */
   sectorLabel: (info: CitySectorInfo) => string;
+  /** Civic landmark names (Police/Fire/School/Hospital, locale-resolved). */
+  civicName: (kind: CivicKind) => string;
 }
 
 const DEFAULT_STRINGS: CitySceneStrings = {
@@ -116,6 +124,7 @@ const DEFAULT_STRINGS: CitySceneStrings = {
   displayName: (username) => username,
   satelliteMoreLabel: (count) => `+${count}`,
   sectorLabel: (info) => (info.index === 0 ? "BOOT" : ""),
+  civicName: (kind) => kind,
 };
 
 export interface CitySceneCallbacks {
@@ -283,6 +292,8 @@ export class CityScene {
   private prevDetailed: readonly CityBuilding[] | null = null;
   /** Sector count seen at the last sync (unlock-FX edge detector). */
   private prevSectorCount: number | null = null;
+  /** Civic tier seen at the last sync (civic-FX edge detector). */
+  private prevCivicTier: number | null = null;
   /** Landmark owned-flags seen at the last sync (acquisition-FX edge). */
   private prevLandmarkOwned: readonly boolean[] | null = null;
   /** Last Root Sequence state pushed by the shell (change-detected by key). */
@@ -504,6 +515,11 @@ export class CityScene {
         this.strings.displayName,
         this.strings.satelliteMoreLabel
       );
+      // Civic landmark names are locale text — refresh the chips.
+      this.world.syncCivic(
+        this.lastProjection.civic ?? { tier: 0 },
+        (kind) => this.strings.civicName(kind)
+      );
     }
     this.universe.setLabels(this.strings.displayName);
     this.updateNameChips();
@@ -604,6 +620,24 @@ export class CityScene {
     // Data paths (visual only): every rendered building → HQ, beneath all.
     this.lastTiles = entries.map((e) => e.tile);
     this.paths.sync(this.lastTiles, HQ_TILE, this.lod);
+
+    // CIVIC LANDMARKS (Police/Fire/School/Hospital): tier from the
+    // projection; a tier RISE since the last sync celebrates at the four
+    // lots (never on the seeded first sync; reduced-motion safe via the FX
+    // policy). Streets re-derive afterwards — new landmarks pave around
+    // themselves (civic square) and the sync's building moves re-pave.
+    const civicTier = this.world.syncCivic(
+      projection.civic ?? { tier: 0 },
+      (kind) => this.strings.civicName(kind)
+    );
+    if (this.prevCivicTier !== null && civicTier > this.prevCivicTier) {
+      for (let i = 0; i < CIVIC_KINDS.length; i++) {
+        const p = worldPointOfTile(civicTileRef(i));
+        this.fx.playLandmark(p.x, p.y);
+      }
+    }
+    this.prevCivicTier = civicTier;
+    this.world.syncStreets();
 
     // District data links: one representative per owned profession, complete
     // glow when all six are present (pure derivation — districtsFromFamilies
@@ -882,6 +916,12 @@ export class CityScene {
     this.requestRender();
   }
 
+  /** Selection ring on a civic landmark (inspector focus). */
+  setSelectedCivic(kind: CivicKind | null): void {
+    this.world.setCivicSelected(kind);
+    this.requestRender();
+  }
+
   /** Glide (or snap) the camera onto a goddess monument. */
   focusLandmark(index: number): void {
     const p = worldPointOfTile(landmarkTile(index));
@@ -1149,6 +1189,12 @@ export class CityScene {
       state.selectLandmark(landmarkIndex);
       return;
     }
+    // Civic landmarks (Police/Fire/School/Hospital) — tap the body art.
+    const civicKind = this.world.civicHitAt(worldX, worldY);
+    if (civicKind) {
+      state.selectCivic(civicKind);
+      return;
+    }
     // Own HQ core (the projection owner's centerpiece).
     if (this.world.hqHitAt(worldX, worldY) && this.lastProjection) {
       state.selectHq(this.lastProjection.owner.username);
@@ -1398,4 +1444,14 @@ export class CityScene {
     // stragglers and empty the cache (a remount must reload, never reuse).
     resetAvatarTextures();
   }
+}
+
+/**
+ * Renderer-agnostic factory for CitySceneMount's flag switch
+ * (lib/city/renderer-flag.ts): the mount dynamic-imports exactly one of
+ * this or scene3d/ThreeScene's createScene, so the pixi.js chunk and the
+ * three.js chunk never both reach the client.
+ */
+export function createScene(init: CitySceneInit): Promise<CityScene> {
+  return CityScene.create(init);
 }
