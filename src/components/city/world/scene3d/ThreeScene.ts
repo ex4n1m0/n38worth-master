@@ -29,6 +29,7 @@ import {
   Mesh,
   MeshBasicMaterial,
   OrthographicCamera,
+  PlaneGeometry,
   Scene,
   WebGLRenderer,
 } from "three";
@@ -36,19 +37,23 @@ import { GRID_SIZE, SECTOR_KEYS } from "@/lib/city/layout-schema";
 import type { CityBuilding, CivicKind } from "@/lib/city/types";
 import { lodFor } from "@/lib/city/scene/lod";
 import { resolveMotion, type MotionPolicy } from "@/lib/city/scene/motion";
-import { daylightAt } from "@/lib/city/scene/daylight";
+import { daylightAt, facadeGlowAt } from "@/lib/city/scene/daylight";
+import { LIGHT_STEP_MS, windowFlickerAt } from "@/lib/city/scene/lights";
 import {
   clampCamera,
   ZOOM_MIN,
   type CameraState,
 } from "@/lib/city/scene/camera";
-import { globalTile, pickTile, TILE_W } from "@/lib/city/scene/iso";
+import { globalTile, pickTile, screenToTile, tileToScreen, TILE_W } from "@/lib/city/scene/iso";
 import {
   CAM_FAR,
   CAM_NEAR,
   cameraPlacement,
   orthoFrame,
+  PIXEL_RISE,
+  projectToScreen,
   tileToGround,
+  worldPxToGround,
 } from "@/lib/city/scene/camera3d";
 import { rankArrangeTiles, tileRefKey, type TileRef } from "@/lib/city/placement";
 import { cityWorldStore } from "@/lib/city/scene/store";
@@ -69,6 +74,22 @@ import {
   familyTopHeightPx,
   groundPlateHalfExtent,
 } from "./building3d";
+import {
+  buildAggregateGeometry,
+  buildLockedPadsGeometry,
+  buildProtectionRingsGeometry,
+  buildSatelliteCluster,
+  buildStreetsGeometry,
+  buildUniverseMarkersGeometry,
+  deriveHomeStreets,
+  deriveUniverseMarkers,
+  type UniverseMarker,
+} from "./world3d";
+import {
+  loadAvatarTexture,
+  onAvatarTextureReady,
+  resetAvatarTextures3d,
+} from "./avatars3d";
 import {
   HQ_TILE,
   LANDMARK_RING_SPAN_PX,
@@ -103,6 +124,8 @@ const SKY_DAY = new Color("#6f9ed8");
 const GRASS_NIGHT = new Color("#1f2a21");
 const GRASS_DAY = new Color("#6b9c52");
 const SELECTION_COLOR = 0x4f8dff;
+/** Lit-window warm base (linear) — matches building3d's WINDOW_WARM. */
+const WINDOW_WARM_LINEAR = new Color("#ffd9a0");
 
 interface BuildingMeshEntry {
   mesh: Mesh;
@@ -122,14 +145,55 @@ export class ThreeScene {
   private readonly buildingMaterial: MeshBasicMaterial;
   private readonly groundMaterial: MeshBasicMaterial;
   private readonly ringMaterial: MeshBasicMaterial;
+  /**
+   * Window channel materials (light identity): every building's seeded
+   * lit-pane mosaic renders through these two SHARED materials (geometry
+   * groups), so the whole city's occupancy churn + day/night glow animates
+   * by touching two colors per light-clock step — zero per-vertex updates.
+   */
+  private readonly windowMaterialA: MeshBasicMaterial;
+  private readonly windowMaterialB: MeshBasicMaterial;
 
   private readonly buildingsGroup = new Group();
   private readonly fixtures = new Group();
+  private readonly worldLayers = new Group();
+  private readonly satellitesGroup = new Group();
   private groundMesh: Mesh | null = null;
   private hqMesh: Mesh | null = null;
   private hqKey = "";
   private readonly monuments: Array<{ mesh: Mesh; key: string }> = [];
   private selectionRing: Mesh | null = null;
+
+  /** World layers (one merged mesh each; rebuilt per sync — pure derived). */
+  private streetsMesh: Mesh | null = null;
+  private streetMaterial: MeshBasicMaterial;
+  private lockedPadsMesh: Mesh | null = null;
+  private lockedPadMaterial: MeshBasicMaterial;
+  private aggregateMesh: Mesh | null = null;
+  private protectionMesh: Mesh | null = null;
+  private flatMaterial: MeshBasicMaterial;
+  private universeMesh: Mesh | null = null;
+  private universeMarkers: UniverseMarker[] = [];
+
+  /** Satellite clusters by slot: mesh + picking tile map + anchor. */
+  private readonly satelliteBuilds = new Map<
+    number,
+    {
+      mesh: Mesh;
+      tiles: Map<string, number>;
+      owner: number;
+      anchorWorld: { x: number; y: number };
+    }
+  >();
+
+  /** DOM chip overlay (selection name / HQ plate / sector labels). */
+  private chipsRoot: HTMLDivElement | null = null;
+  /** Avatar billboard plane above the selected building. */
+  private billboard: Mesh | null = null;
+  private billboardFor: string | null = null;
+  private avatarTeardown: (() => void) | null = null;
+  /** Construct pop-in tweens (scale.y 0→1). */
+  private readonly growing: Array<{ mesh: Mesh; start: number }> = [];
 
   private readonly buildings = new Map<number, BuildingMeshEntry>();
   private readonly occupancy = new Map<string, number>();
@@ -159,6 +223,8 @@ export class ThreeScene {
 
   private daylight = 0;
   private daylightTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Light-clock timer (window occupancy churn; reduced motion keeps it off). */
+  private lightsTimer: ReturnType<typeof setTimeout> | null = null;
 
   private dirty = true;
   private raf = 0;
@@ -203,7 +269,29 @@ export class ThreeScene {
       transparent: true,
       opacity: 0.9,
     });
-    this.scene.add(this.buildingsGroup, this.fixtures);
+    this.windowMaterialA = new MeshBasicMaterial({
+      vertexColors: true,
+      side: DoubleSide,
+    });
+    this.windowMaterialB = new MeshBasicMaterial({
+      vertexColors: true,
+      side: DoubleSide,
+    });
+    this.streetMaterial = new MeshBasicMaterial({
+      vertexColors: true,
+      side: DoubleSide,
+    });
+    this.lockedPadMaterial = new MeshBasicMaterial({
+      color: "#141a24",
+      side: DoubleSide,
+      transparent: true,
+      opacity: 0.5,
+    });
+    this.flatMaterial = new MeshBasicMaterial({
+      vertexColors: true,
+      side: DoubleSide,
+    });
+    this.scene.add(this.worldLayers, this.buildingsGroup, this.fixtures, this.satellitesGroup);
   }
 
   /** Mount entry (mirrors CityScene.create; the mount picks by flag). */
@@ -247,6 +335,7 @@ export class ThreeScene {
 
     scene.applyCamera(rig.state);
     scene.requestRender();
+    scene.startLightClock();
     // Dev probe (QA): live scene state reachable from the console.
     if (process.env.NODE_ENV !== "production") {
       (window as unknown as Record<string, unknown>).__city3d = scene;
@@ -308,7 +397,7 @@ export class ThreeScene {
       prevPositions.set(cardId, { x: entry.mesh.position.x, z: entry.mesh.position.z });
     }
 
-    const { entries } = rankArrangeTiles(all, sectorCount, (key) =>
+    const { entries, resumeRing } = rankArrangeTiles(all, sectorCount, (key) =>
       this.reserved.has(key) || this.moat.has(key)
     );
 
@@ -344,7 +433,12 @@ export class ThreeScene {
           e.building.tier,
           e.building.cardId
         );
-        const mesh = new Mesh(geometry, this.buildingMaterial);
+        const mesh = new Mesh(geometry, this.bodyMaterials());
+        // Construct pop-in (scale.y 0→1; snapped under reduced motion).
+        if (!this.policy.reduced) {
+          mesh.scale.y = 0.05;
+          this.growing.push({ mesh, start: performance.now() });
+        }
         this.buildingsGroup.add(mesh);
         entry = {
           mesh,
@@ -397,9 +491,101 @@ export class ThreeScene {
 
     this.syncHq(projection);
     this.syncMonuments(projection);
+    this.syncWorldLayers(projection, entries.map((e) => e.tile), resumeRing);
+    this.syncSatellites(projection, sectorCount);
     this.applyDaylight();
     this.updateSelectionRing();
+    this.updateChips();
     this.requestRender();
+  }
+
+  /** Streets + locked pads + aggregate rim + protection rings (derived). */
+  private syncWorldLayers(
+    projection: CitySceneProjection,
+    buildingTiles: readonly TileRef[],
+    resumeRing: number
+  ): void {
+    // Streets: derived road grid around the placed buildings + HQ.
+    const streets = buildStreetsGeometry(deriveHomeStreets(buildingTiles));
+    if (this.streetsMesh) {
+      this.worldLayers.remove(this.streetsMesh);
+      this.streetsMesh.geometry.dispose();
+    }
+    this.streetsMesh = new Mesh(streets.geometry, this.streetMaterial);
+    this.worldLayers.add(this.streetsMesh);
+
+    // Locked sector pads (only rebuilt when the sector count changes).
+    if (
+      !this.lockedPadsMesh ||
+      this.lockedPadsMesh.userData.sectorCount !== this.sectorCount
+    ) {
+      if (this.lockedPadsMesh) {
+        this.worldLayers.remove(this.lockedPadsMesh);
+        this.lockedPadsMesh.geometry.dispose();
+      }
+      const geo = buildLockedPadsGeometry(this.sectorCount);
+      this.lockedPadsMesh = new Mesh(geo, this.lockedPadMaterial);
+      this.lockedPadsMesh.userData.sectorCount = this.sectorCount;
+      this.worldLayers.add(this.lockedPadsMesh);
+    }
+
+    // Aggregate rim: the beyond-detail skyline continuing the orbit.
+    const occupied = (key: string) => this.occupancy.has(key);
+    const agg = buildAggregateGeometry(
+      projection.families,
+      resumeRing,
+      this.sectorCount,
+      occupied
+    );
+    if (this.aggregateMesh) {
+      this.worldLayers.remove(this.aggregateMesh);
+      this.aggregateMesh.geometry.dispose();
+    }
+    this.aggregateMesh = new Mesh(agg.geometry, this.buildingMaterial);
+    this.worldLayers.add(this.aggregateMesh);
+
+    // Protection status rings (firewall/hardlock — server authority).
+    const protectedTiles = buildingTiles
+      .map((tile) => {
+        const b = this.buildingsById.get(this.occupancy.get(tileRefKey(tile)) ?? -1);
+        if (!b?.protection) return null;
+        const sectorIndex = Number(tile.sector.replace(/^s/, "")) || 0;
+        const g = globalTile(sectorIndex, tile.x, tile.y, GRID_SIZE);
+        return { gx: g.x, gy: g.y, protection: b.protection };
+      })
+      .filter((t): t is { gx: number; gy: number; protection: "hardlock" | "firewall" } => !!t);
+    if (this.protectionMesh) {
+      this.worldLayers.remove(this.protectionMesh);
+      this.protectionMesh.geometry.dispose();
+    }
+    this.protectionMesh = new Mesh(
+      buildProtectionRingsGeometry(protectedTiles),
+      this.flatMaterial
+    );
+    this.worldLayers.add(this.protectionMesh);
+  }
+
+  /** Satellite mini-cities (foreign clusters on the anchor octants). */
+  private syncSatellites(projection: CitySceneProjection, sectorCount: number): void {
+    for (const [, s] of this.satelliteBuilds) {
+      this.satellitesGroup.remove(s.mesh);
+      s.mesh.geometry.dispose();
+    }
+    this.satelliteBuilds.clear();
+    const neighbors = projection.neighbors ?? [];
+    neighbors.slice(0, 8).forEach((neighbor, slot) => {
+      const built = buildSatelliteCluster(neighbor, slot, sectorCount);
+      const mesh = new Mesh(built.geometry, this.buildingMaterial);
+      this.satellitesGroup.add(mesh);
+      const tiles = new Map<string, number>();
+      for (const t of built.tiles) tiles.set(`${t.gx},${t.gy}`, t.cardId);
+      this.satelliteBuilds.set(slot, {
+        mesh,
+        tiles,
+        owner: neighbor.cardId,
+        anchorWorld: built.anchorWorld,
+      });
+    });
   }
 
   private syncHq(projection: CitySceneProjection): void {
@@ -411,7 +597,8 @@ export class ThreeScene {
         this.hqMesh.geometry.dispose();
       }
       const { geometry } = buildHqGeometry(stage);
-      this.hqMesh = new Mesh(geometry, this.buildingMaterial);
+      this.hqMesh = new Mesh(geometry, this.bodyMaterials());
+      this.hqMesh.userData.topPx = buildHqGeometry(stage).topPx;
       this.fixtures.add(this.hqMesh);
       this.hqKey = key;
     }
@@ -433,7 +620,7 @@ export class ThreeScene {
           slot.mesh.geometry.dispose();
         }
         const { geometry } = buildMonumentGeometry(i, stage, owned);
-        const mesh = new Mesh(geometry, this.buildingMaterial);
+        const mesh = new Mesh(geometry, this.bodyMaterials());
         this.fixtures.add(mesh);
         slot = { mesh, key };
         this.monuments[i] = slot;
@@ -445,12 +632,36 @@ export class ThreeScene {
     }
   }
 
-  /** P0 stub: the universe layer lands in P2; the HUD chip stays hidden. */
+  /**
+   * Shared universe map (P2): rank-orbit markers around the home city
+   * (bounded to the ground plate's reach — the HUD chip carries the true
+   * count), stake cities violet-tinted. Lazy minis stay a P3 refinement.
+   */
   syncUniverse(payload: UniversePayload | null, viewerUsername: string): void {
     if (this.destroyed) return;
-    void payload;
-    void viewerUsername;
-    cityWorldStore.getState().setUniverseSummary(null);
+    const stake = (this.lastProjection?.neighbors ?? []).map((n) => n.username);
+    const { markers, count, viewerRank } = deriveUniverseMarkers(
+      payload,
+      viewerUsername,
+      stake,
+      this.sectorCount
+    );
+    this.universeMarkers = markers;
+    if (this.universeMesh) {
+      this.worldLayers.remove(this.universeMesh);
+      this.universeMesh.geometry.dispose();
+    }
+    this.universeMesh = new Mesh(
+      buildUniverseMarkersGeometry(markers),
+      this.flatMaterial
+    );
+    this.worldLayers.add(this.universeMesh);
+    cityWorldStore.getState().setUniverseSummary(
+      count > 0
+        ? { count, myRank: viewerRank <= count ? viewerRank : null }
+        : null
+    );
+    this.requestRender();
   }
 
   setReducedMotion(reduced: boolean): void {
@@ -458,6 +669,11 @@ export class ThreeScene {
     if (this.policy.reduced) {
       for (const m of this.moving) m.mesh.position.set(m.toX, 0, m.toZ);
       this.moving.length = 0;
+      // Reduced motion: no occupancy churn — panes keep a steady glow.
+      this.stopLightClock();
+      this.updateWindowLights(0);
+    } else {
+      this.startLightClock();
     }
     this.requestRender();
   }
@@ -465,15 +681,30 @@ export class ThreeScene {
   setSelected(cardId: number | null): void {
     this.selectedCardId = cardId;
     this.updateSelectionRing();
+    this.updateChips();
     this.requestRender();
   }
 
-  /** P2 (satellites render) — no-op until then. */
+  /** Foreign (satellite) selection: ring at the mini building's tile. */
   setSelectedForeign(sel: { owner: number; cardId: number } | null): void {
-    void sel;
+    if (!this.selectionRing) return;
+    this.selectionRing.visible = false;
+    if (sel) {
+      for (const [, sat] of this.satelliteBuilds) {
+        if (sat.owner !== sel.owner) continue;
+        for (const [key, cardId] of sat.tiles) {
+          if (cardId !== sel.cardId) continue;
+          const [gx, gy] = key.split(",").map(Number);
+          const ground = tileToGround(gx, gy);
+          this.selectionRing.position.set(ground.x, 0, ground.z);
+          this.selectionRing.visible = true;
+        }
+      }
+    }
+    this.requestRender();
   }
 
-  /** P2 — no-op until then. */
+  /** P3 — no-op until then. */
   setSelectedUniverseBuilding(sel: {
     username: string;
     cardId: number;
@@ -491,9 +722,19 @@ export class ThreeScene {
     this.requestRender();
   }
 
-  /** P2 — no-op until then. */
+  /** Universe-city selection: ring on its marker. */
   setSelectedUniverseCity(username: string | null): void {
-    void username;
+    if (!this.selectionRing) return;
+    this.selectionRing.visible = false;
+    if (username) {
+      const m = this.universeMarkers.find((x) => x.username === username);
+      if (m) {
+        const ground = tileToGround(m.gxWorld, m.gyWorld);
+        this.selectionRing.position.set(ground.x, 0, ground.z);
+        this.selectionRing.visible = true;
+      }
+    }
+    this.requestRender();
   }
 
   /** P0: rings the monument tile (same selection read as buildings). */
@@ -527,9 +768,17 @@ export class ThreeScene {
     this.rig.focusWorldPoint(p.x, p.y - 48);
   }
 
-  /** P2 (satellites render) — holds position until then. */
+  /** Side-panel focus → glide (or snap) onto a satellite city's anchor. */
   focusSatellite(slot: number): void {
-    void slot;
+    const built = this.satelliteBuilds.get(slot);
+    if (!built) return;
+    this.rig.animateTo(
+      clampCamera({
+        x: built.anchorWorld.x,
+        y: built.anchorWorld.y - 30,
+        zoom: Math.max(this.rig.state.zoom, 0.7),
+      })
+    );
   }
 
   focusLandmark(index: number): void {
@@ -581,6 +830,7 @@ export class ThreeScene {
     this.camera.near = CAM_NEAR;
     this.camera.far = CAM_FAR;
     this.camera.updateProjectionMatrix();
+    this.billboard?.quaternion.copy(this.camera.quaternion);
     this.dirty = true;
   }
 
@@ -591,6 +841,8 @@ export class ThreeScene {
     const lod = lodFor(cam.zoom);
     this.lod = lod;
     store.setLod(lod);
+    // Chips follow the camera (settle-cadence, never per frame).
+    this.updateChips();
   }
 
   /**
@@ -628,6 +880,35 @@ export class ThreeScene {
       }
       if (picked.sector >= this.sectorCount) {
         state.setLockedPeek(picked.sector);
+        return;
+      }
+    }
+    // Satellite mini-cities (outside the macro grid — anchor-local tiles).
+    const tap = screenToTile(worldX, worldY);
+    for (const [, sat] of this.satelliteBuilds) {
+      const hitCard = sat.tiles.get(`${Math.floor(tap.x)},${Math.floor(tap.y)}`);
+      if (hitCard !== undefined) {
+        state.selectForeign({ owner: sat.owner, cardId: hitCard });
+        return;
+      }
+    }
+    // Universe markers: forgiving dot hit within a zoom-aware radius
+    // (marker tile coords are already absolute — HQ offset baked in).
+    if (this.universeMarkers.length > 0) {
+      const zoom = this.rig.state.zoom;
+      const tolPx = Math.max(14, 26 / zoom);
+      let bestMarker: UniverseMarker | null = null;
+      let bestDist = Infinity;
+      for (const m of this.universeMarkers) {
+        const p = tileToScreen(m.gxWorld, m.gyWorld);
+        const d = Math.hypot(worldX - p.x, worldY - p.y);
+        if (d < bestDist) {
+          bestDist = d;
+          bestMarker = m;
+        }
+      }
+      if (bestMarker && bestDist <= tolPx) {
+        state.selectUniverseCity(bestMarker.username);
         return;
       }
     }
@@ -678,30 +959,225 @@ export class ThreeScene {
     if (!this.selectionRing) return;
     if (this.selectedCardId === null) {
       this.selectionRing.visible = false;
+      this.updateBillboard();
       return;
     }
     const tile = this.cardTiles.get(this.selectedCardId);
     if (!tile) {
       this.selectionRing.visible = false;
+      this.updateBillboard();
       return;
     }
     const g = globalTileOf(tile);
     const ground = tileToGround(g.x, g.y);
     this.selectionRing.position.set(ground.x, 0, ground.z);
     this.selectionRing.visible = true;
+    this.updateBillboard();
+  }
+
+  // ── DOM chip overlay (selection name / HQ plate / sector labels) ────────
+
+  private ensureChips(): void {
+    if (this.chipsRoot || typeof document === "undefined") return;
+    const root = document.createElement("div");
+    root.setAttribute("aria-hidden", "true");
+    root.style.cssText =
+      "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:5";
+    this.host.appendChild(root);
+    this.chipsRoot = root;
+  }
+
+  private chipNode(text: string, x: number, y: number, strong: boolean): HTMLDivElement {
+    const d = document.createElement("div");
+    d.textContent = text;
+    d.style.cssText = `position:absolute;left:${Math.round(x)}px;top:${Math.round(y)}px;transform:translate(-50%,-100%);white-space:nowrap;pointer-events:none;font:600 10px/1.4 ui-sans-serif,system-ui,sans-serif;letter-spacing:.04em;color:${strong ? "#eaf1fb" : "#9fb0c6"};background:${strong ? "rgba(12,18,32,.92)" : "rgba(10,14,24,.72)"};border:1px solid ${strong ? "rgba(122,168,255,.55)" : "rgba(255,255,255,.14)"};border-radius:6px;padding:2px 7px;text-transform:uppercase`;
+    return d;
+  }
+
+  /**
+   * Rebuild the chip set (≤ ~11 DOM nodes, bounded): sector identity labels,
+   * the HQ owner plate, and the selected building's name chip. Runs on sync
+   * / selection change / camera settle — never per frame.
+   */
+  private updateChips(): void {
+    this.ensureChips();
+    if (!this.chipsRoot || !this.lastProjection) return;
+    const cam = this.rig?.state ?? { x: 0, y: 0, zoom: 1 };
+    const viewport = this.viewportSize();
+    const nodes: HTMLDivElement[] = [];
+    const place = (worldPx: { x: number; y: number }, risePx: number) => {
+      const ground = worldPxToGround(worldPx.x, worldPx.y);
+      return projectToScreen(
+        { x: ground.x, y: risePx * PIXEL_RISE, z: ground.z },
+        cam,
+        viewport
+      );
+    };
+
+    // Sector identity chips (unlocked only, non-empty labels).
+    for (const info of this.lastProjection.sectorInfo) {
+      if (!info.unlocked) continue;
+      const label = this.strings.sectorLabel(info);
+      if (!label) continue;
+      const c = globalTile(info.index, GRID_SIZE >> 1, GRID_SIZE >> 1, GRID_SIZE);
+      const p = place(tileToScreen(c.x, c.y), -340);
+      nodes.push(this.chipNode(label, p.x, p.y, false));
+    }
+
+    // HQ plate (CORE tag + owner display name).
+    const hq = worldPointOfTile(HQ_TILE);
+    const hqTop = this.hqMesh
+      ? (this.hqMesh.userData.topPx as number | undefined) ?? 128
+      : 128;
+    const hp = place(hq, -(hqTop + 14));
+    nodes.push(
+      this.chipNode(
+        `${this.strings.coreTag} · ${this.strings.displayName(this.lastProjection.owner.username)}`,
+        hp.x,
+        hp.y,
+        true
+      )
+    );
+
+    // Selected building name chip (strong plate, above the body top).
+    if (this.selectedCardId !== null) {
+      const tile = this.cardTiles.get(this.selectedCardId);
+      const b = this.buildingsById.get(this.selectedCardId);
+      if (tile && b) {
+        const p = worldPointOfTile(tile);
+        const top = familyTopHeightPx(b.profession, b.tier);
+        const sp = place(p, -(top + 16));
+        nodes.push(
+          this.chipNode(this.strings.displayName(b.username), sp.x, sp.y, true)
+        );
+      }
+    }
+    this.chipsRoot.replaceChildren(...nodes);
+  }
+
+  // ── avatar billboard (selected building's rooftop identity plate) ───────
+
+  private updateBillboard(): void {
+    const username =
+      this.selectedCardId !== null
+        ? this.buildingsById.get(this.selectedCardId)?.username
+        : undefined;
+    if (!username) {
+      if (this.billboard) this.billboard.visible = false;
+      this.billboardFor = null;
+      return;
+    }
+    const tile = this.cardTiles.get(this.selectedCardId!);
+    const b = this.buildingsById.get(this.selectedCardId!);
+    if (!tile || !b) return;
+    const tex = loadAvatarTexture(username);
+    if (!tex) {
+      // Texture in flight — one retry when it arrives.
+      if (this.billboardFor !== username) {
+        this.avatarTeardown?.();
+        this.avatarTeardown = onAvatarTextureReady(() => {
+          this.updateBillboard();
+          this.requestRender();
+        });
+      }
+      return;
+    }
+    this.avatarTeardown?.();
+    this.avatarTeardown = null;
+    if (!this.billboard) {
+      const mat = new MeshBasicMaterial({ side: DoubleSide });
+      this.billboard = new Mesh(new PlaneGeometry(26, 26), mat);
+      this.scene.add(this.billboard);
+    }
+    const mat = this.billboard.material as MeshBasicMaterial;
+    if (this.billboardFor !== username) {
+      mat.map?.dispose();
+      mat.map = tex;
+      mat.needsUpdate = true;
+      this.billboardFor = username;
+    }
+    const g = globalTileOf(tile);
+    const ground = tileToGround(g.x, g.y);
+    const top = familyTopHeightPx(b.profession, b.tier);
+    this.billboard.position.set(ground.x, (top + 34) * PIXEL_RISE, ground.z);
+    this.billboard.quaternion.copy(this.camera.quaternion);
+    this.billboard.visible = true;
   }
 
   // ── day/night (P0 tint pass; P1 adds authored art-state pairs) ──────────
+
+  /** Mass + window-channel material array (geometry groups drive the pick). */
+  private bodyMaterials(): MeshBasicMaterial[] {
+    return [this.buildingMaterial, this.windowMaterialA, this.windowMaterialB];
+  }
 
   private applyDaylight(): void {
     const d = this.daylight;
     this.scene.background = SKY_NIGHT.clone().lerp(SKY_DAY, d);
     this.groundMaterial.color.copy(GRASS_NIGHT).lerp(GRASS_DAY, d);
     // Buildings are authored night-native; day lifts them like the 2D
-    // scoped soft-lift filters (scaled 1 → ~1.25 brightness).
+    // scoped soft-lift filters (scaled 1 → ~1.25 brightness). Streets share
+    // the lift (authored night asphalt).
     const lift = 1 + 0.25 * d;
     this.buildingMaterial.color.setRGB(lift, lift, lift * 0.98);
+    this.streetMaterial.color.setRGB(lift, lift, lift * 0.98);
+    this.updateWindowLights(performance.now());
     this.dirty = true;
+  }
+
+  /**
+   * Window-channel colors at time t — the 3D twin of the Pixi light clock:
+   * windowFlickerAt's two occupancy channels (different periods, out of
+   * phase) dim the lit panes city-wide, scaled by facadeGlowAt(daylight)
+   * (full bloom at night, glass sheen by day). Per-pane identity (warm
+   * color, brightness, channel split) is baked in vertex colors, so this
+   * touches exactly two material colors per step.
+   */
+  private updateWindowLights(t: number): void {
+    const glow = facadeGlowAt(this.daylight);
+    const scale = (flick: number) => glow * flick;
+    const fa = scale(windowFlickerAt(t, 1, 0));
+    const fb = scale(windowFlickerAt(t, 2, 1));
+    this.windowMaterialA.color.setRGB(
+      WINDOW_WARM_LINEAR.r * fa,
+      WINDOW_WARM_LINEAR.g * fa,
+      WINDOW_WARM_LINEAR.b * fa
+    );
+    this.windowMaterialB.color.setRGB(
+      WINDOW_WARM_LINEAR.r * fb,
+      WINDOW_WARM_LINEAR.g * fb,
+      WINDOW_WARM_LINEAR.b * fb
+    );
+  }
+
+  /**
+   * Quantized light animation (lib/city/scene/lights.ts): one window-color
+   * pass + ONE render per step; no timer churn between steps. Reduced
+   * motion never starts the clock — panes keep their static full-night
+   * bloom. Hidden tabs let setTimeout throttle naturally (render skipped).
+   */
+  private startLightClock(): void {
+    if (this.policy.reduced || this.lightsTimer !== null) return;
+    const step = () => {
+      if (this.destroyed) return;
+      const t = performance.now();
+      this.updateWindowLights(t);
+      if (
+        typeof document === "undefined" ||
+        document.visibilityState !== "hidden"
+      ) {
+        this.requestRender();
+      }
+      this.lightsTimer = setTimeout(step, LIGHT_STEP_MS);
+    };
+    this.lightsTimer = setTimeout(step, LIGHT_STEP_MS);
+  }
+
+  private stopLightClock(): void {
+    if (this.lightsTimer !== null) {
+      clearTimeout(this.lightsTimer);
+      this.lightsTimer = null;
+    }
   }
 
   private scheduleDaylightPoll(): void {
@@ -733,6 +1209,7 @@ export class ThreeScene {
     if (this.destroyed) return;
     let busy = this.rig.update();
     busy = this.updateMoves(performance.now()) || busy;
+    busy = this.updateGrowing(performance.now()) || busy;
     if (this.dirty || busy) {
       const now = performance.now();
       this.renderer.render(this.scene, this.camera);
@@ -769,6 +1246,24 @@ export class ThreeScene {
     return busy;
   }
 
+  /** Construct pop-in (320ms scale.y ease-out; the list is sync-driven). */
+  private updateGrowing(now: number): boolean {
+    if (this.growing.length === 0) return false;
+    let busy = false;
+    for (let i = this.growing.length - 1; i >= 0; i--) {
+      const g = this.growing[i];
+      const t = Math.min(1, (now - g.start) / 320);
+      g.mesh.scale.y = 0.05 + 0.95 * (1 - (1 - t) * (1 - t));
+      if (t >= 1) {
+        g.mesh.scale.y = 1;
+        this.growing.splice(i, 1);
+      } else {
+        busy = true;
+      }
+    }
+    return busy;
+  }
+
   private pushPerfSnapshot(now: number): void {
     if (now - this.lastPerfPush < PERF_PUSH_MS) return;
     this.lastPerfPush = now;
@@ -791,6 +1286,7 @@ export class ThreeScene {
     this.destroyed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
     if (this.daylightTimer) clearTimeout(this.daylightTimer);
+    this.stopLightClock();
     this.rig?.destroy();
     this.ro?.disconnect();
     this.renderer.domElement.removeEventListener(
@@ -805,9 +1301,31 @@ export class ThreeScene {
     this.monuments.length = 0;
     this.groundMesh?.geometry.dispose();
     this.selectionRing?.geometry.dispose();
+    this.streetsMesh?.geometry.dispose();
+    this.lockedPadsMesh?.geometry.dispose();
+    this.aggregateMesh?.geometry.dispose();
+    this.protectionMesh?.geometry.dispose();
+    this.universeMesh?.geometry.dispose();
+    for (const [, s] of this.satelliteBuilds) s.mesh.geometry.dispose();
+    this.satelliteBuilds.clear();
+    if (this.billboard) {
+      this.billboard.geometry.dispose();
+      (this.billboard.material as MeshBasicMaterial).dispose();
+      this.billboard = null;
+    }
+    this.avatarTeardown?.();
+    this.avatarTeardown = null;
+    resetAvatarTextures3d();
+    this.chipsRoot?.remove();
+    this.chipsRoot = null;
     this.buildingMaterial.dispose();
     this.groundMaterial.dispose();
     this.ringMaterial.dispose();
+    this.windowMaterialA.dispose();
+    this.windowMaterialB.dispose();
+    this.streetMaterial.dispose();
+    this.lockedPadMaterial.dispose();
+    this.flatMaterial.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     void this.cityDetailFetcher;
