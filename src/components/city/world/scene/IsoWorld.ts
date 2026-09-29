@@ -720,6 +720,16 @@ export class IsoWorld extends Container {
   }
 
   /**
+   * Light-clock sample (see lib/city/scene/lights.ts): fan out to every
+   * building + the heroes. Alpha/position-only — one render follows.
+   */
+  updateLights(tMs: number): void {
+    for (const sprite of this.sprites.values()) sprite.updateLights(tMs);
+    this.hq?.updateLights(tMs);
+    for (const landmark of this.landmarkSprites) landmark.updateLights(tMs);
+  }
+
+  /**
    * Daylight factor 0..1: crossfades the terrain plate + platform day/night
    * pairs and drives every building's facade glow and the hero scoped lifts.
    */

@@ -17,8 +17,9 @@
  * Day/night is the same authored-state system the city uses: platform and
  * terrain day/night pairs crossfade, lit windows dim to the glass sheen
  * (BuildingSprite.setDaylight) and the hero bodies (HQ/landmarks) carry
- * their scoped ColorMatrix lifts. Render-on-demand (ticker stopped;
- * re-renders on build and toggles only).
+ * their scoped ColorMatrix lifts. Render-on-demand (ticker stopped; the
+ * quantized light clock below re-renders ~4 fps for the animated beacons/
+ * halos while the page is visible — static under reduced motion).
  */
 
 import { useEffect, useRef } from "react";
@@ -27,6 +28,7 @@ import { BuildingSprite } from "@/components/city/world/scene/BuildingSprite";
 import { HqSprite } from "@/components/city/world/scene/HqSprite";
 import { LandmarkSprite } from "@/components/city/world/scene/landmarks";
 import { professionNeon } from "@/components/city/world/scene/art";
+import { LIGHT_STEP_MS } from "@/lib/city/scene/lights";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
 import type { CityBuilding, BuildingTier } from "@/lib/city/types";
 
@@ -123,6 +125,8 @@ export default function BuildingsCatalogMount({
     const buildingSprites: BuildingSprite[] = [];
     const hqSprites: HqSprite[] = [];
     const landmarkSprites: LandmarkSprite[] = [];
+    /** Animated-light interval (see lib/city/scene/lights.ts). */
+    let lightsInterval: ReturnType<typeof setInterval> | null = null;
 
     const label = (
       text: string,
@@ -306,12 +310,30 @@ export default function BuildingsCatalogMount({
         }
       }
 
+      // Animated lights — the SAME quantized clock the city scene uses:
+      // sample the beacon/halo curves, render once per step, only while the
+      // page is visible. Reduced motion keeps the static initial alphas.
+      const reducedMotion =
+        typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      if (!reducedMotion) {
+        lightsInterval = setInterval(() => {
+          if (document.visibilityState === "hidden") return;
+          const t = performance.now();
+          for (const s of buildingSprites) s.updateLights(t);
+          for (const h of hqSprites) h.updateLights(t);
+          for (const m of landmarkSprites) m.updateLights(t);
+          app?.render();
+        }, LIGHT_STEP_MS);
+      }
+
       applyDaylight(daylightRef.current);
     })();
 
     return () => {
       cancelled = true;
       applyRef.current = null;
+      if (lightsInterval !== null) clearInterval(lightsInterval);
       app?.destroy(true, { children: true });
     };
     // Locale switch → rebuild (labels are baked into Pixi Text objects).

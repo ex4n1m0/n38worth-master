@@ -347,6 +347,15 @@ export class SatelliteLayer extends Container {
   }
   private daylightCurrent = 0;
 
+  /** Light-clock sample: fan out to the mini cities' sprites + heroes. */
+  updateLights(tMs: number): void {
+    for (const cluster of this.clusters.values()) {
+      cluster.relay.updateLights(tMs);
+      for (const m of cluster.monuments) m.updateLights(tMs);
+      for (const { sprite } of cluster.buildings.values()) sprite.updateLights(tMs);
+    }
+  }
+
 
   /** Reduced-motion policy change: pulses stop entirely when reduced. */
   setPulseEnabled(enabled: boolean): void {

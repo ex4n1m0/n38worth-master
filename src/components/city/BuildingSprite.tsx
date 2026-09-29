@@ -419,6 +419,17 @@ function ProceduralBuildingPreview({
           </>
         )}
 
+        {/* Animated rooftop beacon — CSS opacity pulse, static under
+            reduced motion (motion-reduce variant). */}
+        <circle
+          cx={cx}
+          cy={top - 5}
+          r={grand ? 2.4 : 1.8}
+          fill="#ffffff"
+          opacity="0.9"
+          className="animate-pulse motion-reduce:animate-none"
+        />
+
         {/* Seeded lit windows (stable per card, warm/cool mix). */}
         {(() => {
           const rows = grand

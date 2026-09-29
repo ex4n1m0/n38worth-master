@@ -27,6 +27,7 @@ import {
   professionNeon,
   shade,
 } from "./art";
+import { haloBreathAt } from "@/lib/city/scene/lights";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
 
 /** Art extent (px above the tile) per value stage 1..3 — tag/plate/FX anchor. */
@@ -48,6 +49,14 @@ export class HqSprite extends Container {
   /** Procedural hero body + its scoped day lift (identity at night). */
   private readonly body = new Container();
   private readonly bodyDay = new ColorMatrixFilter();
+  /**
+   * Animated hero light (2026-09-29): a halo ring around the tip beacon
+   * that breathes on the scene's quantized light clock (static under
+   * reduced motion). Lives OUTSIDE `body` so the scoped day lift does not
+   * wash it.
+   */
+  private readonly beaconPulse = new Graphics();
+  private tipY = -112;
   /** Selection ring (2026-09-28 "select the core building"). */
   private readonly selRing = new Graphics();
 
@@ -56,7 +65,7 @@ export class HqSprite extends Container {
     this.drawnProfession = profession;
     this.stageCurrent = stage >= 3 ? 3 : stage <= 1 ? 1 : 2;
     this.body.filters = [this.bodyDay];
-    this.addChild(this.platformNight, this.platformDay, this.body);
+    this.addChild(this.platformNight, this.platformDay, this.body, this.beaconPulse);
     // Command ring on the platform — marks the HQ as the camera reset anchor.
     const ring = new Graphics();
     ring.ellipse(0, 0, TILE_W * 0.62, TILE_H * 0.62).stroke({
@@ -172,6 +181,11 @@ export class HqSprite extends Container {
     return HQ_STAGE_HEIGHTS[this.stageCurrent - 1] ?? HQ_STAGE_HEIGHTS[0];
   }
 
+  /** One light-clock sample: the tip halo breathes (alpha-only). */
+  updateLights(tMs: number): void {
+    this.beaconPulse.alpha = haloBreathAt(tMs, 17);
+  }
+
   private draw(profession: string | null): void {
     const neon = professionNeon(profession);
     const mass = professionMass(profession);
@@ -258,10 +272,19 @@ export class HqSprite extends Container {
 
     // Beacon at the tower tip — white lamp with a faint profession-hued ring.
     const tipY = stage === 1 ? -112 : stage === 2 ? -141 : -178;
+    this.tipY = tipY;
     const beacon = new Graphics();
     beacon.circle(0, tipY, stage === 3 ? 4.5 : 4).fill({ color: 0xffffff, alpha: 0.9 });
     beacon.circle(0, tipY, stage === 3 ? 8 : 7).stroke({ width: 1.5, color: neon, alpha: 0.5 });
     this.body.addChild(beacon);
+
+    // Breathing halo for the animated light clock (drawn OUTSIDE the body's
+    // day lift; static alpha until/unless updateLights drives it).
+    this.beaconPulse.clear();
+    this.beaconPulse
+      .circle(0, tipY, stage === 3 ? 13 : 11)
+      .stroke({ width: 1.5, color: neon, alpha: 0.6 });
+    this.beaconPulse.alpha = 0.35;
 
     // Side annexes (pylons grow with the stage).
     const pylons = new Graphics();

@@ -31,6 +31,7 @@ import { ColorMatrixFilter, Container, Graphics } from "pixi.js";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { Lod } from "@/lib/city/scene/lod";
 import { TILE_H, TILE_W } from "@/lib/city/scene/iso";
+import { haloBreathAt } from "@/lib/city/scene/lights";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
 import {
   COLOR_SELECTION,
@@ -471,6 +472,12 @@ export class LandmarkSprite extends Container {
   /** Procedural monument body + scoped day lift (identity at night). */
   private readonly body = new Container();
   private readonly bodyDay = new ColorMatrixFilter();
+  /**
+   * Animated activation halo (2026-09-29): a breathing ring OUTSIDE the
+   * day-lifted body — owned monuments pulse "alive" on the scene's
+   * quantized light clock (static under reduced motion).
+   */
+  private readonly activationPulse = new Graphics();
 
   constructor(index: number, owned: boolean, stage = 1) {
     super();
@@ -592,8 +599,22 @@ export class LandmarkSprite extends Container {
     const g = new Graphics();
     LANDMARK_DRAW[this.index](g, owned, this.stageCurrent as MonumentStage);
     this.body.addChild(g);
-    this.addChild(pad, this.body, ...keep);
+    // Breathing activation halo between the pad rings — owned only.
+    this.activationPulse.clear();
+    if (owned) {
+      this.activationPulse
+        .ellipse(0, 0, TILE_W * 0.5, TILE_H * 0.5)
+        .stroke({ width: 2, color: LANDMARK_COLORS[this.index], alpha: 0.7 });
+    }
+    this.activationPulse.alpha = 0.4;
+    this.addChild(pad, this.body, this.activationPulse, ...keep);
     this.setDaylight(this.daylightCurrent);
+  }
+
+  /** One light-clock sample: the activation halo breathes (alpha-only). */
+  updateLights(tMs: number): void {
+    if (!this.owned || !this.visible) return;
+    this.activationPulse.alpha = haloBreathAt(tMs, 31 + this.index * 7);
   }
 }
 

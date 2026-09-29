@@ -177,6 +177,15 @@ export class UniverseLayer extends Container {
   }
   private daylightCurrent = 0;
 
+  /** Light-clock sample: fan out to the mini cities' sprites + heroes. */
+  updateLights(tMs: number): void {
+    for (const mini of this.minis.values()) {
+      mini.relay.updateLights(tMs);
+      for (const m of mini.monuments) m.updateLights(tMs);
+      for (const entry of mini.buildings.values()) entry.sprite.updateLights(tMs);
+    }
+  }
+
 
   /** Selection ring on a universe city's marker + mini relay plate border. */
   setSelected(username: string | null): void {

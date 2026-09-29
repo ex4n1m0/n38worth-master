@@ -29,8 +29,10 @@
 
 import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import type { CityBuilding } from "@/lib/city/types";
+import type { BuildingTier } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import { facadeGlowAt } from "@/lib/city/scene/daylight";
+import { beaconStrobeAt, haloBreathAt, spireRiseAt } from "@/lib/city/scene/lights";
 import { avatarTexture, loadAvatarTexture } from "./avatars";
 import {
   COLOR_SELECTION,
@@ -44,6 +46,8 @@ import {
   familyArt,
   familyTopHeight,
   GRAND_MIN_TIER,
+  PLATFORM_HALF_H,
+  PLATFORM_HALF_W,
   professionNeon,
 } from "./art";
 
@@ -58,6 +62,20 @@ export class BuildingSprite extends Container {
   private readonly tierExt: Graphics = new Graphics();
   /** Family emissives (coils/beacons/strips) — always visible, bloom feed. */
   private readonly emissive: Graphics = new Graphics();
+  /**
+   * ANIMATED LIGHTS (2026-09-29): prebuilt geometry whose ALPHA/POSITION the
+   * scene's quantized light clock drives (see lib/city/scene/lights.ts) —
+   * a strobing rooftop beacon, a breathing halo ring, and (grand league) a
+   * light dot ascending to the crown. Never redrawn per frame; reduced
+   * motion simply leaves the static initial alphas.
+   */
+  private readonly beaconGlow = new Graphics();
+  private readonly beaconCore = new Graphics();
+  private readonly haloPulse = new Graphics();
+  private readonly riseDot = new Graphics();
+  /** Cached anchors for the light layer (rebuilt with the art). */
+  private lightsH = 0;
+  private lightsGrand = false;
   /** Close-LOD facade + clutter. Container alpha = LOD detail fade; the LIT
    *  child's alpha is daylight glow (setFacadeGlow) — the two compose. */
   private readonly windows = new Container();
@@ -98,6 +116,10 @@ export class BuildingSprite extends Container {
       this.silhouette,
       this.tierExt,
       this.emissive,
+      this.beaconGlow,
+      this.beaconCore,
+      this.haloPulse,
+      this.riseDot,
       this.windows,
       this.billboards,
       this.identity,
@@ -267,6 +289,69 @@ export class BuildingSprite extends Container {
   }
 
   /**
+   * Build the animated-light geometry for the CURRENT art (called from
+   * redraw). Static pleasant alphas — the scene's light clock then drives
+   * them via updateLights; under reduced motion these values simply stay.
+   */
+  private buildLights(tier: BuildingTier): void {
+    const spec = familyArt(this.building.profession);
+    const neon = spec.color;
+    const grand = tier >= GRAND_MIN_TIER;
+    const H = familyTopHeight(this.building.profession, tier);
+    this.lightsH = H;
+    this.lightsGrand = grand;
+
+    // Rooftop beacon: white lamp + family-hued halo at the art tip.
+    const by = -H - 5;
+    const r = grand ? 2.4 : 1.8;
+    this.beaconCore.clear();
+    this.beaconCore.circle(0, by, r).fill({ color: 0xffffff, alpha: 0.95 });
+    this.beaconCore.alpha = 0.9;
+    this.beaconGlow.clear();
+    this.beaconGlow.circle(0, by, r * 3.2).fill({ color: neon, alpha: 0.4 });
+    this.beaconGlow.alpha = 0.45;
+
+    // Breathing halo: tiers 5+ civic (where the static halo lives) and all
+    // grand megaforms — one ring breathing at the upper third.
+    this.haloPulse.clear();
+    if (tier >= 5) {
+      const ry = -H * (grand ? 0.62 : 0.55);
+      this.haloPulse
+        .ellipse(0, ry, PLATFORM_HALF_W * 0.85, PLATFORM_HALF_H * 0.85)
+        .stroke({ width: 1.5, color: spec.color, alpha: 0.6 });
+    }
+    this.haloPulse.alpha = 0.35;
+
+    // Grand league: the ascending energy dot (position animated).
+    this.riseDot.clear();
+    if (grand) {
+      this.riseDot.circle(0, 0, 2).fill({ color: 0xffffff, alpha: 0.9 });
+      this.riseDot.circle(0, 0, 4).stroke({ width: 1, color: spec.color, alpha: 0.7 });
+      this.riseDot.y = -H * 0.72;
+      this.riseDot.alpha = 0.6;
+    }
+  }
+
+  /**
+   * One light-clock sample (see lib/city/scene/lights.ts): alpha/position
+   * only, no redraws. Phases derive from the cardId so the skyline
+   * strobes desynchronized.
+   */
+  updateLights(tMs: number): void {
+    if (this.cullHidden) return;
+    const seed = this._building.cardId;
+    const strobe = beaconStrobeAt(tMs, seed);
+    this.beaconCore.alpha = strobe;
+    this.beaconGlow.alpha = strobe * 0.45;
+    this.haloPulse.alpha = haloBreathAt(tMs, seed);
+    if (this.lightsGrand) {
+      const { progress, alpha } = spireRiseAt(tMs, seed);
+      this.riseDot.y = -this.lightsH * (0.72 + 0.26 * progress);
+      this.riseDot.alpha = alpha;
+    }
+  }
+
+  /**
    * Viewport culling (Phase D bounded rendering). Culling owns `visible`
    * EXCLUSIVELY: setLod never hides a whole sprite (only the windows/
    * identity/billboard sublayers), so a single `cullHidden` reason cannot
@@ -348,6 +433,7 @@ export class BuildingSprite extends Container {
     drawSelectionBrackets(this.selection, this.building.profession, tier);
     this.selection.visible = wasSelected;
 
+    this.buildLights(tier);
     if (this.lodCurrent !== "world") this.syncBillboards();
   }
 

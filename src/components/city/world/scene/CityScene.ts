@@ -82,6 +82,7 @@ import { UniverseLayer } from "./UniverseLayer";
 import { RoadsLayer } from "./RoadsLayer";
 import { onAvatarTextureReady, resetAvatarTextures } from "./avatars";
 import { mulberry32 } from "./art";
+import { LIGHT_STEP_MS } from "@/lib/city/scene/lights";
 
 /** City payload the scene consumes (public route + owner.profession). */
 export type CitySceneProjection = CityProjection & {
@@ -313,6 +314,13 @@ export class CityScene {
   private destroyed = false;
   /** Unsubscribe for avatar-texture arrivals (billboards need a re-render). */
   private avatarReadyTeardown: (() => void) | null = null;
+  /**
+   * BUILDING LIGHT CLOCK (2026-09-29): strobing beacons / breathing halos
+   * sample every LIGHT_STEP_MS and request ONE render per step — the rAF
+   * loop itself stays suspended between steps (same quantized policy as the
+   * daylight ramps). Disabled under reduced motion (static light alphas).
+   */
+  private lightsTimer: ReturnType<typeof setTimeout> | null = null;
 
   private constructor(
     app: Application,
@@ -445,7 +453,30 @@ export class CityScene {
 
     scene.applyCamera(rig.state);
     scene.requestRender();
+    scene.startLightClock();
     return scene;
+  }
+
+  /**
+   * Quantized light animation (beacons/halos, see lib/city/scene/lights.ts):
+   * one alpha/position pass + ONE render per step; the rAF stays suspended
+   * in between. Hidden tabs let setTimeout throttle naturally. Reduced
+   * motion never starts the clock — sprites keep their static alphas.
+   */
+  private startLightClock(): void {
+    if (this.policy.reduced || this.lightsTimer !== null) return;
+    const step = () => {
+      if (this.destroyed) return;
+      const t = performance.now();
+      this.world.updateLights(t);
+      this.satellites.updateLights(t);
+      this.universe.updateLights(t);
+      if (typeof document === "undefined" || document.visibilityState !== "hidden") {
+        this.requestRender();
+      }
+      this.lightsTimer = setTimeout(step, LIGHT_STEP_MS);
+    };
+    this.lightsTimer = setTimeout(step, LIGHT_STEP_MS);
   }
 
   // ── public API (driven by CitySceneMount) ─────────────────────────────
@@ -1347,6 +1378,10 @@ export class CityScene {
     if (this.destroyed) return;
     this.destroyed = true;
     if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.lightsTimer !== null) {
+      clearTimeout(this.lightsTimer);
+      this.lightsTimer = null;
+    }
     this.daylightTracking = false;
     if (this.daylightTimer !== null) {
       clearTimeout(this.daylightTimer);
