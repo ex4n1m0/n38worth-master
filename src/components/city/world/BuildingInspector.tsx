@@ -18,7 +18,6 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
-import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
 import { formatCompact } from "@/lib/utils";
@@ -315,7 +314,6 @@ export function BuildingInspector({
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data as {
         newValue?: number;
-        needsProfession?: boolean;
         targetId?: number;
         targetUsername?: string;
         countdownStarted?: boolean;
@@ -337,12 +335,6 @@ export function BuildingInspector({
       toast.error(err.message);
     },
     onSuccess: async (data, v) => {
-      if (data.needsProfession && data.targetId !== undefined) {
-        useForcedProfessionStore.getState().require({
-          targetId: data.targetId,
-          targetUsername: data.targetUsername ?? "",
-        });
-      }
       if (data.countdownStarted) {
         play("win");
         toast.success(t.countdownStartedTitle, {

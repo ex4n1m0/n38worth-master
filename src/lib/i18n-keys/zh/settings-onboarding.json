@@ -64,7 +64,6 @@
 
  "changeProfession": "更换行业",
  "assignProfession": "指定行业",
- "professionRequired": "需要选择行业",
  "loadProfessionOptionsFailed": "加载行业选项失败",
  "couldNotLoadProfessions": "无法加载行业。",
  "currentBadge": "当前",
@@ -75,7 +74,6 @@
  "assignProfessionFailed": "指定行业失败",
  "assignSuccessPaid": "{name} 现在是 {profession}！（-{charged}¢，估值重置为 {value}¢）",
  "assignSuccessFree": "{name} 现在是 {profession}！（免费，估值重置为 {value}¢）",
- "assignForcedHint": "你收购了 {name}——请选择一个行业继续。",
  "assignCurrentIs": "{name} 目前是 {profession}。",
  "assignNoProfession": "{name} 还没有行业。",
  "assignCostRule": "建筑的估值将重置为基础值。费用 =（拥有该行业的其他人数）× {base}¢ × 你的更换次数。没人拥有的行业免费。",

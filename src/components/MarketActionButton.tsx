@@ -10,7 +10,6 @@ import { cardDisplayName } from "@/lib/display-names";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
-import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { formatCompact } from "@/lib/utils";
 import { useLanguage } from "./LanguageContext";
 
@@ -100,13 +99,6 @@ export function MarketActionButton({
       toast.success(t.purchaseToast
         .replace("{name}", username)
         .replace("{value}", formatCompact(data.newValue)));
-      // Hired an NPC with no profession → forced assignment pops up instantly.
-      if (data.needsProfession) {
-        useForcedProfessionStore.getState().require({
-          targetId: data.targetId,
-          targetUsername: data.targetUsername,
-        });
-      }
       await refresh();
     },
   });

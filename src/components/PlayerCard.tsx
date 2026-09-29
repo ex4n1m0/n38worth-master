@@ -11,7 +11,6 @@ import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { useKnowledgePower } from "@/hooks/useKnowledgePower";
 import { useMissionLevel, useFinalGoddessThreshold } from "@/hooks/useMissionLevel";
 import { useNow } from "@/hooks/useNow";
-import { useForcedProfessionStore } from "@/hooks/useForcedProfession";
 import { useLanguage } from "@/components/LanguageContext";
 import { useHoveredCardStore } from "@/components/ComboDock";
 import { getAvatarSrc, UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
@@ -298,13 +297,6 @@ function PlayerCardImpl({
     },
     onSuccess: async (data) => {
       triggerFlip();
-      // Hired an NPC with no profession → forced assignment pops up instantly.
-      if (data.needsProfession) {
-        useForcedProfessionStore.getState().require({
-          targetId: data.targetId,
-          targetUsername: data.targetUsername,
-        });
-      }
       if (data.countdownStarted) {
         play("win");
         toast.success(t.countdownStartedTitle, {
@@ -494,13 +486,6 @@ function PlayerCardImpl({
     },
     onSuccess: async (data) => {
       triggerFlip();
-      // Hired an NPC with no profession → forced assignment pops up instantly.
-      if (data.needsProfession) {
-        useForcedProfessionStore.getState().require({
-          targetId: data.targetId ?? id,
-          targetUsername: data.targetUsername ?? username,
-        });
-      }
       if (data.countdownStarted) {
         play("win");
         toast.success(t.countdownStartedTitle, {

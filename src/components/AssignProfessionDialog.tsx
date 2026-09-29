@@ -35,14 +35,6 @@ interface AssignProfessionDialogProps {
   currentProfession: string | null;
   /** Optional override for the trigger button styling (e.g. pill look on Avatars). */
   triggerClassName?: string;
-  /** Forced mode: no trigger button, parent-controlled open state, and the
-      dialog cannot be dismissed — used for the mandatory first profession
-      right after hiring a professionless NPC. */
-  forced?: boolean;
-  /** Controls visibility in forced mode. */
-  forcedOpen?: boolean;
-  /** Called after a successful assignment in forced mode. */
-  onForcedAssigned?: () => void;
 }
 
 /**
@@ -55,22 +47,15 @@ export function AssignProfessionDialog({
   targetUsername,
   currentProfession,
   triggerClassName,
-  forced = false,
-  forcedOpen = false,
-  onForcedAssigned,
 }: AssignProfessionDialogProps) {
   const queryClient = useQueryClient();
   const { t, locale } = useLanguage();
   const [mounted, setMounted] = useState(false);
-  const [internalOpen, setInternalOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ChangeProfessionData | null>(null);
-
-  // In forced mode the parent controls visibility; otherwise local state does.
-  const open = forced ? forcedOpen : internalOpen;
-  const setOpen = forced ? () => {} : setInternalOpen;
 
   useEffect(() => setMounted(true), []);
 
@@ -108,18 +93,9 @@ export function AssignProfessionDialog({
     void load();
   };
 
-  // Forced mode: load the options as soon as the parent opens the dialog,
-  // and reset whenever the queue advances to a different NPC (targetId).
-  useEffect(() => {
-    if (forced && forcedOpen) {
-      setSelected(null);
-      void load();
-    }
-  }, [forced, forcedOpen, targetId, load]);
-
-  // First assignment (the NPC has no profession yet — the forced choice when
-  // it was hired): the cheapest profession(s) are free. The assign-profession
-  // API enforces the same rule server-side; this only mirrors it for display.
+  // First assignment (the NPC has no profession yet): the cheapest
+  // profession(s) are free. The assign-profession API enforces the same rule
+  // server-side; this only mirrors it for display.
   const isFirstAssignment = !currentProfession;
   const minCost = data ? Math.min(...data.options.map((o) => o.cost)) : 0;
   const freeOnFirst = (cost: number) => isFirstAssignment && cost === minCost;
@@ -158,11 +134,7 @@ export function AssignProfessionDialog({
         // re-ranks (sinks outward) on the next projection.
         queryClient.invalidateQueries({ queryKey: ["city"], refetchType: "active" }),
       ]);
-      if (forced) {
-        onForcedAssigned?.();
-      } else {
-        setOpen(false);
-      }
+      setOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t.assignProfessionFailed);
     } finally {
@@ -172,17 +144,15 @@ export function AssignProfessionDialog({
 
   return (
     <>
-      {!forced && (
-        <Button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
-          variant="outline"
-          size="sm"
-          className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
-        >
-          <Briefcase className="h-3 w-3 mr-1" />
-          {currentProfession ? t.changeProfession : t.assignProfession}
-        </Button>
-      )}
+      <Button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); openDialog(); }}
+        variant="outline"
+        size="sm"
+        className={triggerClassName ?? "border border-purple-800 text-purple-200 bg-transparent hover:bg-purple-900/30 hover:text-white font-bold h-7 px-2 text-xs"}
+      >
+        <Briefcase className="h-3 w-3 mr-1" />
+        {currentProfession ? t.changeProfession : t.assignProfession}
+      </Button>
 
       {open && mounted && createPortal(
         <div
@@ -190,28 +160,24 @@ export function AssignProfessionDialog({
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
         >
           <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-900/95 p-5 sm:p-7 shadow-2xl">
-            {!forced && (
-              <button
-                onClick={() => !submitting && setOpen(false)}
-                className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
-                aria-label={t.close}
-              >
-                <X className="h-5 w-5" />
-              </button>
-            )}
+            <button
+              onClick={() => !submitting && setOpen(false)}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-200 transition-colors disabled:opacity-50"
+              aria-label={t.close}
+            >
+              <X className="h-5 w-5" />
+            </button>
 
             <div className="text-center mb-6">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-amber-300 to-yellow-400 bg-clip-text text-transparent">
-                {forced ? t.professionRequired : currentProfession ? t.changeProfession : t.assignProfession}
+                {currentProfession ? t.changeProfession : t.assignProfession}
               </h2>
               <p className="text-gray-400 mt-2 text-sm">
-                {forced
-                  ? t.assignForcedHint.replace("{name}", targetUsername)
-                  : currentProfession
-                    ? t.assignCurrentIs
-                        .replace("{name}", targetUsername)
-                        .replace("{profession}", professionName(currentProfession, locale))
-                    : t.assignNoProfession.replace("{name}", targetUsername)}
+                {currentProfession
+                  ? t.assignCurrentIs
+                      .replace("{name}", targetUsername)
+                      .replace("{profession}", professionName(currentProfession, locale))
+                  : t.assignNoProfession.replace("{name}", targetUsername)}
               </p>
               <p className="text-amber-300/70 mt-1 text-xs">
                 {t.assignCostRule.replace("{base}", formatCompact(1000))}
@@ -289,16 +255,14 @@ export function AssignProfessionDialog({
             )}
 
             <div className="flex items-center justify-center gap-3">
-              {!forced && (
-                <Button
-                  onClick={() => setOpen(false)}
-                  disabled={submitting}
-                  variant="outline"
-                  className="border-gray-600 text-gray-300 hover:bg-gray-800"
-                >
-                  {t.cancel}
-                </Button>
-              )}
+              <Button
+                onClick={() => setOpen(false)}
+                disabled={submitting}
+                variant="outline"
+                className="border-gray-600 text-gray-300 hover:bg-gray-800"
+              >
+                {t.cancel}
+              </Button>
               <Button
                 onClick={handleConfirm}
                 disabled={!selected || submitting}

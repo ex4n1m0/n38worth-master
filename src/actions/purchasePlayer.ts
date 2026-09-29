@@ -628,9 +628,6 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       countdownStarted,
       countdownCancelled,
       countdownUser: countdownStarted ? buyer.username : undefined,
-      // The buyer must immediately pick a profession for a hired NPC that has
-      // none (forced first assignment — cheapest profession(s) are free).
-      needsProfession: target.isNpc === 1 && !isGoddess && !target.profession,
       targetId: target.id,
       targetUsername: target.username,
     };

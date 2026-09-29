@@ -11,7 +11,6 @@ import { useLanguage } from "@/components/LanguageContext";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
-import { ForcedProfessionAssignment } from "@/components/ForcedProfessionAssignment";
 import { NewPlayerGuide } from "@/components/NewPlayerGuide";
 import { PoachEffect } from "@/components/PoachEffect";
 import { TutorialOverlay } from "@/components/TutorialOverlay";
@@ -76,8 +75,6 @@ export default function GameLayout({
       </main>
       {/* Onboarding: Profession Selection Overlay — shown after avatar upload, before NPC hiring */}
       <OnboardingProfessionStep />
-      {/* Forced profession picker — pops up instantly when a GET hires an NPC with no profession */}
-      <ForcedProfessionAssignment />
       {/* Persistent profession-combo dock (mobile tab-bar pill / desktop corner, C to toggle) */}
       <ComboDock />
       {/* Step-by-step tutorial overlay (auto-opens once per login until finished/cancelled) */}
