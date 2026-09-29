@@ -10,7 +10,8 @@
  * - ONE identity label chip per UNLOCKED sector pad (world/district LOD;
  *   text resolved by the React shell — never i18n in the scene);
  * - the tile occupancy map (derived value-orbit placements, rings.ts);
- * - the buildings layer, depth-sorted by global (x + y) on layout change;
+ * - the ONE depth-sorted content layer (buildings + HQ + goddess monuments,
+ *   painter order by global (x + y) — nothing stacks above the towers);
  * - the HQ core (sector 0 center, §D4) and the six goddess landmark pylons
  *   at fixed ring tiles (§D7 — landmarks are never layout rows);
  * - viewport culling (applyCull) for buildings, HQ and landmarks.
@@ -168,15 +169,16 @@ export class IsoWorld extends Container {
   private readonly groundLayer = new Container();
   /** Ground-level overlays (data paths, district links) — beneath buildings. */
   readonly beneathBuildings = new Container();
-  private readonly buildingsLayer = new Container();
-  private readonly landmarkLayer = new Container();
   /**
-   * HQ sits ABOVE the landmarks (2026-09-28 tight goddess ring): the screen-north
-   * monument now grounds directly behind the HQ spire, and the near object must
-   * paint over the far one. Ordinary towers stay under the monuments (moat keeps
-   * them off the plinths anyway).
+   * ONE depth-sorted content layer for buildings, the six monuments AND the
+   * HQ core (2026-09-29 user ruling "the landmarks appear on top of other
+   * buildings"): everything paints in iso painter order — zIndex = global
+   * (x + y), so an object in FRONT of a monument correctly covers its base
+   * and a monument in front of the HQ correctly covers the spire. The old
+   * fixed landmark/HQ layers stacked ABOVE the towers painted monuments
+   * over buildings that stood nearer the camera.
    */
-  private readonly hqLayer = new Container();
+  private readonly buildingsLayer = new Container();
   /** Sector identity chips — ABOVE buildings so they read over rooftops. */
   private readonly sectorLabelLayer = new Container();
   private hq: HqSprite | null = null;
@@ -198,17 +200,13 @@ export class IsoWorld extends Container {
     this._sectorCount = Math.max(1, Math.min(9, sectorCount));
     this.buildingsLayer.sortableChildren = true; // depth = zIndex (x+y)
     // Hero layers carry no filter: HQ + monuments own a scoped day lift
-    // inside their sprites (see HqSprite/LandmarkSprite).
-    // landmarkLayer sits ABOVE buildingsLayer deliberately: the six monuments
-    // are the sector's key landmarks — ordinary towers must never occlude
-    // them (image-analyst Phase E gate: buildings stacked on monument
-    // plinths made landmarks unreadable in dense cities).
+    // inside their sprites (see HqSprite/LandmarkSprite). The HQ and the
+    // monuments live IN the sortable layer (correct painter order); only
+    // the sector identity chips ride above the skyline.
     this.addChild(
       this.groundLayer,
       this.beneathBuildings,
       this.buildingsLayer,
-      this.landmarkLayer,
-      this.hqLayer,
       this.sectorLabelLayer
     );
     this.rebuildGround();
@@ -551,14 +549,13 @@ export class IsoWorld extends Container {
         const g = globalTile(0, landmarkTile(i).x, landmarkTile(i).y, GRID_SIZE);
         sprite.zIndex = g.x + g.y;
         this.landmarkSprites[i] = sprite;
-        this.landmarkLayer.addChild(sprite);
+        this.buildingsLayer.addChild(sprite);
       } else {
         sprite.setOwned(landmark.owned);
         sprite.setStage(landmark.stage ?? 1);
       }
       sprite.setLabel(displayName ? displayName(landmark.username) : null);
     });
-    this.landmarkLayer.sortableChildren = true;
     return this.landmarkSprites.map((s) => s.owned);
   }
 
@@ -593,7 +590,7 @@ export class IsoWorld extends Container {
       this.hq.position.set(p.x, p.y);
       const g = globalTile(0, HQ_TILE.x, HQ_TILE.y, GRID_SIZE);
       this.hq.zIndex = g.x + g.y;
-      this.hqLayer.addChild(this.hq);
+      this.buildingsLayer.addChild(this.hq);
     } else {
       this.hq.setProfession(profession);
       this.hq.setStage(stage);

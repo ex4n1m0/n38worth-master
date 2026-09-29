@@ -35,7 +35,6 @@ import type { CityNeighbor } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import type { CullRect } from "@/lib/city/scene/culling";
 import {
-  TILE_H,
   TILE_W,
   screenToTile,
   tileToScreen,
@@ -50,7 +49,7 @@ import {
 } from "@/lib/city/satellites";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import type { TileRef } from "@/lib/city/placement";
-import { drawDashedLine, drawGrassPad, makeTextChip } from "./art";
+import { drawDashedLine, makeTextChip } from "./art";
 import { BuildingSprite } from "./BuildingSprite";
 import { HqSprite } from "./HqSprite";
 import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
@@ -92,8 +91,6 @@ interface Cluster {
   /** The Six mini monuments, roster order (created once, owned-flag synced). */
   monuments: LandmarkSprite[];
   /** Grass ground, day + night pair (crossfaded by setDaylight). */
-  padNight: Graphics;
-  padDay: Graphics;
   plate: Container | null;
   plateKey: string;
   /** Building sprites keyed by card id; local tiles keyed the same. */
@@ -168,13 +165,12 @@ export class SatelliteLayer extends Container {
         const anchor = satelliteAnchor(slot, undefined, sectorCount);
         const p = tileToScreen(anchor.x, anchor.y);
         container.position.set(p.x, p.y);
-        const padNight = new Graphics();
-        const padDay = new Graphics();
-        cityBox.addChild(padNight, padDay);
         // The Six mini monuments — the home landmark hexagon, roster order.
-        // Never labeled (the identity plate speaks for the cluster); zIndex
-        // mirrors the home layering: monuments above buildings, relay above
-        // monuments (the screen-north monument grounds behind the core).
+        // Never labeled (the identity plate speaks for the cluster). zIndex
+        // = the tile-depth sum (local gx+gy deltas), mirroring the home
+        // layering: everything in ONE painter order — a ring building in
+        // front of a monument covers its base, a monument in front of the
+        // relay covers the core (2026-09-29 "landmarks on top" fix).
         const monuments: LandmarkSprite[] = [];
         for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
           const monument = new LandmarkSprite(i, false);
@@ -185,7 +181,7 @@ export class SatelliteLayer extends Container {
             lt.y - HQ_TILE.y
           );
           monument.position.set(local.x, local.y);
-          monument.zIndex = local.x + local.y + 100_000;
+          monument.zIndex = lt.x - HQ_TILE.x + (lt.y - HQ_TILE.y);
           cityBox.addChild(monument);
           monuments.push(monument);
         }
@@ -193,7 +189,7 @@ export class SatelliteLayer extends Container {
         relay.setTag(""); // the identity plate below replaces the CORE tag
         relay.tint = FOREIGN_TINT;
         relay.setDaylight(this.daylightCurrent);
-        relay.zIndex = 900_000; // core above monuments, monuments above rings
+        relay.zIndex = 0; // tile-depth sum of the anchor itself
         cityBox.addChild(relay);
         this.addChild(container);
         cluster = {
@@ -203,16 +199,12 @@ export class SatelliteLayer extends Container {
           cityBox,
           relay,
           monuments,
-          padNight,
-          padDay,
           plate: null,
           plateKey: "",
           buildings: new Map(),
           anchor,
         };
         this.clusters.set(neighbor.cardId, cluster);
-        this.drawPad(cluster);
-        cluster.padDay.alpha = this.daylightCurrent;
       } else {
         cluster.relay.setProfession(neighbor.profession);
         cluster.relay.setStage(neighbor.hqStage ?? 1);
@@ -231,7 +223,6 @@ export class SatelliteLayer extends Container {
         cluster.anchor = anchor;
         const p = tileToScreen(anchor.x, anchor.y);
         cluster.container.position.set(p.x, p.y);
-        this.drawPad(cluster);
       }
 
       this.syncPlate(cluster);
@@ -278,7 +269,9 @@ export class SatelliteLayer extends Container {
         }
         const local = tileToScreen(tile.gx - anchor.x, tile.gy - anchor.y);
         entry.sprite.position.set(local.x, local.y);
-        entry.sprite.zIndex = local.x + local.y; // iso painter order
+        // Iso painter order — the TILE-depth sum (a screen-px sum mixes the
+        // (gx−gy) axis in and sorts depth-equal tiles wrong).
+        entry.sprite.zIndex = tile.gx - anchor.x + (tile.gy - anchor.y);
       });
     });
 
@@ -341,7 +334,6 @@ export class SatelliteLayer extends Container {
     this.daylightCurrent = daylight;
     for (const cluster of this.clusters.values()) {
       cluster.relay.setDaylight(daylight);
-      cluster.padDay.alpha = daylight;
       for (const m of cluster.monuments) m.setDaylight(daylight);
     }
   }
@@ -541,38 +533,11 @@ export class SatelliteLayer extends Container {
 
   // ── internals ─────────────────────────────────────────────────────────
 
-  /**
-   * Grass ground diamond under one mini city (radius + skirt), day + night
-   * pair. GRASS, not the old near-black pad (2026-09-28 "black square" fix):
-   * the satellite reads as the same LAND as the world floor, with the dashed
-   * violet border kept as the cluster's highlight identity.
-   */
-  private drawPad(cluster: Cluster): void {
-    const e = SATELLITE_CLUSTER_RADIUS + 1.5;
-    // Half-extents match satelliteClusterBounds: e tiles of tile halfwidth
-    // (TILE_W/2 per tile of x-offset — NOT TILE_W, which drew 2× oversized).
-    const halfW = e * (TILE_W / 2);
-    const halfH = e * (TILE_H / 2);
-    const corners: ReadonlyArray<[number, number]> = [
-      [0, -halfH],
-      [halfW, 0],
-      [0, halfH],
-      [-halfW, 0],
-    ];
-    for (const [g, variant] of [
-      [cluster.padNight, "night"],
-      [cluster.padDay, "day"],
-    ] as const) {
-      g.clear();
-      drawGrassPad(g, halfW, halfH, variant);
-      const stroke = { width: 1.5, color: SATELLITE_ACCENT, alpha: 0.34 };
-      for (let i = 0; i < 4; i++) {
-        const [x1, y1] = corners[i];
-        const [x2, y2] = corners[(i + 1) % 4];
-        drawDashedLine(g, x1, y1, x2, y2, 22, 14, stroke);
-      }
-    }
-  }
+  // NO GROUND PAD (2026-09-29 user ruling "remove the large floors around
+  // buildings"): the 11-tile grass diamonds under the mini cities were
+  // covering NEIGHBOURING cities' buildings at the new close packing, and
+  // the world floor already renders continuous grass land — the mini cities
+  // sit directly on it. Identity lives in the owner name plate.
 
   /** World-px anchors of every cluster (country-road endpoints). */
   roadAnchors(): Array<{ x: number; y: number }> {

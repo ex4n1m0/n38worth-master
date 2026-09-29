@@ -269,8 +269,9 @@ describe("spacedOrbitOrder (inter-building breathing room)", () => {
   });
 
   it("rankArrangeTiles keeps the airy spacing for a full sector's worth of buildings", () => {
-    // Ring 4 airy (16) + ring 6 airy (24) = 40 non-adjacent tiles inside
-    // sector 0 alone (none blocked, single-sector city).
+    // Ring 4 airy (16) + ring 7 airy (28) = 44 non-adjacent tiles inside
+    // sector 0 alone (none blocked, single-sector city; the stride-3 ladder
+    // skips rings 5/6 entirely).
     const { entries } = rankArrangeTiles(
       Array.from({ length: 40 }, (_, i) => b(i + 1, 1000 - i)),
       1,

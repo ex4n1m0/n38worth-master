@@ -273,7 +273,7 @@ export async function GET(
     // ordinary purchase flow. Two bounded queries: (1) per-candidate visible
     // owned counts (cheap GROUP BY over ≤ DETAILED_LIMIT ids), (2) the top
     // NEIGHBOR_BUILDING_LIMIT cards per CHOSEN neighbor (≤ 8 — window-ranked,
-    // hard LIMIT 96 rows). `ownedByCityOwner` is an EXISTS on the CITY
+    // hard LIMIT 8×NEIGHBOR_BUILDING_LIMIT rows). `ownedByCityOwner` is an EXISTS on the CITY
     // OWNER's ownership (public data — same basis as the rest of the
     // projection; NOT viewer-specific, so CDN safety holds).
     let neighbors: CityNeighbor[] = [];
@@ -301,8 +301,8 @@ export async function GET(
     if (chosenNeighborIds.length > 0) {
       // Subquery + SQL-side rn filter: a single flat LIMIT would let the
       // first owner id consume the whole row budget and silently starve the
-      // later satellites. Filtering rn ≤ 12 in SQL first means 8 owners ×
-      // 12 rows exactly fit the outer LIMIT.
+      // later satellites. Filtering rn ≤ NEIGHBOR_BUILDING_LIMIT in SQL first
+      // means 8 owners × NEIGHBOR_BUILDING_LIMIT rows exactly fit the outer LIMIT.
       const windowed = db
         .select({
           rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${ownership.ownerId} ORDER BY ${users.playerValue} DESC, ${users.id} ASC)`.as("rn"),

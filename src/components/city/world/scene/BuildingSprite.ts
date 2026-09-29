@@ -11,13 +11,17 @@
  *                  grand megaform (T8–14, art.ts drawGrand)
  *   3 tierExt       civic modular floors + shared tier features (T1–7 only)
  *   4 emissive      family lights (coils, beacons, LED strips, glow bands)
- *   5 windows       close-LOD container: dark facade insets + LIT windows
- *                  (glow-modulated by daylight, setFacadeGlow) + micro-props
- *   6 identity      profession sigil (close LOD only)
- *   7 status        firewall cyan ring / hard-lock amber (DOM-tile colors)
- *   8 selection     corner brackets + emissive body edge
- *   9 label         floating name chip while selected (Phase C polish c)
- *  10 fx            slot owned by FxLayer one-shots
+ *                  + the warm lobby entrance glow (all LODs)
+ *   5 lights        ANIMATED geometry (beacons/halo/rise/edge pulse) driven
+ *                  alpha/position-only by the scene's light clock
+ *   6 windows       lit-window channels A/B at EVERY LOD (the building's
+ *                  light identity — 2026-09-29 "felt basic" fix) + the
+ *                  close-LOD texture layer (dark insets, mullions, props)
+ *   7 identity      profession sigil (close LOD only)
+ *   8 status        firewall cyan ring / hard-lock amber (DOM-tile colors)
+ *   9 selection     corner brackets + emissive body edge
+ *  10 label         floating name chip while selected (Phase C polish c)
+ *  11 fx            slot owned by FxLayer one-shots
  *
  * Family + tier art comes exclusively from CITY_ART_MANIFEST via familyArt()
  * (art.ts) — the ONE art system since the 2026-09-29 pixel-sheet retirement.
@@ -32,10 +36,17 @@ import type { CityBuilding } from "@/lib/city/types";
 import type { BuildingTier } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import { facadeGlowAt } from "@/lib/city/scene/daylight";
-import { beaconStrobeAt, haloBreathAt, spireRiseAt } from "@/lib/city/scene/lights";
+import {
+  beaconStrobeAt,
+  edgePulseAt,
+  haloBreathAt,
+  spireRiseAt,
+  windowFlickerAt,
+} from "@/lib/city/scene/lights";
 import { avatarTexture, loadAvatarTexture } from "./avatars";
 import {
   COLOR_SELECTION,
+  drawEntranceGlow,
   drawFacadeWindows,
   drawIdentityMarker,
   drawMicroProps,
@@ -49,6 +60,7 @@ import {
   PLATFORM_HALF_H,
   PLATFORM_HALF_W,
   professionNeon,
+  shade,
 } from "./art";
 
 export class BuildingSprite extends Container {
@@ -65,23 +77,39 @@ export class BuildingSprite extends Container {
   /**
    * ANIMATED LIGHTS (2026-09-29): prebuilt geometry whose ALPHA/POSITION the
    * scene's quantized light clock drives (see lib/city/scene/lights.ts) —
-   * a strobing rooftop beacon, a breathing halo ring, and (grand league) a
-   * light dot ascending to the crown. Never redrawn per frame; reduced
-   * motion simply leaves the static initial alphas.
+   * a strobing rooftop beacon (seeded red/white) with a second micro-beacon
+   * on high tiers, a breathing halo ring, the (grand league) ascending
+   * crown dot and the (civic tier 2+) descending edge data-pulse. Never
+   * redrawn per frame; reduced motion simply leaves the static alphas.
    */
   private readonly beaconGlow = new Graphics();
   private readonly beaconCore = new Graphics();
+  private readonly beaconTwo = new Graphics();
   private readonly haloPulse = new Graphics();
   private readonly riseDot = new Graphics();
+  private readonly edgeDot = new Graphics();
   /** Cached anchors for the light layer (rebuilt with the art). */
   private lightsH = 0;
   private lightsGrand = false;
-  /** Close-LOD facade + clutter. Container alpha = LOD detail fade; the LIT
-   *  child's alpha is daylight glow (setFacadeGlow) — the two compose. */
+  /** Civic edge pulse enabled (tier 2+ non-grand) + its fixed edge x. */
+  private edgePulseOn = false;
+  private edgeX = 0;
+  /**
+   * Windows container — ALWAYS visible (the lit mosaic is the building's
+   * light identity at every LOD, 2026-09-29 "felt basic and static" fix).
+   * `facadeDetail` (dark insets, mullions, rooftop props) is close-LOD; the
+   * lit channels A/B dim toward the glass-sheen floor by daylight
+   * (setFacadeGlow) and churn out of phase on the light clock
+   * (windowFlickerAt) — occupancy changes without a single redraw.
+   */
   private readonly windows = new Container();
-  private readonly facadeBase: Graphics = new Graphics();
-  private readonly facadeLit: Graphics = new Graphics();
-  private readonly props: Graphics = new Graphics();
+  private readonly facadeBase = new Graphics();
+  private readonly facadeLitA = new Graphics();
+  private readonly facadeLitB = new Graphics();
+  private readonly props = new Graphics();
+  /** Current lit-channel multipliers (last light-clock sample). */
+  private flickerA = 1;
+  private flickerB = 1;
   /** Avatar billboard — single rooftop plate (see syncBillboards). */
   private readonly billboards = new Container();
   private readonly identity: Graphics = new Graphics();
@@ -109,7 +137,12 @@ export class BuildingSprite extends Container {
   constructor(building: CityBuilding) {
     super();
     this._building = building;
-    this.windows.addChild(this.facadeBase, this.facadeLit, this.props);
+    this.windows.addChild(
+      this.facadeBase,
+      this.facadeLitA,
+      this.facadeLitB,
+      this.props
+    );
     this.addChild(
       this.platformNight,
       this.platformDay,
@@ -118,8 +151,10 @@ export class BuildingSprite extends Container {
       this.emissive,
       this.beaconGlow,
       this.beaconCore,
+      this.beaconTwo,
       this.haloPulse,
       this.riseDot,
+      this.edgeDot,
       this.windows,
       this.billboards,
       this.identity,
@@ -233,17 +268,23 @@ export class BuildingSprite extends Container {
     }
   }
 
-  /** LOD: windows + identity markers at close zoom; avatar billboards from
-   * DISTRICT zoom up (bounded rendering — the plates are the card-identity
-   * read at the default framing too, 2026-09-28 user ruling). Alpha resets
+  /** LOD: the lit-window mosaic stays visible at EVERY zoom (it is the
+   * building's light identity — hiding it at the default district framing
+   * is what made the city read "basic and static", 2026-09-29); dark
+   * insets/mullions + rooftop clutter are close-LOD texture; avatar
+   * billboards mount from DISTRICT zoom up (bounded rendering — the plates
+   * are the card-identity read at the default framing too). Alpha resets
    * to 1 so the scene's detail fade restarts cleanly per swap; the fade
    * itself is driven by CityScene (one tween for ALL sprites). */
   setLod(lod: Lod): void {
     this.lodCurrent = lod;
     const close = lod === "close";
-    this.windows.visible = close;
+    this.windows.visible = true;
+    this.facadeBase.visible = close;
+    this.props.visible = close;
     this.identity.visible = close;
-    this.windows.alpha = 1;
+    this.facadeBase.alpha = 1;
+    this.props.alpha = 1;
     this.identity.alpha = 1;
     this.billboards.alpha = 1;
     if (lod !== "world") {
@@ -254,27 +295,36 @@ export class BuildingSprite extends Container {
   }
 
   /**
-   * Detail-layer alpha for the LOD-swap fade-in (the whole windows container
-   * + identity layers — the silhouette never fades, and billboards stay at
+   * Detail-layer alpha for the LOD-swap fade-in (the close-LOD texture
+   * layers — dark insets/mullions, rooftop props and the identity sigil;
+   * the silhouette and the lit windows never fade, and billboards stay at
    * full alpha: they are already on screen at district zoom, so re-fading
    * them on every close-LOD entry would blink plates that never left).
-   * Composes with setFacadeGlow (which owns only the LIT child's alpha).
+   * Composes with setFacadeGlow (which owns the LIT channels' alphas).
    * Applied by the scene's single tween.
    */
   setDetailAlpha(alpha: number): void {
-    this.windows.alpha = alpha;
+    this.facadeBase.alpha = alpha;
+    this.props.alpha = alpha;
     this.identity.alpha = alpha;
   }
 
   /**
    * Lit-window glow (engine-audit §3.1): 1 at night (full seeded window
    * bloom), ~0.15 at full day (glass sheen — architecture reads by day,
-   * lights by night). Alpha-only; insets + micro-props stay constant. The
-   * value is remembered so redraws and LOD swaps reapply it.
+   * lights by night). Alpha-only, composed with the flicker channels;
+   * insets + micro-props stay constant. The value is remembered so
+   * redraws and light-clock samples reapply it.
    */
   setFacadeGlow(glow: number): void {
     this.facadeGlowCurrent = glow;
-    this.facadeLit.alpha = glow;
+    this.applyLitAlphas();
+  }
+
+  /** Compose daylight glow × per-channel flicker onto the lit channels. */
+  private applyLitAlphas(): void {
+    this.facadeLitA.alpha = this.facadeGlowCurrent * this.flickerA;
+    this.facadeLitB.alpha = this.facadeGlowCurrent * this.flickerB;
   }
 
   /**
@@ -301,15 +351,25 @@ export class BuildingSprite extends Container {
     this.lightsH = H;
     this.lightsGrand = grand;
 
-    // Rooftop beacon: white lamp + family-hued halo at the art tip.
+    // Rooftop beacon: one card in three flies the RED aircraft-warning
+    // lamp instead of white — the strobing skyline reads varied, not
+    // uniform (2026-09-29 detail pass).
     const by = -H - 5;
     const r = grand ? 2.4 : 1.8;
+    const red = this.building.cardId % 3 === 0;
     this.beaconCore.clear();
-    this.beaconCore.circle(0, by, r).fill({ color: 0xffffff, alpha: 0.95 });
+    this.beaconCore.circle(0, by, r).fill({ color: red ? 0xff5a5a : 0xffffff, alpha: 0.95 });
     this.beaconCore.alpha = 0.9;
     this.beaconGlow.clear();
-    this.beaconGlow.circle(0, by, r * 3.2).fill({ color: neon, alpha: 0.4 });
+    this.beaconGlow.circle(0, by, r * 3.2).fill({ color: red ? 0xff5a5a : neon, alpha: 0.4 });
     this.beaconGlow.alpha = 0.45;
+
+    // Second micro-beacon (tier 6+): an offset lamp on its own strobe phase.
+    this.beaconTwo.clear();
+    if (tier >= 6) {
+      this.beaconTwo.circle(7, by + 2, 1.3).fill({ color: 0xffffff, alpha: 0.95 });
+    }
+    this.beaconTwo.alpha = 0.8;
 
     // Breathing halo: tiers 5+ civic (where the static halo lives) and all
     // grand megaforms — one ring breathing at the upper third.
@@ -330,6 +390,18 @@ export class BuildingSprite extends Container {
       this.riseDot.y = -H * 0.72;
       this.riseDot.alpha = 0.6;
     }
+
+    // Civic edge data-pulse (tier 2+): a light dot descending the tower's
+    // right edge — the ordinary buildings' counterpart to the grand ascent,
+    // so even modest towers carry motion.
+    this.edgeDot.clear();
+    this.edgePulseOn = !grand && tier >= 2;
+    if (this.edgePulseOn) {
+      this.edgeX = PLATFORM_HALF_W * 0.52;
+      this.edgeDot.circle(0, 0, 1.7).fill({ color: shade(neon, 1.5), alpha: 0.9 });
+      this.edgeDot.y = -H * 0.8;
+      this.edgeDot.alpha = 0.2;
+    }
   }
 
   /**
@@ -343,11 +415,26 @@ export class BuildingSprite extends Container {
     const strobe = beaconStrobeAt(tMs, seed);
     this.beaconCore.alpha = strobe;
     this.beaconGlow.alpha = strobe * 0.45;
+    this.beaconTwo.alpha = beaconStrobeAt(tMs, seed + 7) * 0.8;
     this.haloPulse.alpha = haloBreathAt(tMs, seed);
     if (this.lightsGrand) {
       const { progress, alpha } = spireRiseAt(tMs, seed);
       this.riseDot.y = -this.lightsH * (0.72 + 0.26 * progress);
       this.riseDot.alpha = alpha;
+    }
+    if (this.edgePulseOn) {
+      const { progress, alpha } = edgePulseAt(tMs, seed);
+      this.edgeDot.y = -6 - this.lightsH * 0.86 * (1 - progress);
+      this.edgeDot.alpha = alpha;
+    }
+    // Window-occupancy churn: dim the two lit channels on their drifting
+    // phases — a share of the lit panes goes dark and returns, forever.
+    const fa = windowFlickerAt(tMs, seed, 0);
+    const fb = windowFlickerAt(tMs, seed, 1);
+    if (fa !== this.flickerA || fb !== this.flickerB) {
+      this.flickerA = fa;
+      this.flickerB = fb;
+      this.applyLitAlphas();
     }
   }
 
@@ -412,12 +499,26 @@ export class BuildingSprite extends Container {
       drawTierFeatures(this.tierExt, this.emissive, this.building.profession, tier);
       spec.drawRooftop(this.tierExt, this.emissive, tier);
     }
+    // Warm lobby entrance on the base (all LODs — detail pass 2026-09-29).
+    drawEntranceGlow(this.emissive, this.building.profession);
 
-    this.windows.visible = this.lodCurrent === "close";
+    // Windows: the lit channels ride at EVERY LOD; the close-LOD texture
+    // (dark insets + mullions) and rooftop clutter toggle with the LOD.
+    this.windows.visible = true;
+    this.facadeBase.visible = this.lodCurrent === "close";
+    this.props.visible = this.lodCurrent === "close";
     this.facadeBase.clear();
-    this.facadeLit.clear();
-    drawFacadeWindows(this.facadeLit, this.facadeBase, this.building.cardId, tier, this.building.profession);
-    this.facadeLit.alpha = this.facadeGlowCurrent;
+    this.facadeLitA.clear();
+    this.facadeLitB.clear();
+    drawFacadeWindows(
+      this.facadeLitA,
+      this.facadeLitB,
+      this.facadeBase,
+      this.building.cardId,
+      tier,
+      this.building.profession
+    );
+    this.applyLitAlphas();
     // Rooftop clutter joins the same close-LOD layer (hidden at distance).
     this.props.clear();
     drawMicroProps(this.props, this.building.cardId, tier, this.building.profession);

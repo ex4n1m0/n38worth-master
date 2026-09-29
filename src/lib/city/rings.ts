@@ -34,16 +34,19 @@ import {
 export const ORBIT_START_RING = 4;
 
 /**
- * Inter-building breathing room (2026-09-29 user ruling "buildings don't
- * need to be cramped on top of each other"): the SPACED orbit occupies
- * every OTHER ring (an empty avenue between building rings) and every
- * OTHER tile along a ring (checkerboard) — the tall procedural megaforms
- * then never stack at the 64px screen offsets of adjacent tiles/rings.
- * `spacedOrbitOrder` lists the airy tiles first and the skipped (infill)
- * tiles after, so a city densifies gracefully at the rim only once every
- * airy slot is taken; the value story (priciest innermost) is unchanged.
+ * Inter-building breathing room (2026-09-29 user rulings "buildings don't
+ * need to be cramped on top of each other", then "still more space"): the
+ * SPACED orbit occupies every THIRD ring (two empty avenues between
+ * building rings) and every OTHER tile along a ring (checkerboard) — the
+ * wide procedural megaforms then never stack at the 64px screen offsets of
+ * adjacent tiles/rings (same-ring neighbors sit ~143px apart, cross-ring
+ * ~190px+). `spacedOrbitOrder` lists the airy tiles first and the skipped
+ * (infill) tiles after, so a city densifies gracefully at the rim only
+ * once every airy slot is taken; the value story (priciest innermost) is
+ * unchanged. Satellite mini cities import the SAME stride (mirroring the
+ * home rules — see satellites.ts).
  */
-export const ORBIT_RING_STRIDE = 2;
+export const ORBIT_RING_STRIDE = 3;
 export const ORBIT_TILE_STRIDE = 2;
 
 /** The orbit center: the HQ core tile (sector 0 center) in global tiles. */

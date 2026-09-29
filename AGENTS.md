@@ -244,11 +244,12 @@ n38worth-game-systems review):
   restore reconstructs. Building stage derives from current value relative
   to value_floor; the server computes it, the client only renders it.
 - PLACEMENT IS DERIVED (2026-09-27 "value orbits"; spacing rework
-  2026-09-29): the HQ core + the Six landmarks hold the center; every other
-  owned building fills CLOCKWISE square rings around the HQ in VALUE order
-  (priciest innermost, cheapest at the rim) — `rankArrangeTiles`
-  (src/lib/city/placement.ts) over the SPACED orbit walk
-  (`spacedOrbitOrder` in src/lib/city/rings.ts: every other ring +
+  2026-09-29, widened same evening): the HQ core + the Six landmarks hold
+  the center; every other owned building fills CLOCKWISE square rings
+  around the HQ in VALUE order (priciest innermost, cheapest at the rim) —
+  `rankArrangeTiles` (src/lib/city/placement.ts) over the SPACED orbit walk
+  (`spacedOrbitOrder` in src/lib/city/rings.ts: every THIRD ring
+  (ORBIT_RING_STRIDE 3, two empty avenues between building rings) +
   checkerboard tiles, airy slots first then infill when the city outgrows
   them) starting at ORBIT_START_RING 4 — "just enough space" for the
   landmarks (their 1-tile moat alone separates; no empty extra ring). A
@@ -257,7 +258,15 @@ n38worth-game-systems review):
   skipped by the orbit walk, so the
 - **Foreign cities (satellites + shared universe) mirror the home rules
   (2026-09-29)**: mini-city buildings use the same SPACED walk
-  (`satelliteClusterTiles` — checkerboard, airy-first), and the universe
+  (`satelliteClusterTiles` — checkerboard, airy-first, cluster radius 7 =
+  airy rings 4+7 = 44 slots) and render up to NEIGHBOR_BUILDING_LIMIT 24
+  buildings (2026-09-29 "render all their buildings" ruling; beyond that
+  the "+N more" plate stays — bounded rendering). All mini-city content —
+  relay, the Six monuments, buildings — depth-sorts in ONE painter order
+  (zIndex = tile-depth sum), and the home city renders buildings + HQ +
+  monuments in the single sortable buildings layer (2026-09-29
+  "landmarks appeared on top of other buildings" fix — nothing stacks
+  above the towers). The universe
   base ring is DYNAMIC per viewer (`universeBaseRing(sectorCount)` —
   satellite ring + one mini rim, snapped to a UNIVERSE_RING_STEP multiple;
   Boot ≈ 24 tiles vs the old fixed 72; ring step 12→8). This supersedes the
@@ -306,6 +315,17 @@ n38worth-game-systems review):
   lit-window glow dimming (`facadeGlowAt`) + scoped soft-lift filters for the
   hero bodies (HQ/monuments/aggregate). There is NO global day ColorMatrix —
   add authored day/night pairs to new elements instead of reintroducing one.
+  **Animated lights + facade detail (2026-09-29 evening "more details, more
+  light animation" pass)**: the lit-window mosaic (civic league) renders at
+  EVERY LOD — it is the building's light identity, not close-LOD texture
+  (dark insets/mullions/micro-props stay close-LOD); the mosaic splits into
+  two seeded channels that the light clock dims out of phase
+  (`windowFlickerAt` — occupancy churn), beacons are seeded red/white with a
+  second strobe at tier 6+, civic towers tier 2+ carry a descending edge
+  data-pulse (`edgePulseAt`), grand megaforms keep the ascending rise dot,
+  and every building has the warm `drawEntranceGlow` lobby at its base. All
+  animation stays alpha/position-only on the quantized light clock
+  (lights.ts) — never per-frame redraws.
   All art is original code-plotted work; never feed copyrighted game assets
   into the pipeline.
 - Economy-touching city work follows: map paths → state invariants → review

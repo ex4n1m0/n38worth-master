@@ -162,7 +162,8 @@ describe("satelliteClusterTiles", () => {
   it("mini-city buildings keep breathing room (no two tiles adjacent)", () => {
     // 2026-09-29 user ruling "their buildings are on top of each other":
     // the airy segment places checkerboard — up to 16 budget buildings are
-    // never Chebyshev-adjacent (the ≤12 budget always lands in the airy run).
+    // never Chebyshev-adjacent (ring 4's airy capacity; the 24-building
+    // budget continues on airy ring 7, equally spaced).
     const a = satelliteAnchor(0, GRID_SIZE, 1);
     const tiles = satelliteClusterTiles(a, 12);
     expect(tiles).toHaveLength(12);

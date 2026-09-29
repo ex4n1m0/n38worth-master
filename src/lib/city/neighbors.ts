@@ -23,8 +23,14 @@ import type { CityNeighbor, CityNeighborBuilding } from "./types";
 /** Max satellite cities per projection (octant anchor slots, satellites.ts). */
 export const NEIGHBOR_CITY_LIMIT = 8;
 
-/** Max detailed buildings per satellite cluster (render budget). */
-export const NEIGHBOR_BUILDING_LIMIT = 12;
+/**
+ * Max detailed buildings per satellite cluster (render budget). 24 since
+ * the 2026-09-29 "their cities don't render all buildings" ruling — the
+ * mini-city airy orbit (satelliteClusterTiles radius 7) holds 44
+ * breathing-room slots, so the full budget still renders SPACED; beyond
+ * it the cluster shows the "+N more" plate (bounded rendering stays).
+ */
+export const NEIGHBOR_BUILDING_LIMIT = 24;
 
 /** A home-city detailed card eligible to become a satellite owner. */
 export interface NeighborCandidate {

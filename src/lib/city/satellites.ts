@@ -32,26 +32,28 @@ import {
 
 /**
  * Clear tiles between the unlocked pad edge and the anchor ring, per axis.
- * Keeps a visible screen gap (≥ ~2 building tiles) while staying reachable
- * at world LOD; pinned by tests (scene/satellites). Full 3×3 cities keep
- * the exact pre-2026-09-28 geometry (margin 6 beyond the full footprint).
+ * Must cover the cluster radius + a skirt so a full-capacity cluster never
+ * touches the city's own ground; pinned by tests (scene/satellites).
  */
-export const SATELLITE_MARGIN_TILES = 6;
+export const SATELLITE_MARGIN_TILES = 10;
 
 /**
  * Per-axis floor for the anchor ring: adjacent octant anchors sit `r` tiles
- * apart on each axis, and two full clusters (radius + pad skirt ≈ 6.5 each)
- * must never touch — 14 tiles is the minimum comfortable separation.
+ * apart on each axis, and two full clusters (radius 7 + skirt each) must
+ * never touch — 18 tiles = 2·(radius+1)+2 is the minimum separation.
  */
-export const SATELLITE_MIN_RING_TILES = 14;
+export const SATELLITE_MIN_RING_TILES = 18;
 
 /**
- * Chebyshev radius of one cluster around its anchor. Since 2026-09-28 the
- * cluster MIRRORS the home city shape (relay core, six mini monuments on
- * the landmark hexagon, buildings from ORBIT_START_RING out), so the extent
- * matches the home orbit's outer ring.
+ * Chebyshev radius of one cluster around its anchor. The cluster MIRRORS
+ * the home city shape (relay core, six mini monuments on the landmark
+ * hexagon, buildings on the SPACED orbit rings 4, 7, … — the rings.ts
+ * stride), so the radius must reach the second airy ring: radius 7 gives
+ * 16 airy tiles on ring 4 + 28 on ring 7 = 44 breathing-room slots ≥ the
+ * NEIGHBOR_BUILDING_LIMIT render budget (2026-09-29 "render all their
+ * buildings" ruling).
  */
-export const SATELLITE_CLUSTER_RADIUS = ORBIT_START_RING;
+export const SATELLITE_CLUSTER_RADIUS = 7;
 
 /**
  * First mini-ring satellite buildings may occupy — the same ORBIT_START_RING
@@ -157,11 +159,12 @@ export interface SatelliteTile {
 
 /**
  * The first `count` cluster tiles — the home city's SPACED orbit in
- * miniature (2026-09-29 user ruling "their buildings are on top of each
- * other"): airy tiles first (checkerboard parity + every other mini-ring,
- * the rings.ts rule), infill only when a mini outgrows its airy capacity,
- * so satellite/universe mini buildings never stack at adjacent-tile screen
- * offsets. Exactly `count` tiles, no duplicates, all within `radius`.
+ * miniature (2026-09-29 user rulings "their buildings are on top of each
+ * other" + "more space"): airy tiles first (checkerboard parity + the
+ * rings.ts ring-stride ladder), infill only when a mini outgrows its airy
+ * capacity, so satellite/universe mini buildings never stack at
+ * adjacent-tile screen offsets. Exactly `count` tiles, no duplicates, all
+ * within `radius`.
  */
 export function satelliteClusterTiles(
   anchor: Point,

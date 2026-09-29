@@ -73,9 +73,10 @@ export const COLOR_WET_SLAB = 0x0a0e1a;
 
 /**
  * GRASS LAND palette (single source of truth, 2026-09-28): the terrain
- * plate, the outer terrain tier, and every mini-city pad (satellites +
- * universe) share ONE green so the world floor reads as continuous land —
- * the old near-black mini pads read as "black squares" over it.
+ * plate and the outer terrain tier share ONE green so the world floor
+ * reads as continuous land. (The per-mini-city grass pads were REMOVED
+ * 2026-09-29 — they covered neighboring cities' buildings at close
+ * packing; mini cities sit directly on the world floor now.)
  */
 export const GRASS_DAY = 0x6b9c52;
 export const GRASS_NIGHT = 0x1f2a21;
@@ -86,33 +87,6 @@ export const GRASS_BAND_NIGHT_B = 0x222f24;
 /** Terrain rim (plate + pads): warm soil edge by day, dark loam at night. */
 export const GRASS_RIM_DAY = 0x54452f;
 export const GRASS_RIM_NIGHT = 0x141b16;
-
-/**
- * Grass pad under a mini city (day/night pair — the owner crossfades like
- * every other authored state). The caller keeps its dashed accent border on
- * top: the border is the cluster's highlight identity, the FILL is the land.
- */
-export function drawGrassPad(
-  g: Graphics,
-  halfW: number,
-  halfH: number,
-  variant: "day" | "night"
-): void {
-  const day = variant === "day";
-  const diamond = [0, -halfH, halfW, 0, 0, halfH, -halfW, 0];
-  g.poly(diamond).fill({ color: day ? GRASS_DAY : GRASS_NIGHT, alpha: 1 });
-  // Faint inner mow ring — mowed land, not a painted shape.
-  g.poly([0, -halfH * 0.7, halfW * 0.7, 0, 0, halfH * 0.7, -halfW * 0.7, 0]).stroke({
-    width: 1,
-    color: day ? GRASS_BAND_DAY_A : GRASS_BAND_NIGHT_A,
-    alpha: 0.5,
-  });
-  g.poly(diamond).stroke({
-    width: 1.5,
-    color: day ? GRASS_RIM_DAY : GRASS_RIM_NIGHT,
-    alpha: day ? 0.8 : 0.9,
-  });
-}
 
 /** Hex string → 0xRRGGBB (palette lives in the pure district module). */
 function hexToRgb(hex: string): number {
@@ -1500,14 +1474,16 @@ const FACADE: Record<string, { hw: number; cols: number; baseOnly: boolean }> = 
 /**
  * Seeded window grid on the central massing's two visible faces (study §A3).
  * `seed` (the cardId) makes the lit/unlit pattern stable per building yet
- * varied across the city. Lit windows (warm/cool mix) draw into `gLit` and
- * dark insets into `gDark` — SEPARATE targets so the scene can dim the LIT
- * layer toward a glass sheen at full day while the insets keep the facade
- * textured (engine-audit §3.1; glow = facadeGlowAt(daylight)). Close LOD
- * only (the caller's windows layer).
+ * varied across the city. Lit windows draw into TWO channels (`gLitA` /
+ * `gLitB`, a seeded coin per pane) so the light clock can dim the channels
+ * out of phase — the lit set VISIBLY churns like occupancy changes without
+ * redrawing a pane (2026-09-29 "more light animation"); dark insets and
+ * mullions go to `gDark` (close-LOD texture). The lit channels are the
+ * building's light identity at EVERY LOD; gDark detail is close-LOD only.
  */
 export function drawFacadeWindows(
-  gLit: Graphics,
+  gLitA: Graphics,
+  gLitB: Graphics,
   gDark: Graphics,
   seed: number,
   tier: BuildingTier,
@@ -1550,13 +1526,55 @@ export function drawFacadeWindows(
         if (r < 0.62) {
           const r2 = rng();
           const lit = r2 < 0.62 ? 0xffb547 : r2 < 0.9 ? 0xbfd7ff : 0xf2f7ff;
-          gLit.poly(pane).fill({ color: lit, alpha: 0.95 });
+          const channel = rng() < 0.5 ? gLitA : gLitB;
+          channel.poly(pane).fill({ color: lit, alpha: 0.95 });
         } else {
           gDark.poly(pane).fill({ color: shade(spec.mass, 1.9), alpha: 0.5 });
         }
       }
     }
   }
+  // Vertical mullions (close-LOD texture): faint seam lines between the
+  // window columns so the facade reads as curtain wall, not painted panes.
+  for (let side = -1; side <= 1; side += 2) {
+    for (let col = 0; col <= cols; col++) {
+      const u = 0.14 + col * (0.72 / cols);
+      const x = side < 0 ? -hw + u * hw : u * hw;
+      const yTop = -bodyH + u * hh + 4;
+      const yBot = u * hh - 2;
+      gDark.moveTo(x, yTop).lineTo(x, yBot).stroke({
+        width: 1,
+        color: shade(spec.mass, 1.35),
+        alpha: 0.55,
+      });
+    }
+  }
+}
+
+/**
+ * Warm lobby entrance at the base's front-right corner (all LODs — one of
+ * the 2026-09-29 "more detail" reads): a lit doorway parallelogram on the
+ * face plus a faint light pool on the platform. Emissive; family-neutral
+ * amber so it reads as interior light, not another neon accent.
+ */
+export function drawEntranceGlow(e: Graphics, profession: string | null): void {
+  void profession; // spot is family-neutral (bases all center on x=0, y=0)
+  const hw = PLATFORM_HALF_W;
+  const hh = PLATFORM_HALF_H;
+  // Ground line of the front-right face: y = hh·(1 − x/hw) from (hw,0) to (0,hh).
+  const groundY = (x: number) => hh * (1 - x / hw);
+  const x0 = hw * 0.24;
+  const x1 = hw * 0.5;
+  const doorH = 9;
+  e.poly([
+    x0, groundY(x0),
+    x1, groundY(x1),
+    x1, groundY(x1) - doorH,
+    x0, groundY(x0) - doorH,
+  ]).fill({ color: 0xffc061, alpha: 0.9 });
+  // Soft light pool spilling onto the platform in front of the door.
+  e.ellipse((x0 + x1) / 2, groundY((x0 + x1) / 2) + 3, 13, 6)
+    .fill({ color: 0xffc061, alpha: 0.14 });
 }
 
 // ── rooftop micro-props (study §Track D, 2026-09-27) ──────────────────────

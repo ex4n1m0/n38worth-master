@@ -46,13 +46,14 @@ import {
   type UniversePayload,
 } from "@/lib/city/universe";
 import { satelliteClusterTiles } from "@/lib/city/satellites";
+import { NEIGHBOR_BUILDING_LIMIT } from "@/lib/city/neighbors";
 import type { Point } from "@/lib/city/scene/iso";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
 import { LandmarkSprite } from "./landmarks";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
-import { drawDashedLine, drawGrassPad, makeTextChip } from "./art";
+import { makeTextChip } from "./art";
 
 /** Distant-city ink: cool pale blue (stake cities use the satellite violet). */
 const UNIVERSE_TINT = 0xbfd0e8;
@@ -101,8 +102,6 @@ interface MiniCity {
   monuments: LandmarkSprite[];
   buildings: Map<number, MiniBuildingEntry>;
   /** Grass ground, day + night pair (crossfaded by setDaylight). */
-  padNight: Graphics;
-  padDay: Graphics;
   plate: Container | null;
   plateKey: string;
   /** World-px anchor (recomputed per epoch; minis snap). */
@@ -178,7 +177,6 @@ export class UniverseLayer extends Container {
     this.daylightCurrent = daylight;
     for (const mini of this.minis.values()) {
       mini.relay.setDaylight(daylight);
-      mini.padDay.alpha = daylight;
       for (const m of mini.monuments) m.setDaylight(daylight);
     }
   }
@@ -539,35 +537,11 @@ export class UniverseLayer extends Container {
     cityBox.scale.set(MINI_CITY_SCALE);
     container.addChild(cityBox);
 
-    // Grass ground, same LAND as the world floor (2026-09-28 "black square"
-    // fix — the old near-black pad read as a dark slab over the terrain),
-    // day + night pair, with the cool pale-blue dashed border kept as the
-    // cluster's highlight identity.
-    const padNight = new Graphics();
-    const padDay = new Graphics();
-    const e = 6.5;
-    const halfW = e * 64;
-    const halfH = e * 32;
-    const corners: ReadonlyArray<[number, number]> = [
-      [0, -halfH],
-      [halfW, 0],
-      [0, halfH],
-      [-halfW, 0],
-    ];
-    for (const [g, variant] of [
-      [padNight, "night"],
-      [padDay, "day"],
-    ] as const) {
-      drawGrassPad(g, halfW, halfH, variant);
-      const stroke = { width: 1.25, color: UNIVERSE_TINT, alpha: 0.26 };
-      for (let i = 0; i < 4; i++) {
-        const [x1, y1] = corners[i];
-        const [x2, y2] = corners[(i + 1) % 4];
-        drawDashedLine(g, x1, y1, x2, y2, 22, 14, stroke);
-      }
-    }
-    padDay.alpha = this.daylightCurrent;
-    cityBox.addChild(padNight, padDay);
+    // NO GROUND PAD (2026-09-29 user ruling "remove the large floors around
+    // buildings"): the old 13-tile grass diamonds covered neighbouring
+    // cities' buildings at the new close packing, and the world floor
+    // already renders continuous grass land — mini cities sit directly on
+    // it. Identity lives in the owner name plate.
 
     // The Six mini monuments — owned flags + value stages from that city's
     // landmarks (stale CDN payloads may lack stage → default 1).
@@ -587,7 +561,8 @@ export class UniverseLayer extends Container {
       const lt = landmarkTile(i);
       const local = tileToScreen(lt.x - HQ_TILE.x, lt.y - HQ_TILE.y);
       monument.position.set(local.x, local.y);
-      monument.zIndex = local.x + local.y + 100_000;
+      // Tile-depth painter order (same rule as the home city + satellites).
+      monument.zIndex = lt.x - HQ_TILE.x + (lt.y - HQ_TILE.y);
       cityBox.addChild(monument);
       monuments.push(monument);
     }
@@ -597,19 +572,21 @@ export class UniverseLayer extends Container {
     relay.setTag("");
     relay.tint = UNIVERSE_TINT;
     relay.setDaylight(this.daylightCurrent);
-    relay.zIndex = 900_000;
+    relay.zIndex = 0; // tile-depth sum of the anchor itself
     cityBox.addChild(relay);
 
     // Top buildings by value on the orbit rings (display-only ordering of
-    // server values — the same policy the satellite mini cities use).
+    // server values — the same budget + policy the satellite mini cities
+    // use: NEIGHBOR_BUILDING_LIMIT buildings on the SPACED mini orbit).
     const all: CityBuilding[] = [];
     for (const family of projection.families) {
       for (const b of family.buildings) all.push(b);
     }
     all.sort((a, b) => b.value - a.value || a.cardId - b.cardId);
     const buildings = new Map<number, MiniBuildingEntry>();
-    const tiles = satelliteClusterTiles({ x: 0, y: 0 }, Math.min(12, all.length));
-    all.slice(0, 12).forEach((building, i) => {
+    const cap = Math.min(NEIGHBOR_BUILDING_LIMIT, all.length);
+    const tiles = satelliteClusterTiles({ x: 0, y: 0 }, cap);
+    all.slice(0, cap).forEach((building, i) => {
       const tile = tiles[i];
       if (!tile) return;
       const sprite = new BuildingSprite(building);
@@ -617,7 +594,7 @@ export class UniverseLayer extends Container {
       sprite.setLod(this.lod);
       const local = tileToScreen(tile.gx, tile.gy);
       sprite.position.set(local.x, local.y);
-      sprite.zIndex = local.x + local.y;
+      sprite.zIndex = tile.gx + tile.gy; // tile-depth painter order
       cityBox.addChild(sprite);
       buildings.set(building.cardId, { sprite, gx: tile.gx, gy: tile.gy });
     });
@@ -632,8 +609,6 @@ export class UniverseLayer extends Container {
       relay,
       monuments,
       buildings,
-      padNight,
-      padDay,
       plate: null,
       plateKey: "",
       world,
