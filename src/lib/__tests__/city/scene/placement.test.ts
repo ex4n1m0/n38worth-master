@@ -3,9 +3,12 @@ import { GRID_SIZE } from "@/lib/city/layout-schema";
 import { tileRefKey, rankArrangeTiles } from "@/lib/city/placement";
 import {
   ORBIT_START_RING,
+  ORBIT_RING_STRIDE,
+  ORBIT_TILE_STRIDE,
   hqGlobalTile,
   orbitOrder,
   ringTiles,
+  spacedOrbitOrder,
 } from "@/lib/city/rings";
 import { macroStride, tileToScreen } from "@/lib/city/scene/iso";
 import type { CityBuilding } from "@/lib/city/types";
@@ -181,15 +184,15 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
   });
 
   it("skips blocked tiles (HQ/landmark reservations + monument moat)", () => {
-    const orbit = orbitOrder(hqGlobalTile(), ORBIT_START_RING, 1);
-    const blockedFirst = new Set([tileRefKey(orbit[0])]);
+    const spaced = spacedOrbitOrder(hqGlobalTile(), ORBIT_START_RING, 1);
+    const blockedFirst = new Set([tileRefKey(spaced[0])]);
     const { entries } = rankArrangeTiles(
       [b(1, 100)],
       1,
       (key) => blockedFirst.has(key)
     );
-    expect(entries[0].tile).not.toEqual({ sector: orbit[0].sector, x: orbit[0].x, y: orbit[0].y });
-    expect(entries[0].tile).toEqual({ sector: orbit[1].sector, x: orbit[1].x, y: orbit[1].y });
+    expect(entries[0].tile).not.toEqual({ sector: spaced[0].sector, x: spaced[0].x, y: spaced[0].y });
+    expect(entries[0].tile).toEqual({ sector: spaced[1].sector, x: spaced[1].x, y: spaced[1].y });
   });
 
   it("reports the ring aggregates should resume at", () => {
@@ -197,18 +200,19 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
     expect(empty.entries).toHaveLength(0);
     expect(empty.resumeRing).toBe(ORBIT_START_RING);
 
-    // Ring r holds 8r tiles (the start ring lies fully inside sector 0 for
-    // a 9-sector city) → capacity+1 buildings spill into the next ring.
-    const capacity = 8 * ORBIT_START_RING;
+    // The SPACED ladder: the start ring holds 8r tiles, the checkerboard
+    // keeps half of them (the start ring lies fully inside sector 0 for a
+    // 9-sector city); the next airy ring is +ORBIT_RING_STRIDE out.
+    const airyCapacity = (8 * ORBIT_START_RING) / ORBIT_TILE_STRIDE;
     const { entries, resumeRing } = rankArrangeTiles(
-      Array.from({ length: capacity + 1 }, (_, i) => b(i + 1, 1000 - i)),
+      Array.from({ length: airyCapacity + 1 }, (_, i) => b(i + 1, 1000 - i)),
       9,
       noneBlocked
     );
-    expect(entries).toHaveLength(capacity + 1);
-    expect(entries[capacity - 1].ring).toBe(ORBIT_START_RING);
-    expect(entries[capacity].ring).toBe(ORBIT_START_RING + 1);
-    expect(resumeRing).toBe(ORBIT_START_RING + 1);
+    expect(entries).toHaveLength(airyCapacity + 1);
+    expect(entries[airyCapacity - 1].ring).toBe(ORBIT_START_RING);
+    expect(entries[airyCapacity].ring).toBe(ORBIT_START_RING + ORBIT_RING_STRIDE);
+    expect(resumeRing).toBe(ORBIT_START_RING + ORBIT_RING_STRIDE);
   });
 
   it("is deterministic for a fixed input", () => {
@@ -216,5 +220,81 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
     expect(rankArrangeTiles(input, 5, noneBlocked)).toEqual(
       rankArrangeTiles(input, 5, noneBlocked)
     );
+  });
+});
+
+describe("spacedOrbitOrder (inter-building breathing room)", () => {
+  const center = hqGlobalTile();
+
+  it("is a permutation of the dense orbit (airy tiles first, infill after)", () => {
+    const dense = orbitOrder(center, ORBIT_START_RING, 9);
+    const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 9);
+    const key = (t: { sector: string; x: number; y: number; ring: number }) =>
+      `${t.sector}:${t.x}:${t.y}`;
+    expect(spaced.length).toBe(dense.length);
+    expect(spaced.map(key).sort()).toEqual(dense.map(key).sort());
+  });
+
+  it("airy tiles never sit on adjacent rings or adjacent tiles (no stacking)", () => {
+    const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 9);
+    const stride2 = macroStride(GRID_SIZE);
+    // Count airy tiles: the leading run satisfies the FULL spaced
+    // predicate (ladder ring AND checkerboard parity) — the infill segment
+    // starts at the first tile that fails either half.
+    const baseParity = (center.x + center.y) % 2;
+    const isSpaced = (t: (typeof spaced)[number]) => {
+      if ((t.ring - ORBIT_START_RING) % ORBIT_RING_STRIDE !== 0) return false;
+      const macro = { x: Math.floor(t.sectorIndex % 3), y: Math.floor(t.sectorIndex / 3) };
+      return (macro.x * stride2 + t.x + macro.y * stride2 + t.y) % 2 === baseParity;
+    };
+    let airy = 0;
+    for (const t of spaced) {
+      if (!isSpaced(t)) break;
+      airy++;
+    }
+    expect(airy).toBeGreaterThan(8 * ORBIT_START_RING / ORBIT_TILE_STRIDE);
+    const seen: Array<{ gx: number; gy: number }> = [];
+    for (let i = 0; i < airy; i++) {
+      const macro = { x: Math.floor(spaced[i].sectorIndex % 3), y: Math.floor(spaced[i].sectorIndex / 3) };
+      const gx = macro.x * stride2 + spaced[i].x;
+      const gy = macro.y * stride2 + spaced[i].y;
+      for (const p of seen) {
+        const cheb = Math.max(Math.abs(p.gx - gx), Math.abs(p.gy - gy));
+        if (cheb <= 1) {
+          throw new Error(`airy tiles adjacent: (${p.gx},${p.gy}) vs (${gx},${gy})`);
+        }
+      }
+      seen.push({ gx, gy });
+    }
+  });
+
+  it("rankArrangeTiles keeps the airy spacing for a full sector's worth of buildings", () => {
+    // Ring 4 airy (16) + ring 6 airy (24) = 40 non-adjacent tiles inside
+    // sector 0 alone (none blocked, single-sector city).
+    const { entries } = rankArrangeTiles(
+      Array.from({ length: 40 }, (_, i) => b(i + 1, 1000 - i)),
+      1,
+      () => false
+    );
+    const stride3 = macroStride(GRID_SIZE);
+    const seen: Array<{ gx: number; gy: number }> = [];
+    for (const e of entries) {
+      const sectorIdx = Number(e.tile.sector.slice(1));
+      const macro = { x: Math.floor(sectorIdx % 3), y: Math.floor(sectorIdx / 3) };
+      const gx = macro.x * stride3 + e.tile.x;
+      const gy = macro.y * stride3 + e.tile.y;
+      for (const p of seen) {
+        expect(Math.max(Math.abs(p.gx - gx), Math.abs(p.gy - gy))).toBeGreaterThan(1);
+      }
+      seen.push({ gx, gy });
+    }
+  });
+
+  it("start ring hugs the landmark moat (just enough core plaza)", () => {
+    // Farthest monument at Chebyshev 3, moat reaches 4 → the first airy
+    // ring IS 4: no empty ring between the moat and the first buildings.
+    expect(ORBIT_START_RING).toBe(4);
+    const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 1);
+    expect(spaced[0].ring).toBe(ORBIT_START_RING);
   });
 });

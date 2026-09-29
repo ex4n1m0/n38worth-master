@@ -243,13 +243,26 @@ n38worth-game-systems review):
 - Owned avatar = building/module. Hire constructs; loss/poach removes;
   restore reconstructs. Building stage derives from current value relative
   to value_floor; the server computes it, the client only renders it.
-- PLACEMENT IS DERIVED (2026-09-27 "value orbits"): the HQ core + the Six
-  landmarks hold the center; every other owned building fills CLOCKWISE
-  square rings around the HQ in VALUE order (priciest innermost, cheapest
-  at the rim) — `rankArrangeTiles` (src/lib/city/placement.ts) over the
-  pure orbit walk in src/lib/city/rings.ts. A value change re-ranks the
-  whole orbit on the next projection and the scene GLIDES moved buildings
-  to their new ring. Locked sectors are skipped by the orbit walk, so the
+- PLACEMENT IS DERIVED (2026-09-27 "value orbits"; spacing rework
+  2026-09-29): the HQ core + the Six landmarks hold the center; every other
+  owned building fills CLOCKWISE square rings around the HQ in VALUE order
+  (priciest innermost, cheapest at the rim) — `rankArrangeTiles`
+  (src/lib/city/placement.ts) over the SPACED orbit walk
+  (`spacedOrbitOrder` in src/lib/city/rings.ts: every other ring +
+  checkerboard tiles, airy slots first then infill when the city outgrows
+  them) starting at ORBIT_START_RING 4 — "just enough space" for the
+  landmarks (their 1-tile moat alone separates; no empty extra ring). A
+  value change re-ranks the whole orbit on the next projection and the
+  scene GLIDES moved buildings to their new ring. Locked sectors are
+  skipped by the orbit walk, so the
+- **Foreign cities (satellites + shared universe) mirror the home rules
+  (2026-09-29)**: mini-city buildings use the same SPACED walk
+  (`satelliteClusterTiles` — checkerboard, airy-first), and the universe
+  base ring is DYNAMIC per viewer (`universeBaseRing(sectorCount)` —
+  satellite ring + one mini rim, snapped to a UNIVERSE_RING_STEP multiple;
+  Boot ≈ 24 tiles vs the old fixed 72; ring step 12→8). This supersedes the
+  2026-09-28 cross-viewer congruence nicety: same-size viewers still see a
+  translated constellation; different-size viewers see scaled ones.
   mission ladder still gates city growth. The persisted city_layout
   machinery (POST /api/city/layout, GET /api/city/my-layout,
   layout-merge.ts) is legacy-retained but UNUSED — /api/city/[username]

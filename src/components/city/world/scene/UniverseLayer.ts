@@ -37,6 +37,7 @@ import type { Lod } from "@/lib/city/scene/lod";
 import type { CullRect } from "@/lib/city/scene/culling";
 import { TILE_W, tileToScreen } from "@/lib/city/scene/iso";
 import {
+  universeBaseRing,
   universeCityOffset,
   universeMarkerRadius,
   universeOffsetPx,
@@ -111,6 +112,12 @@ interface MiniCity {
 export class UniverseLayer extends Container {
   private payload: UniversePayload | null = null;
   private epoch = "";
+  /**
+   * Viewer's universe base ring (2026-09-29 dynamic distance): derived from
+   * their sectorCount — the first foreign city sits just past their stake
+   * clusters, receding only as the home grid grows.
+   */
+  private viewerBase = universeBaseRing(1);
   private viewerUsername = "";
   private viewerRank = 1;
   private readonly stake = new Set<string>();
@@ -239,8 +246,11 @@ export class UniverseLayer extends Container {
   sync(
     payload: UniversePayload | null,
     viewerUsername: string,
-    stakeUsernames: ReadonlyArray<string>
+    stakeUsernames: ReadonlyArray<string>,
+    sectorCount: number
   ): void {
+    const baseChanged = this.viewerBase !== universeBaseRing(sectorCount);
+    this.viewerBase = universeBaseRing(sectorCount);
     const stake = new Set(stakeUsernames);
     const stakeChanged =
       stake.size !== this.stake.size ||
@@ -276,7 +286,8 @@ export class UniverseLayer extends Container {
       mini.container.position.set(mini.world.x, mini.world.y);
     }
 
-    const orderChanged = payload.epoch !== this.epoch || viewerRankChanged;
+    const orderChanged =
+      payload.epoch !== this.epoch || viewerRankChanged || baseChanged;
     this.epoch = payload.epoch;
     if (orderChanged && prevOffsets && !this.reduced) {
       const next = this.markerOffsetsByUser();
@@ -415,7 +426,7 @@ export class UniverseLayer extends Container {
 
   /** World-px position of a city (translated onto the viewer's origin). */
   private worldOf(city: Pick<UniverseCity, "rank">): Point {
-    const delta = universeCityOffset(city.rank, this.viewerRank);
+    const delta = universeCityOffset(city.rank, this.viewerRank, this.viewerBase);
     const px = universeOffsetPx(delta);
     return { x: this.hqWorld.x + px.x, y: this.hqWorld.y + px.y };
   }

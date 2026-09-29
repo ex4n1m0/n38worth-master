@@ -20,7 +20,7 @@
  */
 
 import { GRID_SIZE } from "./layout-schema";
-import { ORBIT_START_RING, ringTiles } from "./rings";
+import { ORBIT_RING_STRIDE, ORBIT_START_RING, ringTiles } from "./rings";
 import {
   SECTOR_MACRO,
   TILE_H,
@@ -156,11 +156,12 @@ export interface SatelliteTile {
 }
 
 /**
- * The first `count` cluster tiles: clockwise mini-rings around the anchor
- * starting at `fromRing` (default ORBIT_START_RING — priciest building
- * nearest the core plaza, matching the home value-orbit rule and keeping
- * the mini goddess hexagon + moat clear). Exactly `count` tiles (capacity
- * 8·radius ≥ the 12-building budget), no duplicates, all within `radius`.
+ * The first `count` cluster tiles — the home city's SPACED orbit in
+ * miniature (2026-09-29 user ruling "their buildings are on top of each
+ * other"): airy tiles first (checkerboard parity + every other mini-ring,
+ * the rings.ts rule), infill only when a mini outgrows its airy capacity,
+ * so satellite/universe mini buildings never stack at adjacent-tile screen
+ * offsets. Exactly `count` tiles, no duplicates, all within `radius`.
  */
 export function satelliteClusterTiles(
   anchor: Point,
@@ -168,14 +169,20 @@ export function satelliteClusterTiles(
   radius: number = SATELLITE_CLUSTER_RADIUS,
   fromRing: number = SATELLITE_ORBIT_START_RING
 ): SatelliteTile[] {
-  const out: SatelliteTile[] = [];
-  for (let r = Math.max(1, fromRing); r <= radius && out.length < count; r++) {
+  const candidates: SatelliteTile[] = [];
+  for (let r = Math.max(1, fromRing); r <= radius; r++) {
     for (const { gx, gy } of ringTiles(anchor.x, anchor.y, r)) {
-      out.push({ gx, gy, ring: r });
-      if (out.length >= count) break;
+      candidates.push({ gx, gy, ring: r });
     }
   }
-  return out;
+  const parityOf = (v: number) => ((v % 2) + 2) % 2;
+  const base = parityOf(anchor.x + anchor.y);
+  const isSpaced = (t: SatelliteTile) =>
+    (t.ring - fromRing) % ORBIT_RING_STRIDE === 0 &&
+    parityOf(t.gx + t.gy) === base;
+  const airy = candidates.filter(isSpaced);
+  const infill = candidates.filter((t) => !isSpaced(t));
+  return [...airy, ...infill].slice(0, count);
 }
 
 /** Union of two world-px bounds (null operands pass through). */

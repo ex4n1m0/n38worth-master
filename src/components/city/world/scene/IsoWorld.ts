@@ -36,6 +36,7 @@ import {
 } from "@/lib/city/scene/iso";
 import {
   UNIVERSE_CITY_CAP,
+  universeBaseRing,
   universeCumulativeCapacity,
   universeRingRadius,
 } from "@/lib/city/universe";
@@ -79,8 +80,9 @@ export const HQ_TILE: TileRef = { sector: "s0", x: GRID_SIZE >> 1, y: GRID_SIZE 
  */
 function universeTerrainExtent(): number {
   let m = 1;
-  while (universeCumulativeCapacity(m) < UNIVERSE_CITY_CAP) m++;
-  return 2 * universeRingRadius(m) + 56;
+  const base = universeBaseRing(SECTOR_MACRO.length);
+  while (universeCumulativeCapacity(m, base) < UNIVERSE_CITY_CAP) m++;
+  return 2 * universeRingRadius(m, base) + 56;
 }
 const OUTER_TERRAIN_RADIUS = universeTerrainExtent();
 

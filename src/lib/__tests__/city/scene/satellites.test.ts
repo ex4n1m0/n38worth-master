@@ -159,6 +159,24 @@ describe("satelliteClusterTiles", () => {
     }
   });
 
+  it("mini-city buildings keep breathing room (no two tiles adjacent)", () => {
+    // 2026-09-29 user ruling "their buildings are on top of each other":
+    // the airy segment places checkerboard — up to 16 budget buildings are
+    // never Chebyshev-adjacent (the ≤12 budget always lands in the airy run).
+    const a = satelliteAnchor(0, GRID_SIZE, 1);
+    const tiles = satelliteClusterTiles(a, 12);
+    expect(tiles).toHaveLength(12);
+    for (let i = 0; i < tiles.length; i++) {
+      for (let j = i + 1; j < tiles.length; j++) {
+        const cheb = Math.max(
+          Math.abs(tiles[i].gx - tiles[j].gx),
+          Math.abs(tiles[i].gy - tiles[j].gy)
+        );
+        expect(cheb).toBeGreaterThan(1);
+      }
+    }
+  });
+
   it("round-trips: every cluster tile picks back from its screen point", () => {
     const a = satelliteAnchor(2, GRID_SIZE, 1);
     for (const t of satelliteClusterTiles(a, 12)) {

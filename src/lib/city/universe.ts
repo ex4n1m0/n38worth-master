@@ -12,29 +12,70 @@
  * nobody can observe).
  *
  * Rank source: user_rank_snapshots.portfolio_rank (humans with a completed
+ * Rank source: user_rank_snapshots.portfolio_rank (humans with a completed
  * avatar — the same eligibility the leaderboard uses; NPC holdings stay in
  * the viewer's interactive satellite layer). The innermost ring starts far
- * enough out to clear the satellite anchor ring entirely.
+ * enough out to clear the satellite anchor zone entirely.
+ *
+ * DYNAMIC DISTANCE (2026-09-29 user ruling "bring the cities as close as
+ * possible; the distance starts short and grows only when they would
+ * crash"): the base ring is derived from the VIEWER's own city size
+ * (`universeBaseRing(sectorCount)` — satellite ring + one mini rim), so an
+ * early-game viewer sees the universe begin ~18 tiles out instead of the
+ * old fixed 72, and it recedes only as their sector grid grows. This
+ * supersedes the 2026-09-28 cross-viewer congruence nicety: the layout is
+ * still a pure deterministic function of (rank order, viewer base), but
+ * viewers with different city sizes now see proportionally scaled
+ * constellations instead of a shared translated one.
  */
 
+import { GRID_SIZE } from "./layout-schema";
 import { ringTiles } from "./rings";
+import { satelliteRingRadii } from "./satellites";
 import { tileToScreen, type Point } from "./scene/iso";
 
 /**
  * Radius (tiles) of the innermost universe ring. Must clear the satellite
  * anchor zone around the viewer's city: the largest satellite ring sits at
- * unlocked-extent + margin (≤ macro half-extent 50 + 6) plus a cluster's
- * outer rim (~5 tiles, 0.55-scaled) ≈ 61 tiles — 72 leaves a real void,
- * then the universe.
+ * unlocked-extent + margin plus one mini rim (see universeBaseRing) —
+ * sized from the REAL satellite radii, not the old worst-case guess.
  */
-export const UNIVERSE_BASE_RING = 72;
+
+/**
+ * Clear tiles between the viewer's outermost satellite cluster rim and the
+ * first universe ring: a mini city spans ~(cluster radius + pad skirt) ×
+ * 0.55 ≈ 3 visual tiles; +1 gap.
+ */
+export const UNIVERSE_CLEARANCE_TILES = 4;
+
+/**
+ * Base (innermost) universe ring radius for a viewer with `sectorCount`
+ * unlocked sectors: the satellite anchor ring (itself derived from the
+ * city's actual footprint) + one mini rim — the closest the first foreign
+ * city can sit without crashing into the stake clusters (snapped up to a
+ * multiple of UNIVERSE_RING_STEP — see inside). Boot-only ≈ 24 tiles; the
+ * full 3×3 grid ≈ 40 (the old fixed value was 72).
+ */
+export function universeBaseRing(
+  sectorCount: number,
+  gridSize: number = GRID_SIZE
+): number {
+  const { rx, ry } = satelliteRingRadii(sectorCount, gridSize);
+  const raw = Math.max(rx, ry) + UNIVERSE_CLEARANCE_TILES;
+  // Snap UP to a multiple of the ring step: every ring radius is then a
+  // slot multiple, so ring CORNERS land exactly on slots and consecutive
+  // cities stay one full step apart everywhere (no corner straddling at
+  // ~6 tiles, which would crash the minis together).
+  return Math.ceil(raw / UNIVERSE_RING_STEP) * UNIVERSE_RING_STEP;
+}
 
 /**
  * Slot stride AND ring-to-ring spacing (tiles). A rendered mini city spans
- * ~7 tiles at internal scale ×0.55 ≈ 3.9 visual tiles, so 12 keeps a clear
- * gap between neighbouring cities while keeping the universe dense.
+ * ~6 internal tiles at ×0.55 ≈ 3.5 visual tiles, so 8 packs neighbouring
+ * cities as close as they can go without touching ("almost crashing" —
+ * 2026-09-29 user ruling; was 12).
  */
-export const UNIVERSE_RING_STEP = 12;
+export const UNIVERSE_RING_STEP = 8;
 
 /** Max cities on the map (payload + placement cap; render budget). */
 export const UNIVERSE_CITY_CAP = 500;
@@ -60,20 +101,20 @@ export interface UniversePayload {
   cities: UniverseCity[];
 }
 
-/** Chebyshev radius of ring `m` (1-based). */
-export function universeRingRadius(m: number): number {
-  return UNIVERSE_BASE_RING + UNIVERSE_RING_STEP * (m - 1);
+/** Chebyshev radius of ring `m` (1-based) for a layout based at `base`. */
+export function universeRingRadius(m: number, base: number): number {
+  return base + UNIVERSE_RING_STEP * (m - 1);
 }
 
 /** How many city slots fit on ring `m` (one slot per RING_STEP walk tiles). */
-export function universeRingCapacity(m: number): number {
-  return Math.floor((8 * universeRingRadius(m)) / UNIVERSE_RING_STEP);
+export function universeRingCapacity(m: number, base: number): number {
+  return Math.floor((8 * universeRingRadius(m, base)) / UNIVERSE_RING_STEP);
 }
 
 /** Cumulative slot count through ring `m`. */
-export function universeCumulativeCapacity(m: number): number {
+export function universeCumulativeCapacity(m: number, base: number): number {
   let total = 0;
-  for (let i = 1; i <= m; i++) total += universeRingCapacity(i);
+  for (let i = 1; i <= m; i++) total += universeRingCapacity(i, base);
   return total;
 }
 
@@ -82,9 +123,9 @@ export function universeCumulativeCapacity(m: number): number {
  * i.e. rank − 2). Grows ~linearly in capacity per ring, so the mapping is
  * dense: no half-empty inner rings.
  */
-export function universeRingOfIndex(k: number): number {
+export function universeRingOfIndex(k: number, base: number): number {
   let m = 1;
-  while (universeCumulativeCapacity(m) <= k) m++;
+  while (universeCumulativeCapacity(m, base) <= k) m++;
   return m;
 }
 
@@ -92,14 +133,14 @@ export function universeRingOfIndex(k: number): number {
  * UNIVERSE anchor of the city with `rank` (1-based), in tiles around the
  * universe center. Rank 1 sits at the exact center; rank R ≥ 2 walks the
  * clockwise ring slots (screen-north start — the rings.ts rule). Pure and
- * deterministic: same rank → same tile, always.
+ * deterministic: same (rank, base) → same tile, always.
  */
-export function universeCityAnchor(rank: number): Point {
+export function universeCityAnchor(rank: number, base: number): Point {
   if (rank <= 1) return { x: 0, y: 0 };
   const k = rank - 2;
-  const m = universeRingOfIndex(k);
-  const within = k - universeCumulativeCapacity(m - 1);
-  const radius = universeRingRadius(m);
+  const m = universeRingOfIndex(k, base);
+  const within = k - universeCumulativeCapacity(m - 1, base);
+  const radius = universeRingRadius(m, base);
   const walk = ringTiles(0, 0, radius);
   const slot = walk[(within * UNIVERSE_RING_STEP) % walk.length];
   return { x: slot.gx, y: slot.gy };
@@ -107,13 +148,17 @@ export function universeCityAnchor(rank: number): Point {
 
 /**
  * Tile offset of the city with `cityRank` relative to the VIEWER's city
- * (viewerRank). The viewer's own city always renders at their world origin,
- * so every other city is placed at this delta — the constellation is
- * identical for everyone, only translated.
+ * (viewerRank), both on the layout based at the viewer's `base` ring. The
+ * viewer's own city always renders at their world origin, so every other
+ * city is placed at this delta.
  */
-export function universeCityOffset(cityRank: number, viewerRank: number): Point {
-  const city = universeCityAnchor(cityRank);
-  const viewer = universeCityAnchor(viewerRank);
+export function universeCityOffset(
+  cityRank: number,
+  viewerRank: number,
+  base: number
+): Point {
+  const city = universeCityAnchor(cityRank, base);
+  const viewer = universeCityAnchor(viewerRank, base);
   return { x: city.x - viewer.x, y: city.y - viewer.y };
 }
 

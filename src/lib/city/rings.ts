@@ -26,12 +26,25 @@ import {
 
 /**
  * First ring ordinary buildings may occupy. The landmark hexagon's farthest
- * monument sits at Chebyshev radius 3 from the HQ and its moat reaches 4, so
- * buildings start one ring further out — the core plaza (HQ + monuments +
- * moat) stays clear while the goddess ring hugs the core (2026-09-28 user
- * ruling: less empty space between the core and the Six).
+ * monument sits at Chebyshev radius 3 from the HQ; the monument MOAT (its
+ * 8 neighbors) keeps a one-tile halo, so buildings start at ring 4 —
+ * "just enough space" around the Six (2026-09-29 user ruling: tighten the
+ * core plaza; the old empty ring 4 is gone, the moat alone separates).
  */
-export const ORBIT_START_RING = 5;
+export const ORBIT_START_RING = 4;
+
+/**
+ * Inter-building breathing room (2026-09-29 user ruling "buildings don't
+ * need to be cramped on top of each other"): the SPACED orbit occupies
+ * every OTHER ring (an empty avenue between building rings) and every
+ * OTHER tile along a ring (checkerboard) — the tall procedural megaforms
+ * then never stack at the 64px screen offsets of adjacent tiles/rings.
+ * `spacedOrbitOrder` lists the airy tiles first and the skipped (infill)
+ * tiles after, so a city densifies gracefully at the rim only once every
+ * airy slot is taken; the value story (priciest innermost) is unchanged.
+ */
+export const ORBIT_RING_STRIDE = 2;
+export const ORBIT_TILE_STRIDE = 2;
 
 /** The orbit center: the HQ core tile (sector 0 center) in global tiles. */
 export function hqGlobalTile(gridSize: number = GRID_SIZE): Point {
@@ -109,4 +122,35 @@ export function orbitOrder(
     }
   }
   return out;
+}
+
+/**
+ * The orbit with breathing room (see ORBIT_RING_STRIDE/ORBIT_TILE_STRIDE):
+ * the SAME tiles as `orbitOrder`, reordered — every stride-eligible tile
+ * first (airy layout), then the skipped tiles in walk order (infill, used
+ * only when the city outgrows its airy capacity so buildings never share a
+ * rim tile before every slot is taken). A tile is stride-eligible when its
+ * ring is on the fromRing + k·RING_STRIDE ladder AND its global diagonal
+ * parity matches the HQ's (the checkerboard).
+ */
+export function spacedOrbitOrder(
+  center: Point,
+  fromRing: number,
+  sectorCount: number,
+  gridSize: number = GRID_SIZE,
+  allow?: (tile: RingTile) => boolean
+): RingTile[] {
+  const dense = orbitOrder(center, fromRing, sectorCount, gridSize, allow);
+  const stride = macroStride(gridSize);
+  const baseParity = (center.x + center.y) % 2;
+  const isSpaced = (t: RingTile) => {
+    if ((t.ring - fromRing) % ORBIT_RING_STRIDE !== 0) return false;
+    const macro = SECTOR_MACRO[t.sectorIndex] ?? { x: 1, y: 1 };
+    const gx = macro.x * stride + t.x;
+    const gy = macro.y * stride + t.y;
+    return (gx + gy) % 2 === baseParity;
+  };
+  const spaced = dense.filter(isSpaced);
+  const infill = dense.filter((t) => !isSpaced(t));
+  return [...spaced, ...infill];
 }

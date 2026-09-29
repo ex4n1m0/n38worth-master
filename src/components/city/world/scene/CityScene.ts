@@ -759,7 +759,7 @@ export class CityScene {
   syncUniverse(payload: UniversePayload | null, viewerUsername: string): void {
     if (this.destroyed) return;
     const stake = (this.lastProjection?.neighbors ?? []).map((n) => n.username);
-    this.universe.sync(payload, viewerUsername, stake);
+    this.universe.sync(payload, viewerUsername, stake, this.world.sectorCount);
     this.syncRoads();
     const summary = this.universe.summary();
     cityWorldStore.getState().setUniverseSummary(

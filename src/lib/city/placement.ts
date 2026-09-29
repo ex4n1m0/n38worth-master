@@ -19,7 +19,7 @@ import type { CityBuilding } from "@/lib/city/types";
 import {
   ORBIT_START_RING,
   hqGlobalTile,
-  orbitOrder,
+  spacedOrbitOrder,
   type RingTile,
 } from "@/lib/city/rings";
 
@@ -56,11 +56,13 @@ export interface RankArrangeResult {
 
 /**
  * Derive every building's tile: sort by value desc (cardId asc tie-break —
- * the projection's canonical stable order), then take orbit tiles in
- * clockwise ring order from ORBIT_START_RING outward, skipping tiles the
- * caller blocks (HQ/landmark reservations, monument moat, and anything
- * already standing). Deterministic: same inputs → same layout, so a value
- * change moves exactly the buildings whose rank crossed another's.
+ * the projection's canonical stable order), then take orbit tiles from the
+ * SPACED walk (spacedOrbitOrder: every other ring + checkerboard, airy
+ * tiles first then infill — 2026-09-29 user ruling "buildings don't need
+ * to be cramped on top of each other"), skipping tiles the caller blocks
+ * (HQ/landmark reservations, monument moat, and anything already
+ * standing). Deterministic: same inputs → same layout, so a value change
+ * moves exactly the buildings whose rank crossed another's.
  *
  * Overflow (more buildings than usable tiles — only reachable with the
  * dev-only CITY_DETAILED_LIMIT override on a single-sector city) wraps
@@ -77,7 +79,7 @@ export function rankArrangeTiles(
   if (ranked.length === 0) {
     return { entries: [], resumeRing: ORBIT_START_RING };
   }
-  const tiles = orbitOrder(hqGlobalTile(), ORBIT_START_RING, sectorCount, undefined, (t) =>
+  const tiles = spacedOrbitOrder(hqGlobalTile(), ORBIT_START_RING, sectorCount, undefined, (t) =>
     !isBlocked(tileRefKey(t))
   );
   const entries: RankEntry[] = ranked.map((building, i) => {
