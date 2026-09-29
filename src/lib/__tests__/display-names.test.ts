@@ -25,10 +25,10 @@ describe("display-name dictionaries", () => {
 
   it("maps the six goddesses and Botnet to their rebranded names", () => {
     expect(cardDisplayName("Goddess")).toBe("The Architect");
-    expect(cardDisplayName("Goddess of War")).toBe("NullPointer");
-    expect(cardDisplayName("Mass Hire")).toBe("Botnet");
-    expect(cardDisplayName("Goddess", "zh")).toBe("架构师");
-    expect(cardDisplayName("Mass Hire", "zh")).toBe("僵尸网络");
+    expect(cardDisplayName("Goddess of War")).toBe("The Wrecker");
+    expect(cardDisplayName("Mass Hire")).toBe("Land Grab");
+    expect(cardDisplayName("Goddess", "zh")).toBe("总建筑师");
+    expect(cardDisplayName("Mass Hire", "zh")).toBe("圈地");
   });
 
   it("passes regular players through unchanged in both locales", () => {
@@ -44,7 +44,7 @@ describe("display-name dictionaries", () => {
 
 describe("theSixLabel", () => {
   it("renders the collective noun per locale", () => {
-    expect(theSixLabel("en")).toBe("the Six");
-    expect(theSixLabel("zh")).toBe("六使");
+    expect(theSixLabel("en")).toBe("the Founders");
+    expect(theSixLabel("zh")).toBe("奠基六杰");
   });
 });

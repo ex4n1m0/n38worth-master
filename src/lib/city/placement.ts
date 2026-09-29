@@ -16,6 +16,7 @@
  */
 
 import type { CityBuilding } from "@/lib/city/types";
+import { GRID_SIZE } from "@/lib/city/layout-schema";
 import {
   ORBIT_START_RING,
   hqGlobalTile,
@@ -33,6 +34,40 @@ export interface TileRef {
 /** String identity of a tile (same format as layout-schema.tileKey). */
 export function tileRefKey(tile: TileRef): string {
   return `${tile.sector}:${tile.x}:${tile.y}`;
+}
+
+/**
+ * CIVIC BUILDINGS (2026-09-29 user ruling): four city-service landmarks —
+ * Police, Fire, School, Hospital — that materialize on the four DIAGONAL
+ * tiles of the first orbit ring (Chebyshev 4 from the HQ, roster order
+ * police/fire/school/hospital). The diagonals are the only ring-4 on-ladder
+ * slots the monument moat leaves completely clear, and they sit ON the
+ * road-grid checkerboard, so the civic square paves exactly like every
+ * ordinary block. One tier per growth threshold (10 / 100 / 1000 owned
+ * buildings — projection.ts CIVIC_TIER_THRESHOLDS): the same four tiles,
+ * progressively grander architecture.
+ */
+export const CIVIC_RING_OFFSETS: ReadonlyArray<{ dx: number; dy: number }> = [
+  { dx: 4, dy: -4 }, // police  — screen-east diagonal
+  { dx: 4, dy: 4 }, // fire    — screen-south (front) diagonal
+  { dx: -4, dy: -4 }, // school  — screen-north (back) diagonal
+  { dx: -4, dy: 4 }, // hospital — screen-west diagonal
+];
+
+/** Civic tile of kind index 0..3 (CIVIC_RING_OFFSETS order), s0-local. */
+export function civicTileRef(index: number): TileRef {
+  const off = CIVIC_RING_OFFSETS[((index % 4) + 4) % 4];
+  const c = GRID_SIZE >> 1;
+  return { sector: "s0", x: c + off.dx, y: c + off.dy };
+}
+
+/** All four civic tiles as occupancy keys (reserved for the civic set). */
+export function civicTileKeys(): Set<string> {
+  const keys = new Set<string>();
+  for (let i = 0; i < CIVIC_RING_OFFSETS.length; i++) {
+    keys.add(tileRefKey(civicTileRef(i)));
+  }
+  return keys;
 }
 
 /** One building + the derived tile it renders on. */

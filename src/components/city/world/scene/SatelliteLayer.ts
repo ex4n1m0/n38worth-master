@@ -32,6 +32,7 @@
 
 import { Container, Graphics } from "pixi.js";
 import type { CityNeighbor } from "@/lib/city/types";
+import { CIVIC_KINDS } from "@/lib/city/types";
 import type { Lod } from "@/lib/city/scene/lod";
 import type { CullRect } from "@/lib/city/scene/culling";
 import {
@@ -39,6 +40,7 @@ import {
   screenToTile,
   tileToScreen,
 } from "@/lib/city/scene/iso";
+import { deriveStreets } from "@/lib/city/streets";
 import {
   SATELLITE_CLUSTER_RADIUS,
   satelliteAnchor,
@@ -48,9 +50,11 @@ import {
   type WorldBounds,
 } from "@/lib/city/satellites";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import type { TileRef } from "@/lib/city/placement";
+import { CIVIC_RING_OFFSETS, type TileRef } from "@/lib/city/placement";
 import { drawDashedLine, makeTextChip } from "./art";
+import { drawStreetTiles } from "./StreetsLayer";
 import { BuildingSprite } from "./BuildingSprite";
+import { CivicSprite } from "./civic";
 import { HqSprite } from "./HqSprite";
 import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
 import { LandmarkSprite } from "./landmarks";
@@ -90,6 +94,12 @@ interface Cluster {
   relay: HqSprite;
   /** The Six mini monuments, roster order (created once, owned-flag synced). */
   monuments: LandmarkSprite[];
+  /** The four mini civic landmarks (created once, tier-synced). */
+  civicSprites: CivicSprite[];
+  /** Mini street grid, day + night pair (zIndex below the relay). */
+  streetsNight: Graphics;
+  streetsDay: Graphics;
+  streetsKey: string;
   /** Grass ground, day + night pair (crossfaded by setDaylight). */
   plate: Container | null;
   plateKey: string;
@@ -191,6 +201,29 @@ export class SatelliteLayer extends Container {
         relay.setDaylight(this.daylightCurrent);
         relay.zIndex = 0; // tile-depth sum of the anchor itself
         cityBox.addChild(relay);
+        // Mini civic landmarks (Police/Fire/School/Hospital): the home
+        // civic square in miniature, tier-synced from the neighbor's own
+        // building count. Non-interactive (mini taps target buildings).
+        const civicSprites: CivicSprite[] = [];
+        for (let i = 0; i < CIVIC_KINDS.length; i++) {
+          const civic = new CivicSprite(CIVIC_KINDS[i], 1);
+          civic.tint = FOREIGN_TINT;
+          civic.setDaylight(this.daylightCurrent);
+          civic.visible = false;
+          const off = CIVIC_RING_OFFSETS[i];
+          const local = tileToScreen(off.dx, off.dy);
+          civic.position.set(local.x, local.y);
+          civic.zIndex = off.dx + off.dy;
+          cityBox.addChild(civic);
+          civicSprites.push(civic);
+        }
+        // Mini street grid (day/night pair) — below everything in the box.
+        const streetsNight = new Graphics();
+        const streetsDay = new Graphics();
+        streetsNight.zIndex = -1000;
+        streetsDay.zIndex = -999;
+        streetsDay.alpha = this.daylightCurrent;
+        cityBox.addChild(streetsNight, streetsDay);
         this.addChild(container);
         cluster = {
           neighbor,
@@ -199,6 +232,10 @@ export class SatelliteLayer extends Container {
           cityBox,
           relay,
           monuments,
+          civicSprites,
+          streetsNight,
+          streetsDay,
+          streetsKey: "",
           plate: null,
           plateKey: "",
           buildings: new Map(),
@@ -273,6 +310,8 @@ export class SatelliteLayer extends Container {
         // (gx−gy) axis in and sorts depth-equal tiles wrong).
         entry.sprite.zIndex = tile.gx - anchor.x + (tile.gy - anchor.y);
       });
+
+      this.syncClusterCivicAndStreets(cluster, lod);
     });
 
     // Neighbors that lost their city (all cards poached) go away entirely.
@@ -323,18 +362,21 @@ export class SatelliteLayer extends Container {
   setLod(lod: Lod): void {
     for (const cluster of this.clusters.values()) {
       for (const { sprite } of cluster.buildings.values()) sprite.setLod(lod);
+      for (const civic of cluster.civicSprites) civic.setLod(lod);
     }
   }
 
   /**
-   * Daylight factor for the hero sprites (relay + monuments scoped lifts)
-   * AND the grass pads (day variant crossfades over the night one).
+   * Daylight factor for the hero sprites (relay + monuments + civic scoped
+   * lifts + street pair crossfade) AND the grass pads.
    */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     for (const cluster of this.clusters.values()) {
       cluster.relay.setDaylight(daylight);
+      cluster.streetsDay.alpha = daylight;
       for (const m of cluster.monuments) m.setDaylight(daylight);
+      for (const civic of cluster.civicSprites) civic.setDaylight(daylight);
     }
   }
   private daylightCurrent = 0;
@@ -344,6 +386,7 @@ export class SatelliteLayer extends Container {
     for (const cluster of this.clusters.values()) {
       cluster.relay.updateLights(tMs);
       for (const m of cluster.monuments) m.updateLights(tMs);
+      for (const civic of cluster.civicSprites) civic.updateLights(tMs);
       for (const { sprite } of cluster.buildings.values()) sprite.updateLights(tMs);
     }
   }
@@ -532,6 +575,68 @@ export class SatelliteLayer extends Container {
   }
 
   // ── internals ─────────────────────────────────────────────────────────
+
+  /**
+   * Mini-city civic landmarks + street grid, per sync. Civic tier comes from
+   * the neighbor's civicTier (server-derived; stale payloads default 0 →
+   * hidden). Streets derive in ANCHOR-RELATIVE tile space with the same
+   * organic rule as the home city; blocked = relay + monuments + their moat
+   * + the civic lots (occupied instead once the tier unlocks).
+   */
+  private syncClusterCivicAndStreets(cluster: Cluster, lod: Lod): void {
+    const anchor = cluster.anchor;
+    const civicTier = Math.max(0, Math.min(3, cluster.neighbor.civicTier ?? 0));
+    cluster.civicSprites.forEach((sprite) => {
+      sprite.setTier(civicTier >= 1 ? civicTier : 1);
+      sprite.visible = civicTier >= 1;
+      sprite.setLod(lod);
+    });
+
+    const buildingTiles: Array<{ gx: number; gy: number }> = [];
+    for (const { gx, gy } of cluster.buildings.values()) {
+      buildingTiles.push({ gx, gy });
+    }
+    if (civicTier >= 1) {
+      for (const off of CIVIC_RING_OFFSETS) {
+        buildingTiles.push({ gx: anchor.x + off.dx, gy: anchor.y + off.dy });
+      }
+    }
+    // Blocked ground: relay, the six monuments, their one-tile moat, and
+    // the civic lots while locked (absolute coords, cluster-static).
+    const blocked = new Set<string>([`${anchor.x},${anchor.y}`]);
+    for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
+      const lt = landmarkTile(i);
+      const cx = anchor.x + (lt.x - HQ_TILE.x);
+      const cy = anchor.y + (lt.y - HQ_TILE.y);
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          blocked.add(`${cx + dx},${cy + dy}`);
+        }
+      }
+    }
+    if (civicTier < 1) {
+      for (const off of CIVIC_RING_OFFSETS) {
+        blocked.add(`${anchor.x + off.dx},${anchor.y + off.dy}`);
+      }
+    }
+
+    // Redraw only when the paved set changed (key = tier + building tiles).
+    const key = `${civicTier}|${buildingTiles.length}|${buildingTiles
+      .map((t) => `${t.gx - anchor.x},${t.gy - anchor.y}`)
+      .sort()
+      .join(";")}`;
+    if (key === cluster.streetsKey) return;
+    cluster.streetsKey = key;
+    const streets = buildingTiles.length
+      ? deriveStreets(buildingTiles, (gx, gy) => blocked.has(`${gx},${gy}`))
+      : [];
+    const toLocal = (gx: number, gy: number) => {
+      const p = tileToScreen(gx - anchor.x, gy - anchor.y);
+      return p;
+    };
+    drawStreetTiles(cluster.streetsNight, streets, "night", toLocal);
+    drawStreetTiles(cluster.streetsDay, streets, "day", toLocal);
+  }
 
   // NO GROUND PAD (2026-09-29 user ruling "remove the large floors around
   // buildings"): the 11-tile grass diamonds under the mini cities were

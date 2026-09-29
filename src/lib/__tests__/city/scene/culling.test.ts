@@ -76,3 +76,4 @@ describe("pointVisible", () => {
     expect(pointVisible(rect, -124, 25, 0, 24)).toBe(true);
   });
 });
+

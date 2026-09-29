@@ -41,9 +41,14 @@ import {
   universeCumulativeCapacity,
   universeRingRadius,
 } from "@/lib/city/universe";
-import { tileRefKey, type TileRef } from "@/lib/city/placement";
+import { tileRefKey, civicTileKeys, civicTileRef, type TileRef } from "@/lib/city/placement";
+import type { CivicKind, CityCivic } from "@/lib/city/types";
+import { CIVIC_KINDS } from "@/lib/city/types";
+import { deriveStreets } from "@/lib/city/streets";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
+import { CivicSprite } from "./civic";
+import { StreetsLayer } from "./StreetsLayer";
 import {
   GRASS_BAND_DAY_A,
   GRASS_BAND_DAY_B,
@@ -125,6 +130,9 @@ export function reservedTileKeys(): Set<string> {
   for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
     keys.add(tileRefKey(landmarkTile(i)));
   }
+  // Civic lots stay reserved even before the tier unlocks — the plaza reads
+  // as deliberate ground, never as an accidental building slot.
+  for (const key of civicTileKeys()) keys.add(key);
   return keys;
 }
 
@@ -167,6 +175,8 @@ export function worldPointOfTile(tile: TileRef): { x: number; y: number } {
 export class IsoWorld extends Container {
   private _sectorCount: number;
   private readonly groundLayer = new Container();
+  /** Street grid (derived, pure decoration) — directly over the ground. */
+  private readonly streets = new StreetsLayer();
   /** Ground-level overlays (data paths, district links) — beneath buildings. */
   readonly beneathBuildings = new Container();
   /**
@@ -184,6 +194,8 @@ export class IsoWorld extends Container {
   private hq: HqSprite | null = null;
   /** The Six goddess monuments, roster order (created once, updated in place). */
   private readonly landmarkSprites: LandmarkSprite[] = [];
+  /** The four civic landmarks, CIVIC_KINDS order (created once, tier-synced). */
+  private readonly civicSprites: CivicSprite[] = [];
   /** Server sector descriptors (locked pad count + label identities). */
   private sectorInfoList: readonly CitySectorInfo[] = [];
   private labelResolver: ((info: CitySectorInfo) => string) | null = null;
@@ -194,6 +206,8 @@ export class IsoWorld extends Container {
   private readonly spriteTiles = new Map<number, TileRef>();
   /** tileKey → cardId occupying that tile. */
   private readonly occupancy = new Map<string, number>();
+  /** Global tiles of the current detailed buildings (street derivation). */
+  private occupiedGlobal: Array<{ x: number; y: number }> = [];
 
   constructor(sectorCount: number) {
     super();
@@ -205,6 +219,7 @@ export class IsoWorld extends Container {
     // the sector identity chips ride above the skyline.
     this.addChild(
       this.groundLayer,
+      this.streets,
       this.beneathBuildings,
       this.buildingsLayer,
       this.sectorLabelLayer
@@ -507,6 +522,7 @@ export class IsoWorld extends Container {
 
     const added: BuildingSprite[] = [];
     this.occupancy.clear();
+    this.occupiedGlobal = [];
     for (const entry of entries) {
       const key = tileRefKey(entry.tile);
       this.occupancy.set(key, entry.building.cardId);
@@ -524,9 +540,102 @@ export class IsoWorld extends Container {
       this.spriteTiles.set(entry.building.cardId, entry.tile);
       const sectorIndex = Number(entry.tile.sector.replace(/^s/, "")) || 0;
       const g = globalTile(sectorIndex, entry.tile.x, entry.tile.y, GRID_SIZE);
+      this.occupiedGlobal.push(g);
       sprite.zIndex = g.x + g.y; // iso depth: painters order by (x + y)
     }
     return { added, removed };
+  }
+
+  /**
+   * STREET GRID (2026-09-29): pave the empty tiles between buildings (see
+   * lib/city/streets.ts) — one ring BOULEVARD between building rings plus
+   * the checkerboard cross-streets. Blocked ground (HQ/monument moat, the
+   * civic lots) never paves. Called by the scene after syncBuildings and
+   * whenever the civic tier flips (new civic landmarks pave around them).
+   */
+  syncStreets(): void {
+    const buildingTiles = this.occupiedGlobal.map((g) => ({ gx: g.x, gy: g.y }));
+    if (this.civicTierCurrent >= 1) {
+      for (let i = 0; i < CIVIC_KINDS.length; i++) {
+        const t = civicTileRef(i);
+        const g = globalTile(0, t.x, t.y, GRID_SIZE);
+        buildingTiles.push({ gx: g.x, gy: g.y });
+      }
+    }
+    if (buildingTiles.length === 0) {
+      this.streets.sync([]);
+      return;
+    }
+    // Blocked ground as GLOBAL coords: reserved keys (HQ, monuments, civic
+    // lots) + the monument moat, converted from s0-local refs once.
+    const blocked = new Set<string>();
+    const addBlocked = (key: string) => {
+      const [sx, x, y] = key.split(":");
+      const g = globalTile(Number(sx.slice(1)) || 0, Number(x), Number(y), GRID_SIZE);
+      blocked.add(`${g.x},${g.y}`);
+    };
+    for (const key of this.reserved) addBlocked(key);
+    for (const key of this.landmarkMoat) addBlocked(key);
+    this.streets.sync(
+      deriveStreets(buildingTiles, (gx, gy) => blocked.has(`${gx},${gy}`))
+    );
+  }
+
+  /**
+   * CIVIC LANDMARKS (Police/Fire/School/Hospital): the four ring-4 diagonal
+   * lots, materialized at civic tier ≥ 1, redrawn per tier. Labels resolve
+   * through the shell-supplied resolver (locale text, never i18n here).
+   * Returns the tier actually applied (stale-payload tolerance: null → 0).
+   */
+  syncCivic(
+    civic: Pick<CityCivic, "tier"> | null | undefined,
+    nameOf: ((kind: CivicKind) => string | null) | null
+  ): number {
+    const tier = Math.max(0, Math.min(3, civic?.tier ?? 0));
+    this.civicTierCurrent = tier;
+    if (tier >= 1 && this.civicSprites.length === 0) {
+      for (let i = 0; i < CIVIC_KINDS.length; i++) {
+        const sprite = new CivicSprite(CIVIC_KINDS[i], 1);
+        sprite.setDaylight(this.daylightCurrent);
+        const t = civicTileRef(i);
+        const p = worldPointOfTile(t);
+        sprite.position.set(p.x, p.y);
+        const g = globalTile(0, t.x, t.y, GRID_SIZE);
+        sprite.zIndex = g.x + g.y;
+        this.civicSprites.push(sprite);
+        this.buildingsLayer.addChild(sprite);
+      }
+    }
+    this.civicSprites.forEach((sprite) => {
+      sprite.setTier(tier >= 1 ? tier : 1);
+      sprite.visible = tier >= 1;
+      sprite.setLabel(nameOf ? nameOf(sprite.kind) : null);
+    });
+    return tier;
+  }
+
+  /** Currently applied civic tier (FX edge detection in the scene). */
+  get civicTier(): number {
+    return this.civicTierCurrent;
+  }
+  private civicTierCurrent = 0;
+
+  /** Mirror/panel selection ring on a civic landmark. */
+  setCivicSelected(kind: CivicKind | null): void {
+    this.civicSprites.forEach((s) => s.setSelected(kind !== null && s.kind === kind));
+  }
+
+  /** Forgiving civic-body hit test (art is wider than the tile). */
+  civicHitAt(worldX: number, worldY: number): CivicKind | null {
+    for (const s of this.civicSprites) {
+      if (!s.visible) continue;
+      const dx = Math.abs(worldX - s.x);
+      const dy = worldY - s.y;
+      if (dx <= TILE_W * 0.62 && dy >= -(s.artHeightPx() + 12) && dy <= TILE_H * 0.8) {
+        return s.kind;
+      }
+    }
+    return null;
   }
 
   /**
@@ -704,6 +813,7 @@ export class IsoWorld extends Container {
   setLod(lod: Lod): void {
     for (const sprite of this.sprites.values()) sprite.setLod(lod);
     for (const landmark of this.landmarkSprites) landmark.setLod(lod);
+    for (const civic of this.civicSprites) civic.setLod(lod);
     // Sector identity chips: world/district LOD only.
     this.sectorLabelLayer.visible = lod !== "close";
   }
@@ -726,6 +836,7 @@ export class IsoWorld extends Container {
     for (const sprite of this.sprites.values()) sprite.updateLights(tMs);
     this.hq?.updateLights(tMs);
     for (const landmark of this.landmarkSprites) landmark.updateLights(tMs);
+    for (const civic of this.civicSprites) civic.updateLights(tMs);
   }
 
   /**
@@ -736,9 +847,11 @@ export class IsoWorld extends Container {
     this.daylightCurrent = daylight;
     if (this.outerDay) this.outerDay.alpha = daylight;
     if (this.plateDay) this.plateDay.alpha = daylight;
+    this.streets.setDaylight(daylight);
     for (const sprite of this.sprites.values()) sprite.setDaylight(daylight);
     this.hq?.setDaylight(daylight);
     for (const landmark of this.landmarkSprites) landmark.setDaylight(daylight);
+    for (const civic of this.civicSprites) civic.setDaylight(daylight);
   }
 
   /** Building-sprite counts for the dev perf overlay (post-cull). */
@@ -776,6 +889,20 @@ export class IsoWorld extends Container {
           landmark.artHeightPx(),
           TILE_W * 0.62
         );
+    });
+    // Civic landmarks cull like monuments (visible only while unlocked).
+    this.civicSprites.forEach((civic) => {
+      if (this.civicTierCurrent < 1) {
+        civic.visible = false;
+        return;
+      }
+      civic.visible = pointVisible(
+        rect,
+        civic.x,
+        civic.y,
+        civic.artHeightPx(),
+        TILE_W * 0.62
+      );
     });
   }
 }

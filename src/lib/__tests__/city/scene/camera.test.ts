@@ -175,3 +175,4 @@ describe("fitCameraToBounds (initial/reset framing)", () => {
     expect(cam.y).toBe(250);
   });
 });
+

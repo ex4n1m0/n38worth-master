@@ -209,20 +209,25 @@ export function makeFixtureNeighbors(
         ownedByCityOwner: oi === 2 && i === 0,
       };
     });
+    const goddessHeld = oi === 0 ? 2 : 0;
+    const visibleOwnedCount = oi === 0 ? 24 : oi === 2 ? 150 : 7;
     neighbors.push({
       cardId: owner.cardId,
       username: owner.username,
       profession: owner.profession,
       isNpc: owner.isNpc,
-      visibleOwnedCount: 7,
+      visibleOwnedCount,
       buildings,
-      truncated: true,
+      truncated: visibleOwnedCount > buildings.length,
       // Mini monument ring flags: first fixture neighbor holds two goddesses
       // (roster order), the others none — exercises lit + dormant monuments.
-      goddessOwned: GODDESS_USERNAMES.map((_, gi) => oi === 0 && gi < 2),
+      goddessOwned: GODDESS_USERNAMES.map((_, gi) => gi < goddessHeld),
       // Deterministic hero-stage spread for the relay QA: neighbor 0 final
       // form, neighbor 1 mid form, neighbor 2 base form.
       hqStage: (3 - Math.min(oi, 2)) as CityNeighbor["hqStage"],
+      // Civic QA spread: neighbor 0 tier 1 (24 − 2 goddesses = 22), neighbor
+      // 1 locked (7), neighbor 2 tier 2 (150).
+      civicTier: (oi === 0 ? 1 : oi === 2 ? 2 : 0) as CityNeighbor["civicTier"],
     });
   });
   return neighbors;

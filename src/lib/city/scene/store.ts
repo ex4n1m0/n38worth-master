@@ -19,6 +19,7 @@
 
 import { createStore } from "zustand/vanilla";
 import { LOD_DISTRICT, type Lod } from "./lod";
+import type { CivicKind } from "../types";
 
 export interface CityCameraSnapshot {
   x: number;
@@ -60,6 +61,11 @@ export interface CityWorldState {
   selectedForeign: { owner: number; cardId: number } | null;
   /** Selected goddess landmark index 0..5 (power panel). */
   selectedLandmark: number | null;
+  /**
+   * Selected CIVIC landmark (Police/Fire/School/Hospital inspector).
+   * Mutually exclusive with every other selection (enforced centrally).
+   */
+  selectedCivic: CivicKind | null;
   /**
    * Selected UNIVERSE city username (2026-09-28): tapping a marker or lazy
    * mini city on the shared map selects it for the HUD chip + visit link.
@@ -105,6 +111,7 @@ export interface CityWorldState {
   select: (cardId: number | null) => void;
   selectForeign: (sel: { owner: number; cardId: number } | null) => void;
   selectLandmark: (index: number | null) => void;
+  selectCivic: (kind: CivicKind | null) => void;
   selectUniverseCity: (username: string | null) => void;
   selectUniverseBuilding: (sel: { username: string; cardId: number } | null) => void;
   selectHq: (username: string | null) => void;
@@ -125,6 +132,7 @@ const initial = {
   selectedCardId: null as number | null,
   selectedForeign: null as { owner: number; cardId: number } | null,
   selectedLandmark: null as number | null,
+  selectedCivic: null as CivicKind | null,
   selectedUniverseCity: null as string | null,
   selectedUniverseBuilding: null as { username: string; cardId: number } | null,
   selectedHq: null as string | null,
@@ -155,17 +163,19 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
   setLod: (lod) => set({ lod }),
   // One inspector at a time: every selection action clears the others.
   select: (cardId) =>
-    set({ selectedCardId: cardId, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
+    set({ selectedCardId: cardId, selectedForeign: null, selectedLandmark: null, selectedCivic: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectForeign: (sel) =>
-    set({ selectedForeign: sel, selectedCardId: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
+    set({ selectedForeign: sel, selectedCardId: null, selectedLandmark: null, selectedCivic: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectLandmark: (index) =>
-    set({ selectedLandmark: index, selectedCardId: null, selectedForeign: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
+    set({ selectedLandmark: index, selectedCardId: null, selectedForeign: null, selectedCivic: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
+  selectCivic: (kind) =>
+    set({ selectedCivic: kind, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectUniverseCity: (username) =>
-    set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseBuilding: null, selectedHq: null }),
+    set({ selectedUniverseCity: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedCivic: null, selectedUniverseBuilding: null, selectedHq: null }),
   selectUniverseBuilding: (sel) =>
-    set({ selectedUniverseBuilding: sel, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedHq: null }),
+    set({ selectedUniverseBuilding: sel, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedCivic: null, selectedUniverseCity: null, selectedHq: null }),
   selectHq: (username) =>
-    set({ selectedHq: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedUniverseCity: null, selectedUniverseBuilding: null }),
+    set({ selectedHq: username, selectedCardId: null, selectedForeign: null, selectedLandmark: null, selectedCivic: null, selectedUniverseCity: null, selectedUniverseBuilding: null }),
   setUniverseSummary: (summary) => set({ universeSummary: summary }),
   setReducedMotion: (reduced) => set({ reducedMotion: reduced }),
   setPerf: (perf) => set({ perf }),

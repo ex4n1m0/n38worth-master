@@ -6,6 +6,7 @@ import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
 import { familyHex } from "@/lib/city/district";
+import { CIVIC_TIER_THRESHOLDS } from "@/lib/city/projection";
 import {
   summaryBuildingTotal,
   worldSummaryRows,
@@ -106,6 +107,23 @@ export function WorldSummary({ projection }: { projection: CityProjection }) {
         <span>{t.cityStatBuildings}</span>
         <span className="tabular-nums">
           {formatCompact(summaryBuildingTotal(projection))}
+        </span>
+      </div>
+      {/* Civic landmarks status (server-derived tier; discovery line). */}
+      <div className="city-world-summary-total">
+        <span>{t.cityCivicSummaryTitle}</span>
+        <span className="tabular-nums">
+          {(projection.civic?.tier ?? 0) === 0
+            ? t.cityCivicLocked.replace(
+                "{threshold}",
+                CIVIC_TIER_THRESHOLDS[0].toLocaleString("en-US")
+              )
+            : (projection.civic?.tier ?? 0) >= 3
+              ? t.cityCivicTierMax
+              : t.cityCivicTier.replace(
+                  "{tier}",
+                  String(projection.civic?.tier ?? 1)
+                )}
         </span>
       </div>
       <div className="city-world-summary-total">

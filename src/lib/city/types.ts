@@ -92,6 +92,34 @@ export interface CityFamily {
 export const UNASSIGNED_FAMILY = "__unassigned__";
 
 /**
+ * CIVIC BUILDINGS (2026-09-29 user ruling): four city-service landmarks —
+ * Police, Fire, School, Hospital — DERIVED from the owned-building count.
+ * All four materialize together at 10 buildings and grow a grander form at
+ * 100 and 1000 (three tiers each — see CIVIC_TIER_THRESHOLDS). Fixed roster
+ * order everywhere (placement CIVIC_RING_OFFSETS, art, labels).
+ */
+export type CivicKind = "police" | "fire" | "school" | "hospital";
+export const CIVIC_KINDS: readonly CivicKind[] = [
+  "police",
+  "fire",
+  "school",
+  "hospital",
+];
+
+/** Civic tier: 0 = locked, 1..3 = the three architectural forms. */
+export type CivicTier = 0 | 1 | 2 | 3;
+
+/** The city's civic-building state, derived server-side in projectCity. */
+export interface CityCivic {
+  tier: CivicTier;
+  /**
+   * Visible non-goddess owned buildings (the threshold basis, goddesses
+   * excluded — they are landmarks). Surfaces upgrade progress to the UI.
+   */
+  buildingCount: number;
+}
+
+/**
  * SQL-side aggregates for portfolios larger than the detailed fetch. Keys of
  * `familyTotals` are DB profession names (or UNASSIGNED_FAMILY); values are
  * visible non-goddess owned-card counts per family. `totalBuildings` is the
@@ -161,6 +189,12 @@ export interface CityNeighbor {
    * max the home HQ uses; 1 when unknown). Server-derived only.
    */
   hqStage: HeroStage;
+  /**
+   * The neighbor's civic tier (owned-building thresholds, same ladder as
+   * the home city) — drives the mini city's four civic landmarks. Stale
+   * CDN payloads may omit it; renderers must default to 0.
+   */
+  civicTier: CivicTier;
 }
 
 /**
@@ -215,6 +249,12 @@ export interface CityProjection {
   neighbors: CityNeighbor[];
   /** True when all six goddesses are owned (Root Sequence eligibility). */
   rootSequenceEligible: boolean;
+  /**
+   * Civic buildings (Police/Fire/School/Hospital): tier from the visible
+   * non-goddess owned-building count (10/100/1000), 0 = locked. Derived
+   * server-side; stale payloads may omit the field (default tier 0).
+   */
+  civic: CityCivic;
   /** Owner's current layout epoch (city_layout_meta), when layout was joined. */
   layoutVersion?: number;
 }

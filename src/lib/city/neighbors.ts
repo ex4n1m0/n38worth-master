@@ -17,7 +17,12 @@
  */
 
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
-import { buildingTier, heroStageOf, protectionState } from "./projection";
+import {
+  buildingTier,
+  civicTierOf,
+  heroStageOf,
+  protectionState,
+} from "./projection";
 import type { CityNeighbor, CityNeighborBuilding } from "./types";
 
 /** Max satellite cities per projection (octant anchor slots, satellites.ts). */
@@ -136,6 +141,7 @@ export function assembleCityNeighbors(
 
     const visibleOwnedCount = visibleOwnedCounts.get(candidate.cardId) ?? buildings.length;
     const ownedGods = goddessesByOwner.get(candidate.cardId);
+    const goddessHeld = GODDESS_USERNAMES.filter((name) => ownedGods?.has(name) === true);
     neighbors.push({
       cardId: candidate.cardId,
       username: candidate.username,
@@ -146,6 +152,9 @@ export function assembleCityNeighbors(
       truncated: visibleOwnedCount > buildings.length,
       goddessOwned: GODDESS_USERNAMES.map((name) => ownedGods?.has(name) === true),
       hqStage: heroStageOf(candidate.playerValue, gameMaxValue),
+      // Mini-city civic tier: the neighbor's OWN visible non-goddess
+      // buildings (goddesses excluded — same basis as the home city).
+      civicTier: civicTierOf(Math.max(0, visibleOwnedCount - goddessHeld.length)),
     });
   }
   return neighbors;

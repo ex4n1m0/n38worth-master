@@ -28,6 +28,7 @@
 
 import { Container, Graphics } from "pixi.js";
 import type { CityBuilding, CityProjection } from "@/lib/city/types";
+import { CIVIC_KINDS } from "@/lib/city/types";
 
 /** Public city projection + the route's owner.profession extra (relay art). */
 type UniverseCityProjection = CityProjection & {
@@ -36,6 +37,7 @@ type UniverseCityProjection = CityProjection & {
 import type { Lod } from "@/lib/city/scene/lod";
 import type { CullRect } from "@/lib/city/scene/culling";
 import { TILE_W, tileToScreen } from "@/lib/city/scene/iso";
+import { deriveStreets } from "@/lib/city/streets";
 import {
   universeBaseRing,
   universeCityOffset,
@@ -49,10 +51,13 @@ import { satelliteClusterTiles } from "@/lib/city/satellites";
 import { NEIGHBOR_BUILDING_LIMIT } from "@/lib/city/neighbors";
 import type { Point } from "@/lib/city/scene/iso";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
+import { CIVIC_RING_OFFSETS } from "@/lib/city/placement";
 import { HQ_TILE, landmarkTile, worldPointOfTile } from "./IsoWorld";
 import { LandmarkSprite } from "./landmarks";
 import { HqSprite } from "./HqSprite";
 import { BuildingSprite } from "./BuildingSprite";
+import { CivicSprite } from "./civic";
+import { drawStreetTiles } from "./StreetsLayer";
 import { makeTextChip } from "./art";
 
 /** Distant-city ink: cool pale blue (stake cities use the satellite violet). */
@@ -100,7 +105,11 @@ interface MiniCity {
   cityBox: Container;
   relay: HqSprite;
   monuments: LandmarkSprite[];
+  civicSprites: CivicSprite[];
   buildings: Map<number, MiniBuildingEntry>;
+  /** Mini street grid, day + night pair (below the relay in painter order). */
+  streetsNight: Graphics;
+  streetsDay: Graphics;
   /** Grass ground, day + night pair (crossfaded by setDaylight). */
   plate: Container | null;
   plateKey: string;
@@ -168,16 +177,19 @@ export class UniverseLayer extends Container {
     this.visible = lod !== "close";
     for (const mini of this.minis.values()) {
       for (const entry of mini.buildings.values()) entry.sprite.setLod(lod);
+      for (const civic of mini.civicSprites) civic.setLod(lod);
     }
   }
 
-  /** Daylight factor for the mini cities' hero sprites (relay + monuments)
-   *  and their grass pads (day crossfades over night). */
+  /** Daylight factor for the mini cities' hero sprites (relay + monuments +
+   *  civic + street pair) and their grass pads (day crossfades over night). */
   setDaylight(daylight: number): void {
     this.daylightCurrent = daylight;
     for (const mini of this.minis.values()) {
       mini.relay.setDaylight(daylight);
+      mini.streetsDay.alpha = daylight;
       for (const m of mini.monuments) m.setDaylight(daylight);
+      for (const civic of mini.civicSprites) civic.setDaylight(daylight);
     }
   }
   private daylightCurrent = 0;
@@ -187,6 +199,7 @@ export class UniverseLayer extends Container {
     for (const mini of this.minis.values()) {
       mini.relay.updateLights(tMs);
       for (const m of mini.monuments) m.updateLights(tMs);
+      for (const civic of mini.civicSprites) civic.updateLights(tMs);
       for (const entry of mini.buildings.values()) entry.sprite.updateLights(tMs);
     }
   }
@@ -575,6 +588,23 @@ export class UniverseLayer extends Container {
     relay.zIndex = 0; // tile-depth sum of the anchor itself
     cityBox.addChild(relay);
 
+    // Civic landmarks (that city's own tier; stale payloads default 0).
+    const civicTier = Math.max(0, Math.min(3, projection.civic?.tier ?? 0));
+    const civicFormTier = (civicTier >= 1 ? Math.min(3, civicTier) : 1) as 1 | 2 | 3;
+    const civicSprites: CivicSprite[] = [];
+    for (let i = 0; i < CIVIC_KINDS.length; i++) {
+      const civic = new CivicSprite(CIVIC_KINDS[i], civicFormTier);
+      civic.tint = UNIVERSE_TINT;
+      civic.setDaylight(this.daylightCurrent);
+      civic.visible = civicTier >= 1;
+      const off = CIVIC_RING_OFFSETS[i];
+      const local = tileToScreen(off.dx, off.dy);
+      civic.position.set(local.x, local.y);
+      civic.zIndex = off.dx + off.dy;
+      cityBox.addChild(civic);
+      civicSprites.push(civic);
+    }
+
     // Top buildings by value on the orbit rings (display-only ordering of
     // server values — the same budget + policy the satellite mini cities
     // use: NEIGHBOR_BUILDING_LIMIT buildings on the SPACED mini orbit).
@@ -599,6 +629,42 @@ export class UniverseLayer extends Container {
       buildings.set(building.cardId, { sprite, gx: tile.gx, gy: tile.gy });
     });
 
+    // Mini street grid (anchor-relative coords; same organic rule as the
+    // home city — blocked: relay, monuments + moat, locked civic lots).
+    const buildingTiles: Array<{ gx: number; gy: number }> = [
+      ...buildings.values(),
+    ].map((e) => ({ gx: e.gx, gy: e.gy }));
+    if (civicTier >= 1) {
+      for (const off of CIVIC_RING_OFFSETS) {
+        buildingTiles.push({ gx: off.dx, gy: off.dy });
+      }
+    }
+    const blocked = new Set<string>(["0,0"]);
+    for (let i = 0; i < GODDESS_USERNAMES.length; i++) {
+      const lt = landmarkTile(i);
+      const cx = lt.x - HQ_TILE.x;
+      const cy = lt.y - HQ_TILE.y;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          blocked.add(`${cx + dx},${cy + dy}`);
+        }
+      }
+    }
+    if (civicTier < 1) {
+      for (const off of CIVIC_RING_OFFSETS) blocked.add(`${off.dx},${off.dy}`);
+    }
+    const streetsNight = new Graphics();
+    const streetsDay = new Graphics();
+    streetsNight.zIndex = -1000;
+    streetsDay.zIndex = -999;
+    streetsDay.alpha = this.daylightCurrent;
+    cityBox.addChild(streetsNight, streetsDay);
+    const streets = buildingTiles.length
+      ? deriveStreets(buildingTiles, (gx, gy) => blocked.has(`${gx},${gy}`))
+      : [];
+    drawStreetTiles(streetsNight, streets, "night", (gx, gy) => tileToScreen(gx, gy));
+    drawStreetTiles(streetsDay, streets, "day", (gx, gy) => tileToScreen(gx, gy));
+
     const world = this.worldOf(city);
     container.position.set(world.x, world.y);
     this.addChild(container);
@@ -608,6 +674,9 @@ export class UniverseLayer extends Container {
       cityBox,
       relay,
       monuments,
+      civicSprites,
+      streetsNight,
+      streetsDay,
       buildings,
       plate: null,
       plateKey: "",

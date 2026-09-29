@@ -236,3 +236,46 @@ describe("makeFixtureNeighbors (dev-only QA satellites)", () => {
     }
   });
 });
+
+describe("neighbor civic tier (mini cities mirror the home ladder)", () => {
+  it("derives from the neighbor's non-goddess owned count", async () => {
+    const { civicTierOf } = await import("@/lib/city/projection");
+    expect(civicTierOf(24)).toBe(1);
+    // Assembler path: visibleOwnedCount 24 with 2 goddesses → 22 buildings.
+    const { assembleCityNeighbors } = await import("@/lib/city/neighbors");
+    const neighbors = assembleCityNeighbors(
+      [
+        {
+          cardId: 1,
+          username: "npc_owner",
+          profession: null,
+          isNpc: 1,
+          playerValue: 900,
+        },
+      ],
+      new Map([[1, 24]]),
+      [
+        {
+          ownerId: 1,
+          cardId: 11,
+          username: "npc_a",
+          profession: null,
+          playerValue: 500,
+          valueFloor: 500,
+          isNpc: 1,
+          blockSellUntil: null,
+          permBlockUntil: null,
+          ownedByCityOwner: false,
+        },
+      ],
+      "cityowner",
+      new Date("2026-09-29T00:00:00.000Z"),
+      [
+        { ownerId: 1, username: GODDESS_USERNAMES[0] },
+        { ownerId: 1, username: GODDESS_USERNAMES[1] },
+      ]
+    );
+    expect(neighbors).toHaveLength(1);
+    expect(neighbors[0].civicTier).toBe(1); // 24 − 2 goddesses = 22 ≥ 10
+  });
+});

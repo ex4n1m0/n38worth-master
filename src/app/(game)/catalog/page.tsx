@@ -37,6 +37,7 @@ export default function CatalogPage() {
       sectionProtection: t.catalogSectionProtection,
       sectionHq: t.catalogSectionHq,
       sectionLandmarks: t.catalogSectionLandmarks,
+      sectionCivic: t.catalogSectionCivic,
       familyNames: [
         ...professions.map((name) => professionName(name, locale)),
         t.catalogUnassigned,
@@ -47,6 +48,13 @@ export default function CatalogPage() {
       stageLabels: [stage(1), stage(2), stage(3)],
       landmarkNames: GODDESS_USERNAMES.map((u) => cardDisplayName(u, locale)),
       unownedLabel: t.catalogUnowned,
+      civicNames: [
+        t.cityCivicPolice,
+        t.cityCivicFire,
+        t.cityCivicSchool,
+        t.cityCivicHospital,
+      ],
+      civicTierLabels: [t.cityCivicT1, t.cityCivicT2, t.cityCivicT3],
     };
   }, [t, locale]);
 

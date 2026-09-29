@@ -10,6 +10,8 @@ import {
   sectorsUnlocked,
   projectCity,
   heroStageOf,
+  civicTierOf,
+  CIVIC_TIER_THRESHOLDS,
 } from "@/lib/city/projection";
 import { UNASSIGNED_FAMILY } from "@/lib/city/types";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
@@ -441,5 +443,54 @@ describe("projectCity hero stages", () => {
     expect(city.landmarks[2].stage).toBe(1);
     // goddesses missing from the map default to stage 1
     expect(city.landmarks[3].stage).toBe(1);
+  });
+});
+
+describe("civic buildings (10 / 100 / 1000 thresholds, 2026-09-29)", () => {
+  it("civicTierOf walks the ladder exactly", () => {
+    expect([...CIVIC_TIER_THRESHOLDS]).toEqual([10, 100, 1000]);
+    expect(civicTierOf(0)).toBe(0);
+    expect(civicTierOf(9)).toBe(0);
+    expect(civicTierOf(10)).toBe(1);
+    expect(civicTierOf(99)).toBe(1);
+    expect(civicTierOf(100)).toBe(2);
+    expect(civicTierOf(999)).toBe(2);
+    expect(civicTierOf(1000)).toBe(3);
+    expect(civicTierOf(1e9)).toBe(3);
+  });
+
+  it("projectCity derives civic from the NON-GODDESS building count", () => {
+    const goddessCard = (username: string, id: number) =>
+      card({ cardId: id, username, profession: null, playerValue: 5_000 });
+    // 9 ordinary buildings + 2 goddesses → buildingCount 9 (goddesses are
+    // landmarks, never the civic basis), tier stays locked.
+    const cards = [
+      ...Array.from({ length: 9 }, (_, i) =>
+        card({ cardId: i + 1, username: `npc_${i}` })
+      ),
+      goddessCard(GODDESS_USERNAMES[0], 90),
+      goddessCard(GODDESS_USERNAMES[1], 91),
+    ];
+    const city = projectCity(profile, cards, NOW);
+    expect(city.civic).toEqual({ tier: 0, buildingCount: 9 });
+
+    // One more ordinary building crosses the 10 threshold → tier 1.
+    const grown = projectCity(
+      profile,
+      [...cards, card({ cardId: 10, username: "npc_10" })],
+      NOW
+    );
+    expect(grown.civic).toEqual({ tier: 1, buildingCount: 10 });
+  });
+
+  it("projectCity prefers SQL aggregates for the civic basis", () => {
+    const cards = Array.from({ length: 5 }, (_, i) =>
+      card({ cardId: i + 1, username: `npc_${i}` })
+    );
+    const city = projectCity(profile, cards, NOW, {
+      totalBuildings: 250,
+      familyTotals: { [UNASSIGNED_FAMILY]: 250 },
+    });
+    expect(city.civic).toEqual({ tier: 2, buildingCount: 250 });
   });
 });

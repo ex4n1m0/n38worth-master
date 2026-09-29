@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { GRID_SIZE } from "@/lib/city/layout-schema";
-import { tileRefKey, rankArrangeTiles } from "@/lib/city/placement";
+import {
+  tileRefKey,
+  rankArrangeTiles,
+  civicTileRef,
+  CIVIC_RING_OFFSETS,
+} from "@/lib/city/placement";
 import {
   ORBIT_START_RING,
   ORBIT_RING_STRIDE,
@@ -297,5 +302,43 @@ describe("spacedOrbitOrder (inter-building breathing room)", () => {
     expect(ORBIT_START_RING).toBe(4);
     const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 1);
     expect(spaced[0].ring).toBe(ORBIT_START_RING);
+  });
+});
+
+describe("civic lots (2026-09-29 ring-4 diagonals)", () => {
+  it("places the four kinds on the ring-4 diagonals, on the road-grid parity", () => {
+    const center = hqGlobalTile();
+    for (let i = 0; i < 4; i++) {
+      const t = civicTileRef(i);
+      // s0-local → global for the geometry checks.
+      const stride = macroStride(GRID_SIZE);
+      const gx = stride + t.x;
+      const gy = stride + t.y;
+      const dx = gx - center.x;
+      const dy = gy - center.y;
+      expect(Math.max(Math.abs(dx), Math.abs(dy))).toBe(4); // ring 4
+      expect(Math.abs(dx)).toBe(4);
+      expect(Math.abs(dy)).toBe(4); // the diagonals
+      expect((gx + gy) % 2).toBe((center.x + center.y) % 2); // checkerboard
+    }
+    // Four DISTINCT lots.
+    const keys = new Set(
+      Array.from({ length: 4 }, (_, i) => tileRefKey(civicTileRef(i)))
+    );
+    expect(keys.size).toBe(4);
+  });
+
+  it("civic lots clear the monument moat (plaza stays legible)", () => {
+    // Monument ring (IsoWorld LANDMARK_RING): (±3,0),(±2,±2),(0,±3); its moat
+    // is the 8 neighbors. Assert no civic lot is a monument neighbor.
+    const monuments = [
+      [3, 0], [2, 2], [0, 3], [-3, 0], [-2, -2], [0, -3],
+    ];
+    for (const off of CIVIC_RING_OFFSETS) {
+      for (const [mx, my] of monuments) {
+        const cheb = Math.max(Math.abs(off.dx - mx), Math.abs(off.dy - my));
+        expect(cheb).toBeGreaterThan(1);
+      }
+    }
   });
 });

@@ -64,6 +64,24 @@ export const DETAILED_LIMIT = resolveDetailedLimit(
 );
 
 /**
+ * CIVIC BUILDING thresholds (2026-09-29 user ruling): the four civic
+ * landmarks (Police/Fire/School/Hospital) materialize at 10 owned buildings
+ * and grow grander forms at 100 and 1000 — tier 1/2/3 respectively. The
+ * basis is the VISIBLE NON-GODDESS owned-building count (goddesses are
+ * landmarks), i.e. exactly `CityAggregates.totalBuildings`. Purely a VISUAL
+ * ladder: no economy effect, nothing persisted.
+ */
+export const CIVIC_TIER_THRESHOLDS = [10, 100, 1000] as const;
+
+/** Civic tier for a visible non-goddess owned-building count (0 = locked). */
+export function civicTierOf(buildingCount: number): 0 | 1 | 2 | 3 {
+  if (buildingCount >= CIVIC_TIER_THRESHOLDS[2]) return 3;
+  if (buildingCount >= CIVIC_TIER_THRESHOLDS[1]) return 2;
+  if (buildingCount >= CIVIC_TIER_THRESHOLDS[0]) return 1;
+  return 0;
+}
+
+/**
  * HERO-ART STAGES (2026-09-28 user ruling): the HQ core and the Six
  * monuments come in 3 value-driven forms; the FINAL form is reserved for
  * the neighborhood of the CURRENT MAX of the building's population — the
@@ -299,6 +317,12 @@ export function projectCity(
     (a, b) => b.total - a.total || a.profession.localeCompare(b.profession)
   );
 
+  // Civic buildings: the SAME visible non-goddess building count that feeds
+  // the family totals drives the civic tier ladder (10/100/1000).
+  const civicBuildingCount = aggregates
+    ? aggregates.totalBuildings
+    : buildingCards.length;
+
   return {
     owner: {
       username: profile.username,
@@ -319,5 +343,6 @@ export function projectCity(
     // assembler in neighbors.ts — pure data, never derived here).
     neighbors: neighbors ? [...neighbors] : [],
     rootSequenceEligible: landmarks.every((l) => l.owned),
+    civic: { tier: civicTierOf(civicBuildingCount), buildingCount: civicBuildingCount },
   };
 }

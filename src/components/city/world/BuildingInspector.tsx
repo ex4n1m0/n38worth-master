@@ -7,7 +7,11 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Flame,
+  GraduationCap,
+  HeartPulse,
   Loader2,
+  Shield,
   ShieldCheck,
   X,
   Zap,
@@ -20,12 +24,14 @@ import { useSound } from "@/hooks/useSound";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
+import { CIVIC_TIER_THRESHOLDS } from "@/lib/city/projection";
 import { formatCompact } from "@/lib/utils";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
 import {
   UNASSIGNED_FAMILY,
   type CityBuilding,
   type CityNeighbor,
+  type CivicKind,
 } from "@/lib/city/types";
 import type { CityWorldData } from "./CityWorld";
 
@@ -191,6 +197,7 @@ export function BuildingInspector({
   const selectedCardId = useCityWorldStore((s) => s.selectedCardId);
   const selectedForeign = useCityWorldStore((s) => s.selectedForeign);
   const selectedHq = useCityWorldStore((s) => s.selectedHq);
+  const selectedCivic = useCityWorldStore((s) => s.selectedCivic);
   const selectedUniverseBuilding = useCityWorldStore(
     (s) => s.selectedUniverseBuilding
   );
@@ -199,7 +206,7 @@ export function BuildingInspector({
   const [minimized, setMinimized] = useState(false);
   useEffect(() => {
     setMinimized(false);
-  }, [selectedCardId, selectedForeign, selectedHq, selectedUniverseBuilding]);
+  }, [selectedCardId, selectedForeign, selectedHq, selectedCivic, selectedUniverseBuilding]);
 
   const foreign =
     selectedForeign !== null && neighbors && neighbors.length > 0
@@ -370,13 +377,15 @@ export function BuildingInspector({
     selectedCardId === null &&
     foreign === null &&
     selectedHq === null &&
+    selectedCivic === null &&
     selectedUniverseBuilding === null
   ) {
     return null;
   }
 
   // ── minimized: slim bar over the map, selection preserved ──────────────
-  if (minimized) {
+  // (civic landmarks have no avatar for the bar — they always show full.)
+  if (minimized && selectedCivic === null) {
     const activeUsername =
       selectedHq ??
       selectedUniverseBuilding?.username ??
@@ -409,6 +418,92 @@ export function BuildingInspector({
           cardDisplayName(activeUsername, locale)
         )}
       />
+    );
+  }
+
+  // ── CIVIC LANDMARK panel (Police/Fire/School/Hospital, 2026-09-29) ─────
+  if (selectedCivic !== null) {
+    const kind: CivicKind = selectedCivic;
+    const civic = projection.civic ?? { tier: 0, buildingCount: 0 };
+    const tier = Math.max(1, Math.min(3, civic.tier || 1));
+    const nameFor = (k: CivicKind) =>
+      k === "police"
+        ? t.cityCivicPolice
+        : k === "fire"
+          ? t.cityCivicFire
+          : k === "school"
+            ? t.cityCivicSchool
+            : t.cityCivicHospital;
+    const tierLabel =
+      tier <= 1 ? t.cityCivicT1 : tier === 2 ? t.cityCivicT2 : t.cityCivicT3;
+    const noteFor = (k: CivicKind) =>
+      k === "police"
+        ? t.cityCivicNotePolice
+        : k === "fire"
+          ? t.cityCivicNoteFire
+          : k === "school"
+            ? t.cityCivicNoteSchool
+            : t.cityCivicNoteHospital;
+    const Icon =
+      kind === "police" ? Shield : kind === "fire" ? Flame : kind === "school" ? GraduationCap : HeartPulse;
+    const nextThreshold =
+      tier < 3 ? CIVIC_TIER_THRESHOLDS[tier] : null;
+    return (
+      <aside
+        id="city-inspector-body"
+        className="city-world-inspector"
+        role="region"
+        aria-label={t.cityCivicPanelTitle}
+      >
+        <header className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-800 ring-2 ring-blue-400">
+              <Icon className="h-5 w-5 text-blue-300" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-white">{nameFor(kind)}</h3>
+              <p className="truncate text-[11px] font-semibold tracking-widest text-blue-300">
+                {t.cityCivicPanelTitle} · {t.cityInspectorTierValue.replace("{tier}", String(tier))}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => getCityWorldStore().selectCivic(null)}
+              aria-label={t.cityInspectorClose}
+              className="city-world-btn"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dt className="font-semibold text-gray-500">{t.cityInspectorTier}</dt>
+          <dd className="truncate font-bold text-cyan-300">{tierLabel}</dd>
+          <dt className="font-semibold text-gray-500">{t.cityStatBuildings}</dt>
+          <dd className="font-bold tabular-nums text-white">
+            {formatCompact(civic.buildingCount)}
+          </dd>
+        </dl>
+
+        <p className="mt-2 rounded-md border border-gray-800 px-2 py-1.5 text-[11px] font-bold text-gray-400">
+          {noteFor(kind)}
+        </p>
+
+        {nextThreshold !== null ? (
+          <p className="mt-2 rounded-md border border-blue-900 px-2 py-1.5 text-[11px] font-bold text-blue-300">
+            {t.cityCivicNextTier
+              .replace("{threshold}", nextThreshold.toLocaleString("en-US"))
+              .replace("{count}", formatCompact(civic.buildingCount))}
+          </p>
+        ) : (
+          <p className="mt-2 rounded-md border border-emerald-900 px-2 py-1.5 text-[11px] font-bold text-emerald-300">
+            {t.cityCivicMaxTier}
+          </p>
+        )}
+      </aside>
     );
   }
 

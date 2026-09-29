@@ -45,8 +45,8 @@ describe("locale helpers", () => {
   });
 
   it("professionName translates zh and passes through en / unknown / null", () => {
-    expect(professionName("Cryptographer", "zh")).toBe("密码学家");
-    expect(professionName("Cryptographer")).toBe("Cryptographer");
+    expect(professionName("Cryptographer", "zh")).toBe("公证人");
+    expect(professionName("Cryptographer")).toBe("Notary");
     expect(professionName("NotAProfession", "zh")).toBe("NotAProfession");
     expect(professionName(null)).toBe("");
   });

@@ -27,10 +27,11 @@ import { Application, Container, Text } from "pixi.js";
 import { BuildingSprite } from "@/components/city/world/scene/BuildingSprite";
 import { HqSprite } from "@/components/city/world/scene/HqSprite";
 import { LandmarkSprite } from "@/components/city/world/scene/landmarks";
+import { CivicSprite, CIVIC_COLORS } from "@/components/city/world/scene/civic";
 import { professionNeon } from "@/components/city/world/scene/art";
 import { LIGHT_STEP_MS } from "@/lib/city/scene/lights";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
-import type { CityBuilding, BuildingTier } from "@/lib/city/types";
+import { CIVIC_KINDS, type CityBuilding, type BuildingTier } from "@/lib/city/types";
 
 /** Pre-resolved, locale-aware labels (built by the page via useLanguage). */
 export interface CatalogStrings {
@@ -39,6 +40,8 @@ export interface CatalogStrings {
   sectionProtection: string;
   sectionHq: string;
   sectionLandmarks: string;
+  /** Civic landmarks section (2026-09-29): 4 kinds × 3 growth tiers. */
+  sectionCivic: string;
   /** 7 row labels: professions in roster order + unassigned last. */
   familyNames: string[];
   /** DB profession per row (null = unassigned) — drives the neon accent. */
@@ -50,6 +53,10 @@ export interface CatalogStrings {
   stageLabels: string[];
   landmarkNames: string[];
   unownedLabel: string;
+  /** Civic kind names, CIVIC_KINDS order (police/fire/school/hospital). */
+  civicNames: string[];
+  /** Civic tier captions (10 / 100 / 1000 buildings). */
+  civicTierLabels: string[];
 }
 
 const LEFT = 170;
@@ -61,6 +68,8 @@ const ROW_H_GRAND = 268;
 /** HQ stage 3 reaches 190px; monuments scale to ~278px at stage 3. */
 const HQ_SECTION_H = 320;
 const LANDMARK_ROW_H = 340;
+/** Civic rows: tier-3 bodies reach ~172px. */
+const CIVIC_ROW_H = 236;
 /** 14 progression levels, two leagues of ONE art system: civic (T1–T7)
  *  then the grand spectacular megaforms (T8–T14) — one 7-column grid each. */
 const TIER_TAGS_CIVIC = ["T1 · 1×", "T2 · 2×", "T3 · 4×", "T4 · 8×", "T5 · 16×", "T6 · 32×", "T7 · 64×"];
@@ -125,6 +134,7 @@ export default function BuildingsCatalogMount({
     const buildingSprites: BuildingSprite[] = [];
     const hqSprites: HqSprite[] = [];
     const landmarkSprites: LandmarkSprite[] = [];
+    const civicSprites: CivicSprite[] = [];
     /** Animated-light interval (see lib/city/scene/lights.ts). */
     let lightsInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -159,6 +169,7 @@ export default function BuildingsCatalogMount({
       for (const s of buildingSprites) s.setDaylight(v);
       for (const h of hqSprites) h.setDaylight(v);
       for (const m of landmarkSprites) m.setDaylight(v);
+      for (const c of civicSprites) c.setDaylight(v);
       const day = v >= 0.5;
       if (app) app.renderer.background.color = day ? BG_DAY : BG_NIGHT;
       for (const { text, role, nightFill } of labels) {
@@ -183,6 +194,8 @@ export default function BuildingsCatalogMount({
       y += HQ_SECTION_H;
       const landmarkTop = y;
       y += 6 * LANDMARK_ROW_H + 30;
+      const civicLandmarksTop = y + 56;
+      y = civicLandmarksTop + CIVIC_KINDS.length * CIVIC_ROW_H + 20;
       const H = y;
 
       const application = new Application();
@@ -310,6 +323,34 @@ export default function BuildingsCatalogMount({
         }
       }
 
+      // ── Section E: civic landmarks × growth tiers (2026-09-29) ───────
+      root.addChild(label(s.sectionCivic, 20, civicLandmarksTop - 56, "section"));
+      s.civicTierLabels.forEach((tag, i) => {
+        root.addChild(label(tag, colX(i), civicLandmarksTop - 16, "sub", 0.5));
+      });
+      CIVIC_KINDS.forEach((kind, row) => {
+        const rowTop = civicLandmarksTop + row * CIVIC_ROW_H;
+        const baseY = rowTop + 180;
+        root.addChild(
+          label(
+            s.civicNames[row] ?? kind,
+            LEFT - 24,
+            baseY - 80,
+            "family",
+            1,
+            CIVIC_COLORS[kind].neon
+          )
+        );
+        for (let tier = 1; tier <= 3; tier++) {
+          const civic = new CivicSprite(kind, tier as 1 | 2 | 3);
+          civic.setLod("close");
+          civic.setDaylight(daylightRef.current);
+          civic.position.set(colX(tier - 1), baseY);
+          root.addChild(civic);
+          civicSprites.push(civic);
+        }
+      });
+
       // Animated lights — the SAME quantized clock the city scene uses:
       // sample the beacon/halo curves, render once per step, only while the
       // page is visible. Reduced motion keeps the static initial alphas.
@@ -323,6 +364,7 @@ export default function BuildingsCatalogMount({
           for (const s of buildingSprites) s.updateLights(t);
           for (const h of hqSprites) h.updateLights(t);
           for (const m of landmarkSprites) m.updateLights(t);
+          for (const c of civicSprites) c.updateLights(t);
           app?.render();
         }, LIGHT_STEP_MS);
       }
