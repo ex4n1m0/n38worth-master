@@ -180,7 +180,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
         .where(eq(ownership.ownerId, buyerId));
       const currentOwned = Number(ownedCountRow?.count ?? 0);
       return {
-        error: `🔒 ${cardDisplayName(MASS_HIRE_USERNAME)} unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} avatars (Mission 1). You own ${currentOwned}.`,
+        error: `🔒 ${cardDisplayName(MASS_HIRE_USERNAME)} unlocks at ${MASS_HIRE_UNLOCK_THRESHOLD} buildings. You own ${currentOwned}.`,
       };
     }
 
@@ -202,7 +202,7 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
     const slotLimit = buyer.hireSlots + marshalBonus;
     const availableSlots = slotLimit - currentOwned;
     if (availableSlots <= 0) {
-      return { error: `You've reached your hire limit of ${slotLimit} players.` };
+      return { error: `You've reached your plot limit of ${slotLimit} buildings.` };
     }
     const maxHires = Math.min(hireLimit, availableSlots);
 

@@ -89,7 +89,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
 
     // Check if owner has enough credits
     if (owner.credits < cost) {
-      return { error: `Not enough credits. You need ${cost}¢ (100% of ${ownedPlayer.username}'s value of ${ownedPlayer.playerValue}¢)` };
+      return { error: `Not enough capital. You need ${cost}¢ (100% of ${ownedPlayer.username}'s value of ${ownedPlayer.playerValue}¢)` };
     }
 
     // Calculate new expiry: if already blocked, extend from current expiry; otherwise from now
@@ -100,7 +100,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
     // 12-hour hard cap on total sell block
     const remainingBlockMs = Math.max(0, currentBlockEnd - Date.now());
     if (remainingBlockMs >= MAX_BLOCK_MS) {
-      return { error: "Sell block is already at the 12-hour maximum. Wait for it to decrease before adding more." };
+      return { error: "Deed lock is already at the 12-hour maximum. Wait for it to decrease before adding more." };
     }
 
     const newExpiresAt = new Date(currentBlockEnd + PUMP_BLOCK_DURATION_MS);
@@ -170,7 +170,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
       hour12: true,
     });
 
-    const blockContent = `🚀 ${owner.username} OVERCLOCKED you! +10m firewall, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
+    const blockContent = `🔨 ${owner.username} RENOVATED you! +10m deed lock, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
 
     const [blockMessage] = await db
       .insert(messages)
@@ -202,7 +202,7 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
         pusher.trigger(`chat-private-${ownerId}`, "new-message", messagePayload),
         pusher.trigger(`chat-private-${record.ownedId}`, "new-message", messagePayload),
         pusher.trigger(`player-${record.ownedId}`, "credits-updated", {
-          message: `${owner.username} OVERCLOCKED you! You received ${creditsToPlayer}¢`,
+          message: `${owner.username} renovated you! You received ${creditsToPlayer}¢`,
         }),
         pusher.trigger(`player-${ownerId}`, "credits-updated", {
           newCredits: owner.credits - cost,
@@ -222,6 +222,6 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
     };
   } catch (error) {
     console.error("Pump player error:", error);
-    return { error: "Overclock failed. Please try again." };
+    return { error: "Renovation failed. Please try again." };
   }
 }

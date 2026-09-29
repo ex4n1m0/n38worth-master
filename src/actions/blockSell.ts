@@ -63,7 +63,7 @@ export async function blockSell(ownershipId: number) {
 
     // Check if owner has enough credits
     if (owner.credits < cost) {
-      return { error: `Not enough credits. You need ${cost}¢ (100% of ${ownedPlayer.username}'s value of ${ownedPlayer.playerValue}¢)` };
+      return { error: `Not enough capital. You need ${cost}¢ (100% of ${ownedPlayer.username}'s value of ${ownedPlayer.playerValue}¢)` };
     }
 
     // Calculate new expiry: if already blocked, extend from current expiry; otherwise from now
@@ -74,7 +74,7 @@ export async function blockSell(ownershipId: number) {
     // 12-hour hard cap on total sell block
     const remainingBlockMs = Math.max(0, currentBlockEnd - Date.now());
     if (remainingBlockMs >= MAX_BLOCK_MS) {
-      return { error: "Sell block is already at the 12-hour maximum. Wait for it to decrease before adding more." };
+      return { error: "Deed lock is already at the 12-hour maximum. Wait for it to decrease before adding more." };
     }
 
     const newExpiresAt = new Date(currentBlockEnd + BLOCK_SELL_DURATION_MS);
@@ -125,7 +125,7 @@ export async function blockSell(ownershipId: number) {
       hour12: true,
     });
 
-    const blockContent = `🔒 ${owner.username} FIREWALLED you! +1h protection, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
+    const blockContent = `🔒 ${owner.username} put a DEED LOCK on you! +1h protection, value → ${newValue}¢ (+${creditsToPlayer}¢ gifted) — ${timestamp}`;
 
     const [blockMessage] = await db
       .insert(messages)
@@ -157,7 +157,7 @@ export async function blockSell(ownershipId: number) {
         pusher.trigger(`chat-private-${ownerId}`, "new-message", messagePayload),
         pusher.trigger(`chat-private-${record.ownedId}`, "new-message", messagePayload),
         pusher.trigger(`player-${record.ownedId}`, "credits-updated", {
-          message: `${owner.username} firewalled you from being sold! You received ${cost}¢`,
+          message: `${owner.username} deed-locked you from being sold! You received ${cost}¢`,
         }),
         pusher.trigger(`player-${ownerId}`, "credits-updated", {
           newCredits: owner.credits - cost,
@@ -176,6 +176,6 @@ export async function blockSell(ownershipId: number) {
     };
   } catch (error) {
     console.error("Block sell error:", error);
-    return { error: "Block sell failed. Please try again." };
+    return { error: "Deed lock failed. Please try again." };
   }
 }

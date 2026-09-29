@@ -32,7 +32,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
   const buyerId = parseInt(session.user.id);
 
   if (buyerId === targetId) {
-    return { error: "You cannot hire yourself" };
+    return { error: "You cannot acquire yourself" };
   }
 
   try {
@@ -82,7 +82,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     const buyerHasAvatar = !!buyer.avatarUrl && buyer.avatarCompleted === 1;
     const targetIsHuman = target.isNpc === 0 && !isBonusCard && !isGoddess;
     if (targetIsHuman && !buyerHasAvatar) {
-      return { error: "You need to upload a profile photo before you can hire human players" };
+      return { error: "You need to upload a profile photo before you can acquire human players" };
     }
 
     // Mission lock: goddesses and the 3 passive bonus cards can only be bought
@@ -96,7 +96,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     const purchaseUnlocked = await canPurchaseCard(buyerId, target.username);
     if (!purchaseUnlocked) {
       return {
-        error: `🔒 ${target.username} is locked. Win it from a mission first to unlock buying it with credits.`,
+        error: `🔒 ${target.username} is locked. Win it from a permit first to unlock buying it with capital.`,
       };
     }
 
@@ -120,9 +120,9 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     // 3. Validate buyer has enough credits
     if (buyer.credits < cost) {
       if (isBonusCard) {
-        return { error: `Insufficient credits. You need ${cost}¢ to hire ${target.username}` };
+        return { error: `Insufficient capital. You need ${cost}¢ to acquire ${target.username}` };
       }
-      return { error: `Insufficient credits. You need ${cost}¢ (${costMultiplier}x player value)` };
+      return { error: `Insufficient capital. You need ${cost}¢ (${costMultiplier}x building value)` };
     }
 
     // 4. Check buyer doesn't already own this player
@@ -134,7 +134,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       );
 
     if (existingOwnership.length > 0) {
-      return { error: "You already own this player" };
+      return { error: "You already own this building" };
     }
 
     // 4b. Check ownership limit (dynamic per-player hire_slots cap).
@@ -149,7 +149,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
       .where(eq(ownership.ownerId, buyerId));
 
     if (ownershipCount.count >= ownershipLimit) {
-      return { error: `You've reached your hire limit of ${ownershipLimit} players. Buy more slots to expand your team!` };
+      return { error: `You've reached your plot limit of ${ownershipLimit} buildings. Buy more plots to expand your city!` };
     }
 
     // 5. Get the current owner of target (single owner now)
@@ -194,7 +194,7 @@ export async function purchasePlayer(targetId: number, blockDurationHours: numbe
     if ((currentBlockEnd > Date.now() || permBlockEnd > Date.now()) && !isOnboardingNpc) {
       const expiresAt = new Date(Math.max(currentBlockEnd, permBlockEnd));
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
-      return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
+      return { error: `${target.username} is under a protected leasehold and cannot be acquired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }
 
     // 5c. Count how many players the previous owner owns (for bonus calculation)

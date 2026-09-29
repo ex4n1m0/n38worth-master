@@ -2,11 +2,11 @@
  * Shared goddess constants used across the game.
  * Single source of truth for goddess names and their original values.
  *
- * Sci-fi rebrand note (2026-09): the usernames below are load-bearing DB
+ * City rebrand note (2026-09-29): the usernames below are load-bearing DB
  * keys (mission rewards, purchase locks, power bitmask settings) and stay
  * unchanged. The user-facing names live in src/lib/display-names.ts:
- * The Architect, The Banker, The Oracle, The Locksmith, The Clockkeeper,
- * NullPointer. Collectively: "the Six".
+ * The Architect, The Banker, The Surveyor, The Registrar, The Foreman,
+ * The Wrecker. Collectively: "the Founders" (CITY_REBRAND_STUDY.md §3).
  */
 
 export const GODDESS_USERNAMES: string[] = [
@@ -18,24 +18,24 @@ export const GODDESS_USERNAMES: string[] = [
   "Goddess of Wealth",
 ];
 
-/** Power description shown on each goddess card */
+/** Power description shown on each Founder card */
 export const GODDESS_POWERS: Record<string, string> = {
-  "Goddess of Wealth": "Holder earns double portfolio rewards and double boss tax from players they own.",
-  "Goddess of Knowledge": "Holder sees every building, including cloaked ones.",
-  "Goddess of Fate": "Holder's owned players get a permanent hard-lock; breaching it costs 1000× the player's value.",
-  "Goddess of Time": "Holder collects portfolio rewards (and pays boss tax) twice as often.",
-  "Goddess of War": "Holder breaches firewalls for free, paying only the normal hire cost — except during a partnership's initial unbreakable window. Can also destroy an owned card (1-min cooldown): NPCs are deleted and replaced by 2 fresh NPCs; humans reset to 1¢ and are released.",
-  "Goddess": "Holder activates the powers of all other daemons, even ones they don't hold.",
+  "Goddess of Wealth": "Holder collects double rent and double management fees from the buildings they own.",
+  "Goddess of Knowledge": "The Surveyor's maps show every building in the city — including off-market ones.",
+  "Goddess of Fate": "Every building you own gets a sealed deed — foreclosing one costs 1000× its value.",
+  "Goddess of Time": "On the Foreman's site payday comes twice as often — rent (and management fees) at double frequency.",
+  "Goddess of War": "Foreclose any leasehold for free, paying only the building's price. Can also demolish one owned building (1-min cooldown): NPC buildings are cleared and two fresh ones rise in their place; humans are reset to 1¢ and walk free.",
+  "Goddess": "The master builder who drew the city's first blueprint grants every Founder's power — even those you don't hold.",
 };
 
 /** Simplified-Chinese power descriptions (DB usernames stay English). */
 export const GODDESS_POWERS_ZH: Record<string, string> = {
-  "Goddess of Wealth": "持有者的投资组合奖励翻倍，且从拥有的玩家处收取的老板税翻倍。",
-  "Goddess of Knowledge": "持有者可以看见每个建筑，包括隐匿建筑。",
-  "Goddess of Fate": "持有者拥有的玩家获得永久硬锁；击穿需支付该玩家身价的 1000 倍。",
-  "Goddess of Time": "持有者收取投资组合奖励（并支付老板税）的频率翻倍。",
-  "Goddess of War": "持有者可免费击穿防火墙，只需支付正常雇佣费用——搭档关系初始的不可解除期除外。还可销毁一张拥有的卡牌（冷却 1 分钟）：NPC 被删除并由 2 个新 NPC 替代；人类玩家重置为 1¢ 并被释放。",
-  "Goddess": "持有者可激活其他所有守护者的能力，即使并未持有它们。",
+  "Goddess of Wealth": "持有者收取的租金与管理费翻倍。",
+  "Goddess of Knowledge": "测绘师的地图看得到全城每一座建筑——包括未挂牌的。",
+  "Goddess of Fate": "你名下所有建筑契据加封——法拍需支付其 1000 倍估值。",
+  "Goddess of Time": "工地由监工掌舵——发薪日频率翻倍：收租（与缴费）都更勤。",
+  "Goddess of War": "免费法拍任意租约持有，只需支付建筑价格。还可拆除名下一座建筑（冷却 1 分钟）：NPC 建筑被清场并由两座新建筑取代；人类重置为 1¢ 并重获自由。",
+  "Goddess": "画出城市第一张蓝图的总建筑师，授予全部奠基人权能——即使你并未持有对方。",
 };
 
 /** Locale-aware power description for a goddess username. */

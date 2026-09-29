@@ -72,7 +72,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         play("error");
-        setError(data.error || "Demo registration failed");
+        setError(data.error || t.registrationFailed);
         setDemoLoading(false);
         return;
       }
@@ -85,7 +85,7 @@ export default function RegisterPage() {
 
       if (result?.error) {
         play("error");
-        setError("Failed to sign in as demo player");
+        setError(t.demoSignInFailed);
         setDemoLoading(false);
       } else {
         // Hard navigation so the freshly-created demo session is fully picked
@@ -95,7 +95,7 @@ export default function RegisterPage() {
         window.location.href = "/my-profile?autoCards=1";
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t.somethingWrong);
       setDemoLoading(false);
     }
   }
@@ -113,7 +113,7 @@ export default function RegisterPage() {
 
     if (password !== confirmPassword) {
       play("error");
-      setError("Passwords do not match");
+      setError(t.passwordsNoMatch);
       setLoading(false);
       return;
     }
@@ -134,7 +134,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         play("error");
-        setError(data.error || "Registration failed");
+        setError(data.error || t.registrationFailed);
         setLoading(false);
         return;
       }
@@ -158,7 +158,7 @@ export default function RegisterPage() {
       }
     } catch {
       play("error");
-      setError("Something went wrong. Please try again.");
+      setError(t.somethingWrong);
     } finally {
       setLoading(false);
     }
@@ -245,7 +245,7 @@ export default function RegisterPage() {
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-gray-900 px-2 text-gray-500">
-                  DEMO PLAY
+                  {t.demoPlayLabel}
                 </span>
               </div>
             </div>
@@ -256,10 +256,10 @@ export default function RegisterPage() {
               onClick={handleDemoPlay}
               className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white font-semibold"
             >
-              {demoLoading ? "Creating..." : "DEMO PLAY"}
+              {demoLoading ? t.creatingPlayer : t.demoPlayLabel}
             </Button>
             <p className="text-xs text-amber-400 text-center">
-              Demo players are automatically deleted after 1 hour
+              {t.demoPlayersDeletedNote}
             </p>
 
             <div className="relative w-full">
@@ -285,13 +285,13 @@ export default function RegisterPage() {
                   try {
                     await signInWithGoogleInBrowser("/my-profile?autoCards=1");
                   } catch {
-                    setError("Google sign-in failed. Please try again.");
+                    setError(t.googleSignInFailed);
                     setGoogleLoading(false);
                   }
                 } else {
                   // Use NextAuth signIn directly for web
                   signIn("google", { callbackUrl: "/my-profile?autoCards=1" }).catch(() => {
-                    setError("Google sign-in failed. Please try again.");
+                    setError(t.googleSignInFailed);
                     setGoogleLoading(false);
                   });
                 }

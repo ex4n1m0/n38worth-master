@@ -4,18 +4,18 @@ import { eq, and, isNotNull, inArray } from "drizzle-orm";
 import { PROFESSIONS, PROFESSION_PERKS } from "@/lib/professions";
 
 /**
- * Profession perks ("Firmware Perks") — each profession grants a passive benefit
+ * Profession perks ("Trade Secrets") — each profession grants a passive benefit
  * to a player while they either ARE that profession or OWN at least one card
- * with it. Binary (doesn't stack per card). Selling a profession combo gives
- * up the perks of the sold professions until the player rebuilds.
+ * with it. Binary (doesn't stack per card). Selling a development gives
+ * up the perks of the sold trades until the player rebuilds.
  *
- * Perk table (rarer profession = stronger perk):
- *   Cryptographer  (5%)  — Deep Encryption:  block-sells last +50% longer (1.5h/press)
- *   Zero-Day       (6%)  — Exploit Chain:    break fees 20% cheaper (hard-lock 1000× unaffected)
- *   Overclocker    (7%)  — Turbo Boost:      pump costs 10% less, still doubles value
- *   Cache Keeper   (8%)  — Cached Dividends: daily login reward +25% (bonus minted)
- *   Server Marshal (9%)  — Extra Racks:      +2 hire slots
- *   Bot Herder    (10%)  — Wider Botnet:     Mass Hire grabs +1 extra card
+ * DB values stay English (city display names in professions.ts):
+ *   Cryptographer  (5%)  — Notary / Notarized Deeds:  deed locks last +50% longer (1.5h/press)
+ *   Zero-Day       (6%)  — Auctioneer / Inside Bid:    foreclosure fees 20% cheaper (sealed deeds' 1000× unaffected)
+ *   Overclocker    (7%)  — Renovator / In-House Crew:  renovate costs 10% less, still doubles value
+ *   Cache Keeper   (8%)  — Vault Keeper / Accrued Interest: daily dividend +25% (bonus minted)
+ *   Server Marshal (9%)  — City Planner / Upzoned:     +2 land plots
+ *   Bot Herder    (10%)  — Prospector / Sharp Eye:     Land Grab grabs +1 extra card
  */
 
 export { PROFESSION_PERKS };

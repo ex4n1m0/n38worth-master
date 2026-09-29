@@ -4,19 +4,18 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { getPusherClient } from "@/lib/pusher-client";
 import { playSound } from "@/hooks/useSound";
-import { MatrixRain } from "@/components/MatrixRain";
 import { useLanguage } from "@/components/LanguageContext";
 
 /**
- * Full-screen "Simulation is Rebooting" overlay.
+ * Full-screen "City Is Being Rebuilt" overlay.
  *
  * Can be triggered by:
  * 1. Pusher "world-rebooting" event (received by all connected clients)
  * 2. Direct call via `triggerWorldReboot()` (used by the test reset button
  *    to guarantee the overlay shows even if the Pusher event is missed)
  *
- * Covers the entire screen with solid black, shows "The Simulation is Rebooting"
- * message and a progress bar that animates from 0% to 100% over 60 seconds.
+ * Covers the entire screen with solid black, shows "The City Is Being
+ * Rebuilt" and a progress bar that animates from 0% to 100% over 10 seconds.
  * Rendered via a portal to document.body so it escapes all stacking contexts.
  */
 
@@ -152,9 +151,6 @@ export function WorldRebootingOverlay() {
           backgroundColor: "rgba(0,0,0,0.5)",
         }}
       />
-
-      {/* Code rain over the backdrop */}
-      <MatrixRain opacity={0.28} />
 
       {/* Title */}
       <div style={{ position: "relative", textAlign: "center", padding: "0 1rem", marginBottom: "2.5rem" }}>

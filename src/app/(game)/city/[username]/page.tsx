@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PublicCityView } from "@/components/city/PublicCityView";
 
 /**
- * Public read-only visit of a player's Mainframe City (Phase F).
+ * Public read-only visit of a player's city (Phase F).
  *
  * The page itself does no data fetching — the client view consumes the same
  * public CDN-cached projection as everything else (GET /api/city/[username],
@@ -18,8 +18,8 @@ export async function generateMetadata({
   const { username } = await params;
   const safe = username.slice(0, 30);
   return {
-    title: `${safe}'s Mainframe City — n38worth`,
-    description: `Visit ${safe}'s Mainframe City: buildings, districts, and monuments derived from their live portfolio on n38worth.`,
+    title: `${safe}'s City — n38worth`,
+    description: `Visit ${safe}'s city: buildings, districts and landmarks derived from their live portfolio on n38worth.`,
   };
 }
 

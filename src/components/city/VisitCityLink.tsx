@@ -5,7 +5,7 @@ import { useCityEnabled } from "@/hooks/useCityEnabled";
 import { useLanguage } from "@/components/LanguageContext";
 
 /**
- * "Visit Mainframe City" chip (Phase F): flag-gated link from a player's
+ * "Visit {name}'s city" chip (Phase F): flag-gated link from a player's
  * profile to their public read-only city (/city/[username] — which redirects
  * to the build-mode home when the visitor IS the owner). Rendered only when
  * the city_enabled flag is on, so the entry point can ship dark.
@@ -21,7 +21,7 @@ export function VisitCityLink({ username }: { username: string }) {
       aria-label={t.cityProfileVisitLink.replace("{name}", username)}
     >
       <Building2 className="h-3 w-3" aria-hidden="true" />
-      {t.cityProfileVisitLink}
+      {t.cityProfileVisitLink.replace("{name}", username)}
     </a>
   );
 }

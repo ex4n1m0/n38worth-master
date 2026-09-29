@@ -43,12 +43,12 @@ export interface SellComboResult {
  */
 export async function sellComboCore(ownerId: number, playerIds: number[]): Promise<SellComboResult> {
   if (!Array.isArray(playerIds) || playerIds.length !== 6) {
-    return { error: "Exactly 6 players are required for a profession combo" };
+    return { error: "Exactly 6 buildings are required for a development" };
   }
 
   const uniqueIds = new Set(playerIds);
   if (uniqueIds.size !== 6) {
-    return { error: "All 6 players must be unique" };
+    return { error: "All 6 buildings must be unique" };
   }
 
   try {
@@ -64,7 +64,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
       );
 
     if (ownershipRecords.length !== 6) {
-      return { error: "You must own all 6 players in the combo" };
+      return { error: "You must own all 6 buildings in the development" };
     }
 
     // 2. Fetch the 6 players and validate professions
@@ -82,7 +82,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
       .where(inArray(users.id, playerIds));
 
     if (targetPlayers.length !== 6) {
-      return { error: "Some players were not found" };
+      return { error: "Some buildings were not found" };
     }
 
     // 3. Validate all 6 have distinct non-null professions
@@ -90,10 +90,10 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
     const professionSet = new Set(professions);
 
     if (professions.some((p) => !p)) {
-      return { error: "All 6 players must have a profession" };
+      return { error: "All 6 buildings must have a trade" };
     }
     if (professionSet.size !== 6) {
-      return { error: "All 6 players must have different professions" };
+      return { error: "All 6 buildings must have different trades" };
     }
 
     // 4. Check for active sell blocks
@@ -108,7 +108,7 @@ export async function sellComboCore(ownerId: number, playerIds: number[]): Promi
           (expiresAt.getTime() - Date.now()) / 60000
         );
         return {
-          error: `${target?.username ?? "A building"} is firewalled and can't be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
+          error: `${target?.username ?? "A building"} is deed-locked and can't be sold for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}`,
         };
       }
     }

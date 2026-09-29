@@ -2,14 +2,16 @@
  * Professions system - players can choose a profession during onboarding,
  * and NPCs randomly acquire one with weighted probabilities.
  *
- * Sci-fi rebrand mapping (2026-09): Rift Binder → Cryptographer,
- * Hexblade Courier → Zero-Day, Scrap Alchemist → Overclocker,
- * Spirit Archivist → Cache Keeper, Iron Choir Marshal → Server Marshal,
- * Plague Cartographer → Bot Herder. Existing DB rows were migrated with
- * `npm run rebrand:professions`.
+ * City-building rebrand (2026-09-29, CITY_REBRAND_STUDY.md §4): DISPLAY-ONLY.
+ * The DB values below (Cryptographer, Zero-Day, …) are load-bearing contracts
+ * (users.profession rows, art-family keys, pixel-sheet filenames) and stay
+ * English forever; the UI renders the city "trade" names (Notary, Auctioneer,
+ * Renovator, Vault Keeper, City Planner, Prospector) at display time via
+ * `professionName()` / `professionPerk()`. No DB migration this time.
  *
- * Simplified Chinese (2026-09): DB rows keep the English names; the UI
- * translates at display time via `professionName()` / `professionPerk()`.
+ * History: fantasy names were renamed in code AND data (2026-09 sci-fi
+ * rebrand, `npm run rebrand:professions`); the city rebrand does NOT repeat
+ * that — indirection only.
  */
 
 import type { Locale } from "./i18n";
@@ -92,79 +94,90 @@ export function getProfessionImage(professionName: string | null | undefined): s
   return profession?.imagePath ?? null;
 }
 
+/** City-building ("trade") display names, keyed by the DB (English) name. */
+export const PROFESSION_DISPLAY_NAMES: Record<string, string> = {
+  Cryptographer: "Notary",
+  "Zero-Day": "Auctioneer",
+  Overclocker: "Renovator",
+  "Cache Keeper": "Vault Keeper",
+  "Server Marshal": "City Planner",
+  "Bot Herder": "Prospector",
+};
+
 /** Simplified-Chinese display names, keyed by the DB (English) name. */
 export const PROFESSION_NAMES_ZH: Record<string, string> = {
-  Cryptographer: "密码学家",
-  "Zero-Day": "零日客",
-  Overclocker: "超频师",
-  "Cache Keeper": "缓存管家",
-  "Server Marshal": "服务器执法官",
-  "Bot Herder": "僵尸牧人",
+  Cryptographer: "公证人",
+  "Zero-Day": "拍卖师",
+  Overclocker: "翻新师",
+  "Cache Keeper": "金库管家",
+  "Server Marshal": "城市规划师",
+  "Bot Herder": "勘探者",
 };
 
 /** Locale-aware display name for a profession (DB names stay English). */
 export function professionName(name: string | null | undefined, locale: Locale = "en"): string {
   if (!name) return "";
-  return locale === "zh" ? (PROFESSION_NAMES_ZH[name] ?? name) : name;
+  if (locale === "zh") return PROFESSION_NAMES_ZH[name] ?? name;
+  return PROFESSION_DISPLAY_NAMES[name] ?? name;
 }
 
 /**
- * Profession perks ("Firmware Perks") — display metadata. A perk is active for a
+ * Profession perks ("Trade Secrets") — display metadata. A perk is active for a
  * player while they either ARE that profession or OWN at least one card with
  * it. Server-side checks live in src/lib/professionPerks.ts.
  */
 export const PROFESSION_PERKS: Record<string, { name: string; description: string }> = {
   "Cryptographer": {
-    name: "Deep Encryption",
-    description: "Your firewalls last 50% longer (1.5h per press).",
+    name: "Notarized Deeds",
+    description: "Your deed locks last 50% longer (1.5h per press).",
   },
   "Zero-Day": {
-    name: "Exploit Chain",
-    description: "Breaches you pay for are 20% cheaper.",
+    name: "Inside Bid",
+    description: "Foreclosures you pay for are 20% cheaper.",
   },
   "Overclocker": {
-    name: "Turbo Boost",
-    description: "Overclocking costs 10% less but still doubles the building's value.",
+    name: "In-House Crew",
+    description: "Renovations cost 10% less but still double the building's value.",
   },
   "Cache Keeper": {
-    name: "Cached Dividends",
-    description: "Your daily login reward is 25% bigger.",
+    name: "Accrued Interest",
+    description: "Your daily dividend is 25% bigger.",
   },
   "Server Marshal": {
-    name: "Extra Racks",
-    description: "+2 hire slots.",
+    name: "Upzoned",
+    description: "+2 land plots.",
   },
   "Bot Herder": {
-    name: "Wider Botnet",
-    description: "Botnet grabs +1 extra building.",
+    name: "Sharp Eye",
+    description: "Land Grab claims +1 extra building.",
   },
 };
 
 /** Simplified-Chinese perk display metadata, keyed by the DB profession name. */
 export const PROFESSION_PERKS_ZH: Record<string, { name: string; description: string }> = {
   "Cryptographer": {
-    name: "深度加密",
-    description: "你的防火墙持续时间延长 50%（每次点击 1.5 小时）。",
+    name: "公证契据",
+    description: "你的契锁持续时间延长 50%（每次加签 1.5 小时）。",
   },
   "Zero-Day": {
-    name: "漏洞链",
-    description: "你支付的击穿费用便宜 20%。",
+    name: "内幕出价",
+    description: "你支付的法拍费用便宜 20%。",
   },
   "Overclocker": {
-    name: "涡轮加速",
-    description: "超频费用减少 10%，但依然使建筑身价翻倍。",
+    name: "自有施工队",
+    description: "翻新费用减少 10%，但建筑估值依然翻倍。",
   },
   "Cache Keeper": {
-    name: "缓存分红",
-    description: "你的每日登录奖励增加 25%。",
+    name: "生息",
+    description: "你的每日分红增加 25%。",
   },
   "Server Marshal": {
-    name: "扩展机架",
-    description: "+2 雇佣位。",
+    name: "扩批用地",
+    description: "+2 块地块。",
   },
   "Bot Herder": {
-    name: "更广的僵尸网络",
-    description: "僵尸网络每次多抓 1 个建筑。",
+    name: "火眼金睛",
+    description: "圈地每次多圈 1 座建筑。",
   },
 };
 

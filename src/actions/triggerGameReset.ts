@@ -114,7 +114,7 @@ export async function triggerGameReset(
       targetId: winnerId,
       targetUsername: winnerUsername,
       details: JSON.stringify({
-        message: `${winnerUsername} assembled all Six and rooted the mainframe!`,
+        message: `${winnerUsername} assembled all six Founders and crowned the skyline!`,
       }),
     });
 
@@ -280,7 +280,7 @@ export async function triggerGameReset(
       await pusher.trigger("game-global", "game-won", {
         winnerUsername,
         winnerId,
-        message: `🏆 ${winnerUsername} has assembled all Six and ROOTED THE MAINFRAME! The simulation has been rebooted!`,
+        message: `🏆 ${winnerUsername} has assembled all six Founders and CROWNED THE SKYLINE! The city has been rebuilt!`,
       });
     } catch (pusherError) {
       console.error("Pusher error during game reset broadcast:", pusherError);

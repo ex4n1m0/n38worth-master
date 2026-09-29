@@ -88,7 +88,7 @@ export async function POST(req: Request) {
 
     if (!isFree && sender.credits < cost) {
       return NextResponse.json(
-        { error: `Not enough credits. Need ${cost.toFixed(2)}¢` },
+        { error: `Not enough capital. Need ${cost.toFixed(2)}¢` },
         { status: 400 }
       );
     }
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
       minute: "2-digit",
       hour12: true,
     });
-    const revealContent = `👁️ Revealed ${target.username}'s avatar on Network for 1 min (+${creditsToPlayer.toFixed(2)}¢ gifted) — ${timestamp}`;
+    const revealContent = `👀 Quick view of ${target.username}'s building, visible citywide for 1 min (+${creditsToPlayer.toFixed(2)}¢ gifted) — ${timestamp}`;
 
     const [revealMessage] = await db
       .insert(messages)

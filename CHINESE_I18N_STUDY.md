@@ -144,6 +144,45 @@ number suffixes stay K/M (Chinese 万/亿 formatting is a phase-2 nicety);
 
 ## 4. The translation glossary (canonical zh terms)
 
+### City-building era glossary (CANONICAL since 2026-09-29)
+
+The game was rebranded to "The City Building Simulation" (城市建造模拟) —
+this table supersedes the historical sci-fi table below it. Full bible:
+`CITY_REBRAND_STUDY.md` §2.
+
+| English | 简体中文 |
+|---|---|
+| building (player card) | 建筑 |
+| acquire (was hire) / land plots (was hire slots) | 收购 / 地块 |
+| capital (¢, was credits) | 资金 |
+| landlord (was boss) / rent | 房东 / 租金 |
+| management fee (10% portfolio cut) | 管理费 |
+| rent collection (portfolio reward) | 收租 |
+| value / portfolio value | 估值 / 物业总值 |
+| RENOVATE (was overclock) | 翻新 |
+| DEED LOCK (was firewall) | 契锁 |
+| FORECLOSE (was breach) | 法拍 |
+| IRON DEED (was hard lock) | 铁契 |
+| OFF-MARKET (was cloaked) / AERIAL VIEW (was scan) | 未挂牌 / 鸟瞰全城 |
+| open house (1h) / quick view (1 min) / grand opening (mass) | 开放参观 / 快速看房 / 盛大开业 |
+| LAND GRAB (was botnet) | 圈地 |
+| redeem (was sell out) | 赎回 |
+| take over (city steal) | 接管 |
+| development (was combo) | 开发（开发出售） |
+| trade (was profession) / Trade Secrets (was Firmware Perks) | 行业 / 行业秘诀 |
+| permit ladder (was mission ladder) | 许可阶梯 |
+| the Founders (was the Six) | 奠基六杰 |
+| crown the skyline / The Cornerstone | 加冕天际线 / 奠基石 |
+| the city is rebuilt (was the simulation reboots) | 城市重建 |
+| the city / Old Town / the metro | 这座城市 / 老城区 / 都会圈 |
+| condemnation (offline decay) | 荒置查封 |
+| daily dividend (login reward) | 每日分红 |
+| Grid / Widest Grid (unchanged — city grid) | 网格 / 最广网格 |
+| rank / the ladders | 段位 |
+| avatar (PROFILE-PHOTO sense only) | 头像 |
+
+### Historical sci-fi-era table (2026-09 → 2026-09-29; superseded)
+
 锁定 the core vocabulary so future copy stays consistent:
 
 | English | 简体中文 |

@@ -55,47 +55,63 @@
 - Regenerate sci-fi placeholder art: `npm run gen:scifi-art`
 - Regenerate city pixel-art building sheets: `npm run gen:city-pixel-art`
 
-## Sci-fi rebrand (2026-09)
-The game was rebranded from medieval/dark-fantasy to a sci-fi "simulation /
-Matrix" theme via DISPLAY-NAME INDIRECTION — DB keys, API paths, cron routes,
-and Pusher events were NOT renamed. Keep these rules:
+## Theme eras: fantasy → sci-fi (2026-09) → CITY BUILDING (2026-09-29)
+The game is now themed as **"The City Building Simulation"** — a city building
+tycoon game. Both rebrands were applied via DISPLAY-NAME INDIRECTION — DB keys,
+API paths, cron routes, and Pusher events were NOT renamed. The canonical
+naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules:
 
 - **Goddess usernames are DB keys and stay as-is** ("Goddess of Wealth" etc.
   in `GODDESS_USERNAMES`, `POWER_BITS`, missions' `rewardCards`, purchase
-  locks). User-facing names live in `src/lib/display-names.ts` (The
-  Architect / The Banker / The Oracle / The Locksmith / The Clockkeeper /
-  NullPointer, collectively "the Six"; "Mass Hire" → "Botnet"). Render
+  locks). User-facing names live in `src/lib/display-names.ts`: The Architect /
+  The Banker / The Surveyor / The Registrar / The Foreman / The Wrecker,
+  collectively "the Founders" (奠基六杰); "Mass Hire" → "Land Grab". Render
   special-card names through `cardDisplayName(username)` — links and API
-  calls keep the raw username.
-- **Professions were renamed in code AND data**: Cryptographer, Zero-Day,
-  Overclocker, Cache Keeper, Server Marshal, Bot Herder (perks are
-  "Firmware Perks"). New code must use these names; run
-  `npm run rebrand:professions` when deploying to a DB that still has the
-  old profession strings on user rows.
-- **Action vocabulary**: OVERCLOCK (was pump), FIREWALL (was block sell /
-  sell block), BREACH (was break), HARD LOCK (was perm block / fate seal),
-  CLOAKED (was hidden), SCAN (was reveal), BOTNET (was mass hire).
-  "Hire", "credits", "boss", "hire slots" are unchanged.
+  calls keep the raw username. Founder ART FILES keep their historical
+  filenames (TheOracle.webp holds The Surveyor's art, etc.) — they are DB
+  avatarUrl contracts.
+- **Professions: DB values stay** (Cryptographer, Zero-Day, Overclocker, Cache
+  Keeper, Server Marshal, Bot Herder — also the art-family keys and pixel-sheet
+  filenames). The city DISPLAY names live in `professions.ts`
+  (`PROFESSION_DISPLAY_NAMES`): Notary / Auctioneer / Renovator / Vault
+  Keeper / City Planner / Prospector — perks are "Trade Secrets" (行业秘诀).
+  Render via `professionName(name, locale)` / `professionPerk(name, locale)`;
+  never compare user input against display names. The 2026-09
+  `rebrand:professions` script is historical — do NOT run it again.
+- **City action vocabulary (display only)**: ACQUIRE (was hire), RENOVATE (was
+  pump/overclock), DEED LOCK (was firewall/block sell), FORECLOSE (was
+  breach/break), IRON DEED (was hard lock), OFF-MARKET (was cloaked/hidden),
+  OPEN HOUSE (1h reveal), AERIAL VIEW (was scan), LAND GRAB (was botnet/mass
+  hire), REDEEM (was sell out), TAKE OVER (city steal), DEVELOPMENT (was
+  profession combo). Economy nouns: "capital" (was credits), "landlord" (was
+  boss), "rent" (portfolio income), "land plots" (was hire slots), "permits"
+  (was missions), "trades" (was professions). Key names, code identifiers,
+  API paths, DB columns and cron routes are unchanged (`hireSlots`,
+  `blockSellUntil`, `/api/game/pump`, `mass-hire.ts`, `perm-block` route …).
 - **Units display as BUILDINGS (since 2026-09-28)**: the tradable
   avatar/card is "building(s)" / "建筑" in ALL user-visible copy — nav tab,
-  market, toasts, tutorial, mission labels (`missions-data.ts`), profession
-  perks, goddess powers, and API `error:` strings. The PROFILE-PHOTO sense
+  market, toasts, tutorial, permit labels (`missions-data.ts`), trade
+  secrets, Founder powers, and API `error:` strings. The PROFILE-PHOTO sense
   keeps "avatar" / "头像" (upload/change/random avatar, "Your Avatar is your
   Brand"). Key names, code identifiers, API paths and DB values are
   unchanged (`navAvatars`, `avatarValueTooltip`, `/api/avatar/*`,
   `reveal-avatar` routes).
-- **Rank titles** in `src/lib/ranks.ts` are sci-fi ladders (Lurker→Architect,
-  Null→Yotta, Ghost→Ascendant, Void→Hegemon). The "Empire" leaderboard
-  category DISPLAYS as "Grid"/"Widest Grid" but its API value stays
+- **Rank titles** in `src/lib/ranks.ts` are city ladders (Grid:
+  Newcomer→Baron; Credits: Broke→Mogul; Value: Empty Lot→Landmark; Portfolio:
+  Ghost Town→World Capital). The "Empire" leaderboard category DISPLAYS as
+  "Grid"/"Widest Grid" (a city grid — kept) but its API value stays
   `"empire"` (same for `"legacy"` etc.) — never rename `/api/ranks/[type]`
   values or `user_rank_snapshots` columns.
-- **Win-condition copy**: "root the mainframe", "the simulation reboots",
-  winners list is "The Root Wall" (`HallOfChampions` component), world
-  reset overlay says "The Simulation is Rebooting".
+- **Win-condition copy**: "crown the skyline" (hold all six Founders 60 min),
+  "the city is rebuilt" (world reset), winners list is "The Cornerstone"
+  (`HallOfChampions`), world reset overlay says "The City Is Being Rebuilt",
+  the countdown HUD shows "CORONATION". Server `gameHistory`/Pusher strings
+  use the same vocabulary but stay English.
 - **Placeholder art** in `public/` (TheBanker.webp, NewCryptographer.webp,
-  simulation.webp hero, reboot.webp, VW_Icon.png terminal icon, og.jpg social
-  card, NEW_HIDDEN.webp masked avatar, 10slots.webp) was
-  generated by `npm run gen:scifi-art` — deterministic, safe to re-run.
+  simulation.webp hero skyline, reboot.webp cranes-at-dawn, VW_Icon.png
+  skyline icon, og.jpg social card, NEW_HIDDEN.webp off-market avatar,
+  10slots.webp) is city-themed and generated by `npm run gen:scifi-art`
+  (script kept its historical name) — deterministic, safe to re-run.
   Replace with real art by overwriting the same filenames.
 - Old fantasy art (NewGoddess*.webp, okworld.webp, WORLD_RESET.webp,
   masshire.webp, reveal.webp, okworld_OG.jpg) is left in place for history;

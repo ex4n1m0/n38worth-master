@@ -119,7 +119,7 @@ export async function sellOut(ownershipId: number) {
           newCredits: player.credits - cost,
         }),
         pusher.trigger(`player-${record.ownerId}`, "credits-updated", {
-          message: `${player.username} sold out from you! You received ${cost}¢`,
+          message: `${player.username} redeemed their deed from you! You received ${cost}¢`,
         }),
         pusher.trigger(`player-${record.ownerId}`, "ownership-changed", {
           type: "sell_out",

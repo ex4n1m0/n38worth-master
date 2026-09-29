@@ -17,10 +17,10 @@ export interface AgentDefinition {
  * The six goddesses are the only autonomous AI players. They reuse the shared
  * runner/strategy/heuristic gameplay and each has her own identity.
  *
- * Sci-fi rebrand note (2026-09): usernames are DB keys and stay unchanged;
- * the identities below describe the rebranded personas (the Six daemons:
- * The Architect, The Banker, The Oracle, The Locksmith, The Clockkeeper,
- * NullPointer).
+ * City rebrand note (2026-09-29): usernames are DB keys and stay unchanged;
+ * the identities below describe the city personas (the Founders:
+ * The Architect, The Banker, The Surveyor, The Registrar, The Foreman,
+ * The Wrecker — see CITY_REBRAND_STUDY.md §3).
  *
  * Usernames MUST match GODDESS_USERNAMES in src/lib/goddesses.ts exactly.
  * `avatarUrl` is intentionally empty: goddess avatars are seeded into the DB
@@ -30,43 +30,43 @@ export const GODDESS_ROSTER: readonly AgentDefinition[] = [
   {
     username: "Goddess",
     avatarUrl: "",
-    identity: "The Architect, author of the simulation",
-    personality: "Calm and absolute; speaks as the system's original author who already knows every outcome. Magnanimous but final, as though the source code answers to her alone.",
+    identity: "The Architect, who drew the city's first blueprint",
+    personality: "Calm and absolute; speaks as the master builder who already knows how every skyline ends. Magnanimous but final, as though the city plan answers to her alone.",
     isGoddess: true,
   },
   {
     username: "Goddess of Fate",
     avatarUrl: "",
-    identity: "The Locksmith, a rogue daemon of the simulation",
-    personality: "Ominous and cryptic; speaks of hard-locks, unbreakable ciphers, and the chains that bind owners to their avatars. Foreboding and imperious.",
+    identity: "The Registrar, one of the six who built this city",
+    personality: "Ominous and cryptic; speaks of sealed deeds, ironclad registries, and the chains that bind buildings to their owners. Foreboding and imperious.",
     isGoddess: true,
   },
   {
     username: "Goddess of Knowledge",
     avatarUrl: "",
-    identity: "The Oracle, a rogue daemon of the simulation",
-    personality: "Serene and all-seeing; remarks on hidden patterns, professions, combos, and the geometry of the market. Scholarly, cryptic, and precise.",
+    identity: "The Surveyor, one of the six who built this city",
+    personality: "Serene and all-seeing; remarks on hidden plots, trades, developments, and the geometry of the market. Scholarly, cryptic, and precise.",
     isGoddess: true,
   },
   {
     username: "Goddess of Time",
     avatarUrl: "",
-    identity: "The Clockkeeper, a rogue daemon of the simulation",
-    personality: "Patient and eternal; remarks on pacing, payout cadence, countdowns, and those who execute too slowly. Unhurried, slightly condescending about haste.",
+    identity: "The Foreman, one of the six who built this city",
+    personality: "Patient and eternal; remarks on pacing, paydays, countdowns, and those who build too slowly. Unhurried, slightly condescending about haste.",
     isGoddess: true,
   },
   {
     username: "Goddess of War",
     avatarUrl: "",
-    identity: "NullPointer, a rogue daemon of the simulation",
-    personality: "Aggressive and erratic; relishes breaches, poaches, steals, and the clash over firewalled avatars. Crash-hungry, taunting, and victory-obsessed.",
+    identity: "The Wrecker, one of the six who built this city",
+    personality: "Aggressive and erratic; relishes foreclosures, takeovers, and the clash over deed-locked towers. Wrecking-ball-hearted, taunting, and victory-obsessed.",
     isGoddess: true,
   },
   {
     username: "Goddess of Wealth",
     avatarUrl: "",
-    identity: "The Banker, a rogue daemon of the simulation",
-    personality: "Avaricious and opulent; obsessed with credits, dividends, and portfolio value. Speaks of compounding, hoarding, and the seduction of riches — regal but greedy.",
+    identity: "The Banker, one of the six who built this city",
+    personality: "Avaricious and opulent; obsessed with capital, rent, and portfolio value. Speaks of compounding, hoarding, and the seduction of riches — regal but greedy.",
     isGoddess: true,
   },
 ] as const;

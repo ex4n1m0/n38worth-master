@@ -9,8 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Volume2, VolumeX, Terminal } from "lucide-react";
-import { MatrixRain } from "@/components/MatrixRain";
+import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
@@ -74,7 +73,7 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
   const secs = (countdown.remainingSeconds ?? 0) % 60;
   return (
     <div className="lp-fade-up flex items-center gap-3 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-6 py-2.5" style={{ animationDelay: "0.5s" }}>
-      <Terminal className="h-5 w-5 text-yellow-400 animate-pulse" />
+      <Crown className="h-5 w-5 text-yellow-400 animate-pulse" />
       <span className="text-sm sm:text-base font-bold text-yellow-200">
         {t.landingCountdownPrefix.replace("{name}", cardDisplayName(countdown.username))}{" "}
         <span className="text-yellow-400 tabular-nums">{mins}:{String(secs).padStart(2, "0")}</span>{" "}
@@ -226,12 +225,6 @@ export default function Home() {
           className="absolute inset-0 h-full w-full object-cover object-top will-change-transform"
           style={{ transform: "scale(1.1)" }}
         />
-
-        {/* Code rain over the backdrop */}
-        <MatrixRain opacity={0.22} />
-
-        {/* CRT scanlines */}
-        <div className="scanlines pointer-events-none absolute inset-0" />
 
         {/* Aurora blobs */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">

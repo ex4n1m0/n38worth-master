@@ -3,9 +3,9 @@
 // Four ladders, 10 titles each:
 //   Grid (Owned), Credits, Value, Portfolio
 //
-// Sci-fi rebrand (2026-09): display titles only — the category API values
-// ("empire", "legacy", …) and snapshot columns keep their original names.
-// Simplified Chinese (2026-09): titles translate at DISPLAY time via
+// City-building rebrand (2026-09-29, CITY_REBRAND_STUDY.md §5): display
+// titles only — the category API values ("empire", "legacy", …) and snapshot
+// columns keep their original names. Titles translate at DISPLAY time via
 // `rankTitle(title, locale)`; the ladder data above stays English so
 // server-side consumers are unaffected.
 // ──────────────────────────────────────────────
@@ -19,106 +19,106 @@ export interface RankTier {
 
 // ── 1. Grid — Amount of Owned Players (Power) ──
 export const OWNED_RANKS: RankTier[] = [
-  { threshold: 0, title: "Lurker" },
-  { threshold: 3, title: "User" },
-  { threshold: 8, title: "Runner" },
-  { threshold: 15, title: "Operator" },
-  { threshold: 25, title: "Sysop" },
-  { threshold: 40, title: "Admin" },
-  { threshold: 60, title: "Root" },
-  { threshold: 80, title: "Overseer" },
-  { threshold: 100, title: "Overlord" },
-  { threshold: 150, title: "Architect" },
+  { threshold: 0, title: "Newcomer" },
+  { threshold: 3, title: "Tenant" },
+  { threshold: 8, title: "Leaseholder" },
+  { threshold: 15, title: "Freeholder" },
+  { threshold: 25, title: "Landlord" },
+  { threshold: 40, title: "Developer" },
+  { threshold: 60, title: "Builder" },
+  { threshold: 80, title: "Magnate" },
+  { threshold: 100, title: "Tycoon" },
+  { threshold: 150, title: "Baron" },
 ];
 
-// ── 2. Credits — Wealth (Credits) ──
+// ── 2. Credits — Wealth (Capital) ──
 export const CREDITS_RANKS: RankTier[] = [
-  { threshold: 0, title: "Null" },
-  { threshold: 100, title: "Byte" },
-  { threshold: 500, title: "Kilo" },
-  { threshold: 2000, title: "Mega" },
-  { threshold: 5000, title: "Giga" },
-  { threshold: 15000, title: "Tera" },
-  { threshold: 50000, title: "Peta" },
-  { threshold: 100000, title: "Exa" },
-  { threshold: 250000, title: "Zetta" },
-  { threshold: 1000000, title: "Yotta" },
+  { threshold: 0, title: "Broke" },
+  { threshold: 100, title: "Pocket Change" },
+  { threshold: 500, title: "Nest Egg" },
+  { threshold: 2000, title: "Savings" },
+  { threshold: 5000, title: "Windfall" },
+  { threshold: 15000, title: "First Pot" },
+  { threshold: 50000, title: "Fortune" },
+  { threshold: 100000, title: "Riches" },
+  { threshold: 250000, title: "Wealth" },
+  { threshold: 1000000, title: "Mogul" },
 ];
 
-// ── 3. Value — Player Value (Worth) ──
+// ── 3. Value — Player Value (Appraisal) ──
 export const VALUE_RANKS: RankTier[] = [
-  { threshold: 1, title: "Ghost" },
-  { threshold: 5, title: "Process" },
-  { threshold: 15, title: "Thread" },
-  { threshold: 50, title: "Daemon" },
-  { threshold: 100, title: "Kernel" },
-  { threshold: 250, title: "Instance" },
-  { threshold: 500, title: "Sentinel" },
-  { threshold: 1000, title: "Colossus" },
-  { threshold: 2500, title: "Singularity" },
-  { threshold: 5000, title: "Ascendant" },
+  { threshold: 1, title: "Empty Lot" },
+  { threshold: 5, title: "Kiosk" },
+  { threshold: 15, title: "Storefront" },
+  { threshold: 50, title: "Walk-Up" },
+  { threshold: 100, title: "Townhouse" },
+  { threshold: 250, title: "Mid-Rise" },
+  { threshold: 500, title: "High-Rise" },
+  { threshold: 1000, title: "Tower" },
+  { threshold: 2500, title: "Skyscraper" },
+  { threshold: 5000, title: "Landmark" },
 ];
 
 // ── 4. Portfolio — Total Portfolio Value ──
 export const PORTFOLIO_RANKS: RankTier[] = [
-  { threshold: 0, title: "Void" },
-  { threshold: 100, title: "Seed" },
-  { threshold: 500, title: "Node" },
-  { threshold: 2000, title: "Cluster" },
-  { threshold: 5000, title: "Fabric" },
-  { threshold: 15000, title: "Lattice" },
-  { threshold: 50000, title: "Mainframe" },
-  { threshold: 150000, title: "Titan" },
-  { threshold: 500000, title: "Cartel" },
-  { threshold: 1000000, title: "Hegemon" },
+  { threshold: 0, title: "Ghost Town" },
+  { threshold: 100, title: "Outpost" },
+  { threshold: 500, title: "Village" },
+  { threshold: 2000, title: "Town" },
+  { threshold: 5000, title: "Borough" },
+  { threshold: 15000, title: "City" },
+  { threshold: 50000, title: "Metropolis" },
+  { threshold: 150000, title: "Megacity" },
+  { threshold: 500000, title: "Megalopolis" },
+  { threshold: 1000000, title: "World Capital" },
 ];
 
 /** Simplified-Chinese display titles, keyed by the English ladder title. */
 export const RANK_TITLES_ZH: Record<string, string> = {
   // Grid
-  Lurker: "潜伏者",
-  User: "用户",
-  Runner: "信使",
-  Operator: "操作员",
-  Sysop: "站务",
-  Admin: "管理员",
-  Root: "根权限",
-  Overseer: "监察者",
-  Overlord: "霸主",
-  Architect: "架构师",
+  Newcomer: "新人",
+  Tenant: "租客",
+  Leaseholder: "承租人",
+  Freeholder: "业主",
+  Landlord: "房东",
+  Developer: "开发商",
+  Builder: "营造商",
+  Magnate: "巨贾",
+  Tycoon: "巨富",
+  Baron: "巨头",
   // Credits
-  Null: "空",
-  Byte: "字节",
-  Kilo: "千",
-  Mega: "兆",
-  Giga: "吉",
-  Tera: "太",
-  Peta: "拍",
-  Exa: "艾",
-  Zetta: "泽",
-  Yotta: "尧",
+  Broke: "破产",
+  "Pocket Change": "零钱",
+  "Nest Egg": "小金库",
+  Savings: "存款",
+  Windfall: "意外之财",
+  "First Pot": "第一桶金",
+  Fortune: "财富",
+  Riches: "豪富",
+  Wealth: "家财万贯",
+  Mogul: "大亨",
   // Value
-  Ghost: "幽灵",
-  Process: "进程",
-  Thread: "线程",
-  Daemon: "守护进程",
-  Kernel: "内核",
-  Instance: "实例",
-  Sentinel: "哨兵",
-  Colossus: "巨像",
-  Singularity: "奇点",
-  Ascendant: "飞升者",
+  "Empty Lot": "空地",
+  Kiosk: "报刊亭",
+  Storefront: "临街店面",
+  "Walk-Up": "步行楼",
+  Townhouse: "联排宅",
+  "Mid-Rise": "多层楼",
+  "High-Rise": "高层楼",
+  Tower: "塔楼",
+  Skyscraper: "摩天楼",
+  Landmark: "城市地标",
   // Portfolio
-  Void: "虚空",
-  Seed: "种子",
-  Node: "节点",
-  Cluster: "集群",
-  Fabric: "织网",
-  Lattice: "晶格",
-  Mainframe: "主机",
-  Titan: "泰坦",
-  Cartel: "巨头",
-  Hegemon: "霸权者",
+  "Ghost Town": "荒城",
+  Outpost: "前哨站",
+  Village: "村镇",
+  Town: "城镇",
+  Borough: "市区",
+  City: "城市",
+  Metropolis: "大都会",
+  Megacity: "特大城市",
+  Megalopolis: "巨型都市",
+  "World Capital": "世界之都",
 };
 
 /** Locale-aware display title for a rank tier. */

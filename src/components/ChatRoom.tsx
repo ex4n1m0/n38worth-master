@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useSound } from "@/hooks/useSound";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
 import { getAvatarSrc } from "@/lib/avatar-utils";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface ChatMessage {
   id: number;
@@ -42,6 +43,7 @@ function formatTime(date: string): string {
 }
 
 export function ChatRoom() {
+  const { t } = useLanguage();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
@@ -223,8 +225,8 @@ export function ChatRoom() {
         {/* Input area */}
         <form onSubmit={handleSend} className="flex gap-2">
           <Input
-            placeholder="Type a public message to earn credits..."
-            aria-label="Public chat message"
+            placeholder={t.publicMessagePlaceholder}
+            aria-label={t.publicMessageAria}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             maxLength={280}
@@ -232,7 +234,7 @@ export function ChatRoom() {
           />
           <Button
             type="submit"
-            aria-label="Send public message"
+            aria-label={t.sendPublicMessageAria}
             disabled={sendMutation.isPending || !message.trim()}
             className="shrink-0 bg-green-600 hover:bg-green-500 text-white"
             size="sm"

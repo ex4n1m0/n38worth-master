@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { ComboDock } from "@/components/ComboDock";
 import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { useMarketEvents } from "@/hooks/useMarketEvents";
+import { useLanguage } from "@/components/LanguageContext";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
@@ -39,10 +40,12 @@ export default function GameLayout({
   // Public market channel: instant cross-player updates (see market-events.ts).
   useMarketEvents();
 
+  const { t } = useLanguage();
+
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="animate-pulse text-t1-400 text-lg">Loading...</div>
+        <div className="animate-pulse text-t1-400 text-lg">{t.loading}</div>
       </div>
     );
   }

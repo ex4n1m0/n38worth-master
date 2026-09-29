@@ -18,6 +18,7 @@ import { MessageCircle, Send, Lock, Loader2, Trash2 } from "lucide-react";
 import { toast } from "@/lib/event-feed";
 import { getPusherClient } from "@/lib/pusher-client";
 import { useSound } from "@/hooks/useSound";
+import { useLanguage } from "@/components/LanguageContext";
 
 interface ChatMessage {
   id: number;
@@ -53,6 +54,7 @@ export function PrivateMessageButton({
   targetUsername,
   targetAvatarUrl,
 }: PrivateMessageButtonProps) {
+  const { t } = useLanguage();
   const { data: session } = useSession();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -242,7 +244,7 @@ export function PrivateMessageButton({
 
   const handleClear = () => {
     setLocalMessages([]);
-    toast.success("Chat cleared");
+    toast.success(t.chatCleared);
   };
 
   return (

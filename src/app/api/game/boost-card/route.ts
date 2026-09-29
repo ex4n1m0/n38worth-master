@@ -138,7 +138,7 @@ export async function POST(req: Request) {
       minute: "2-digit",
       hour12: true,
     });
-    const boostContent = `�️ Sell Block on ${target.username} for 1h! Value → ${newValue}¢ (+${creditsToPlayer.toFixed(2)}¢ gifted) — ${timestamp}`;
+    const boostContent = `🔒 Deed Lock on ${target.username} for 1h! Value → ${newValue}¢ (+${creditsToPlayer.toFixed(2)}¢ gifted) — ${timestamp}`;
 
     const [boostMessage] = await db
       .insert(messages)

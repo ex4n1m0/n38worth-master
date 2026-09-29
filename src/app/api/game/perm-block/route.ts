@@ -53,7 +53,7 @@ export async function POST(req: Request) {
       .where(and(eq(ownership.ownerId, ownerId), eq(ownership.ownedId, targetId)));
 
     if (!targetRecord) {
-      return NextResponse.json({ error: "You do not own this player" }, { status: 403 });
+      return NextResponse.json({ error: "You do not own this building" }, { status: 403 });
     }
 
     // Perm blocks can only be assigned to regular NPC cards — not to Goddesses
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     const eligible = await isPermEligible(targetId);
     if (!eligible) {
       return NextResponse.json(
-        { error: "Permanent blocks can only be assigned to NPC buildings" },
+        { error: "Iron deeds can only be placed on NPC buildings" },
         { status: 400 }
       );
     }
@@ -81,11 +81,11 @@ export async function POST(req: Request) {
         .where(and(eq(ownership.ownerId, ownerId), eq(ownership.ownedId, sourceId)));
 
       if (!sourceRecord) {
-        return NextResponse.json({ error: "Source player not found" }, { status: 404 });
+        return NextResponse.json({ error: "Source building not found" }, { status: 404 });
       }
 
       if (!sourceRecord.permBlockUntil) {
-        return NextResponse.json({ error: "Source player has no permanent block" }, { status: 400 });
+        return NextResponse.json({ error: "Source building has no iron deed" }, { status: 400 });
       }
 
       // Remove from source and assign to target (refreshing the 24h timer).
@@ -175,13 +175,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        error: "Permanent block limit reached",
+        error: "Iron deed limit reached",
         activeBlocks,
       },
       { status: 409 }
     );
   } catch (error) {
     console.error("Perm-block error:", error);
-    return NextResponse.json({ error: "Failed to update permanent block" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update iron deed" }, { status: 500 });
   }
 }

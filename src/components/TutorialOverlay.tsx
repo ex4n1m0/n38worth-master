@@ -7,10 +7,10 @@ import {
   Coins,
   Compass,
   GraduationCap,
+  Landmark,
   Radio,
   Sparkles,
   Target,
-  Terminal,
   Users,
   X,
   ChevronLeft,
@@ -57,7 +57,7 @@ interface TutorialStep {
 const buildSteps = (t: TranslationKeys): TutorialStep[] => [
   {
     id: "welcome",
-    icon: Terminal,
+    icon: Landmark,
     title: t.tutorialStep1Title,
     body: (
       <>

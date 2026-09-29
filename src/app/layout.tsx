@@ -17,11 +17,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
-  description: "The city trading simulation — hire, overclock and trade buildings inside the mainframe.",
-  keywords: ["trading", "game", "social", "MMO", "multiplayer", "simulation", "matrix"],
+  description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
+  keywords: ["city", "city builder", "tycoon", "trading", "game", "social", "MMO", "multiplayer", "simulation", "skyscraper"],
   openGraph: {
     title: "n38worth",
-    description: "The city trading simulation — hire, overclock and trade buildings inside the mainframe.",
+    description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
     siteName: "n38worth",
     type: "website",
     url: "https://n38worth.com",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "n38worth",
-    description: "The city trading simulation — hire, overclock and trade buildings inside the mainframe.",
+    description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
     // images generated dynamically by src/app/twitter-image.tsx
   },
   icons: {

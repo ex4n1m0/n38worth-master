@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Building not found" }, { status: 404 });
     }
     if (!GODDESS_USERNAMES.includes(target.username)) {
-      return NextResponse.json({ error: "Only goddess partnerships can be extended" }, { status: 400 });
+      return NextResponse.json({ error: "Only Founder landmarks can have their lease extended" }, { status: 400 });
     }
 
     // You can only extend a partnership you own.
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     if (!ownershipRecord || ownershipRecord.ownerId !== ownerId) {
       return NextResponse.json(
-        { error: "You can only extend a partnership you currently hold" },
+        { error: "You can only extend a lease you currently hold" },
         { status: 403 }
       );
     }

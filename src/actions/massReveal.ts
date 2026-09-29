@@ -48,7 +48,7 @@ export async function massReveal() {
       .where(eq(ownership.ownerId, ownerId));
 
     if (ownedRecords.length === 0) {
-      return { error: "You don't own any players" };
+      return { error: "You don't own any buildings" };
     }
 
     // Sort by cheapest first (ascending playerValue)
@@ -67,7 +67,7 @@ export async function massReveal() {
       // Budget: pay for cheapest first until money runs out
       let remaining = owner.credits - SERVICE_FEE;
       if (remaining <= 0) {
-        return { error: `Not enough credits. Need at least ${SERVICE_FEE}¢ service fee.` };
+        return { error: `Not enough capital. Need at least ${SERVICE_FEE}¢ service fee.` };
       }
 
       const processable: typeof playersWithCost = [];
@@ -81,7 +81,7 @@ export async function massReveal() {
       }
 
       if (processable.length === 0) {
-        return { error: `Not enough credits to reveal any players. Cheapest player needs ${playersWithCost[0].cost}¢.` };
+        return { error: `Not enough capital for the grand opening. Cheapest building needs ${playersWithCost[0].cost}¢.` };
       }
 
       // Execute partial reveal

@@ -13,8 +13,9 @@ import {
  * holder have a permanent sell block, and removes Fate seals from players whose
  * owners no longer hold the Fate power (or have toggled it OFF).
  *
- * Runs every minute. Uses a far-future timestamp (year 2099) as the "permanent"
- * block. The break-partnership API charges 1000× the player's value to break it.
+ * Runs every 5 minutes (see the cron schedule in vercel.json). Uses a
+ * far-future timestamp (year 2099) as the "permanent" block. The
+ * break-partnership API charges 1000× the player's value to break it.
  *
  * IMPORTANT: Goddesses themselves are NEVER sealed (their value is pinned and
  * they have their own unbreakable block during the initial 30-min window).

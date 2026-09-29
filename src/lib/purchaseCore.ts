@@ -52,7 +52,7 @@ export async function buyPlayerCore(
   blockDurationHours: number = 1
 ): Promise<BuyPlayerResult> {
   if (buyerId === targetId) {
-    return { error: "You cannot hire yourself" };
+    return { error: "You cannot acquire yourself" };
   }
 
   try {
@@ -106,7 +106,7 @@ export async function buyPlayerCore(
     const buyerHasAvatar = !!buyer.avatarUrl && buyer.avatarCompleted === 1;
     const targetIsHuman = target.isNpc === 0 && !isBonusCard && !isGoddess;
     if (targetIsHuman && !buyerHasAvatar) {
-      return { error: "You need to upload a profile photo before you can hire human players" };
+      return { error: "You need to upload a profile photo before you can acquire human players" };
     }
 
     // Mission lock: goddesses and the 3 passive bonus cards can only be bought
@@ -117,7 +117,7 @@ export async function buyPlayerCore(
     const purchaseUnlocked = await canPurchaseCard(buyerId, target.username);
     if (!purchaseUnlocked) {
       return {
-        error: `🔒 ${target.username} is locked. Win it from a mission first to unlock buying it with credits.`,
+        error: `🔒 ${target.username} is locked. Win it from a permit first to unlock buying it with capital.`,
       };
     }
 
@@ -148,9 +148,9 @@ export async function buyPlayerCore(
     // 3. Validate buyer has enough credits
     if (buyer.credits < cost) {
       if (isBonusCard) {
-        return { error: `Insufficient credits. You need ${cost}¢ to hire ${target.username}` };
+        return { error: `Insufficient capital. You need ${cost}¢ to acquire ${target.username}` };
       }
-      return { error: `Insufficient credits. You need ${cost}¢ (${costMultiplier}x player value)` };
+      return { error: `Insufficient capital. You need ${cost}¢ (${costMultiplier}x building value)` };
     }
 
     // 4. Check buyer doesn't already own this player
@@ -162,7 +162,7 @@ export async function buyPlayerCore(
       );
 
     if (existingOwnership.length > 0) {
-      return { error: "You already own this player" };
+      return { error: "You already own this building" };
     }
 
     // 4b. Check ownership limit (dynamic per-player hire_slots cap).
@@ -177,7 +177,7 @@ export async function buyPlayerCore(
       .where(eq(ownership.ownerId, buyerId));
 
     if (ownershipCount.count >= ownershipLimit) {
-      return { error: `You've reached your hire limit of ${ownershipLimit} players. Buy more slots to expand your team!` };
+      return { error: `You've reached your plot limit of ${ownershipLimit} buildings. Buy more plots to expand your city!` };
     }
 
     // 5. Get the current owner of target (single owner now)
@@ -218,7 +218,7 @@ export async function buyPlayerCore(
     if ((currentBlockEnd > Date.now() || permBlockEnd > Date.now()) && !isOnboardingNpc) {
       const expiresAt = new Date(Math.max(currentBlockEnd, permBlockEnd));
       const minutesLeft = Math.ceil((expiresAt.getTime() - Date.now()) / 60000);
-      return { error: `${target.username} is partnered and cannot be hired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
+      return { error: `${target.username} is under a protected leasehold and cannot be acquired for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""}` };
     }
 
     // 5c. Count how many players the previous owner owns (for bonus calculation)
@@ -725,7 +725,7 @@ export async function breakPartnershipCore(
   targetId: number
 ): Promise<BreakPartnershipResult> {
   if (targetId === buyerId) {
-    return { error: "Cannot break your own partnership" };
+    return { error: "Cannot foreclose your own leasehold" };
   }
 
   // Load the current ownership record for target
@@ -735,7 +735,7 @@ export async function breakPartnershipCore(
     .where(eq(ownership.ownedId, targetId));
 
   if (!ownershipRecord) {
-    return { error: "This player has no active partnership to break" };
+    return { error: "This building has no active leasehold to foreclose" };
   }
 
   // Goddess of Fate: the owner's team has permanent sell blocks. Breaking
@@ -758,7 +758,7 @@ export async function breakPartnershipCore(
   if (unbreakableEnd > now || permBlockEnd > now) {
     const minutesLeft = Math.ceil((Math.max(unbreakableEnd, permBlockEnd) - now) / 60000);
     return {
-      error: `This partnership is unbreakable for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
+      error: `This leasehold is ironclad for ${minutesLeft} more minute${minutesLeft !== 1 ? "s" : ""} and cannot be broken by any means.`,
     };
   }
 
@@ -767,7 +767,7 @@ export async function breakPartnershipCore(
   const remainingMs = Math.max(0, blockEnd - now);
 
   if (remainingMs <= 0) {
-    return { error: "No active sell block — use the regular hire button" };
+    return { error: "No active deed lock — use the regular acquire button" };
   }
 
   // Load target value
@@ -797,7 +797,7 @@ export async function breakPartnershipCore(
     .where(and(eq(ownership.ownerId, buyerId), eq(ownership.ownedId, targetId)));
 
   if (alreadyOwns) {
-    return { error: "You already own this player" };
+    return { error: "You already own this building" };
   }
 
   // Calculate break fee
@@ -821,7 +821,7 @@ export async function breakPartnershipCore(
   // Buyer must afford break fee + normal purchase price
   const totalCost = breakCost + Number(target.playerValue);
   if (Number(buyer.credits) < totalCost) {
-    return { error: `Not enough credits. Need ${totalCost} (${breakCost} break fee + ${target.playerValue} hire)` };
+    return { error: `Not enough capital. Need ${totalCost}¢ (${breakCost}¢ foreclosure fee + ${target.playerValue}¢ acquisition)` };
   }
 
   // Deduct break fee from buyer (0 for War holders)
@@ -924,7 +924,7 @@ export async function blockSellCore(
     const creditsToPlayer = Math.round(cost * 0.90);
 
     if (Number(owner.credits) < cost) {
-      return { error: `Not enough credits. Need ${cost}` };
+      return { error: `Not enough capital. Need ${cost}¢` };
     }
 
     const currentBlockEnd = record.blockSellUntil && new Date(record.blockSellUntil) > new Date()
@@ -933,7 +933,7 @@ export async function blockSellCore(
 
     const remainingBlockMs = Math.max(0, currentBlockEnd - Date.now());
     if (remainingBlockMs >= SELL_BLOCK_MAX_MS) {
-      return { error: "Sell block already at 12h max" };
+      return { error: "Deed lock already at 12h max" };
     }
 
     // Cryptographer perk (Deep Encryption): sell blocks last +50% longer per press.
@@ -972,6 +972,6 @@ export async function blockSellCore(
     };
   } catch (error) {
     console.error("Block sell core error:", error);
-    return { error: "Block sell failed" };
+    return { error: "Deed lock failed" };
   }
 }

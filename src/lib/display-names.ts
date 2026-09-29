@@ -2,7 +2,8 @@
  * Display-name indirection for special cards whose DB usernames are
  * load-bearing contracts (mission rewards, purchase locks, power bitmasks,
  * `ensureGoddess` seeding). The database keeps the canonical usernames
- * forever; the UI renders the rebranded sci-fi names through this map.
+ * forever; the UI renders the rebranded city-building names ("the Founders",
+ * CITY_REBRAND_STUDY.md §3) through this map.
  *
  * Client-safe: plain data + pure functions only.
  *
@@ -13,26 +14,26 @@
 
 import type { Locale } from "./i18n";
 
-/** Sci-fi display names for the six goddesses + the Mass Hire card. */
+/** City-building display names for the six Founders + the Land Grab card. */
 export const CARD_DISPLAY_NAMES: Record<string, string> = {
   Goddess: "The Architect",
   "Goddess of Wealth": "The Banker",
-  "Goddess of Knowledge": "The Oracle",
-  "Goddess of Fate": "The Locksmith",
-  "Goddess of Time": "The Clockkeeper",
-  "Goddess of War": "NullPointer",
-  "Mass Hire": "Botnet",
+  "Goddess of Knowledge": "The Surveyor",
+  "Goddess of Fate": "The Registrar",
+  "Goddess of Time": "The Foreman",
+  "Goddess of War": "The Wrecker",
+  "Mass Hire": "Land Grab",
 };
 
 /** Simplified-Chinese display names (DB keys stay English forever). */
 export const CARD_DISPLAY_NAMES_ZH: Record<string, string> = {
-  Goddess: "架构师",
+  Goddess: "总建筑师",
   "Goddess of Wealth": "银行家",
-  "Goddess of Knowledge": "先知",
-  "Goddess of Fate": "锁匠",
-  "Goddess of Time": "守钟人",
-  "Goddess of War": "空指针",
-  "Mass Hire": "僵尸网络",
+  "Goddess of Knowledge": "测绘师",
+  "Goddess of Fate": "登记官",
+  "Goddess of Time": "监工",
+  "Goddess of War": "拆迁王",
+  "Mass Hire": "圈地",
 };
 
 /**
@@ -50,8 +51,8 @@ export function cardDisplayName(
 }
 
 /** Collective noun for the six special win-condition cards. */
-export const THE_SIX = "the Six";
+export const THE_SIX = "the Founders";
 
 export function theSixLabel(locale: Locale = "en"): string {
-  return locale === "zh" ? "六使" : THE_SIX;
+  return locale === "zh" ? "奠基六杰" : THE_SIX;
 }
