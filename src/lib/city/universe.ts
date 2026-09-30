@@ -12,62 +12,57 @@
  * nobody can observe).
  *
  * Rank source: user_rank_snapshots.portfolio_rank (humans with a completed
- * Rank source: user_rank_snapshots.portfolio_rank (humans with a completed
  * avatar — the same eligibility the leaderboard uses; NPC holdings stay in
  * the viewer's interactive satellite layer). The innermost ring starts far
  * enough out to clear the satellite anchor zone entirely.
  *
- * DYNAMIC DISTANCE (2026-09-29 user ruling "bring the cities as close as
- * possible; the distance starts short and grows only when they would
- * crash"): the base ring is derived from the VIEWER's own city size
- * (`universeBaseRing(sectorCount)` — satellite ring + one mini rim), so an
- * early-game viewer sees the universe begin ~18 tiles out instead of the
- * old fixed 72, and it recedes only as their sector grid grows. This
- * supersedes the 2026-09-28 cross-viewer congruence nicety: the layout is
- * still a pure deterministic function of (rank order, viewer base), but
- * viewers with different city sizes now see proportionally scaled
- * constellations instead of a shared translated one.
+ * ONE SHARED UNIVERSE (2026-09-30 user ruling, CITY_SHARED_UNIVERSE_STUDY):
+ * the base ring is FIXED (WORLD_BASE_RING — sized once from the LARGEST
+ * city's satellite zone) and no longer scales with the viewer's own city,
+ * so every viewer sees the SAME constellation: same scale, same shape,
+ * each viewer merely keeping their own city at their coordinate origin (a
+ * pure translation nobody can observe). This supersedes the 2026-09-29
+ * dynamic-distance ruling — early-game viewers see the universe begin
+ * ~64 tiles out instead of ~32; home framing compensates.
+ *
+ * FULL RENDERING (2026-09-30, same study): each city also ships a SKYLINE —
+ * its top UNIVERSE_SKYLINE_LIMIT visible buildings by value as
+ * [tier, familyIndex] tuples — the bounded "fully rendered" line the
+ * 2026-09-29 satellite ruling already blessed (top-24 + "+N more").
  */
 
 import { GRID_SIZE } from "./layout-schema";
 import { ringTiles } from "./rings";
 import { satelliteRingRadii } from "./satellites";
-import { tileToScreen, type Point } from "./scene/iso";
+import { SECTOR_MACRO, tileToScreen, type Point } from "./scene/iso";
+import { DISTRICT_PROFESSIONS } from "./district";
+import { UNASSIGNED_FAMILY } from "./types";
+import { buildingTier } from "./projection";
 
 /**
  * Radius (tiles) of the innermost universe ring. Must clear the satellite
- * anchor zone around the viewer's city: the largest satellite ring sits at
- * unlocked-extent + margin plus one mini rim (see universeBaseRing) —
- * sized from the REAL satellite radii, not the old worst-case guess.
+ * anchor zone around the LARGEST city: the biggest satellite ring sits at
+ * full-grid extent + margin — sized from the REAL satellite radii, not a
+ * worst-case guess.
  */
 
 /**
- * Clear tiles between the viewer's outermost satellite cluster rim and the
- * first universe ring: a mini city spans ~(cluster radius + pad skirt) ×
- * 0.55 ≈ 3 visual tiles; +1 gap.
+ * Clear tiles between the outermost satellite cluster rim and the first
+ * universe ring: a mini city spans ~(cluster radius + pad skirt) × 0.55
+ * ≈ 3 visual tiles; +1 gap.
  */
 export const UNIVERSE_CLEARANCE_TILES = 4;
 
 /**
- * Base (innermost) universe ring radius for a viewer with `sectorCount`
- * unlocked sectors: the satellite anchor ring (itself derived from the
- * city's actual footprint) + one mini rim — the closest the first foreign
- * city can sit without crashing into the stake clusters (snapped up to a
- * multiple of UNIVERSE_RING_STEP — see inside). Boot-only ≈ 24 tiles; the
- * full 3×3 grid ≈ 40 (the old fixed value was 72).
+ * THE shared-universe base ring (2026-09-30 ruling): the satellite anchor
+ * ring of the LARGEST possible city (full 3×3 grid) + clearance, snapped
+ * up to a UNIVERSE_RING_STEP multiple — FIXED for every viewer, so the
+ * constellation is identical for everyone (each renderer keeps the viewed
+ * city at its own origin as an unobservable translation). Because it is
+ * sized for the biggest city, any smaller viewer has strictly MORE
+ * clearance: a universe city can never poke through a home grid.
+ * (Defined below UNIVERSE_RING_STEP — see the TDZ note there.)
  */
-export function universeBaseRing(
-  sectorCount: number,
-  gridSize: number = GRID_SIZE
-): number {
-  const { rx, ry } = satelliteRingRadii(sectorCount, gridSize);
-  const raw = Math.max(rx, ry) + UNIVERSE_CLEARANCE_TILES;
-  // Snap UP to a multiple of the ring step: every ring radius is then a
-  // slot multiple, so ring CORNERS land exactly on slots and consecutive
-  // cities stay one full step apart everywhere (no corner straddling at
-  // ~6 tiles, which would crash the minis together).
-  return Math.ceil(raw / UNIVERSE_RING_STEP) * UNIVERSE_RING_STEP;
-}
 
 /**
  * Slot stride AND ring-to-ring spacing (tiles). A rendered mini city spans
@@ -77,15 +72,66 @@ export function universeBaseRing(
  */
 export const UNIVERSE_RING_STEP = 8;
 
+export const WORLD_BASE_RING: number = (() => {
+  const { rx, ry } = satelliteRingRadii(SECTOR_MACRO.length, GRID_SIZE);
+  const raw = Math.max(rx, ry) + UNIVERSE_CLEARANCE_TILES;
+  // Snap UP to a multiple of the ring step: every ring radius is then a
+  // slot multiple, so ring CORNERS land exactly on slots and consecutive
+  // cities stay one full step apart everywhere (no corner straddling at
+  // ~6 tiles, which would crash the minis together).
+  return Math.ceil(raw / UNIVERSE_RING_STEP) * UNIVERSE_RING_STEP;
+})();
+
 /** Max cities on the map (payload + placement cap; render budget). */
 export const UNIVERSE_CITY_CAP = 500;
 
-/** One city on the shared map (tiny summary — building lists never travel). */
+/**
+ * Max skyline buildings shipped + rendered per universe city — the
+ * bounded "fully rendered" line (2026-09-30 shared-universe ruling;
+ * mirrors the satellite layer's NEIGHBOR_BUILDING_LIMIT blessing:
+ * top-24 by value + a "+N more" read beyond).
+ */
+export const UNIVERSE_SKYLINE_LIMIT = 24;
+
+/**
+ * Stable family order for the skyline tuples (DISTRICT_PROFESSIONS roster
+ * + the unassigned sentinel last). Indices travel in the payload; the
+ * renderer maps them back through universeFamilyOf.
+ */
+export const UNIVERSE_FAMILIES: readonly string[] = [
+  ...DISTRICT_PROFESSIONS,
+  UNASSIGNED_FAMILY,
+];
+
+/** Payload family index of a DB profession (unknown → unassigned). */
+export function universeFamilyIndex(profession: string | null): number {
+  const fam = profession ?? UNASSIGNED_FAMILY;
+  const idx = UNIVERSE_FAMILIES.indexOf(fam);
+  return idx >= 0 ? idx : UNIVERSE_FAMILIES.length - 1;
+}
+
+/** DB profession for a payload family index (out of range → unassigned). */
+export function universeFamilyOf(index: number): string {
+  return UNIVERSE_FAMILIES[
+    Math.max(0, Math.min(UNIVERSE_FAMILIES.length - 1, Math.round(index)))
+  ];
+}
+
+/** One city on the shared map (summary + bounded skyline tuples). */
 export interface UniverseCity {
   /** 1-based portfolio rank (1 = the universe center). */
   rank: number;
   username: string;
   profession: string | null;
+  /** Visible owned-building count (drives the "+N more" read; ≥ skyline). */
+  count?: number;
+  /**
+   * Top UNIVERSE_SKYLINE_LIMIT visible buildings by value as
+   * [tier, familyIndex] tuples (familyIndex indexes UNIVERSE_FAMILIES;
+   * tiers via the ONE buildingTier implementation). Omitted when the city
+   * has no visible buildings.
+   */
+  skyline?: ReadonlyArray<readonly [number, number]>;
 }
 
 export interface UniversePayload {
@@ -127,6 +173,18 @@ export function universeRingOfIndex(k: number, base: number): number {
   let m = 1;
   while (universeCumulativeCapacity(m, base) <= k) m++;
   return m;
+}
+
+/**
+ * 1-based universe ring hosting the city with `rank` (rank 1 = the exact
+ * center, ring 0). Renderers chunk world geometry by this so re-rank churn
+ * rebuilds only the rings whose membership actually changed.
+ */
+export function universeRingForRank(
+  rank: number,
+  base: number = WORLD_BASE_RING
+): number {
+  return rank <= 1 ? 0 : universeRingOfIndex(rank - 2, base);
 }
 
 /**
@@ -205,4 +263,61 @@ export function universeEpochOf(
     h1 = Math.imul(h1, 0x01000193) >>> 0;
   }
   return `${cities.length.toString(36)}-${h1.toString(36)}`;
+}
+
+// ── skyline assembly (U2 — pure; the route fetches, this maps) ────────────
+
+/**
+ * One building row of the world query as fetched for a set of ranked
+ * owners: already windowed to the top UNIVERSE_SKYLINE_LIMIT per owner in
+ * VALUE order (playerValue DESC, id ASC — the same ordering the home city
+ * and satellite clusters use) and carrying the owner's total visible count.
+ */
+export interface UniverseBuildingRow {
+  ownerId: number;
+  profession: string | null;
+  playerValue: number;
+  valueFloor: number;
+  /** The owner's TOTAL visible owned-building count (COUNT(*) OVER). */
+  visibleCount: number;
+}
+
+/**
+ * Attach skylines + visible counts to the ranked city list (pure, used by
+ * /api/city/universe). Cities carry their DB id from the rank query (the
+ * id is NOT part of the wire payload — the route strips it). Rows for
+ * owners not in the city list are ignored; cities without rows keep
+ * count 0 and no skyline (they render as relay-only minis).
+ */
+export function attachUniverseSkylines(
+  cities: ReadonlyArray<UniverseCity & { id: number }>,
+  rows: ReadonlyArray<UniverseBuildingRow>
+): UniverseCity[] {
+  const byOwner = new Map<
+    number,
+    { count: number; tuples: Array<[number, number]> }
+  >();
+  for (const r of rows) {
+    let slot = byOwner.get(r.ownerId);
+    if (!slot) {
+      slot = { count: Math.max(0, r.visibleCount), tuples: [] };
+      byOwner.set(r.ownerId, slot);
+    }
+    // Defensive clamp: a windowed row can exceed the limit only if the
+    // route's SQL filter drifted — the payload stays bounded regardless.
+    if (slot.tuples.length >= UNIVERSE_SKYLINE_LIMIT) continue;
+    slot.tuples.push([
+      buildingTier(r.playerValue, r.valueFloor),
+      universeFamilyIndex(r.profession),
+    ]);
+  }
+  return cities.map(({ id, ...city }) => {
+    const slot = byOwner.get(id);
+    if (!slot) return { ...city, count: 0 };
+    return {
+      ...city,
+      count: slot.count,
+      skyline: slot.tuples.length > 0 ? slot.tuples : undefined,
+    };
+  });
 }

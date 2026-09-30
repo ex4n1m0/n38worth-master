@@ -66,7 +66,10 @@ import type {
 } from "../scene/CityScene";
 import { CameraRig } from "../scene/CameraRig";
 import type { RootSequenceVisualState } from "@/lib/city/root-sequence";
-import type { UniversePayload } from "@/lib/city/universe";
+import {
+  universeRingForRank,
+  type UniversePayload,
+} from "@/lib/city/universe";
 import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
 import {
   buildBuildingGeometry,
@@ -78,14 +81,16 @@ import {
   MeshBuilder,
 } from "./building3d";
 import {
+  appendUniverseCity,
   buildAggregateGeometry,
   buildLockedPadsGeometry,
   buildProtectionRingsGeometry,
   buildSatelliteCluster,
   buildStreetsGeometry,
-  buildUniverseCityBuildingsGeometry,
   deriveHomeStreets,
   deriveUniverseMarkers,
+  universeRingSignature,
+  universeSkylineCapFor,
   type UniverseMarker,
 } from "./world3d";
 import {
@@ -175,7 +180,28 @@ export class ThreeScene {
   private aggregateMesh: Mesh | null = null;
   private protectionMesh: Mesh | null = null;
   private flatMaterial: MeshBasicMaterial;
-  private universeMesh: Mesh | null = null;
+  /**
+   * Universe world skylines (2026-09-30 full-rendering ruling): RING-CHUNKED
+   * merged meshes built PROGRESSIVELY (a time-sliced pump — inner rings
+   * appear first, input never blocks) and rebuilt only when a ring's
+   * content signature changes, so 10-minute re-ranks that shuffle other
+   * rings cost nothing. Marker list stays flat for picking/selection.
+   */
+  private readonly universeRings = new Map<
+    number,
+    { key: string; mesh: Mesh; minis: number }
+  >();
+  private universeQueue: Array<{
+    ring: number;
+    key: string;
+    markers: UniverseMarker[];
+    cursor: number;
+    minis: number;
+    builder: MeshBuilder;
+  }> = [];
+  private universeTimer: ReturnType<typeof setTimeout> | null = null;
+  private universeLodVisible = true;
+  private readonly skylineCap: number;
   private universeMarkers: UniverseMarker[] = [];
 
   /** Satellite clusters by slot: mesh + picking tile map + anchor. */
@@ -293,6 +319,9 @@ export class ThreeScene {
       side: DoubleSide,
     });
     this.scene.add(this.worldLayers, this.buildingsGroup, this.fixtures, this.satellitesGroup);
+    this.skylineCap = universeSkylineCapFor(
+      typeof navigator === "undefined" ? 8 : navigator.hardwareConcurrency || 4
+    );
   }
 
   /** Mount entry (mirrors CityScene.create; the mount picks by flag). */
@@ -634,9 +663,12 @@ export class ThreeScene {
   }
 
   /**
-   * Shared universe map (P2): rank-orbit markers around the home city
-   * (bounded to the ground plate's reach — the HUD chip carries the true
-   * count), stake cities violet-tinted. Lazy minis stay a P3 refinement.
+   * Shared universe map — EVERY ranked city fully rendered as its real
+   * skyline (2026-09-30 ruling; the payload's top-24 tuples), on the FIXED
+   * WORLD_BASE_RING so every viewer sees the same constellation (their own
+   * city stays at their origin as an unobservable translation). Rebuilds
+   * are ring-chunked + signature-gated; the pump below builds them without
+   * blocking input. Stake cities keep the violet beacon accent.
    */
   syncUniverse(payload: UniversePayload | null, viewerUsername: string): void {
     if (this.destroyed) return;
@@ -644,25 +676,103 @@ export class ThreeScene {
     const { markers, count, viewerRank } = deriveUniverseMarkers(
       payload,
       viewerUsername,
-      stake,
-      this.sectorCount
+      stake
     );
     this.universeMarkers = markers;
-    if (this.universeMesh) {
-      this.worldLayers.remove(this.universeMesh);
-      this.universeMesh.geometry.dispose();
+
+    // Partition by ring; rebuild only rings whose content signature changed
+    // (churn control: a re-rank shuffling ring 4 leaves rings 1–3/5–6 alone).
+    const byRing = new Map<number, UniverseMarker[]>();
+    for (const m of markers) {
+      const ring = universeRingForRank(m.rank);
+      const list = byRing.get(ring);
+      if (list) list.push(m);
+      else byRing.set(ring, [m]);
     }
-    this.universeMesh = new Mesh(
-      buildUniverseCityBuildingsGeometry(markers),
-      this.buildingMaterial
-    );
-    this.worldLayers.add(this.universeMesh);
+    // A fresh plan replaces any pending pump chain wholesale — clear the
+    // stale timer so two chains can never race the shared queue.
+    if (this.universeTimer !== null) {
+      clearTimeout(this.universeTimer);
+      this.universeTimer = null;
+    }
+    this.universeQueue = [];
+    for (const [ring, ringMarkers] of byRing) {
+      const key = universeRingSignature(ringMarkers, this.skylineCap);
+      const existing = this.universeRings.get(ring);
+      if (existing && existing.key === key) continue;
+      this.disposeUniverseRing(ring);
+      this.universeQueue.push({
+        ring,
+        key,
+        markers: ringMarkers,
+        cursor: 0,
+        minis: 0,
+        builder: new MeshBuilder(),
+      });
+    }
+    for (const ring of [...this.universeRings.keys()]) {
+      if (!byRing.has(ring)) this.disposeUniverseRing(ring);
+    }
+    if (this.universeQueue.length > 0) this.pumpUniverseBuild();
+
     cityWorldStore.getState().setUniverseSummary(
       count > 0
         ? { count, myRank: viewerRank <= count ? viewerRank : null }
         : null
     );
     this.requestRender();
+  }
+
+  private disposeUniverseRing(ring: number): void {
+    const slot = this.universeRings.get(ring);
+    if (!slot) return;
+    this.worldLayers.remove(slot.mesh);
+    slot.mesh.geometry.dispose();
+    this.universeRings.delete(ring);
+  }
+
+  /**
+   * Time-sliced world builder: appends whole cities into the active ring's
+   * MeshBuilder until the slice budget is spent, then yields (setTimeout 0)
+   * and continues on the next tick — the world completes in ~1–2 s with
+   * inner rings visible first and zero input jank. A fresh syncUniverse
+   * replaces the queue wholesale (stale slices are dropped).
+   */
+  private pumpUniverseBuild(): void {
+    if (this.destroyed) return;
+    const SLICE_MS = 24;
+    const start = performance.now();
+    while (this.universeQueue.length > 0) {
+      const job = this.universeQueue[0];
+      while (
+        job.cursor < job.markers.length &&
+        performance.now() - start < SLICE_MS
+      ) {
+        job.minis += appendUniverseCity(
+          job.builder,
+          job.markers[job.cursor],
+          this.skylineCap
+        );
+        job.cursor++;
+      }
+      if (job.cursor < job.markers.length) break;
+      const mesh = new Mesh(job.builder.toGeometry(), this.buildingMaterial);
+      mesh.visible = this.universeLodVisible;
+      this.worldLayers.add(mesh);
+      this.universeRings.set(job.ring, {
+        key: job.key,
+        mesh,
+        minis: job.minis,
+      });
+      this.universeQueue.shift();
+      if (performance.now() - start >= SLICE_MS) break;
+    }
+    this.requestRender();
+    if (this.universeQueue.length > 0) {
+      this.universeTimer = setTimeout(() => this.pumpUniverseBuild(), 0);
+    } else {
+      this.universeTimer = null;
+    }
   }
 
   setReducedMotion(reduced: boolean): void {
@@ -878,6 +988,13 @@ export class ThreeScene {
     const lod = lodFor(cam.zoom);
     this.lod = lod;
     store.setLod(lod);
+    // Universe world hides at close zoom (the Pixi scene's rule): deep-zoom
+    // city inspection doesn't pay for far-world vertices.
+    const showUniverse = lod !== "close";
+    if (showUniverse !== this.universeLodVisible) {
+      this.universeLodVisible = showUniverse;
+      for (const [, ring] of this.universeRings) ring.mesh.visible = showUniverse;
+    }
     // Chips follow the camera (settle-cadence, never per frame).
     this.updateChips();
   }
@@ -1368,7 +1485,13 @@ export class ThreeScene {
     this.lockedPadsMesh?.geometry.dispose();
     this.aggregateMesh?.geometry.dispose();
     this.protectionMesh?.geometry.dispose();
-    this.universeMesh?.geometry.dispose();
+    if (this.universeTimer !== null) {
+      clearTimeout(this.universeTimer);
+      this.universeTimer = null;
+    }
+    this.universeQueue = [];
+    for (const [, ring] of this.universeRings) ring.mesh.geometry.dispose();
+    this.universeRings.clear();
     for (const [, s] of this.satelliteBuilds) s.mesh.geometry.dispose();
     this.satelliteBuilds.clear();
     if (this.billboard) {

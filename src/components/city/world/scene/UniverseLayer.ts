@@ -39,7 +39,7 @@ import type { CullRect } from "@/lib/city/scene/culling";
 import { TILE_W, tileToScreen } from "@/lib/city/scene/iso";
 import { deriveStreets } from "@/lib/city/streets";
 import {
-  universeBaseRing,
+  WORLD_BASE_RING,
   universeCityOffset,
   universeMarkerRadius,
   universeOffsetPx,
@@ -121,11 +121,12 @@ export class UniverseLayer extends Container {
   private payload: UniversePayload | null = null;
   private epoch = "";
   /**
-   * Viewer's universe base ring (2026-09-29 dynamic distance): derived from
-   * their sectorCount — the first foreign city sits just past their stake
-   * clusters, receding only as the home grid grows.
+   * Universe base ring — FIXED (2026-09-30 shared-universe ruling): every
+   * viewer sees the same constellation; only the self-centering translation
+   * is viewer-specific. sectorCount stays in the sync signature for the
+   * legacy Pixi parity API.
    */
-  private viewerBase = universeBaseRing(1);
+  private readonly viewerBase = WORLD_BASE_RING;
   private viewerUsername = "";
   private viewerRank = 1;
   private readonly stake = new Set<string>();
@@ -260,8 +261,8 @@ export class UniverseLayer extends Container {
     stakeUsernames: ReadonlyArray<string>,
     sectorCount: number
   ): void {
-    const baseChanged = this.viewerBase !== universeBaseRing(sectorCount);
-    this.viewerBase = universeBaseRing(sectorCount);
+    void sectorCount; // base ring is fixed now (2026-09-30 ruling)
+    const baseChanged = false;
     const stake = new Set(stakeUsernames);
     const stakeChanged =
       stake.size !== this.stake.size ||

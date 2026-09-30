@@ -18,7 +18,7 @@
 import { Color } from "three";
 import { GRID_SIZE } from "@/lib/city/layout-schema";
 import { globalTile, tileToScreen, type Point } from "@/lib/city/scene/iso";
-import { TILE_STEP, tileToGround } from "@/lib/city/scene/camera3d";
+import { tileToGround } from "@/lib/city/scene/camera3d";
 import { deriveStreets, type StreetTile } from "@/lib/city/streets";
 import {
   satelliteAnchor,
@@ -26,15 +26,15 @@ import {
 } from "@/lib/city/satellites";
 import {
   UNIVERSE_CITY_CAP,
-  universeBaseRing,
+  UNIVERSE_SKYLINE_LIMIT,
+  WORLD_BASE_RING,
   universeCityOffset,
+  universeFamilyOf,
   universeMarkerRadius,
-  universeOffsetPx,
   universeViewerRank,
   type UniversePayload,
 } from "@/lib/city/universe";
-import { worldPxToGround } from "@/lib/city/scene/camera3d";
-import type { CityFamily, CityNeighbor } from "@/lib/city/types";
+import type { BuildingTier, CityFamily, CityNeighbor } from "@/lib/city/types";
 import { familyMassHex, familyNeonHex } from "@/lib/city/district";
 import { MeshBuilder, HALF_TILE, buildMiniBuildingGeometry } from "./building3d";
 import { moatTileKeys, reservedTileKeys } from "./tiles";
@@ -49,15 +49,6 @@ const HARDLOCK = new Color("#f59e0b");
 const UNIVERSE_BASE = new Color("#5b6a7d");
 const UNIVERSE_STAKE = new Color("#a78bfa");
 
-/** Channel-scaled copy of a family color (local shadeColor twin). */
-function shadeColorPublic(c: Color, k: number): Color {
-  return new Color(
-    Math.min(1, c.r * k),
-    Math.min(1, c.g * k),
-    Math.min(1, c.b * k)
-  );
-}
-
 /** Flat tile diamond on the ground at (gx, gy), inset factor 0..1. */
 function tileDiamond(
   b: MeshBuilder,
@@ -71,10 +62,10 @@ function tileDiamond(
   const h = factor * HALF_TILE;
   b.quad(
     [
-      [g.x, y, g.y - h],
-      [g.x + h, y, g.y],
-      [g.x, y, g.y + h],
-      [g.x - h, y, g.y],
+      [g.x, y, g.z - h],
+      [g.x + h, y, g.z],
+      [g.x, y, g.z + h],
+      [g.x - h, y, g.z],
     ],
     color,
     color
@@ -192,8 +183,8 @@ export function buildAggregateGeometry(
       const g = tileToGround(t.x, t.y);
       const h = 10 + Math.min(26, count / 4) * (0.7 + ((cursor * 37) % 10) / 20);
       // Slab: platform + mass box with the family's palette.
-      b.box(g.x, g.y, 0, HALF_TILE * 0.34, HALF_TILE * 0.34, 4, new Color("#232a33"));
-      b.box(g.x, g.y, 4, HALF_TILE * 0.26, HALF_TILE * 0.26, h, mass);
+      b.box(g.x, g.z, 0, HALF_TILE * 0.34, HALF_TILE * 0.34, 4, new Color("#232a33"));
+      b.box(g.x, g.z, 4, HALF_TILE * 0.26, HALF_TILE * 0.26, h, mass);
     }
   }
   return { geometry: b.toGeometry(), slabCount: slab };
@@ -225,9 +216,9 @@ export function buildSatelliteCluster(
   const anchorGround = tileToGround(anchor.x, anchor.y);
 
   // Relay core: small dark tower + warm tip.
-  b.box(anchorGround.x, anchorGround.y, 0, HALF_TILE * 0.3, HALF_TILE * 0.3, 5, new Color("#2a3140"));
-  b.box(anchorGround.x, anchorGround.y, 5, HALF_TILE * 0.22, HALF_TILE * 0.22, 34, new Color("#3d4654"));
-  b.box(anchorGround.x, anchorGround.y, 39, 3, 3, 4, new Color("#ffd9a0"));
+  b.box(anchorGround.x, anchorGround.z, 0, HALF_TILE * 0.3, HALF_TILE * 0.3, 5, new Color("#2a3140"));
+  b.box(anchorGround.x, anchorGround.z, 5, HALF_TILE * 0.22, HALF_TILE * 0.22, 34, new Color("#3d4654"));
+  b.box(anchorGround.x, anchorGround.z, 39, 3, 3, 4, new Color("#ffd9a0"));
 
   const buildings = neighbor.buildings.slice(0, 24);
   const cluster = satelliteClusterTiles(anchor, Math.max(buildings.length, 1));
@@ -242,7 +233,7 @@ export function buildSatelliteCluster(
     );
     // Merge the mini building's MASS group only (skip its window groups —
     // minis read by silhouette; budget stays bounded), scaled to 0.8.
-    appendScaled(b, mini, bg.x, bg.y, 0.8);
+    appendScaled(b, mini, bg.x, bg.z, 0.8);
     tiles.push({ gx: t.gx, gy: t.gy, cardId: buildings[i].cardId });
   }
   return { geometry: b.toGeometry(), anchorWorld, tiles };
@@ -292,7 +283,7 @@ export function buildProtectionRingsGeometry(
   for (const t of tiles) {
     b.diamondRing(
       tileToGround(t.gx, t.gy).x,
-      tileToGround(t.gx, t.gy).y,
+      tileToGround(t.gx, t.gy).z,
       0.98,
       0.84,
       t.protection === "hardlock" ? HARDLOCK : FIREWALL
@@ -301,96 +292,188 @@ export function buildProtectionRingsGeometry(
   return b.toGeometry();
 }
 
-// ── shared universe markers ───────────────────────────────────────────────
+// ── shared universe: FULL city skylines (2026-09-30 ruling) ───────────────
 
 export interface UniverseMarker {
   username: string;
   profession: string | null;
+  /** Anchor GLOBAL tile (viewer-relative translation already applied). */
   gxWorld: number;
   gyWorld: number;
   radiusPx: number;
-  /** 1-based portfolio rank — drives the single building's height. */
+  /** 1-based portfolio rank — drives the relay's height read. */
   rank: number;
   stake: boolean;
+  /** Top-N skyline tuples [tier, familyIndex] (value-sorted; may be null). */
+  skyline: ReadonlyArray<readonly [number, number]> | null;
+  /** Visible non-goddess owned-building count (the "+N more" read). */
+  count: number;
 }
 
 /** Markers within the ground plate's reach (bounded; the HUD chip carries
- *  the true city count). Anchors are TILE offsets relative to the viewer. */
+ *  the true city count). Anchors are GLOBAL tiles: hqGlobalTile() + the
+ *  shared-universe delta — integers, no lossy px round-trip. */
 export const UNIVERSE_MARKER_TILE_REACH = 150;
 
 export function deriveUniverseMarkers(
   payload: UniversePayload | null,
   viewerUsername: string,
-  stakeUsernames: readonly string[],
-  sectorCount = 9
+  stakeUsernames: readonly string[]
 ): { markers: UniverseMarker[]; count: number; viewerRank: number } {
   if (!payload) return { markers: [], count: 0, viewerRank: 0 };
   const viewerRank = universeViewerRank(payload, viewerUsername);
-  const base = universeBaseRing(sectorCount);
   const hq = hqGlobalTile();
   const markers: UniverseMarker[] = [];
   for (const city of payload.cities) {
     if (city.username === viewerUsername) continue;
-    const delta = universeCityOffset(city.rank, viewerRank, base);
+    const delta = universeCityOffset(city.rank, viewerRank, WORLD_BASE_RING);
     if (
       Math.abs(delta.x) > UNIVERSE_MARKER_TILE_REACH ||
       Math.abs(delta.y) > UNIVERSE_MARKER_TILE_REACH
     ) {
       continue;
     }
-    const px = universeOffsetPx(delta);
-    const ground = worldPxToGround(px.x + tileToScreen(hq.x, hq.y).x, px.y + tileToScreen(hq.x, hq.y).y);
     markers.push({
       username: city.username,
       profession: city.profession,
-      gxWorld: ground.x / TILE_STEP,
-      gyWorld: ground.z / TILE_STEP,
+      gxWorld: hq.x + delta.x,
+      gyWorld: hq.y + delta.y,
       radiusPx: universeMarkerRadius(city.rank, UNIVERSE_CITY_CAP),
       rank: city.rank,
       stake: stakeUsernames.includes(city.username),
+      skyline: city.skyline ?? null,
+      count: city.count ?? 0,
     });
   }
   return { markers, count: payload.cities.length, viewerRank };
 }
 
 /**
- * ONE SINGLE BUILDING per foreign city (2026-09-30 user ruling "either all
- * or nothing" — no lazy minis): each city on the shared map renders as a
- * proper little tower — trade-family palette, height by portfolio rank
- * (rank 1 ~102px, deep ranks ~30px), violet beacon accent for satellite
- * stakes. Tap → city chip + visit link opens the FULL city on its own page.
+ * Device-tier skyline cap (bounded rendering on low-end hardware): logical
+ * cores are the cheapest available proxy. Full 24 everywhere else.
  */
-export function buildUniverseCityBuildingsGeometry(
-  markers: readonly UniverseMarker[]
-): ReturnType<MeshBuilder["toGeometry"]> {
-  const b = new MeshBuilder();
-  for (const m of markers) {
-    const g = tileToGround(m.gxWorld, m.gyWorld);
-    const t = Math.log10(Math.max(1, m.rank)) / Math.log10(UNIVERSE_CITY_CAP);
-    const h = 28 + 74 * (1 - t);
-    const mass = new Color(familyMassHex(m.profession ?? "__unassigned__"));
-    const neon = new Color(familyNeonHex(m.profession ?? "__unassigned__"));
-    const accent = m.stake ? UNIVERSE_STAKE : neon;
-    // Pad + shaft + crown slab + beacon — the value-orbit skyline in one.
-    b.box(g.x, g.z, 0, HALF_TILE * 0.34, HALF_TILE * 0.34, 4, new Color("#232a33"));
-    b.box(g.x, g.z, 4, HALF_TILE * 0.2, HALF_TILE * 0.2, h, mass);
-    b.box(g.x, g.z, 4 + h * 0.78, HALF_TILE * 0.26, HALF_TILE * 0.26, 5, shadeColorPublic(mass, 1.35));
-    b.box(g.x, g.z, 4 + h * 0.86, HALF_TILE * 0.13, HALF_TILE * 0.13, h * 0.14, shadeColorPublic(mass, 1.5));
-    b.box(g.x, g.z, 4 + h, 2.6, 2.6, 4, accent);
-    // Ground footprint diamond (keeps the map-dot read at world zoom).
-    const d = Math.max(6, m.radiusPx) / 0.7071;
-    b.quad(
-      [
-        [g.x, LAYER_Y, g.z - d],
-        [g.x + d, LAYER_Y, g.z],
-        [g.x, LAYER_Y, g.z + d],
-        [g.x - d, LAYER_Y, g.z],
-      ],
-      m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE,
-      m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE
-    );
+export function universeSkylineCapFor(cores: number): number {
+  if (cores >= 6) return UNIVERSE_SKYLINE_LIMIT;
+  if (cores >= 4) return 12;
+  return 6;
+}
+
+/**
+ * Mini scale for universe skylines: at step-8 ring packing, a 7-tile airy
+ * cluster × 0.55 spans ~3.9 visual tiles of radius — neighbouring cities
+ * (one stride apart) never touch ("almost crashing", 2026-09-29 packing).
+ */
+export const UNIVERSE_MINI_SCALE = 0.55;
+
+/** Deterministic silhouette seed from the city + skyline slot (stable
+ * across refreshes — the same city always draws the same skyline). */
+function miniSeedOf(username: string, index: number): number {
+  let h = 0x811c9df5;
+  for (let i = 0; i < username.length; i++) {
+    h ^= username.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
   }
-  return b.toGeometry();
+  return (h ^ Math.imul(index + 1, 0x9e3779b1)) >>> 0;
+}
+
+/**
+ * Append ONE foreign city's full bounded skyline (2026-09-30 "all" ruling —
+ * CITY_SHARED_UNIVERSE_STUDY §5): a rank-scaled RELAY tower at the anchor
+ * (the map-dot + hierarchy read, and the tap body) plus its top
+ * `perCityCap` buildings by value as windowless minis on the SAME SPACED
+ * cluster walk the satellite cities use — the city's real composition in
+ * miniature, family colors and tier heights included.
+ */
+export function appendUniverseCity(
+  b: MeshBuilder,
+  m: UniverseMarker,
+  perCityCap: number
+): number {
+  const ax = Math.round(m.gxWorld);
+  const ay = Math.round(m.gyWorld);
+  const g = tileToGround(ax, ay);
+  const t = Math.log10(Math.max(1, m.rank)) / Math.log10(UNIVERSE_CITY_CAP);
+  const h = 28 + 74 * (1 - t);
+  const mass = new Color(familyMassHex(m.profession ?? "__unassigned__"));
+  const neon = new Color(familyNeonHex(m.profession ?? "__unassigned__"));
+  const accent = m.stake ? UNIVERSE_STAKE : neon;
+  // Relay: pad + rank-scaled shaft + beacon tip (the "value-orbit skyline
+  // in one" tower from the one-building era, kept as the identity read).
+  b.box(g.x, g.z, 0, HALF_TILE * 0.34, HALF_TILE * 0.34, 4, new Color("#232a33"));
+  b.box(g.x, g.z, 4, HALF_TILE * 0.2, HALF_TILE * 0.2, h, mass);
+  b.box(g.x, g.z, 4 + h, 2.6, 2.6, 4, accent);
+  // Ground footprint diamond (keeps the map-dot read at world zoom).
+  const d = Math.max(6, m.radiusPx) / 0.7071;
+  b.quad(
+    [
+      [g.x, LAYER_Y, g.z - d],
+      [g.x + d, LAYER_Y, g.z],
+      [g.x, LAYER_Y, g.z + d],
+      [g.x - d, LAYER_Y, g.z],
+    ],
+    m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE,
+    m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE
+  );
+  // The skyline (bounded: top perCityCap tuples, value order).
+  const skyline = m.skyline ?? [];
+  const n = Math.max(0, Math.min(skyline.length, perCityCap, UNIVERSE_SKYLINE_LIMIT));
+  if (n === 0) return 0;
+  const cluster = satelliteClusterTiles({ x: ax, y: ay }, n);
+  let built = 0;
+  for (let i = 0; i < n && i < cluster.length; i++) {
+    const [tier, famIdx] = skyline[i];
+    const bt = tileToGround(cluster[i].gx, cluster[i].gy);
+    const mini = buildMiniBuildingGeometry(
+      universeFamilyOf(famIdx),
+      Math.max(1, Math.min(14, Math.round(tier))) as BuildingTier,
+      miniSeedOf(m.username, i)
+    );
+    // Windowless mass merge (minis read by silhouette — same rule as the
+    // satellite clusters), scaled so step-8 neighbours never touch.
+    appendScaled(b, mini, bt.x, bt.z, UNIVERSE_MINI_SCALE);
+    built++;
+  }
+  return built;
+}
+
+/** One ring's merged skyline geometry (the time-sliced pump appends city by
+ *  city via appendUniverseCity; this whole-ring form serves tests). */
+export function buildUniverseRingGeometry(
+  markers: readonly UniverseMarker[],
+  perCityCap: number
+): { geometry: ReturnType<MeshBuilder["toGeometry"]>; miniCount: number } {
+  const b = new MeshBuilder();
+  let miniCount = 0;
+  for (const m of markers) miniCount += appendUniverseCity(b, m, perCityCap);
+  return { geometry: b.toGeometry(), miniCount };
+}
+
+/**
+ * Content signature of one ring chunk: membership (username), relay height
+ * (rank), stake tint AND skyline tuples (up to the cap) — everything that
+ * changes pixels. The scene rebuilds a ring only when this string changes,
+ * so 10-minute re-ranks that shuffle other rings cost nothing here.
+ */
+export function universeRingSignature(
+  markers: readonly UniverseMarker[],
+  perCityCap: number
+): string {
+  let h = 0x811c9dc5;
+  const mix = (s: string) => {
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    h ^= 0x2f;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  };
+  for (const m of markers) {
+    mix(`${m.username}@${m.rank}${m.stake ? "!" : ""}:`);
+    const skyline = m.skyline ?? [];
+    const n = Math.max(0, Math.min(skyline.length, perCityCap, UNIVERSE_SKYLINE_LIMIT));
+    for (let i = 0; i < n; i++) mix(`${skyline[i][0]},${skyline[i][1]};`);
+  }
+  return h.toString(36);
 }
 
 export { FIREWALL, HARDLOCK };

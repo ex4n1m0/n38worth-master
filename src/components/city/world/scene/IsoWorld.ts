@@ -37,7 +37,7 @@ import {
 } from "@/lib/city/scene/iso";
 import {
   UNIVERSE_CITY_CAP,
-  universeBaseRing,
+  WORLD_BASE_RING,
   universeCumulativeCapacity,
   universeRingRadius,
 } from "@/lib/city/universe";
@@ -86,7 +86,7 @@ export const HQ_TILE: TileRef = { sector: "s0", x: GRID_SIZE >> 1, y: GRID_SIZE 
  */
 function universeTerrainExtent(): number {
   let m = 1;
-  const base = universeBaseRing(SECTOR_MACRO.length);
+  const base = WORLD_BASE_RING; // fixed shared ring (2026-09-30 ruling)
   while (universeCumulativeCapacity(m, base) < UNIVERSE_CITY_CAP) m++;
   return 2 * universeRingRadius(m, base) + 56;
 }
