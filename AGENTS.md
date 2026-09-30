@@ -240,6 +240,15 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 The city is a DERIVED visual projection of the existing economy — never a
 second economy, currency, or simulation. Invariants (enforced by
 n38worth-game-systems review):
+- **Renderer (2026-09-30): the city defaults to the THREE.JS 3D renderer**
+  (`src/components/city/world/scene3d/` — camera3d.ts pure ortho adapter at
+  yaw45/elev30 = exact 2:1 iso parity, building3d.ts procedural geometry,
+  world3d.ts streets/satellites/aggregate/universe, ThreeScene.ts owner).
+  `?renderer=pixi` opts BACK to the legacy PixiJS 2D scene (both satisfy the
+  `CitySceneApi` contract in scene-api.ts; CitySceneMount loads exactly one
+  lazy chunk; a three init failure auto-retries pixi once). Flag logic:
+  `src/lib/city/renderer-flag.ts`. Scene3d QA probe: `window.__city3d`
+  (dev builds only).
 - Owned avatar = building/module. Hire constructs; loss/poach removes;
   restore reconstructs. Building stage derives from current value relative
   to value_floor; the server computes it, the client only renders it.

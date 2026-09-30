@@ -21,6 +21,7 @@
  */
 
 import {
+  AdditiveBlending,
   BufferGeometry,
   Color,
   DoubleSide,
@@ -66,6 +67,7 @@ import type {
 import { CameraRig } from "../scene/CameraRig";
 import type { RootSequenceVisualState } from "@/lib/city/root-sequence";
 import type { UniversePayload } from "@/lib/city/universe";
+import { LANDMARK_COLORS } from "@/lib/city/landmark-colors";
 import {
   buildBuildingGeometry,
   buildHqGeometry,
@@ -73,6 +75,7 @@ import {
   buildSelectionRingGeometry,
   familyTopHeightPx,
   groundPlateHalfExtent,
+  MeshBuilder,
 } from "./building3d";
 import {
   buildAggregateGeometry,
@@ -147,12 +150,12 @@ export class ThreeScene {
   private readonly ringMaterial: MeshBasicMaterial;
   /**
    * Window channel materials (light identity): every building's seeded
-   * lit-pane mosaic renders through these two SHARED materials (geometry
-   * groups), so the whole city's occupancy churn + day/night glow animates
-   * by touching two colors per light-clock step — zero per-vertex updates.
+   * lit-pane mosaic renders through FOUR SHARED materials (channel A/B ×
+   * cardId parity), so the occupancy churn + day/night glow animates by
+   * touching four colors per light-clock step — zero per-vertex updates —
+   * while half the city flickers out of phase with the other half.
    */
-  private readonly windowMaterialA: MeshBasicMaterial;
-  private readonly windowMaterialB: MeshBasicMaterial;
+  private readonly windowMaterials: MeshBasicMaterial[];
 
   private readonly buildingsGroup = new Group();
   private readonly fixtures = new Group();
@@ -194,6 +197,9 @@ export class ThreeScene {
   private avatarTeardown: (() => void) | null = null;
   /** Construct pop-in tweens (scale.y 0→1). */
   private readonly growing: Array<{ mesh: Mesh; start: number }> = [];
+  /** Root Sequence beams (additive, light-clock pulsed; null = idle). */
+  private rootBeams: Mesh | null = null;
+  private rootActive = false;
 
   private readonly buildings = new Map<number, BuildingMeshEntry>();
   private readonly occupancy = new Map<string, number>();
@@ -269,14 +275,9 @@ export class ThreeScene {
       transparent: true,
       opacity: 0.9,
     });
-    this.windowMaterialA = new MeshBasicMaterial({
-      vertexColors: true,
-      side: DoubleSide,
-    });
-    this.windowMaterialB = new MeshBasicMaterial({
-      vertexColors: true,
-      side: DoubleSide,
-    });
+    this.windowMaterials = [0, 1, 2, 3].map(
+      () => new MeshBasicMaterial({ vertexColors: true, side: DoubleSide })
+    );
     this.streetMaterial = new MeshBasicMaterial({
       vertexColors: true,
       side: DoubleSide,
@@ -757,8 +758,44 @@ export class ThreeScene {
   }
 
   setRootSequence(state: RootSequenceVisualState): void {
-    // P2: Root beams / veil visuals. The countdown HUD stays authoritative.
-    void state;
+    if (this.destroyed) return;
+    const wasActive = this.rootActive;
+    if (state.active === wasActive) return;
+    this.rootActive = state.active;
+    this.applyRoot();
+    this.requestRender();
+  }
+
+  /**
+   * Root Sequence beams (all six fixed ring positions while the countdown
+   * runs — the countdown HUD stays authoritative): thin additive towers in
+   * each monument's accent color, opacity-pulsed by the light clock.
+   */
+  private applyRoot(): void {
+    if (this.rootBeams) {
+      this.scene.remove(this.rootBeams);
+      this.rootBeams.geometry.dispose();
+      (this.rootBeams.material as MeshBasicMaterial).dispose();
+      this.rootBeams = null;
+    }
+    if (!this.rootActive) return;
+    const builder = new MeshBuilder();
+    for (let i = 0; i < 6; i++) {
+      const g = globalTileOf(landmarkTile(i));
+      const ground = tileToGround(g.x, g.y);
+      const accent = new Color(LANDMARK_COLORS[i % LANDMARK_COLORS.length]);
+      builder.box(ground.x, ground.z, 0, 2.6, 2.6, 420, accent);
+    }
+    const mat = new MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.6,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+    this.rootBeams = new Mesh(builder.toGeometry(), mat);
+    this.scene.add(this.rootBeams);
   }
 
   focusCard(cardId: number): void {
@@ -1039,6 +1076,19 @@ export class ThreeScene {
       )
     );
 
+    // Satellite "+N more" plates (bounded foreign-city counts).
+    const neighbors = this.lastProjection.neighbors ?? [];
+    for (const [slot, sat] of this.satelliteBuilds) {
+      const n = neighbors[slot];
+      if (!n || !n.truncated) continue;
+      const more = n.visibleOwnedCount - n.buildings.length;
+      if (more <= 0) continue;
+      const sp = place(sat.anchorWorld, -84);
+      nodes.push(
+        this.chipNode(this.strings.satelliteMoreLabel(more), sp.x, sp.y, false)
+      );
+    }
+
     // Selected building name chip (strong plate, above the body top).
     if (this.selectedCardId !== null) {
       const tile = this.cardTiles.get(this.selectedCardId);
@@ -1108,7 +1158,7 @@ export class ThreeScene {
 
   /** Mass + window-channel material array (geometry groups drive the pick). */
   private bodyMaterials(): MeshBasicMaterial[] {
-    return [this.buildingMaterial, this.windowMaterialA, this.windowMaterialB];
+    return [this.buildingMaterial, ...this.windowMaterials];
   }
 
   private applyDaylight(): void {
@@ -1128,26 +1178,30 @@ export class ThreeScene {
   /**
    * Window-channel colors at time t — the 3D twin of the Pixi light clock:
    * windowFlickerAt's two occupancy channels (different periods, out of
-   * phase) dim the lit panes city-wide, scaled by facadeGlowAt(daylight)
+   * phase) dim the lit panes city-wide, SPLIT BY cardId parity so half the
+   * skyline dips against the other half, scaled by facadeGlowAt(daylight)
    * (full bloom at night, glass sheen by day). Per-pane identity (warm
    * color, brightness, channel split) is baked in vertex colors, so this
-   * touches exactly two material colors per step.
+   * touches exactly four material colors per step.
    */
   private updateWindowLights(t: number): void {
     const glow = facadeGlowAt(this.daylight);
-    const scale = (flick: number) => glow * flick;
-    const fa = scale(windowFlickerAt(t, 1, 0));
-    const fb = scale(windowFlickerAt(t, 2, 1));
-    this.windowMaterialA.color.setRGB(
-      WINDOW_WARM_LINEAR.r * fa,
-      WINDOW_WARM_LINEAR.g * fa,
-      WINDOW_WARM_LINEAR.b * fa
-    );
-    this.windowMaterialB.color.setRGB(
-      WINDOW_WARM_LINEAR.r * fb,
-      WINDOW_WARM_LINEAR.g * fb,
-      WINDOW_WARM_LINEAR.b * fb
-    );
+    for (let parity = 0; parity < 2; parity++) {
+      const fa = glow * windowFlickerAt(t, 1 + parity, 0);
+      const fb = glow * windowFlickerAt(t, 3 + parity, 1);
+      const a = this.windowMaterials[parity]; // A{parity}
+      const b = this.windowMaterials[2 + parity]; // B{parity}
+      a.color.setRGB(
+        WINDOW_WARM_LINEAR.r * fa,
+        WINDOW_WARM_LINEAR.g * fa,
+        WINDOW_WARM_LINEAR.b * fa
+      );
+      b.color.setRGB(
+        WINDOW_WARM_LINEAR.r * fb,
+        WINDOW_WARM_LINEAR.g * fb,
+        WINDOW_WARM_LINEAR.b * fb
+      );
+    }
   }
 
   /**
@@ -1162,6 +1216,11 @@ export class ThreeScene {
       if (this.destroyed) return;
       const t = performance.now();
       this.updateWindowLights(t);
+      if (this.rootBeams) {
+        // Beam pulse rides the light clock (reduced motion: steady glow).
+        const mat = this.rootBeams.material as MeshBasicMaterial;
+        mat.opacity = 0.5 + 0.25 * Math.sin(t / 900);
+      }
       if (
         typeof document === "undefined" ||
         document.visibilityState !== "hidden"
@@ -1321,8 +1380,7 @@ export class ThreeScene {
     this.buildingMaterial.dispose();
     this.groundMaterial.dispose();
     this.ringMaterial.dispose();
-    this.windowMaterialA.dispose();
-    this.windowMaterialB.dispose();
+    for (const m of this.windowMaterials) m.dispose();
     this.streetMaterial.dispose();
     this.lockedPadMaterial.dispose();
     this.flatMaterial.dispose();

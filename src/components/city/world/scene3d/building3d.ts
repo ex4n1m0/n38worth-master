@@ -137,8 +137,12 @@ export class MeshBuilder {
   private groupStart = 0;
   private currentMaterial = 0;
 
-  /** Switch the active material group (mass 0 / window A 1 / window B 2). */
-  setMaterial(material: 0 | 1 | 2): void {
+  /**
+   * Switch the active material group: mass 0; window channels are
+   * A0=1, A1=2, B0=3, B1=4 (channel x cardId parity) so the light clock
+   * can desync the flicker across half the city (4 shared materials).
+   */
+  setMaterial(material: 0 | 1 | 2 | 3 | 4): void {
     if (material === this.currentMaterial) return;
     const count = this.indices.length - this.groupStart;
     if (count > 0) {
@@ -413,6 +417,8 @@ function addWindowMosaic(
   b: MeshBuilder,
   opts: {
     seed: number;
+    /** cardId parity — picks the channel pair (A0/B0 vs A1/B1). */
+    parity?: 0 | 1;
     /** Visible-face rectangles: {face, wallAt, uMin, uMax, basePx, heightPx}. */
     faces: ReadonlyArray<{
       face: "px" | "pz";
@@ -427,6 +433,8 @@ function addWindowMosaic(
   }
 ): void {
   const rng = mulberry32(opts.seed * 747796405 + 2891336453);
+  const matA: 1 | 2 = opts.parity === 1 ? 2 : 1;
+  const matB: 3 | 4 = opts.parity === 1 ? 4 : 3;
   // Subtle hue nudge for the grand league (neon-tinted glass): white
   // lerped slightly toward the family neon — the shared warm material
   // still owns the hue, this only biases it.
@@ -489,13 +497,13 @@ function addWindowMosaic(
     if (p.channel === -1) b.windowPane(...p.args);
   }
   if (anyA) {
-    b.setMaterial(1);
+    b.setMaterial(matA);
     for (const p of panes) {
       if (p.channel === 0) b.windowPane(...p.args);
     }
   }
   if (anyB) {
-    b.setMaterial(2);
+    b.setMaterial(matB);
     for (const p of panes) {
       if (p.channel === 1) b.windowPane(...p.args);
     }
@@ -675,7 +683,7 @@ function buildCivic(
   // The night light identity — lit-window mosaic on every tier/LOD.
   // The night light identity — lit-window mosaic on every tier/LOD
   // (skipped for satellite minis: silhouette-only, single material).
-  if (windows) addWindowMosaic(b, { seed, faces });
+  if (windows) addWindowMosaic(b, { seed, faces, parity: (seed % 2) as 0 | 1 });
 
   // Tier-feature ladder (mirrors art.ts drawTierFeatures ordering).
   const bodyTop = 5 + H;
@@ -750,6 +758,7 @@ function buildGrand(
   if (windows) {
     addWindowMosaic(b, {
       seed,
+      parity: (seed % 2) as 0 | 1,
       tint: neon,
       faces: [
         { face: "px", wallAt: midW, uMin: -midD, uMax: midD, basePx: 5 + H * 0.2, heightPx: H * 0.44 },

@@ -137,22 +137,34 @@ export default function CitySceneMount({
     (async () => {
       try {
         // Renderer chunk pick (flag): exactly ONE of the two engine chunks
-        // is ever fetched for a viewer.
-        const { createScene } =
-          cityRenderer() === "three"
+        // is ever fetched for a viewer. If the DEFAULT (three) fails at
+        // init, retry ONCE with pixi before giving up — a renderer swap
+        // must never dead-end a player.
+        const pickThree = cityRenderer() === "three";
+        const createWith = async (three: boolean) => {
+          const { createScene } = three
             ? await import("./scene3d/ThreeScene")
             : await import("./scene/CityScene");
-        const created = await createScene({
-          host,
-          sectorCount: Math.max(1, Math.min(9, latest.current.projection.owner.sectorsUnlocked)),
-          reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-          callbacks: {
-            onSelectCard: (cardId) => {
-              cityWorldStore.getState().select(cardId);
+          return createScene({
+            host,
+            sectorCount: Math.max(1, Math.min(9, latest.current.projection.owner.sectorsUnlocked)),
+            reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+            callbacks: {
+              onSelectCard: (cardId) => {
+                cityWorldStore.getState().select(cardId);
+              },
+              onContextLost: () => onContextLost(),
             },
-            onContextLost: () => onContextLost(),
-          },
-        });
+          });
+        };
+        let created: CitySceneApi;
+        try {
+          created = await createWith(pickThree);
+        } catch (firstError) {
+          if (!pickThree || disposed) throw firstError;
+          console.error("[city] three renderer init failed, retrying pixi:", firstError);
+          created = await createWith(false);
+        }
         if (disposed) {
           created.destroy();
           return;

@@ -48,13 +48,17 @@ describe("building3d — determinism", () => {
 });
 
 describe("building3d — window channel groups (the night light identity)", () => {
-  it("every family×tier carries both window channel groups", () => {
+  it("every family×tier carries both window channel groups (parity-split)", () => {
     for (const family of FAMILIES) {
       for (const tier of ([1, 5, 9, 14] as const satisfies readonly BuildingTier[])) {
-        const { geometry } = buildBuildingGeometry(family, tier, 42);
-        const materials = geometry.groups.map((g) => g.materialIndex);
-        expect(materials).toContain(1);
-        expect(materials).toContain(2);
+        // Seed 42 → parity 0 (groups A0=1, B0=3); seed 43 → parity 1.
+        const even = buildBuildingGeometry(family, tier, 42).geometry;
+        const odd = buildBuildingGeometry(family, tier, 43).geometry;
+        expect(even.groups.map((g) => g.materialIndex)).toContain(1);
+        expect(even.groups.map((g) => g.materialIndex)).toContain(3);
+        expect(odd.groups.map((g) => g.materialIndex)).toContain(2);
+        expect(odd.groups.map((g) => g.materialIndex)).toContain(4);
+        const { geometry } = { geometry: even };
         // Groups are contiguous, ordered, and cover the whole index buffer.
         const indexCount = geometry.index?.count ?? 0;
         const covered = geometry.groups.reduce((n, g) => n + g.count, 0);
