@@ -34,22 +34,18 @@ import {
 export const ORBIT_START_RING = 4;
 
 /**
- * ROAD-GRID breathing room (2026-09-29 evening user ruling "just enough
- * space to design roads"): the SPACED orbit occupies every OTHER ring (ONE
- * empty ring between building rings — exactly road width) and every OTHER
- * tile along a ring (checkerboard — a one-tile gap between same-ring
- * neighbors). Every building therefore sits exactly ONE tile from every
- * neighbour, and the street pass (lib/city/streets.ts) paves precisely
- * those gap tiles: concentric ring BOULEVARDS on the odd rings plus the
- * checkerboard alleys between same-ring buildings — the city reads as an
- * actual street grid instead of scattered towers. `spacedOrbitOrder` still
- * lists the airy tiles first and the skipped (infill) tiles after, so a
- * city densifies gracefully at the rim only once every airy slot is taken;
- * the value story (priciest innermost) is unchanged. Satellite mini cities
- * import the SAME stride (mirroring the home rules — see satellites.ts).
+ * ROAD-GRID rhythm (2026-09-30 "no chessboard" ruling, superseding the
+ * 2026-09-29 checkerboard): the orbit occupies every OTHER ring
+ * (ORBIT_RING_STRIDE) — and every tile ON that ring, wall-to-wall. The
+ * result is a planned grid: a SOLID block row of buildings, then the gap
+ * ring as one continuous ring BOULEVARD (lib/city/streets.ts
+ * deriveBoulevards), then the next block row — roads and buildings read as
+ * aligned blocks instead of a checkerboard. The value story (priciest
+ * innermost, clockwise fill) is unchanged; the gap rings are permanently
+ * streets, so a dense city simply pushes its rim outward. Satellite mini
+ * cities keep their own airy walk (satellites.ts).
  */
 export const ORBIT_RING_STRIDE = 2;
-export const ORBIT_TILE_STRIDE = 2;
 
 /** The orbit center: the HQ core tile (sector 0 center) in global tiles. */
 export function hqGlobalTile(gridSize: number = GRID_SIZE): Point {
@@ -130,13 +126,11 @@ export function orbitOrder(
 }
 
 /**
- * The orbit with breathing room (see ORBIT_RING_STRIDE/ORBIT_TILE_STRIDE):
- * the SAME tiles as `orbitOrder`, reordered — every stride-eligible tile
- * first (airy layout), then the skipped tiles in walk order (infill, used
- * only when the city outgrows its airy capacity so buildings never share a
- * rim tile before every slot is taken). A tile is stride-eligible when its
- * ring is on the fromRing + k·RING_STRIDE ladder AND its global diagonal
- * parity matches the HQ's (the checkerboard).
+ * The block-row orbit (2026-09-30 "no chessboard" ruling): every tile of
+ * every ladder ring (fromRing + k·ORBIT_RING_STRIDE), in clockwise walk
+ * order — SOLID rows of buildings with the gap rings left entirely to the
+ * boulevard grid. Pure and deterministic: same inputs → same tile order.
+ * Supersedes the 2026-09-29 checkerboard/airy-infill ordering.
  */
 export function spacedOrbitOrder(
   center: Point,
@@ -145,17 +139,7 @@ export function spacedOrbitOrder(
   gridSize: number = GRID_SIZE,
   allow?: (tile: RingTile) => boolean
 ): RingTile[] {
-  const dense = orbitOrder(center, fromRing, sectorCount, gridSize, allow);
-  const stride = macroStride(gridSize);
-  const baseParity = (center.x + center.y) % 2;
-  const isSpaced = (t: RingTile) => {
-    if ((t.ring - fromRing) % ORBIT_RING_STRIDE !== 0) return false;
-    const macro = SECTOR_MACRO[t.sectorIndex] ?? { x: 1, y: 1 };
-    const gx = macro.x * stride + t.x;
-    const gy = macro.y * stride + t.y;
-    return (gx + gy) % 2 === baseParity;
-  };
-  const spaced = dense.filter(isSpaced);
-  const infill = dense.filter((t) => !isSpaced(t));
-  return [...spaced, ...infill];
+  return orbitOrder(center, fromRing, sectorCount, gridSize, (t) =>
+    (t.ring - fromRing) % ORBIT_RING_STRIDE === 0 && (!allow || allow(t))
+  );
 }

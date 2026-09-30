@@ -9,7 +9,6 @@ import {
 import {
   ORBIT_START_RING,
   ORBIT_RING_STRIDE,
-  ORBIT_TILE_STRIDE,
   hqGlobalTile,
   orbitOrder,
   ringTiles,
@@ -205,18 +204,18 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
     expect(empty.entries).toHaveLength(0);
     expect(empty.resumeRing).toBe(ORBIT_START_RING);
 
-    // The SPACED ladder: the start ring holds 8r tiles, the checkerboard
-    // keeps half of them (the start ring lies fully inside sector 0 for a
-    // 9-sector city); the next airy ring is +ORBIT_RING_STRIDE out.
-    const airyCapacity = (8 * ORBIT_START_RING) / ORBIT_TILE_STRIDE;
+    // SOLID BLOCK ROWS (2026-09-30 "no chessboard" ruling): the start
+    // ring holds ALL 8r tiles wall-to-wall (fully inside sector 0 for a
+    // 9-sector city); the overflow spills to the next ladder ring.
+    const rowCapacity = 8 * ORBIT_START_RING;
     const { entries, resumeRing } = rankArrangeTiles(
-      Array.from({ length: airyCapacity + 1 }, (_, i) => b(i + 1, 1000 - i)),
+      Array.from({ length: rowCapacity + 1 }, (_, i) => b(i + 1, 1000 - i)),
       9,
       noneBlocked
     );
-    expect(entries).toHaveLength(airyCapacity + 1);
-    expect(entries[airyCapacity - 1].ring).toBe(ORBIT_START_RING);
-    expect(entries[airyCapacity].ring).toBe(ORBIT_START_RING + ORBIT_RING_STRIDE);
+    expect(entries).toHaveLength(rowCapacity + 1);
+    expect(entries[rowCapacity - 1].ring).toBe(ORBIT_START_RING);
+    expect(entries[rowCapacity].ring).toBe(ORBIT_START_RING + ORBIT_RING_STRIDE);
     expect(resumeRing).toBe(ORBIT_START_RING + ORBIT_RING_STRIDE);
   });
 
@@ -228,77 +227,57 @@ describe("rankArrangeTiles (derived value-orbit placement)", () => {
   });
 });
 
-describe("spacedOrbitOrder (inter-building breathing room)", () => {
+describe("spacedOrbitOrder (solid block rows, 2026-09-30)", () => {
   const center = hqGlobalTile();
 
-  it("is a permutation of the dense orbit (airy tiles first, infill after)", () => {
-    const dense = orbitOrder(center, ORBIT_START_RING, 9);
+  it("covers EXACTLY the ladder rings — gap rings stay pure street", () => {
     const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 9);
-    const key = (t: { sector: string; x: number; y: number; ring: number }) =>
-      `${t.sector}:${t.x}:${t.y}`;
-    expect(spaced.length).toBe(dense.length);
-    expect(spaced.map(key).sort()).toEqual(dense.map(key).sort());
-  });
-
-  it("airy tiles never sit on adjacent rings or adjacent tiles (no stacking)", () => {
-    const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 9);
-    const stride2 = macroStride(GRID_SIZE);
-    // Count airy tiles: the leading run satisfies the FULL spaced
-    // predicate (ladder ring AND checkerboard parity) — the infill segment
-    // starts at the first tile that fails either half.
-    const baseParity = (center.x + center.y) % 2;
-    const isSpaced = (t: (typeof spaced)[number]) => {
-      if ((t.ring - ORBIT_START_RING) % ORBIT_RING_STRIDE !== 0) return false;
-      const macro = { x: Math.floor(t.sectorIndex % 3), y: Math.floor(t.sectorIndex / 3) };
-      return (macro.x * stride2 + t.x + macro.y * stride2 + t.y) % 2 === baseParity;
-    };
-    let airy = 0;
+    expect(spaced.length).toBeGreaterThan(0);
     for (const t of spaced) {
-      if (!isSpaced(t)) break;
-      airy++;
+      expect((t.ring - ORBIT_START_RING) % ORBIT_RING_STRIDE).toBe(0);
     }
-    expect(airy).toBeGreaterThan(8 * ORBIT_START_RING / ORBIT_TILE_STRIDE);
-    const seen: Array<{ gx: number; gy: number }> = [];
-    for (let i = 0; i < airy; i++) {
-      const macro = { x: Math.floor(spaced[i].sectorIndex % 3), y: Math.floor(spaced[i].sectorIndex / 3) };
-      const gx = macro.x * stride2 + spaced[i].x;
-      const gy = macro.y * stride2 + spaced[i].y;
-      for (const p of seen) {
-        const cheb = Math.max(Math.abs(p.gx - gx), Math.abs(p.gy - gy));
-        if (cheb <= 1) {
-          throw new Error(`airy tiles adjacent: (${p.gx},${p.gy}) vs (${gx},${gy})`);
-        }
-      }
-      seen.push({ gx, gy });
-    }
+    // No checkerboard: EVERY tile of the start ring is present (the ring
+    // lies fully inside sector 0 for a 9-sector city).
+    const ring4 = spaced.filter((t) => t.ring === ORBIT_START_RING);
+    expect(ring4).toHaveLength(8 * ORBIT_START_RING);
   });
 
-  it("rankArrangeTiles keeps the airy spacing for a full sector's worth of buildings", () => {
-    // Ring 4 airy (16) + ring 7 airy (28) = 44 non-adjacent tiles inside
-    // sector 0 alone (none blocked, single-sector city; the stride-3 ladder
-    // skips rings 5/6 entirely).
+  it("fills each ring wall-to-wall before the next (block-row order)", () => {
+    const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 1);
+    // Single sector: ring 4 (32 tiles, all inside s0) then ring 6.
+    expect(spaced[8 * ORBIT_START_RING - 1].ring).toBe(ORBIT_START_RING);
+    expect(spaced[8 * ORBIT_START_RING].ring).toBe(
+      ORBIT_START_RING + ORBIT_RING_STRIDE
+    );
+    // SOLID: consecutive same-ring tiles ARE Chebyshev-adjacent neighbors —
+    // the opposite of the old airy rule (this is the anti-chessboard check).
+    const g = (t: (typeof spaced)[number]) => {
+      const stride = macroStride(GRID_SIZE);
+      const macro = { x: Math.floor(t.sectorIndex % 3), y: Math.floor(t.sectorIndex / 3) };
+      return { gx: macro.x * stride + t.x, gy: macro.y * stride + t.y };
+    };
+    const a = g(spaced[0]);
+    const b2 = g(spaced[1]);
+    expect(Math.max(Math.abs(a.gx - b2.gx), Math.abs(a.gy - b2.gy))).toBe(1);
+  });
+
+  it("rankArrangeTiles lays a full sector's worth as solid rows", () => {
+    // 40 buildings, single sector: ring 4 fills completely (32), then the
+    // first 8 of ring 6 — no parity skips anywhere.
     const { entries } = rankArrangeTiles(
       Array.from({ length: 40 }, (_, i) => b(i + 1, 1000 - i)),
       1,
       () => false
     );
-    const stride3 = macroStride(GRID_SIZE);
-    const seen: Array<{ gx: number; gy: number }> = [];
-    for (const e of entries) {
-      const sectorIdx = Number(e.tile.sector.slice(1));
-      const macro = { x: Math.floor(sectorIdx % 3), y: Math.floor(sectorIdx / 3) };
-      const gx = macro.x * stride3 + e.tile.x;
-      const gy = macro.y * stride3 + e.tile.y;
-      for (const p of seen) {
-        expect(Math.max(Math.abs(p.gx - gx), Math.abs(p.gy - gy))).toBeGreaterThan(1);
-      }
-      seen.push({ gx, gy });
-    }
+    expect(entries[31].ring).toBe(4);
+    expect(entries[32].ring).toBe(6);
+    const ring6 = entries.filter((e) => e.ring === 6);
+    expect(ring6).toHaveLength(8);
   });
 
   it("start ring hugs the landmark moat (just enough core plaza)", () => {
-    // Farthest monument at Chebyshev 3, moat reaches 4 → the first airy
-    // ring IS 4: no empty ring between the moat and the first buildings.
+    // Farthest monument at Chebyshev 3, moat reaches 4 → the first block
+    // row IS ring 4: no empty ring between the moat and the first buildings.
     expect(ORBIT_START_RING).toBe(4);
     const spaced = spacedOrbitOrder(center, ORBIT_START_RING, 1);
     expect(spaced[0].ring).toBe(ORBIT_START_RING);
@@ -319,7 +298,7 @@ describe("civic lots (2026-09-29 ring-4 diagonals)", () => {
       expect(Math.max(Math.abs(dx), Math.abs(dy))).toBe(4); // ring 4
       expect(Math.abs(dx)).toBe(4);
       expect(Math.abs(dy)).toBe(4); // the diagonals
-      expect((gx + gy) % 2).toBe((center.x + center.y) % 2); // checkerboard
+      expect((gx + gy) % 2).toBe((center.x + center.y) % 2); // on-ring diagonal
     }
     // Four DISTINCT lots.
     const keys = new Set(

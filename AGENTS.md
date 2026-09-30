@@ -252,16 +252,16 @@ n38worth-game-systems review):
 - Owned avatar = building/module. Hire constructs; loss/poach removes;
   restore reconstructs. Building stage derives from current value relative
   to value_floor; the server computes it, the client only renders it.
-- PLACEMENT IS DERIVED (2026-09-27 "value orbits"; spacing rework
-  2026-09-29, widened same evening): the HQ core + the Six landmarks hold
-  the center; every other owned building fills CLOCKWISE square rings
-  around the HQ in VALUE order (priciest innermost, cheapest at the rim) —
-  `rankArrangeTiles` (src/lib/city/placement.ts) over the SPACED orbit walk
-  (`spacedOrbitOrder` in src/lib/city/rings.ts: every THIRD ring
-  (ORBIT_RING_STRIDE 3, two empty avenues between building rings) +
-  checkerboard tiles, airy slots first then infill when the city outgrows
-  them) starting at ORBIT_START_RING 4 — "just enough space" for the
-  landmarks (their 1-tile moat alone separates; no empty extra ring). A
+- PLACEMENT IS DERIVED (2026-09-27 "value orbits"; SOLID BLOCK ROWS
+  2026-09-30 "no chessboard" ruling, superseding the 2026-09-29
+  checkerboard): the HQ core + the Six landmarks hold the center; every
+  other owned building fills CLOCKWISE square rings around the HQ in VALUE
+  order (priciest innermost, cheapest at the rim) — `rankArrangeTiles`
+  (src/lib/city/placement.ts) over the block-row walk (`spacedOrbitOrder`
+  in src/lib/city/rings.ts: every OTHER ring (ORBIT_RING_STRIDE 2) with
+  EVERY tile on the ring — solid wall-to-wall block rows; the gap rings are
+  continuous ring BOULEVARDS via `deriveBoulevards` in streets.ts) starting
+  at ORBIT_START_RING 4 (the landmarks' 1-tile moat alone separates). A
   value change re-ranks the whole orbit on the next projection and the
   scene GLIDES moved buildings to their new ring. Locked sectors are
   skipped by the orbit walk, so the
@@ -275,16 +275,45 @@ n38worth-game-systems review):
   (zIndex = tile-depth sum), and the home city renders buildings + HQ +
   monuments in the single sortable buildings layer (2026-09-29
   "landmarks appeared on top of other buildings" fix — nothing stacks
-  above the towers). The universe
-  base ring is DYNAMIC per viewer (`universeBaseRing(sectorCount)` —
-  satellite ring + one mini rim, snapped to a UNIVERSE_RING_STEP multiple;
-  Boot ≈ 24 tiles vs the old fixed 72; ring step 12→8). This supersedes the
-  2026-09-28 cross-viewer congruence nicety: same-size viewers still see a
-  translated constellation; different-size viewers see scaled ones.
+  above the towers). The universe base ring is FIXED (WORLD_BASE_RING 64
+  in universe.ts, 2026-09-30 shared-universe ruling — every viewer sees
+  the SAME constellation; supersedes the 2026-09-29 dynamic-per-viewer
+  ruling). Each universe city ships a top-24 skyline
+  (UNIVERSE_SKYLINE_LIMIT) as [tier, family] tuples.
   mission ladder still gates city growth. The persisted city_layout
   machinery (POST /api/city/layout, GET /api/city/my-layout,
   layout-merge.ts) is legacy-retained but UNUSED — /api/city/[username]
   no longer joins it, and the manual ghost/build-mode/queue UI is deleted.
+- **World-map v2 (2026-10-01 "do all proposed modifications")**: (a)
+  satellite mini-cities use the home city's SOLID ladder rings
+  (`satelliteClusterTiles` — the 2026-09-29 airy checkerboard parity is
+  DROPPED); (b) the four ring-4 civic lots render in 3D as kit buildings
+  tinted per kind (`scene3d/civic3d.ts` — CIVIC_NEON, CIVIC_TINT 0.85 with
+  a 0.85-gray premultiply so hues separate at overview; beacon on top;
+  tier-scaled; tier 0 stays empty); (c) country connectors carry GREEN
+  verges (COUNTRY_VERGE in world3d); (d) the 8 satellites' mini buildings
+  render as REAL Kenney kit models (per-(prefab, profession) instanced
+  pools from `planSatelliteKitMinis`; relay stays procedural; the
+  procedural merged minis remain the no-kit fallback); (e) the WORLD RIVER
+  (`lib/city/river.ts`): a 3-tile water band in the always-empty gap past
+  the LAST populated universe ring (dynamic offset
+  `riverOffsetForCities(cities)` — slides outward as rings populate;
+  water plate roadTile_001; never overlaps cities/satellites by
+  construction, pinned by tests).
+- **Kenney kit v2 (2026-09-30 evening, "more variety + nicer roads")**:
+  the tier ladder is 1–3 suburban / 4–7 the MID league (14 commercial
+  blocks + 20 INDUSTRIAL works pooled — `pickBuildingPrefab` mixes both
+  kits deterministically) / 8–14 skyscrapers. Streets render KENNEY 3D
+  ROAD TILES (`public/city-assets/roadtiles/*.gltf` — roadTile_142
+  straight / 043 4-way / 025 zebra; multi-primitive prototypes in
+  `CityKit.roadTiles`, instanced PER MATERIAL in `ThreeScene.syncStreets`;
+  zebra accents on intersection approaches; the procedural asphalt grid
+  stays the fallback). Road-tile materials are dimmed at load (×0.62,
+  Stone ×0.45) so the day sun + bloom don't blow them out. Traffic lights
+  (`roads/traffic-light`) instance at a parity subset of cross tiles
+  (cap 48). The /catalog page renders the REAL 3D kit via offscreen
+  WebGL shots (`BuildingsCatalogMount`) using the SAME recipe functions
+  and the shared HQ/monument constants exported from assets3d.
 - Firewall / hard-lock authority stays in blockSellUntil / permBlockUntil
   timestamps; the city layer only adds protection VISUALS.
 - Professions set building families; owning all six professions completes a

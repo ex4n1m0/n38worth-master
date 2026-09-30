@@ -47,11 +47,12 @@ export const SATELLITE_MIN_RING_TILES = 18;
 /**
  * Chebyshev radius of one cluster around its anchor. The cluster MIRRORS
  * the home city shape (relay core, six mini monuments on the landmark
- * hexagon, buildings on the SPACED orbit rings 4, 7, … — the rings.ts
- * stride), so the radius must reach the second airy ring: radius 7 gives
- * 16 airy tiles on ring 4 + 28 on ring 7 = 44 breathing-room slots ≥ the
+ * hexagon, buildings on the SOLID ladder rings 4, 6 — the rings.ts
+ * stride): ring 4 alone carries 32 slots, ring 6 adds 48 = 80 ≥ the
  * NEIGHBOR_BUILDING_LIMIT render budget (2026-09-29 "render all their
- * buildings" ruling).
+ * buildings" ruling). SOLID ROWS (2026-10-01): the 2026-09-29 airy
+ * checkerboard parity was dropped so minis match the home city's
+ * "no chessboard" block rows.
  */
 export const SATELLITE_CLUSTER_RADIUS = 7;
 
@@ -158,13 +159,12 @@ export interface SatelliteTile {
 }
 
 /**
- * The first `count` cluster tiles — the home city's SPACED orbit in
- * miniature (2026-09-29 user rulings "their buildings are on top of each
- * other" + "more space"): airy tiles first (checkerboard parity + the
- * rings.ts ring-stride ladder), infill only when a mini outgrows its airy
- * capacity, so satellite/universe mini buildings never stack at
- * adjacent-tile screen offsets. Exactly `count` tiles, no duplicates, all
- * within `radius`.
+ * The first `count` cluster tiles — the home city's SOLID block-row orbit
+ * in miniature (2026-10-01 ruling "do all proposed modifications",
+ * superseding the 2026-09-29 airy checkerboard): EVERY tile of each ladder
+ * ring (fromRing + k·ORBIT_RING_STRIDE), clockwise, wall-to-wall — the
+ * mini city reads like the home city's block rows instead of a
+ * checkerboard. Exactly `count` tiles, no duplicates, all within `radius`.
  */
 export function satelliteClusterTiles(
   anchor: Point,
@@ -174,18 +174,12 @@ export function satelliteClusterTiles(
 ): SatelliteTile[] {
   const candidates: SatelliteTile[] = [];
   for (let r = Math.max(1, fromRing); r <= radius; r++) {
+    if ((r - fromRing) % ORBIT_RING_STRIDE !== 0) continue;
     for (const { gx, gy } of ringTiles(anchor.x, anchor.y, r)) {
       candidates.push({ gx, gy, ring: r });
     }
   }
-  const parityOf = (v: number) => ((v % 2) + 2) % 2;
-  const base = parityOf(anchor.x + anchor.y);
-  const isSpaced = (t: SatelliteTile) =>
-    (t.ring - fromRing) % ORBIT_RING_STRIDE === 0 &&
-    parityOf(t.gx + t.gy) === base;
-  const airy = candidates.filter(isSpaced);
-  const infill = candidates.filter((t) => !isSpaced(t));
-  return [...airy, ...infill].slice(0, count);
+  return candidates.slice(0, count);
 }
 
 /** Union of two world-px bounds (null operands pass through). */

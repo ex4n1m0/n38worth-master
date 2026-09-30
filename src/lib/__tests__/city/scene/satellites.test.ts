@@ -159,23 +159,30 @@ describe("satelliteClusterTiles", () => {
     }
   });
 
-  it("mini-city buildings keep breathing room (no two tiles adjacent)", () => {
-    // 2026-09-29 user ruling "their buildings are on top of each other":
-    // the airy segment places checkerboard — up to 16 budget buildings are
-    // never Chebyshev-adjacent (ring 4's airy capacity; the 24-building
-    // budget continues on airy ring 7, equally spaced).
+  it("mini-city buildings sit in SOLID block rows (2026-10-01 no-chessboard ruling)", () => {
+    // Supersedes the 2026-09-29 airy checkerboard: minis mirror the home
+    // city's wall-to-wall ladder rings — adjacent tiles allowed, every
+    // tile on rings 4/6 (ORBIT_RING_STRIDE ladder), none inside ring 4.
     const a = satelliteAnchor(0, GRID_SIZE, 1);
     const tiles = satelliteClusterTiles(a, 12);
     expect(tiles).toHaveLength(12);
+    expect(tiles.every((t) => t.ring === SATELLITE_ORBIT_START_RING)).toBe(true);
+    // No duplicates.
+    const keys = new Set(tiles.map((t) => `${t.gx},${t.gy}`));
+    expect(keys.size).toBe(12);
+    // Solid rows: the first 12 of ring 4's 32 wall-to-wall slots include
+    // Chebyshev-ADJACENT tiles (the checkerboard would not).
+    let adjacent = 0;
     for (let i = 0; i < tiles.length; i++) {
       for (let j = i + 1; j < tiles.length; j++) {
         const cheb = Math.max(
           Math.abs(tiles[i].gx - tiles[j].gx),
           Math.abs(tiles[i].gy - tiles[j].gy)
         );
-        expect(cheb).toBeGreaterThan(1);
+        if (cheb === 1) adjacent++;
       }
     }
+    expect(adjacent).toBeGreaterThan(0);
   });
 
   it("round-trips: every cluster tile picks back from its screen point", () => {

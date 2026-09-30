@@ -90,3 +90,75 @@ export function deriveStreets(
   out.sort((a, b) => a.gy - b.gy || a.gx - b.gx);
   return out;
 }
+
+// ── ring boulevards (3D city-read layer, 2026-09-30) ────────────────────────
+
+/** Hard ceiling on boulevard tiles (bounded rendering). */
+export const BOULEVARD_TILE_CAP = 1400;
+
+/**
+ * CONTINUOUS ring boulevards for the 3D renderer ("make it look like a
+ * city" ruling): the value-orbit layout puts buildings on every THIRD ring
+ * (rings.ts stride), and this module paves the ring immediately OUTSIDE
+ * each occupied building ring as one unbroken loop — concentric boulevards
+ * with zebra corners, framing each block of buildings. The checkerboard
+ * gaps between same-ring buildings stay cross-streets (deriveStreets), so
+ * together they read as a planned street grid: buildings → boulevard →
+ * greenway → buildings.
+ *
+ *PURE + additive: the 2D renderer keeps its deriveStreets look; only the
+ * 3D scene consumes this. `isBlocked` removes fixture reservations (HQ,
+ * monument moat, civic lots) in GLOBAL tile keys; `isUnlocked` gates
+ * paving to the city's unlocked sectors (boulevards stop at locked-sector
+ * edges and extend when sectors unlock).
+ */
+export function deriveBoulevards(
+  buildingTiles: ReadonlyArray<{ gx: number; gy: number }>,
+  center: { gx: number; gy: number },
+  isBlocked: (gx: number, gy: number) => boolean = () => false,
+  isUnlocked: (gx: number, gy: number) => boolean = () => true
+): StreetTile[] {
+  const occupied = new Set<string>();
+  const occupiedRings = new Set<number>();
+  for (const b of buildingTiles) {
+    occupied.add(`${b.gx},${b.gy}`);
+    occupiedRings.add(Math.max(Math.abs(b.gx - center.gx), Math.abs(b.gy - center.gy)));
+  }
+  const out: StreetTile[] = [];
+  const seen = new Set<string>();
+  // Innermost first so the cap keeps the core boulevards.
+  const rings = [...occupiedRings].sort((a, b) => a - b);
+  for (const r of rings) {
+    const t = r + 1; // the boulevard ring just outside this building ring
+    for (let dy = -t; dy <= t; dy++) {
+      for (let dx = -t; dx <= t; dx++) {
+        // Chebyshev ring t = the square perimeter only.
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== t) continue;
+        const gx = center.gx + dx;
+        const gy = center.gy + dy;
+        const key = `${gx},${gy}`;
+        if (seen.has(key) || occupied.has(key)) continue;
+        if (isBlocked(gx, gy) || !isUnlocked(gx, gy)) continue;
+        seen.add(key);
+        const corner = Math.abs(dx) === t && Math.abs(dy) === t;
+        const axis: StreetTile["axis"] = corner
+          ? "cross"
+          : Math.abs(dx) === t
+            ? "y" // edge runs along gy → travel axis y
+            : "x";
+        out.push({
+          gx,
+          gy,
+          axis,
+          lamp: corner || ((gx + gy) & 1) === 0,
+        });
+        if (out.length >= BOULEVARD_TILE_CAP) {
+          out.sort((a, b) => a.gy - b.gy || a.gx - b.gx);
+          return out;
+        }
+      }
+    }
+  }
+  out.sort((a, b) => a.gy - b.gy || a.gx - b.gx);
+  return out;
+}
