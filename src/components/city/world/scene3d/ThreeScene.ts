@@ -83,7 +83,7 @@ import {
   buildProtectionRingsGeometry,
   buildSatelliteCluster,
   buildStreetsGeometry,
-  buildUniverseMarkersGeometry,
+  buildUniverseCityBuildingsGeometry,
   deriveHomeStreets,
   deriveUniverseMarkers,
   type UniverseMarker,
@@ -653,8 +653,8 @@ export class ThreeScene {
       this.universeMesh.geometry.dispose();
     }
     this.universeMesh = new Mesh(
-      buildUniverseMarkersGeometry(markers),
-      this.flatMaterial
+      buildUniverseCityBuildingsGeometry(markers),
+      this.buildingMaterial
     );
     this.worldLayers.add(this.universeMesh);
     cityWorldStore.getState().setUniverseSummary(
@@ -929,8 +929,8 @@ export class ThreeScene {
         return;
       }
     }
-    // Universe markers: forgiving dot hit within a zoom-aware radius
-    // (marker tile coords are already absolute — HQ offset baked in).
+    // Universe city buildings: forgiving body hit (base dot + tower body,
+    // zoom-aware; marker tile coords are absolute — HQ offset baked in).
     if (this.universeMarkers.length > 0) {
       const zoom = this.rig.state.zoom;
       const tolPx = Math.max(14, 26 / zoom);
@@ -938,7 +938,11 @@ export class ThreeScene {
       let bestDist = Infinity;
       for (const m of this.universeMarkers) {
         const p = tileToScreen(m.gxWorld, m.gyWorld);
-        const d = Math.hypot(worldX - p.x, worldY - p.y);
+        const t = Math.log10(Math.max(1, m.rank)) / Math.log10(500);
+        const h = 28 + 74 * (1 - t);
+        const dx = Math.max(0, Math.abs(worldX - p.x) - 10);
+        const dy = Math.max(0, worldY - (p.y + 10), p.y - h - 12 - worldY);
+        const d = Math.hypot(dx, dy);
         if (d < bestDist) {
           bestDist = d;
           bestMarker = m;

@@ -35,7 +35,7 @@ import {
 } from "@/lib/city/universe";
 import { worldPxToGround } from "@/lib/city/scene/camera3d";
 import type { CityFamily, CityNeighbor } from "@/lib/city/types";
-import { familyMassHex } from "@/lib/city/district";
+import { familyMassHex, familyNeonHex } from "@/lib/city/district";
 import { MeshBuilder, HALF_TILE, buildMiniBuildingGeometry } from "./building3d";
 import { moatTileKeys, reservedTileKeys } from "./tiles";
 import { hqGlobalTile, spacedOrbitOrder, type RingTile } from "@/lib/city/rings";
@@ -48,6 +48,15 @@ const FIREWALL = new Color("#22d3ee");
 const HARDLOCK = new Color("#f59e0b");
 const UNIVERSE_BASE = new Color("#5b6a7d");
 const UNIVERSE_STAKE = new Color("#a78bfa");
+
+/** Channel-scaled copy of a family color (local shadeColor twin). */
+function shadeColorPublic(c: Color, k: number): Color {
+  return new Color(
+    Math.min(1, c.r * k),
+    Math.min(1, c.g * k),
+    Math.min(1, c.b * k)
+  );
+}
 
 /** Flat tile diamond on the ground at (gx, gy), inset factor 0..1. */
 function tileDiamond(
@@ -296,9 +305,12 @@ export function buildProtectionRingsGeometry(
 
 export interface UniverseMarker {
   username: string;
+  profession: string | null;
   gxWorld: number;
   gyWorld: number;
   radiusPx: number;
+  /** 1-based portfolio rank — drives the single building's height. */
+  rank: number;
   stake: boolean;
 }
 
@@ -330,28 +342,49 @@ export function deriveUniverseMarkers(
     const ground = worldPxToGround(px.x + tileToScreen(hq.x, hq.y).x, px.y + tileToScreen(hq.x, hq.y).y);
     markers.push({
       username: city.username,
+      profession: city.profession,
       gxWorld: ground.x / TILE_STEP,
       gyWorld: ground.z / TILE_STEP,
       radiusPx: universeMarkerRadius(city.rank, UNIVERSE_CITY_CAP),
+      rank: city.rank,
       stake: stakeUsernames.includes(city.username),
     });
   }
   return { markers, count: payload.cities.length, viewerRank };
 }
 
-export function buildUniverseMarkersGeometry(
+/**
+ * ONE SINGLE BUILDING per foreign city (2026-09-30 user ruling "either all
+ * or nothing" — no lazy minis): each city on the shared map renders as a
+ * proper little tower — trade-family palette, height by portfolio rank
+ * (rank 1 ~102px, deep ranks ~30px), violet beacon accent for satellite
+ * stakes. Tap → city chip + visit link opens the FULL city on its own page.
+ */
+export function buildUniverseCityBuildingsGeometry(
   markers: readonly UniverseMarker[]
 ): ReturnType<MeshBuilder["toGeometry"]> {
   const b = new MeshBuilder();
   for (const m of markers) {
     const g = tileToGround(m.gxWorld, m.gyWorld);
-    const h = Math.max(6, m.radiusPx) / 0.7071;
+    const t = Math.log10(Math.max(1, m.rank)) / Math.log10(UNIVERSE_CITY_CAP);
+    const h = 28 + 74 * (1 - t);
+    const mass = new Color(familyMassHex(m.profession ?? "__unassigned__"));
+    const neon = new Color(familyNeonHex(m.profession ?? "__unassigned__"));
+    const accent = m.stake ? UNIVERSE_STAKE : neon;
+    // Pad + shaft + crown slab + beacon — the value-orbit skyline in one.
+    b.box(g.x, g.z, 0, HALF_TILE * 0.34, HALF_TILE * 0.34, 4, new Color("#232a33"));
+    b.box(g.x, g.z, 4, HALF_TILE * 0.2, HALF_TILE * 0.2, h, mass);
+    b.box(g.x, g.z, 4 + h * 0.78, HALF_TILE * 0.26, HALF_TILE * 0.26, 5, shadeColorPublic(mass, 1.35));
+    b.box(g.x, g.z, 4 + h * 0.86, HALF_TILE * 0.13, HALF_TILE * 0.13, h * 0.14, shadeColorPublic(mass, 1.5));
+    b.box(g.x, g.z, 4 + h, 2.6, 2.6, 4, accent);
+    // Ground footprint diamond (keeps the map-dot read at world zoom).
+    const d = Math.max(6, m.radiusPx) / 0.7071;
     b.quad(
       [
-        [g.x, LAYER_Y, g.z - h],
-        [g.x + h, LAYER_Y, g.z],
-        [g.x, LAYER_Y, g.z + h],
-        [g.x - h, LAYER_Y, g.z],
+        [g.x, LAYER_Y, g.z - d],
+        [g.x + d, LAYER_Y, g.z],
+        [g.x, LAYER_Y, g.z + d],
+        [g.x - d, LAYER_Y, g.z],
       ],
       m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE,
       m.stake ? UNIVERSE_STAKE : UNIVERSE_BASE
