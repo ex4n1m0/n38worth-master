@@ -10,11 +10,14 @@ import {
   gameHistory,
   rewardHistory,
   avatarReveals,
+  raidState,
+  raidLog,
 } from "@/db/schema";
 import { sql, notInArray, desc, eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { isAdminUser } from "@/lib/admins";
+import { expireAllBountiesForWorldReset } from "@/lib/bounties";
 import {
   clearCountdown,
   getCountdownState,
@@ -142,6 +145,18 @@ export async function triggerGameReset(
     // 5b. Delete all avatar reveals. Reveals are meaningless after a game reset
     // (all ownership is gone), so wipe the table to reset reveal state.
     await db.delete(avatarReveals);
+
+    // 5c. Heist layer reset: expire every open bounty WITHOUT refunds (credits
+    // are hard-reset below anyway — refunding after would mint money), wipe the
+    // raid log, and reset raid charges to a fresh 3 (rows recreate on next
+    // touch; deleting is the reset).
+    await expireAllBountiesForWorldReset();
+    try {
+      await db.delete(raidLog);
+      await db.delete(raidState);
+    } catch (heistResetError) {
+      console.error("Heist-layer reset error (continuing):", heistResetError);
+    }
 
     // 6. No purge. Every account is KEPT — all humans, all NPCs, and the
     // goddess cards. Nothing is deleted; only world state (ownership,

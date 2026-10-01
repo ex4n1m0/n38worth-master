@@ -65,6 +65,7 @@ import enMiscMeta from "./i18n-keys/en/misc-meta.json";
 import enMissionsGoddesses from "./i18n-keys/en/missions-goddesses.json";
 import enOwnershipHome from "./i18n-keys/en/ownership-home.json";
 import enSettingsOnboarding from "./i18n-keys/en/settings-onboarding.json";
+import enRaidBounties from "./i18n-keys/en/raid-bounties.json";
 import zhActionButtons from "./i18n-keys/zh/action-buttons.json";
 import zhChatHistory from "./i18n-keys/zh/chat-history.json";
 import zhCity from "./i18n-keys/zh/city.json";
@@ -75,6 +76,7 @@ import zhMiscMeta from "./i18n-keys/zh/misc-meta.json";
 import zhMissionsGoddesses from "./i18n-keys/zh/missions-goddesses.json";
 import zhOwnershipHome from "./i18n-keys/zh/ownership-home.json";
 import zhSettingsOnboarding from "./i18n-keys/zh/settings-onboarding.json";
+import zhRaidBounties from "./i18n-keys/zh/raid-bounties.json";
 
 const en = {
   // ── Landing page ──
@@ -108,7 +110,7 @@ const en = {
   somethingWrong: "Something went wrong. Please try again.",
   quickPlayFailed: "Quick play failed",
 
-  landingTagline: "the city building simulation",
+  landingTagline: "the city heist simulation",
   landingToggleSound: "Toggle sound",
   landingStartHere: "Start Here",
   kinLabel: "From the same maker",
@@ -322,6 +324,7 @@ const en = {
   ...enMissionsGoddesses,
   ...enOwnershipHome,
   ...enSettingsOnboarding,
+  ...enRaidBounties,
 };
 
 export type TranslationKeys = typeof en;
@@ -358,7 +361,7 @@ const zh: TranslationKeys = {
   somethingWrong: "出错了，请重试。",
   quickPlayFailed: "快速开始失败",
 
-  landingTagline: "城市建造模拟",
+  landingTagline: "城市劫案模拟",
   landingToggleSound: "切换音效",
   landingStartHere: "从这里开始",
   kinLabel: "出自同一作者",
@@ -572,6 +575,7 @@ const zh: TranslationKeys = {
   ...zhMissionsGoddesses,
   ...zhOwnershipHome,
   ...zhSettingsOnboarding,
+  ...zhRaidBounties,
 };
 
 export const translations: Record<Locale, TranslationKeys> = { en, zh };

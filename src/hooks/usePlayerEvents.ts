@@ -178,6 +178,71 @@ export function usePlayerEvents(userId: string | undefined) {
       });
     });
 
+    // ── Heist layer (vault raids + bounties, 2026-10-01) ──
+
+    channel.bind(
+      "raid-resolved",
+      (data: { targetUsername: string; loot: number; locksCracked: number }) => {
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["raid-state"], refetchType: "active" });
+        play("reward");
+        toast.success(
+          t.eventRaidResolved
+            .replace("{loot}", String(data.loot))
+            .replace("{target}", data.targetUsername)
+        );
+      }
+    );
+
+    channel.bind(
+      "raid-suffered",
+      (data: { attackerUsername: string; amount: number }) => {
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["raid-state"], refetchType: "active" });
+        play("error");
+        toast.warning(
+          t.eventRaidSuffered
+            .replace("{attacker}", data.attackerUsername)
+            .replace("{amount}", String(data.amount))
+        );
+      }
+    );
+
+    channel.bind(
+      "bounty-claimed",
+      (data: { amount: number; targetUsername: string }) => {
+        queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+        queryClient.invalidateQueries({ queryKey: ["bounties"], refetchType: "active" });
+        play("reward");
+        toast.success(
+          t.eventBountyClaimed
+            .replace("{amount}", String(data.amount))
+            .replace("{target}", data.targetUsername)
+        );
+      }
+    );
+
+    channel.bind(
+      "bounty-completed",
+      (data: { takerUsername: string; targetUsername: string }) => {
+        queryClient.invalidateQueries({ queryKey: ["bounties"], refetchType: "active" });
+        play("coin");
+        toast.info(
+          t.eventBountyCompleted
+            .replace("{target}", data.targetUsername)
+            .replace("{taker}", data.takerUsername)
+        );
+      }
+    );
+
+    channel.bind("bounty-update", (data: { status: string; refunded?: number }) => {
+      queryClient.invalidateQueries({ queryKey: ["credits"], refetchType: "active" });
+      queryClient.invalidateQueries({ queryKey: ["bounties"], refetchType: "active" });
+      if (data.status === "expired" && data.refunded) {
+        toast.info(t.eventBountyRefund.replace("{amount}", String(data.refunded)));
+      }
+    });
+
     return () => {
       channel.unbind_all();
       pusher.unsubscribe(`player-${userId}`);

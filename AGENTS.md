@@ -236,6 +236,46 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
 
+## Heist layer: Vault Raids + Bounty Board (2026-10-01)
+Implemented from GAME_INTEGRATION_STUDY.md §5A/§5B ("The City Heist Simulation"
+rebrand). Credits-only, mission ladder untouched, all routes per-user authed
+(`no-store`).
+
+- **Vault raids** (`src/lib/raid.ts`, page `/raid`, nav "Raid"): a luck-flavored
+  SECOND steal verb next to poaching. Raid charges: lazy accrual 1/8h, cap 3
+  (revenge may hold 4, one revenge grant per victim per 8h AND only when the
+  victim actually lost credits — `shouldGrantRevenge` gates multi-account
+  cycling). Resolution: 3 locks @ p=0.55 → loot multiplier 0.2/0.6/1.0/1.4 over
+  (minted pool + victim share). Pool = 0.5% of the ATTACKER's portfolio
+  clamped [100, 1e9] (`getPortfolioValue` = the canonical cron expression — do
+  not fork). Victim share = 1% of liquid credits (0.5% if any deed lock /
+  iron deed active — locks are the vault shield), 0 below 5000¢, ≤ 3× pool.
+  Entry burn = max(10, 2% of pool) — the layer's sink. Never touches
+  cards/values/ownership. Tables `raid_state` (CASCADE FK, unique user) +
+  `raid_log`. Charge persistence is CAS-guarded (`loadAccruedRaidState`) —
+  never write charges from a stale read; neon-http has no transactions.
+- **Bounty board** (`src/lib/bounties.ts`): escrowed contracts on other
+  players' cards. Types: `foreclose` (pays whoever POACHES the target —
+  settled in `buyPlayerCore` via `settleBountiesOnPurchase`, every open
+  bounty on the card pays the taker) and `deliver` (escrow refunds the
+  creator when THEY acquire it). Post: reward + 2% burned fee, min 100¢,
+  max 1e9¢, 48h expiry (lazy sweep + refund on board reads), max 5 open per
+  creator, integer rewards only. All state flips are single conditional
+  `UPDATE ... WHERE status='open' RETURNING` (no double-claims). World reset
+  expires open bounties WITHOUT refunds (credits reset to 100 anyway) and
+  wipes raid tables (`triggerGameReset.ts` 5c).
+- **`purchasePlayer` is a thin wrapper over `buyPlayerCore`** (2026-10-01). It
+  used to be a drifted duplicate (3-min vs 30-s deed locks per lease-hour,
+  missing perm-blocks/removed-Agent check/market broadcast). NEVER re-fork
+  it — all purchase paths (market API, restore-all, foreclosure, missions)
+  run the core; `buyPlayerCore` whitelists lease hours to {1,2,4,6} and hosts
+  the bounty settle hook. The Fate break flow also calls the core directly.
+- **Raid/bounty vocabulary** (i18n sweep `i18n-keys/{en,zh}/raid-bounties.json`):
+  VAULT RAID 金库劫案, raid charges 突袭机会, loot 赃款, BOUNTIES 悬赏,
+  FORECLOSE bounty 强取, DELIVER bounty 送达, revenge charge 复仇机会.
+  Pusher events: `raid-resolved`, `raid-suffered`, `bounty-claimed`,
+  `bounty-completed`, `bounty-update` (handlers in `usePlayerEvents`).
+
 ## Mainframe City building layer (planned 2026-09)
 The city is a DERIVED visual projection of the existing economy — never a
 second economy, currency, or simulation. Invariants (enforced by

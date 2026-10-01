@@ -14,14 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const SITE_DESCRIPTION =
+  "The city heist simulation — acquire buildings, raid vaults, post bounties, and crown your skyline.";
+
 export const metadata: Metadata = {
   metadataBase: new URL("https://n38worth.com"),
   title: "n38worth",
-  description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
-  keywords: ["city", "city builder", "tycoon", "trading", "game", "social", "MMO", "multiplayer", "simulation", "skyscraper"],
+  description: SITE_DESCRIPTION,
+  keywords: ["city", "city builder", "heist", "tycoon", "trading", "game", "social", "MMO", "multiplayer", "simulation", "skyscraper", "raid"],
   openGraph: {
     title: "n38worth",
-    description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
+    description: SITE_DESCRIPTION,
     siteName: "n38worth",
     type: "website",
     url: "https://n38worth.com",
@@ -30,7 +33,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "n38worth",
-    description: "The city building simulation — acquire, renovate and protect buildings to crown your skyline.",
+    description: SITE_DESCRIPTION,
     // images generated dynamically by src/app/twitter-image.tsx
   },
   icons: {

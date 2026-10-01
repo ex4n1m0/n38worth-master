@@ -10,6 +10,7 @@ import { getGoddessPowers } from "@/lib/goddess-powers";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { isAIPlayerUsername, isRemovedAgentUsername } from "@/lib/agent/roster";
 import { broadcastMarketPatch } from "@/lib/market-broadcast";
+import { settleBountiesOnPurchase } from "@/lib/bounties";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -34,6 +35,8 @@ export interface BuyPlayerResult {
   countdownStarted?: boolean;
   countdownCancelled?: boolean;
   countdownUser?: string;
+  targetId?: number;
+  targetUsername?: string;
 }
 
 /**
@@ -54,6 +57,10 @@ export async function buyPlayerCore(
   if (buyerId === targetId) {
     return { error: "You cannot acquire yourself" };
   }
+  // Lease lengths are a fixed menu (UI offers 1/2/4/6 h). Anything else —
+  // fractional/negative/large values from non-UI callers — falls back to 1 h
+  // instead of minting cheap hours or instantly-expiring locks.
+  const safeBlockHours = [1, 2, 4, 6].includes(blockDurationHours) ? blockDurationHours : 1;
 
   try {
     // 1. Get target player
@@ -131,7 +138,7 @@ export async function buyPlayerCore(
     // Calculate cost: bonus cards cost their current (doubling) value, regular
     // players use the block duration multiplier. (For bonus cards the multiplier
     // is 1, so cost is simply the card's current value.)
-    const costMultiplier = isBonusCard ? 1 : Math.max(1, blockDurationHours);
+    const costMultiplier = isBonusCard ? 1 : Math.max(1, safeBlockHours);
 
     // All goddesses: cost = value = GODDESS_VALUES. No dynamic pricing.
     let cost: number;
@@ -350,7 +357,7 @@ export async function buyPlayerCore(
     const nowMs = Date.now();
     const blockExpiry = usesUnbreakableInitialBlock
       ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
-      : new Date(nowMs + blockDurationHours * BLOCK_SELL_DURATION_MS);
+      : new Date(nowMs + safeBlockHours * BLOCK_SELL_DURATION_MS);
     const unbreakableUntil = usesUnbreakableInitialBlock
       ? new Date(nowMs + UNBREAKABLE_BLOCK_MS)
       : null;
@@ -506,6 +513,16 @@ export async function buyPlayerCore(
         ...(currentOwner ? [{ id: currentOwner.ownerId, delta: -1 }] : []),
       ],
       reason: "purchase",
+    });
+
+    // 10c. Bounty settlement — foreclose bounties on this card pay the taker,
+    //      deliver bounties by this buyer complete. Never fails the hire.
+    await settleBountiesOnPurchase({
+      buyerId,
+      buyerUsername: buyer.username,
+      targetId,
+      targetUsername: target.username,
+      hadPreviousOwner: !!currentOwner,
     });
 
     // 11. Track onboarding NPC purchase (optional - columns may not exist yet)
@@ -691,6 +708,8 @@ export async function buyPlayerCore(
       countdownStarted,
       countdownCancelled,
       countdownUser: countdownStarted ? buyer.username : undefined,
+      targetId,
+      targetUsername: target.username,
     };
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
@@ -843,9 +862,9 @@ export async function breakPartnershipCore(
     .set({ blockSellUntil: null, blockSellBy: null })
     .where(eq(ownership.id, ownershipRecord.id));
 
-  // Now run the normal purchase (standard 1-hour block for new owner)
-  const { purchasePlayer } = await import("@/actions/purchasePlayer");
-  const purchaseResult = await purchasePlayer(targetId, 1);
+  // Now run the normal purchase (standard 1-hour block for new owner). Called
+  // directly on the session-free core — no auth() re-resolution needed.
+  const purchaseResult = await buyPlayerCore(buyerId, targetId, 1);
 
   if (purchaseResult.error) {
     // Rollback: refund break fee to buyer, re-credit owner

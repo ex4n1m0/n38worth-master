@@ -6,6 +6,7 @@ import {
   Building2,
   Coins,
   Compass,
+  Crosshair,
   GraduationCap,
   Landmark,
   Radio,
@@ -122,6 +123,12 @@ const buildSteps = (t: TranslationKeys): TutorialStep[] => [
         {t.tutorialStep5BodySuffix}
       </>
     ),
+  },
+  {
+    id: "raid",
+    icon: Crosshair,
+    title: t.tutRaidTitle,
+    body: <>{t.tutRaidBody}</>,
   },
   {
     id: "combo",

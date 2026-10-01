@@ -15,6 +15,7 @@ const PROTECTED_ROUTES = [
   "/transactions",
   "/city",
   "/catalog",
+  "/raid",
 ];
 
 // Routes that require a completed avatar (profile photo uploaded)
@@ -95,6 +96,7 @@ export const config = {
     "/transactions/:path*",
     "/city/:path*",
     "/catalog/:path*",
+    "/raid/:path*",
     "/login",
     "/register",
   ],

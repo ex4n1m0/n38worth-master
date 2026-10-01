@@ -302,7 +302,7 @@ export default function Home() {
         </p>
       </section>
 
-      {/* How to Play — five lines, no images: the landing dialog only sells
+      {/* How to Play — six lines, no images: the landing dialog only sells
           the core loop; the in-game tutorial covers the details. */}
       <Dialog open={gameplayOpen} onOpenChange={setGameplayOpen}>
         <DialogContent className="sm:max-w-md bg-gray-950/60 backdrop-blur-md border-gray-800 text-gray-100">
@@ -314,6 +314,7 @@ export default function Home() {
               { label: t.landQuick1Label, body: t.landQuick1Body },
               { label: t.landQuick2Label, body: t.landQuick2Body },
               { label: t.landQuick3Label, body: t.landQuick3Body },
+              { label: t.landQuickRaidLabel, body: t.landQuickRaidBody },
               { label: t.landQuick4Label, body: t.landQuick4Body },
               { label: t.landQuick5Label, body: t.landQuick5Body },
             ].map((step, i) => (

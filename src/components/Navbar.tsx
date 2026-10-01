@@ -34,6 +34,7 @@ import {
   Search,
   History,
   Building2,
+  Crosshair,
 } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { usePoachStore } from "@/hooks/usePoachEffect";
@@ -45,11 +46,13 @@ import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
 import { useCityEnabled } from "@/hooks/useCityEnabled";
 
-// City sits LAST (2026-09-28 user ruling): Home | Buildings (market) | City —
-// the city is the destination, the market is a tool you hop into.
+// City sits LAST (2026-09-28 user ruling): Home | Buildings (market) | Raid |
+// City — the city is the destination, the market is a tool you hop into, the
+// raid page is the heist layer's home (2026-10-01).
 const mainNavLinks = [
   { href: "/my-profile", icon: Users },
   { href: "/leaderboard", icon: Search },
+  { href: "/raid", icon: Crosshair },
   { href: "/city", icon: Building2 },
 ];
 
@@ -62,7 +65,7 @@ export function Navbar() {
   useEffect(() => { setTheme("green"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { t } = useLanguage();
   const navLabel = (href: string) =>
-    href === "/my-profile" ? t.navHome : href === "/city" ? t.navCity : t.navAvatars;
+    href === "/my-profile" ? t.navHome : href === "/city" ? t.navCity : href === "/raid" ? t.navRaid : t.navAvatars;
   // Mainframe City entry shows only while the feature flag is on.
   const { cityEnabled } = useCityEnabled();
   const { play } = useSound();
@@ -147,7 +150,7 @@ export function Navbar() {
     if (onboardingLoading) return;
     const allowedPaths = allVisibleLinks.map((l) => l.href);
     const isCurrentPathAllowed = allowedPaths.some(
-      (p) => pathname === p || pathname.startsWith("/players/") || pathname.startsWith("/city") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
+      (p) => pathname === p || pathname.startsWith("/players/") || pathname.startsWith("/city") || pathname.startsWith("/raid") || pathname === "/my-players" || pathname === "/my-owners" || pathname === "/ranks"
     );
     if (!isCurrentPathAllowed && !pathname.startsWith("/settings") && !pathname.startsWith("/history") && !pathname.startsWith("/catalog")) {
       // During onboarding (avatar OR starter-NPC step) the only legitimate
