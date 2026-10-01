@@ -236,6 +236,27 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
 
+## Crew Jobs — PvE heists on the Founders' banks (2026-10-01, §5C)
+- **Crew** = 5 owned visible cards; gates are COMPOSITION (Σ tiers + required
+  families) — cheap cards finally matter. Jobs: 6 Founder banks with
+  escalating gates/payouts (`src/lib/crew-jobs.ts`); job keys are raw goddess
+  usernames; display titles/flavors in the catalog (en/zh).
+- **The Crew Pot** (game_settings `crew_pot`): funded by 20% of every
+  boss-tax transfer (bosses keep 80% — the cron splits and banks the skim
+  per run; boss history/Pusher record the 80% share) + one-time 100k
+  bootstrap. Payouts are POT-BOUNDED (CAS debit ≥ payout+floor, single
+  guarded retry on concurrent drain that credits only what actually
+  debited). NEVER mint into the pot; the floor (100) always holds.
+- **Resolution**: 3 steps; crew power = Σ tier + 3×(cards of the step's
+  favored family) + 1×(locked cards); success = power ≥ difficulty×roll,
+  rolls uniform over {0.7,0.9,1.1,1.3}; outcomes fail/partial/clean/perfect
+  × 0/0.4/1.0/1.6. Step difficulties are DERIVED (calibratedDifficulty —
+  accounts for stacked family bonuses) so a min-gate crew is never a
+  guaranteed perfect while a 5×t14 crew always is (pinned by tests).
+- Entry fee 2% (burned). Cooldown 4h/job (latest crew_job_runs row;
+  audit row stores steps+powers in `details`). /raid 4th tab; Pusher
+  `crew-job-done`; i18n crew* keys incl. localized outcome labels.
+
 ## Blueprint Albums + escrowed trading (2026-10-01, GAME_INTEGRATION_STUDY §5E)
 - **Catalog** `src/lib/blueprints.ts`: 24 blueprints / 5 albums (residential
   ← acquire, commercial ← renovate, industrial ← foreclose, civic ← permits

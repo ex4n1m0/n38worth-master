@@ -12,6 +12,7 @@ import { toast } from "@/lib/event-feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WorldVaultBar } from "@/components/raid/WorldVaultBar";
 import { BlueprintsTab } from "@/components/raid/BlueprintsTab";
+import { CrewTab } from "@/components/raid/CrewTab";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -670,7 +671,7 @@ function BountyTab() {
 export function RaidPage() {
   const { t } = useLanguage();
   const { play } = useSound();
-  const [tab, setTab] = useState<"raid" | "bounties" | "blueprints">("raid");
+  const [tab, setTab] = useState<"raid" | "bounties" | "blueprints" | "crew">("raid");
 
   const tabs = useMemo(
     () =>
@@ -678,6 +679,7 @@ export function RaidPage() {
         { id: "raid" as const, label: t.raidTabRaid },
         { id: "bounties" as const, label: t.raidTabBounties },
         { id: "blueprints" as const, label: t.raidTabBlueprints },
+        { id: "crew" as const, label: t.raidTabCrew },
       ],
     [t]
   );
@@ -715,7 +717,7 @@ export function RaidPage() {
         ))}
       </div>
 
-      {tab === "raid" ? <RaidTab /> : tab === "bounties" ? <BountyTab /> : <BlueprintsTab />}
+      {tab === "raid" ? <RaidTab /> : tab === "bounties" ? <BountyTab /> : tab === "blueprints" ? <BlueprintsTab /> : <CrewTab />}
     </div>
   );
 }
