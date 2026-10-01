@@ -8,6 +8,7 @@ import { useSound } from "@/hooks/useSound";
 import { usePoachStore } from "@/hooks/usePoachEffect";
 import { useLanguage } from "@/components/LanguageContext";
 import { rankTitle } from "@/lib/ranks";
+import { blueprintName } from "@/lib/blueprints";
 
 export function usePlayerEvents(userId: string | undefined) {
   const queryClient = useQueryClient();
@@ -241,6 +242,20 @@ export function usePlayerEvents(userId: string | undefined) {
       if (data.status === "expired" && data.refunded) {
         toast.info(t.eventBountyRefund.replace("{amount}", String(data.refunded)));
       }
+    });
+
+    // ── Blueprint albums (drops + trade updates, 2026-10-01) ──
+
+    channel.bind("blueprint-drop", (data: { id: string; category: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["blueprints"], refetchType: "active" });
+      play("reward");
+      toast.success(t.eventBlueprintDrop.replace("{name}", blueprintName(data.id, locale)));
+    });
+
+    channel.bind("blueprint-trade", () => {
+      queryClient.invalidateQueries({ queryKey: ["blueprints"], refetchType: "active" });
+      play("coin");
+      toast.info(t.eventBlueprintTrade);
     });
 
     return () => {

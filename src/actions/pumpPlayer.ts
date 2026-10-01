@@ -9,6 +9,7 @@ import { MAX_CREDITS_SQL, capPlayerValue } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { getProfessionPerks } from "@/lib/professionPerks";
 import { broadcastMarketPatch } from "@/lib/market-broadcast";
+import { maybeDropBlueprint } from "@/lib/blueprint-service";
 
 const BLOCK_SELL_COST_PERCENT = 1.0; // 100% of player value per press
 const PUMP_BLOCK_DURATION_MS = 10 * 60 * 1000; // 10 minutes per press
@@ -210,6 +211,13 @@ export async function pumpPlayer(input: { ownershipId?: number; targetId?: numbe
       ]);
     } catch (e) {
       // Pusher errors are non-critical
+    }
+
+    // Blueprint drop (commercial ← renovate). Best-effort.
+    try {
+      await maybeDropBlueprint(ownerId, "commercial");
+    } catch {
+      /* drops are cosmetic */
     }
 
     return {

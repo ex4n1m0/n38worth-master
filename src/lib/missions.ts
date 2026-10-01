@@ -18,6 +18,7 @@ import { MAX_CREDITS_SQL } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { isAIPlayerUsername } from "@/lib/agent/roster";
 import { getCountdownState, startCountdown } from "@/lib/goddess-countdown";
+import { maybeDropBlueprint } from "@/lib/blueprint-service";
 import { pusher } from "@/lib/pusher-server";
 import { claimLoginReward } from "@/lib/login-reward";
 // Single source of truth for the mission ladder (client-safe). Re-exported so
@@ -401,6 +402,13 @@ export async function checkAndAwardMissions(buyerId: number): Promise<void> {
       .update(users)
       .set({ missionLevel: currentLevel, updatedAt: new Date() })
       .where(eq(users.id, buyerId));
+
+    // Blueprint drop (civic ← permit completed — guaranteed). Best-effort.
+    try {
+      await maybeDropBlueprint(buyerId, "civic");
+    } catch {
+      /* drops are cosmetic */
+    }
 
     // Auto-claim the daily login reward the first time a new player unlocks
     // the game (mission 0 → level 1). This is where the daily reward lives,

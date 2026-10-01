@@ -19,6 +19,7 @@ import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { isAdminUser } from "@/lib/admins";
 import { expireAllBountiesForWorldReset } from "@/lib/bounties";
+import { cancelAllTradesForWorldReset } from "@/lib/blueprint-service";
 import { VAULT_BASE_GOAL } from "@/lib/world-vault";
 import {
   clearCountdown,
@@ -171,8 +172,10 @@ export async function triggerGameReset(
     // 5e. Heist layer reset: expire every open bounty WITHOUT refunds (credits
     // are hard-reset below anyway — refunding after would mint money), wipe the
     // raid log, and reset raid charges to a fresh 3 (rows recreate on next
-    // touch; deleting is the reset).
+    // touch; deleting is the reset). Blueprint COLLECTIONS survive (cosmetic
+    // retention anchor); their open trades cancel WITH escrow refunds.
     await expireAllBountiesForWorldReset();
+    await cancelAllTradesForWorldReset();
     try {
       await db.delete(raidLog);
       await db.delete(raidState);

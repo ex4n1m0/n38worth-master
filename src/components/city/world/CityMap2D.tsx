@@ -39,6 +39,7 @@ interface WorldPayload {
   roads: { from: string; to: string }[];
   raidHits?: { username: string; hits: number }[];
   bountyTargets?: { username: string; count: number; totalReward: number }[];
+  props?: { username: string; props: string[] }[];
 }
 
 export interface Map2DApi {
@@ -166,6 +167,7 @@ export function CityMap2D({
     const bountyTotal = new Map(
       (world?.bountyTargets ?? []).map((b) => [b.username, b.totalReward])
     );
+    const cityProps = new Map((world?.props ?? []).map((p) => [p.username, p.props]));
 
     for (const p of plots) {
       if (!visible(p)) continue;
@@ -238,6 +240,69 @@ export function CityMap2D({
             ctx.stroke();
           }
         }
+      }
+
+      // Completed-album props: small emblems along the plot's top edge —
+      // park (green), marquee (amber stripes), crane (dark mast), rotunda
+      // (dome), goldvault (gold hex). Deterministic slot order.
+      const props = cityProps.get(p.username);
+      if (props && props.length > 0) {
+        const halfPx = p.half * cell;
+        const s = Math.max(4, Math.min(10, cell * 0.9));
+        props.slice(0, 5).forEach((prop, i) => {
+          const cx2 = px - halfPx + s + i * (s * 2.2);
+          const cy2 = py - halfPx - s;
+          if (halfPx < 12) return;
+          ctx.lineWidth = 1.1;
+          switch (prop) {
+            case "park":
+              ctx.fillStyle = "#6FA35C";
+              ctx.beginPath();
+              ctx.arc(cx2, cy2, s * 0.7, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = "#2F5226";
+              ctx.stroke();
+              break;
+            case "marquee":
+              ctx.fillStyle = "#F5C518";
+              ctx.fillRect(cx2 - s * 0.7, cy2 - s * 0.5, s * 1.4, s);
+              ctx.strokeStyle = "#6B5335";
+              ctx.strokeRect(cx2 - s * 0.7, cy2 - s * 0.5, s * 1.4, s);
+              break;
+            case "crane":
+              ctx.strokeStyle = "#33506B";
+              ctx.beginPath();
+              ctx.moveTo(cx2, cy2 + s * 0.7);
+              ctx.lineTo(cx2, cy2 - s * 0.7);
+              ctx.lineTo(cx2 + s * 0.8, cy2 - s * 0.7);
+              ctx.stroke();
+              break;
+            case "rotunda":
+              ctx.strokeStyle = "#33506B";
+              ctx.fillStyle = "#F4F1E8";
+              ctx.beginPath();
+              ctx.arc(cx2, cy2 + s * 0.3, s * 0.7, Math.PI, 0);
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+              break;
+            case "goldvault":
+              ctx.fillStyle = "#F5C518";
+              ctx.strokeStyle = "#6B5335";
+              ctx.beginPath();
+              for (let k = 0; k < 6; k++) {
+                const a = (Math.PI / 180) * (60 * k - 90);
+                const hx = cx2 + s * 0.7 * Math.cos(a);
+                const hy = cy2 + s * 0.7 * Math.sin(a);
+                if (k === 0) ctx.moveTo(hx, hy);
+                else ctx.lineTo(hx, hy);
+              }
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+              break;
+          }
+        });
       }
 
       for (const c of p.layout.cells) {

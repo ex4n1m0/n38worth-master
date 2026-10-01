@@ -11,6 +11,7 @@ import { getProfessionPerks } from "@/lib/professionPerks";
 import { isAIPlayerUsername, isRemovedAgentUsername } from "@/lib/agent/roster";
 import { broadcastMarketPatch } from "@/lib/market-broadcast";
 import { settleBountiesOnPurchase } from "@/lib/bounties";
+import { maybeDropBlueprint } from "@/lib/blueprint-service";
 
 // Helper function to determine value multiplier based on current player value
 function getValueMultiplier(value: number): number {
@@ -525,6 +526,13 @@ export async function buyPlayerCore(
       hadPreviousOwner: !!currentOwner,
     });
 
+    // 10d. Blueprint drop (residential ← acquire). Best-effort, never fails.
+    try {
+      await maybeDropBlueprint(buyerId, "residential");
+    } catch {
+      /* drops are cosmetic */
+    }
+
     // 11. Track onboarding NPC purchase (optional - columns may not exist yet)
     try {
       const [buyerOnboarding] = await db
@@ -875,6 +883,13 @@ export async function breakPartnershipCore(
         .where(eq(users.id, buyerId));
     }
     return { error: purchaseResult.error };
+  }
+
+  // Blueprint drop (industrial ← foreclose). Best-effort.
+  try {
+    await maybeDropBlueprint(buyerId, "industrial");
+  } catch {
+    /* drops are cosmetic */
   }
 
   return {

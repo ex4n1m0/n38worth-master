@@ -9,6 +9,7 @@
  * - Avatar: /botnet.webp (rebrand art)
  */
 
+import { maybeDropBlueprint } from "@/lib/blueprint-service";
 import { db } from "@/db";
 import { users, gameSettings, ownership, rewardHistory } from "@/db/schema";
 import { eq, and, sql, asc, ne, isNotNull, notInArray, inArray } from "drizzle-orm";
@@ -441,6 +442,13 @@ export async function executeMassHire(buyerId: number): Promise<MassHireResult> 
 
     // 8. Check mission progress (mass hires count toward card count).
     await checkAndAwardMissions(buyerId);
+    // Blueprint parity (review note B): Land Grab bypasses buyPlayerCore's
+    // per-hire residential drop — one roll per press instead.
+    try {
+      await maybeDropBlueprint(buyerId, "residential");
+    } catch {
+      /* drops are cosmetic */
+    }
 
     // Bulk change (many cards hired at once) — throttled client refetch.
     await broadcastMarketRefresh("botnet");

@@ -236,6 +236,32 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
 
+## Blueprint Albums + escrowed trading (2026-10-01, GAME_INTEGRATION_STUDY §5E)
+- **Catalog** `src/lib/blueprints.ts`: 24 blueprints / 5 albums (residential
+  ← acquire, commercial ← renovate, industrial ← foreclose, civic ← permits
+  [guaranteed], vault ← raids [ONLY legendary source]). Rarity weights
+  60/27/11/2. Display names live in the catalog (nameEn/nameZh via
+  `blueprintName(id, locale)`) — vocabulary-next-to-data convention.
+- **Drops** (`blueprint-service.maybeDropBlueprint`, crypto RNG, best-effort
+  never fails the action): hooks in buyPlayerCore (residential),
+  breakPartnershipCore (industrial), pumpPlayer (commercial), missions award
+  (civic, guaranteed), executeRaid (vault), mass-hire (one residential roll
+  per press — its loop bypasses buyPlayerCore). One-time gameHistory
+  backfill (≤30 commons/rares, claim-first `__backfilled` sentinel row).
+- **Rewards are COSMETIC ONLY**: album completion raises a PROP on your city
+  (park/marquee/crane/rotunda/goldvault) — derived from inventory, shipped in
+  /api/city/world `props`, drawn by CityMap2D. NO slots/value/credits ever.
+- **Trading** (`blueprint_trades`): duplicates (count>1) only — cards stay
+  non-tradeable. Propose escrows the offer copy (conditional count>1
+  decrement; insert-failure refunds); accept claims via conditional status
+  UPDATE, escrows counterpart, rolls back the claim if missing; expire gate
+  pinned; decline/cancel/expire refund claim-first. Max 5 open/user, 48h.
+  World reset: collections SURVIVE (cosmetic retention); open trades cancel
+  with refunds via ONE atomic claim-all UPDATE.
+- Tables `blueprint_inventory` / `blueprint_trades` (CASCADE FKs). i18n sweep
+  in raid-bounties.json (bp* keys) + Pusher `blueprint-drop` /
+  `blueprint-trade` handlers in usePlayerEvents. /raid third tab.
+
 ## World Vault + heist map visuals (2026-10-01, GAME_INTEGRATION_STUDY §5G)
 - **The World Vault** (`src/lib/world-vault.ts`, bar on /raid): always-on
   server-wide progress bar. Damage = weighted gameHistory counts since

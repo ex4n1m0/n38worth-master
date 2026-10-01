@@ -6,6 +6,7 @@ import { pusher } from "@/lib/pusher-server";
 import { MAX_CREDITS_SQL, capCredits } from "@/lib/safeguards";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { isRemovedAgentUsername } from "@/lib/agent/roster";
+import { maybeDropBlueprint } from "@/lib/blueprint-service";
 
 /**
  * VAULT RAIDS — the social-raiding layer (GAME_INTEGRATION_STUDY §5A).
@@ -505,7 +506,14 @@ export async function executeRaid(attackerId: number, targetId: number): Promise
     console.error("Raid DM receipt error:", dmError);
   }
 
-  // 8. Real-time events.
+  // 8b. Blueprint drop (vault ← raid). Best-effort.
+  try {
+    await maybeDropBlueprint(attackerId, "vault");
+  } catch {
+    /* drops are cosmetic */
+  }
+
+  // 9. Real-time events.
   try {
     await Promise.all([
       pusher.trigger(`player-${attackerId}`, "raid-resolved", {

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership, raidLog, bounties } from "@/db/schema";
+import { users, ownership, raidLog, bounties, blueprintInventory } from "@/db/schema";
 import { eq, and, sql, inArray, notInArray } from "drizzle-orm";
+import { completedProps } from "@/lib/blueprints";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { buildingTier, heroStageOf, protectionState } from "@/lib/city/projection";
@@ -55,7 +56,7 @@ export async function GET() {
 
     if (cityRows.length === 0) {
       return NextResponse.json(
-        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [], raidHits: [], bountyTargets: [] },
+        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [], raidHits: [], bountyTargets: [], props: [] },
         { headers: { "Cache-Control": CACHE } }
       );
     }
@@ -216,6 +217,31 @@ export async function GET() {
       }))
       .filter((r): r is { username: string; count: number; totalReward: number } => !!r.username);
 
+    // 7. Completed-album props per city (cosmetic, derived from blueprint
+    //    inventory — the album completion reward visible to everyone).
+    const bpRows = await db
+      .select({
+        userId: blueprintInventory.userId,
+        blueprintId: blueprintInventory.blueprintId,
+        count: blueprintInventory.count,
+      })
+      .from(blueprintInventory)
+      .where(inArray(blueprintInventory.userId, cityIds));
+    const invByUser = new Map<number, Map<string, number>>();
+    for (const r of bpRows) {
+      if (r.count < 1) continue;
+      const inv = invByUser.get(r.userId) ?? new Map<string, number>();
+      inv.set(r.blueprintId, r.count);
+      invByUser.set(r.userId, inv);
+    }
+    const propsByUser = new Map<number, string[]>();
+    for (const [uid, inv] of invByUser) {
+      propsByUser.set(uid, completedProps(inv));
+    }
+    const props = cityRows
+      .map((c) => ({ username: c.username, props: propsByUser.get(c.id) ?? [] }))
+      .filter((p) => p.props.length > 0);
+
     const payload = {
       epoch: Date.now(),
       generatedAt: new Date().toISOString(),
@@ -223,6 +249,7 @@ export async function GET() {
       roads,
       raidHits,
       bountyTargets,
+      props,
     };
     return NextResponse.json(payload, { headers: { "Cache-Control": CACHE } });
   } catch (error) {
