@@ -40,16 +40,17 @@ export function cityRenderer(): CityRenderer {
 //
 // The 3D scene starts on its PROCEDURAL buildings and swaps to the Kenney
 // kit models once the GLBs land — players saw "one city, then another".
-// The HUD toggle pins the style: "kit" (modern Kenney models, default) or
-// "procedural" (the classic vector architecture — no swap flash). Same
-// precedence as the renderer flag: ?art= URL param (sticky) > localStorage.
+// The HUD toggle pins the style. DEFAULT is "procedural" (classic) since
+// 2026-10-01 while the Kenney kit is fine-tuned; "kit" remains one click
+// away and the default flips back once tuned. Same precedence as the
+// renderer flag: ?art= URL param (sticky) > localStorage.
 
 export type CityArtStyle = "kit" | "procedural";
 
 const ART_STORAGE_KEY = "n38-city-art";
 
 export function cityArtStyle(): CityArtStyle {
-  if (typeof window === "undefined") return "kit";
+  if (typeof window === "undefined") return "procedural";
   try {
     const q = new URLSearchParams(window.location.search).get("art");
     if (q === "kit" || q === "procedural") {
@@ -61,7 +62,7 @@ export function cityArtStyle(): CityArtStyle {
   } catch {
     /* private mode — default below */
   }
-  return "kit";
+  return "procedural";
 }
 
 /** Persist the choice; the scene reads it on (re)mount — CityWorld remounts. */
@@ -74,21 +75,22 @@ export function setCityArtStyle(style: CityArtStyle): void {
   }
 }
 
-// ── daylight preference (2026-10-01: always-day / always-night toggle) ──────
+// ── daylight preference (2026-10-01: always-day / always-night toggle;
+// DEFAULT "day" while the Kenney kit's night look is fine-tuned) ────────────
 
 export type CityDaylightMode = "auto" | "day" | "night";
 
 const DAYLIGHT_STORAGE_KEY = "n38-city-daylight";
 
 export function cityDaylightMode(): CityDaylightMode {
-  if (typeof window === "undefined") return "auto";
+  if (typeof window === "undefined") return "day";
   try {
     const stored = window.localStorage.getItem(DAYLIGHT_STORAGE_KEY);
     if (stored === "auto" || stored === "day" || stored === "night") return stored;
   } catch {
     /* private mode — default below */
   }
-  return "auto";
+  return "day";
 }
 
 export function setCityDaylightMode(mode: CityDaylightMode): void {

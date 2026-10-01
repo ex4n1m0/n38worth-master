@@ -31,9 +31,9 @@ afterEach(() => {
 });
 
 describe("cityArtStyle — the HUD art toggle preference", () => {
-  it("defaults to kit (the Kenney models)", () => {
+  it("defaults to procedural (classic) while the Kenney kit is tuned", () => {
     stubWindow();
-    expect(cityArtStyle()).toBe("kit");
+    expect(cityArtStyle()).toBe("procedural");
   });
 
   it("localStorage persists across reads; setter writes it", () => {
@@ -53,15 +53,15 @@ describe("cityArtStyle — the HUD art toggle preference", () => {
   });
 
   it("is node-safe without window", () => {
-    expect(cityArtStyle()).toBe("kit");
-    expect(() => setCityArtStyle("procedural")).not.toThrow();
+    expect(cityArtStyle()).toBe("procedural");
+    expect(() => setCityArtStyle("kit")).not.toThrow();
   });
 });
 
 describe("cityDaylightMode — the always-day/always-night pin", () => {
-  it("defaults to auto", () => {
+  it("defaults to day (pinned daylight while the kit's night look is tuned)", () => {
     stubWindow();
-    expect(cityDaylightMode()).toBe("auto");
+    expect(cityDaylightMode()).toBe("day");
   });
 
   it("round-trips day and night through storage", () => {
@@ -77,7 +77,7 @@ describe("cityDaylightMode — the always-day/always-night pin", () => {
   it("ignores garbage storage values", () => {
     const store = stubWindow();
     store.set("n38-city-daylight", "sunset");
-    expect(cityDaylightMode()).toBe("auto");
+    expect(cityDaylightMode()).toBe("day");
   });
 });
 

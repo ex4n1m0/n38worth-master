@@ -338,7 +338,8 @@ export default function BuildingsCatalogMount({ daylight }: { daylight: number }
         ([1, 2, 3] as const).forEach((stage) => {
           addGroup(`lm/${i}/s${stage}`, "monument", monumentCell(ctx, i, stage, true));
         });
-        addGroup(`lm/${i}/ghost`, "monument", monumentCell(ctx, i, 1, false));
+        // Unowned landmarks render NOTHING in the city (2026-10-01 ruling)
+        // — no ghost column here either.
       }
 
       // Fixed per-league frames → every cell in a league shares one scale.
@@ -547,10 +548,10 @@ export default function BuildingsCatalogMount({ daylight }: { daylight: number }
         <p className={`text-xs mt-0.5 ${subCls}`}>{t.catalogStageLegend}</p>
         <div
           className="mt-3 grid gap-y-3 items-end"
-          style={{ gridTemplateColumns: "minmax(96px, 1fr) repeat(4, minmax(0, 2fr))" }}
+          style={{ gridTemplateColumns: "minmax(96px, 1fr) repeat(3, minmax(0, 2fr))" }}
         >
           <span />
-          {[...sections.stageLabels, t.catalogUnowned].map((label) => (
+          {sections.stageLabels.map((label) => (
             <span key={label} className={`text-[11px] font-semibold text-center ${subCls}`}>
               {label}
             </span>
@@ -576,13 +577,6 @@ export default function BuildingsCatalogMount({ daylight }: { daylight: number }
                   />
                 </div>
               ))}
-              <div className="flex justify-center">
-                <Cell
-                  shot={shots?.[`lm/${i}/ghost`]}
-                  alt={`${name} ${t.catalogUnowned}`}
-                  maxH="h-72"
-                />
-              </div>
             </div>
           ))}
         </div>

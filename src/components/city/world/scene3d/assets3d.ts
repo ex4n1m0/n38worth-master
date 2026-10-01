@@ -198,11 +198,19 @@ export function roadPrefabFor(axis: "x" | "y" | "cross" | "stub"): string {
   return ROAD_PREFABS.straight;
 }
 
-/** Family tint for instances (light — the kit's own colors dominate). */
+/**
+ * Family tint for instances. 2026-10-01 "too bright, same color buildings"
+ * fix: lerp raised 0.34 → 0.45 (districts must READ at overview zoom) and
+ * paired with per-building brightness variants (ThreeScene) + the base kit
+ * dim below, so a block reads as one family but not one flat color.
+ */
 export function familyTint(profession: string | null): Color {
   const base = new Color(1, 1, 1);
-  return base.lerp(new Color(familyHex(profession)), 0.34);
+  return base.lerp(new Color(familyHex(profession)), 0.45);
 }
+
+/** Per-building brightness jitter steps (familyKitMaterial variants). */
+export const FAMILY_SHADE_STEPS = [0.9, 1.0, 1.08] as const;
 
 /**
  * Instance scale for one prefab: normalizes the model's footprint to ~72%
@@ -289,11 +297,13 @@ function loadRoadTile(
           // 2026-09-30).
           const mat = m.material as MeshStandardMaterial | undefined;
           if (mat && "color" in mat) {
-            mat.color.multiplyScalar(0.62);
-            // Stone (sidewalk/curb pads, most of the cross tile's area)
-            // is cream and still bloom-lifts at overview — dim it one
-            // extra notch; keep White (zebra bars) bright as the accent.
-            if (/stone/i.test(mat.name ?? "")) mat.color.multiplyScalar(0.72);
+            // 2026-10-01 "roads are almost white" fix: overall dim deepened
+            // 0.62 → 0.5; Stone (sidewalk/curb pads — most of a cross
+            // tile's area, and the main "white" read) 0.72 → 0.6. White
+            // (zebra bars) keeps a smaller dim so crossings stay readable.
+            mat.color.multiplyScalar(0.5);
+            if (/stone/i.test(mat.name ?? "")) mat.color.multiplyScalar(0.6);
+            else if (/white/i.test(mat.name ?? "")) mat.color.multiplyScalar(1.25);
             mat.roughness = Math.max(mat.roughness ?? 0.5, 0.92);
             mat.metalness = 0;
           }
@@ -479,6 +489,10 @@ export function loadCityKit(): Promise<CityKit | null> {
         tex.colorSpace = SRGBColorSpace;
         tex.magFilter = LinearFilter;
         mat.map = tex;
+        // 2026-10-01 "too bright" fix: the pack's colormap reads
+        // over-exposed under the day sun — dim the building kits ~20%
+        // (roads dim separately in loadRoadTile; their look is tuned there).
+        if (kit !== "roads") mat.color.setScalar(0.8);
         // Only BUILDINGS glow at night — road asphalt would light up too.
         const emissiveCanvas =
           kit === "roads" ? null : emissiveCanvasFrom(img);

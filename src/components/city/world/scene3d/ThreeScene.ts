@@ -162,6 +162,7 @@ import {
 } from "./props3d";
 import { satelliteAnchor, macroCenter } from "@/lib/city/satellites";
 import {
+  FAMILY_SHADE_STEPS,
   HQ_KIT_PREFAB,
   MONUMENT_KIT_PREFABS,
   MONUMENT_TINT,
@@ -178,7 +179,6 @@ import {
   pickBuildingPrefab,
   type CityKit,
   type KitName,
-  type RoadTileKind,
 } from "./assets3d";
 import {
   loadAvatarTexture,
@@ -986,7 +986,7 @@ export class ThreeScene {
       const key = `${choice.kit}/${choice.name}`;
       const geo = this.kit.geometries.get(key);
       if (geo) {
-        const mat = this.familyKitMaterial(choice.kit, profession);
+        const mat = this.familyKitMaterial(choice.kit, profession, cardId);
         const inner = new Mesh(geo, mat);
         inner.castShadow = this.tier.shadows;
         inner.receiveShadow = this.tier.shadows;
@@ -1043,13 +1043,28 @@ export class ThreeScene {
   }
 
   /** Kit material clone tinted toward the family hue (cached per pair). */
-  private familyKitMaterial(kit: KitName, profession: string | null): MeshStandardMaterial {
-    const key = `${kit}/${profession ?? "__unassigned__"}`;
+  /**
+   * Family-tinted kit material, cached per (kit, profession, variant).
+   * The variant (0..2) multiplies a small brightness step so a district
+   * reads as ONE family without every building being the same flat color
+   * (2026-10-01 "too bright, same color buildings" fix).
+   */
+  private familyKitMaterial(
+    kit: KitName,
+    profession: string | null,
+    variant: number = 0
+  ): MeshStandardMaterial {
+    const step =
+      FAMILY_SHADE_STEPS[
+        ((variant % FAMILY_SHADE_STEPS.length) + FAMILY_SHADE_STEPS.length) %
+          FAMILY_SHADE_STEPS.length
+      ];
+    const key = `${kit}/${profession ?? "__unassigned__"}/${step}`;
     const cached = this.familyKitMaterials.get(key);
     if (cached) return cached;
     const base = this.kit?.materials.get(kit);
     const mat = base ? base.clone() : new MeshStandardMaterial();
-    mat.color.copy(familyTint(profession));
+    mat.color.copy(familyTint(profession)).multiplyScalar(step);
     this.familyKitMaterials.set(key, mat);
     this.kitMaterialVariants.push(mat);
     return mat;
@@ -1619,7 +1634,7 @@ export class ThreeScene {
         const geoKey = `${pick.kit}/${pick.name}`;
         const geo = kit.geometries.get(geoKey);
         if (!geo) continue;
-        const mat = this.familyKitMaterial(pick.kit, m.profession);
+        const mat = this.familyKitMaterial(pick.kit, m.profession, m.cardId);
         const key = `${geoKey}|${m.profession ?? "_"}`;
         let pool = pools.get(key);
         if (!pool) {
@@ -1784,10 +1799,24 @@ export class ThreeScene {
         const group = new Group();
         const accent = new Color(LANDMARK_COLORS[i % LANDMARK_COLORS.length]);
         let topPx = 120;
+        if (this.kit && !owned) {
+          // UNOWNED = TOTALLY HIDDEN in the kit look (2026-10-01 user
+          // ruling — the old gray slab read as a stray white box). The
+          // tile stays reserved (moat/placement) but renders nothing.
+          group.userData.topPx = 0;
+          this.fixtures.add(group);
+          slot = { mesh: group, key };
+          this.monuments[i] = slot;
+          const t0 = landmarkTile(i);
+          const g0 = globalTileOf(t0);
+          const ground0 = tileToGround(g0.x, g0.y);
+          group.position.set(ground0.x, 0, ground0.z);
+          continue;
+        }
         if (this.kit) {
           // LANDMARK as a grand kit tower, strongly tinted in the
-          // Founder's accent color (unowned monuments go dim/gray), on a
-          // beacon-capped silhouette that reads from any zoom.
+          // Founder's accent color, on a beacon-capped silhouette that
+          // reads from any zoom.
           const geoKey = MONUMENT_KIT_PREFABS[i % MONUMENT_KIT_PREFABS.length];
           const geo = this.kit.geometries.get(geoKey);
           const fp = this.kit.footprints.get(geoKey);

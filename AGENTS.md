@@ -300,6 +300,10 @@ n38worth-game-systems review):
   `riverOffsetForCities(cities)` — slides outward as rings populate;
   water plate roadTile_001; never overlaps cities/satellites by
   construction, pinned by tests).
+- **Defaults while tuning (2026-10-01 user ruling)**: the city defaults to
+  CLASSIC procedural art + PINNED DAYLIGHT (day) while the Kenney kit is
+  fine-tuned — renderer-flag.ts `cityArtStyle()` / `cityDaylightMode()`;
+  players switch via the HUD buttons (Modern/Classic, Auto/Day/Night).
 - **Kenney kit v2 (2026-09-30 evening, "more variety + nicer roads")**:
   the tier ladder is 1–3 suburban / 4–7 the MID league (14 commercial
   blocks + 20 INDUSTRIAL works pooled — `pickBuildingPrefab` mixes both
