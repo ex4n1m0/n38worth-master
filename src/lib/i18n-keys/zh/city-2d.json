@@ -9,5 +9,12 @@
   "city2dLandmark": "奠基者地标",
   "city2dYou": "你",
   "catalogSubtitle2d": "共享 2D 蓝图地图上的全部建筑家族与等级——与世界地图使用完全相同的绘制。",
-  "catalogTierValue": "×{mult} 倍价值"
+  "catalogTierValue": "×{mult} 倍价值",
+  "city2dBountyTarget": "悬赏目标",
+  "city2dRaided": "24小时内被突袭",
+  "vaultTitle": "世界金库",
+  "vaultHint": "每次收购、翻新和突袭都会削弱共享金库——打破它，所有出过力的人都有赏。",
+  "vaultContributors": "{n} 人参与",
+  "vaultBreaks": "已破解 {n} 次",
+  "vaultBrokenToast": "世界金库被破解！参与者均已获得赏金——新目标：{goal}¢。"
 }

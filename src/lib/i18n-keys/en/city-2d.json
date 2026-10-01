@@ -9,5 +9,12 @@
   "city2dLandmark": "Founder landmark",
   "city2dYou": "You",
   "catalogSubtitle2d": "Every building family and tier on the shared 2D blueprint map — the exact same drawing the world map uses.",
-  "catalogTierValue": "×{mult} value"
+  "catalogTierValue": "×{mult} value",
+  "city2dBountyTarget": "Open bounty target",
+  "city2dRaided": "Raided (24h)",
+  "vaultTitle": "The World Vault",
+  "vaultHint": "Every acquire, renovate and raid cracks the shared vault — break it open and everyone who helped gets paid.",
+  "vaultContributors": "{n} contributors",
+  "vaultBreaks": "Broken {n}×",
+  "vaultBrokenToast": "The World Vault was cracked! Everyone who helped got paid — new goal: {goal}¢."
 }

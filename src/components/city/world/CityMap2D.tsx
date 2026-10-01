@@ -37,6 +37,8 @@ interface WorldPayload {
   epoch: number;
   cities: WorldCity[];
   roads: { from: string; to: string }[];
+  raidHits?: { username: string; hits: number }[];
+  bountyTargets?: { username: string; count: number; totalReward: number }[];
 }
 
 export interface Map2DApi {
@@ -160,6 +162,10 @@ export function CityMap2D({
     const st = cityWorldStore.getState();
     const selUniv = st.selectedUniverseBuilding;
     const selCard = st.selectedCardId;
+    const raidHits = new Map((world?.raidHits ?? []).map((r) => [r.username, r.hits]));
+    const bountyTotal = new Map(
+      (world?.bountyTargets ?? []).map((b) => [b.username, b.totalReward])
+    );
 
     for (const p of plots) {
       if (!visible(p)) continue;
@@ -168,6 +174,71 @@ export function CityMap2D({
       const isYou = p.username === myUsername;
       const isSelectedCity = !!selUniv && selUniv.username === p.username;
       drawPlotPad(ctx, p, px, py, cell, isYou, isSelectedCity);
+
+      // Heist visuals (derived): 24h raid damage cracks + hits badge, and an
+      // open-bounty marker on cities someone is paying to hit (2026-10-01).
+      const hits = raidHits.get(p.username) ?? 0;
+      if (hits > 0) {
+        const halfPx = p.half * cell;
+        ctx.strokeStyle = "#8B2E2E";
+        ctx.lineWidth = Math.max(1, cell * 0.14);
+        ctx.setLineDash([]);
+        for (let i = 0; i < Math.min(3, hits); i++) {
+          const ox = (i - 1) * halfPx * 0.35;
+          ctx.beginPath();
+          ctx.moveTo(px + ox - halfPx * 0.12, py - halfPx * 0.55);
+          ctx.lineTo(px + ox + halfPx * 0.08, py - halfPx * 0.2);
+          ctx.lineTo(px + ox - halfPx * 0.06, py + halfPx * 0.15);
+          ctx.stroke();
+        }
+        if (halfPx >= 26) {
+          const r = Math.max(6, Math.min(11, cell));
+          const bx = px - halfPx + r * 0.2;
+          const by = py + halfPx - r * 0.2;
+          ctx.beginPath();
+          ctx.arc(bx, by, r, 0, Math.PI * 2);
+          ctx.fillStyle = "#8B2E2E";
+          ctx.fill();
+          ctx.strokeStyle = "#F4F1E8";
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+          ctx.fillStyle = "#F4F1E8";
+          ctx.font = `700 ${Math.round(r * 1.1)}px ui-monospace, monospace`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`×${hits}`, bx, by + 0.5);
+        }
+      }
+      const bounty = bountyTotal.get(p.username);
+      if (bounty != null && bounty > 0) {
+        const halfPx = p.half * cell;
+        const r = Math.max(5, Math.min(12, cell * 1.1));
+        const bx = px + halfPx - r * 0.2;
+        const by = py - halfPx + r * 0.2;
+        if (halfPx >= 14) {
+          ctx.beginPath();
+          ctx.arc(bx, by, r, 0, Math.PI * 2);
+          ctx.fillStyle = "#C0392B";
+          ctx.fill();
+          ctx.strokeStyle = "#F4F1E8";
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          if (r >= 7) {
+            // crosshair reticle — "this city is a hunted target"
+            ctx.strokeStyle = "#F4F1E8";
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(bx - r * 0.5, by);
+            ctx.lineTo(bx + r * 0.5, by);
+            ctx.moveTo(bx, by - r * 0.5);
+            ctx.lineTo(bx, by + r * 0.5);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(bx, by, r * 0.5, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
 
       for (const c of p.layout.cells) {
         const bx = px + c.x * cell;
@@ -553,6 +624,14 @@ export function CityMap2D({
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-2.5 w-2.5 rounded-[2px] border-2 border-dashed border-[#E8590C]" />
           {t.city2dYou}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#C0392B]" />
+          {t.city2dBountyTarget}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#8B2E2E]" />
+          {t.city2dRaided}
         </span>
       </div>
     </div>

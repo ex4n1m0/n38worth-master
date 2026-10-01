@@ -10,6 +10,7 @@ import { useNow } from "@/hooks/useNow";
 import { formatCompact } from "@/lib/utils";
 import { toast } from "@/lib/event-feed";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { WorldVaultBar } from "@/components/raid/WorldVaultBar";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -688,6 +689,8 @@ export function RaidPage() {
         </div>
         <p className="mt-1 text-sm text-gray-500">{t.raidPageSubtitle}</p>
       </header>
+
+      <WorldVaultBar />
 
       <div className="flex gap-2" role="tablist">
         {tabs.map((item) => (

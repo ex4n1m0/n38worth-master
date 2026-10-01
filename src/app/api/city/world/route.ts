@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { users, ownership } from "@/db/schema";
+import { users, ownership, raidLog, bounties } from "@/db/schema";
 import { eq, and, sql, inArray, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
@@ -55,7 +55,7 @@ export async function GET() {
 
     if (cityRows.length === 0) {
       return NextResponse.json(
-        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [] },
+        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [], raidHits: [], bountyTargets: [] },
         { headers: { "Cache-Control": CACHE } }
       );
     }
@@ -177,11 +177,52 @@ export async function GET() {
       }))
       .filter((r): r is { from: string; to: string } => !!r.from && !!r.to);
 
+    // 6. Heist visuals (derived, read-only): 24h raid hits per victim city
+    //    + open-bounty targets among mapped cities.
+    const raidHitRows = await db
+      .select({ victimId: raidLog.victimId, hits: sql<number>`COUNT(*)` })
+      .from(raidLog)
+      .where(
+        and(
+          inArray(raidLog.victimId, cityIds),
+          sql`${raidLog.createdAt} > now() - interval '24 hours'`
+        )
+      )
+      .groupBy(raidLog.victimId);
+    const bountyTargetRows = await db
+      .select({
+        targetUserId: bounties.targetUserId,
+        count: sql<number>`COUNT(*)`,
+        total: sql<number>`COALESCE(SUM(${bounties.rewardCredits}), 0)`,
+      })
+      .from(bounties)
+      .where(
+        and(
+          eq(bounties.status, "open"),
+          sql`${bounties.expiresAt} > now()`,
+          inArray(bounties.targetUserId, cityIds)
+        )
+      )
+      .groupBy(bounties.targetUserId);
+
+    const raidHits = raidHitRows
+      .map((r) => ({ username: idToCity.get(r.victimId)?.username ?? null, hits: Number(r.hits) }))
+      .filter((r): r is { username: string; hits: number } => !!r.username);
+    const bountyTargets = bountyTargetRows
+      .map((r) => ({
+        username: idToCity.get(r.targetUserId)?.username ?? null,
+        count: Number(r.count),
+        totalReward: Number(r.total),
+      }))
+      .filter((r): r is { username: string; count: number; totalReward: number } => !!r.username);
+
     const payload = {
       epoch: Date.now(),
       generatedAt: new Date().toISOString(),
       cities,
       roads,
+      raidHits,
+      bountyTargets,
     };
     return NextResponse.json(payload, { headers: { "Cache-Control": CACHE } });
   } catch (error) {

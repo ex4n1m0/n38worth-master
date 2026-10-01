@@ -12,12 +12,14 @@ import {
   avatarReveals,
   raidState,
   raidLog,
+  gameSettings,
 } from "@/db/schema";
 import { sql, notInArray, desc, eq, and } from "drizzle-orm";
 import { pusher } from "@/lib/pusher-server";
 import { GODDESS_USERNAMES, GODDESS_VALUES } from "@/lib/goddesses";
 import { isAdminUser } from "@/lib/admins";
 import { expireAllBountiesForWorldReset } from "@/lib/bounties";
+import { VAULT_BASE_GOAL } from "@/lib/world-vault";
 import {
   clearCountdown,
   getCountdownState,
@@ -146,7 +148,27 @@ export async function triggerGameReset(
     // (all ownership is gone), so wipe the table to reset reveal state.
     await db.delete(avatarReveals);
 
-    // 5c. Heist layer reset: expire every open bounty WITHOUT refunds (credits
+    // 5d. World Vault re-arm (gameHistory SURVIVES resets — deleting the
+    //     epoch row would let pre-reset damage instantly re-break the vault,
+    //     so write a fresh epoch + base goal explicitly).
+    try {
+      await db
+        .insert(gameSettings)
+        .values([
+          { settingKey: "fd_epoch_start", settingValue: Math.floor(Date.now() / 1000) },
+          { settingKey: "fd_goal", settingValue: VAULT_BASE_GOAL },
+          { settingKey: "fd_breaks", settingValue: 0 },
+          { settingKey: "fd_last_break", settingValue: 0 },
+        ])
+        .onConflictDoUpdate({
+          target: gameSettings.settingKey,
+          set: { settingValue: sql`excluded.setting_value`, updatedAt: new Date() },
+        });
+    } catch (vaultResetError) {
+      console.error("World-vault re-arm error (continuing):", vaultResetError);
+    }
+
+    // 5e. Heist layer reset: expire every open bounty WITHOUT refunds (credits
     // are hard-reset below anyway — refunding after would mint money), wipe the
     // raid log, and reset raid charges to a fresh 3 (rows recreate on next
     // touch; deleting is the reset).

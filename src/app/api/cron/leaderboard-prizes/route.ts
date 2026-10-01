@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users, ownership, transactions, messages, gameHistory } from "@/db/schema";
 import { sql, desc, eq, or } from "drizzle-orm";
+import { maybeProcessBreak } from "@/lib/world-vault";
+
+export const maxDuration = 60;
 
 export async function GET(req: Request) {
   // Verify the request is from Vercel Cron (skip if CRON_SECRET not configured)
@@ -11,6 +14,15 @@ export async function GET(req: Request) {
     if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+  }
+
+  // World Vault backstop (2026-10-01): this cron is the revived prize payer
+  // (GAME_INTEGRATION_STUDY §5G) — process a pending vault break hourly even
+  // if nobody reads the status endpoint. Never fails the cron.
+  try {
+    await maybeProcessBreak();
+  } catch (e) {
+    console.error("World vault backstop error:", e);
   }
 
   try {

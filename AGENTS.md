@@ -236,6 +236,26 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
 
+## World Vault + heist map visuals (2026-10-01, GAME_INTEGRATION_STUDY §5G)
+- **The World Vault** (`src/lib/world-vault.ts`, bar on /raid): always-on
+  server-wide progress bar. Damage = weighted gameHistory counts since
+  `fd_epoch_start` (purchase 1 / pump 1 / raid 2 — ZERO new action-path
+  writes). Break at goal (base 600, ×1.6/arm, calibrated to ~1–3 active
+  days): every contributor with ≥3 weighted damage mints flat 500¢ (≤500
+  participants), top 3 get max(100, 0.1% owned-value) × [3,2,1]; all
+  LEAST-capped; rewardHistory type "world_vault"; Pusher game-global
+  `vault-broken`. Break processing: CAS claim on fd_epoch_start (exactly
+  once), lazily on GET /api/game/world-vault (no-store, maxDuration 60) +
+  hourly backstop inside the leaderboard-prizes cron. The epoch row is
+  BOOTSTRAPPED on first maybeProcessBreak — never assume it exists. World
+  reset re-arms it explicitly (gameHistory SURVIVES resets — do not delete
+  the row or pre-reset damage re-breaks the fresh vault).
+- **Heist map visuals** (/api/city/world extra fields `raidHits` 24h +
+  `bountyTargets` unexpired-open): CityMap2D draws crack strokes + ×N badge
+  on raided cities and a red crosshair marker on bounty targets — derived,
+  read-only, deterministic. game-global is a SHARED Pusher channel: unbind
+  your event only, NEVER unsubscribe the channel (WorldVaultBar pattern).
+
 ## Heist layer: Vault Raids + Bounty Board (2026-10-01)
 Implemented from GAME_INTEGRATION_STUDY.md §5A/§5B ("The City Heist Simulation"
 rebrand). Credits-only, mission ladder untouched, all routes per-user authed
