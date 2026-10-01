@@ -127,9 +127,9 @@ const en = {
   landQuick2Label: "Renovate",
   landQuick2Body: "to double a building's value — your main engine. Deed locks shield your towers; foreclosures crack a rival's so buildings change hands.",
   landQuick3Label: "Collect",
-  landQuick3Body: "rent hourly: 0.2% of your portfolio, civic rank bonuses, plus The Banker's value every 24h.",
+  landQuick3Body: "rent hourly — 0.2% of your portfolio, top-rank bonuses, plus The Banker's value every 24h.",
   landQuick4Label: "Grow",
-  landQuick4Body: "your skyline in the City view — permits add +50 land plots and unlock new sectors; all six trades complete a district.",
+  landQuick4Body: "your skyline on the shared City map — every player's city sits on one blueprint, avatars on every building. Permits add +50 land plots; all six trades complete a district.",
   landQuick5Label: "Win",
   landQuick5Body: "by holding all six Founders' landmarks for 1 hour — they crown your city, the city is rebuilt, and your name joins the Cornerstone forever.",
   landChipGet: "ACQUIRE",
@@ -173,7 +173,7 @@ const en = {
   cardBuildingLandmark: "Becomes a landmark in your city",
   muteSounds: "Mute sounds",
   unmuteSounds: "Unmute sounds",
-  coachCredits: "Earn capital when other players acquire your cards, plus rent every 30 minutes. Your value grows every time you get acquired.",
+  coachCredits: "Earn capital when other players acquire your cards, plus hourly rent — 0.2% of your portfolio. Your value grows every time you get acquired.",
 
   // ── Language switcher ──
   language: "Language",
@@ -279,7 +279,7 @@ const en = {
   guideStep5Title: "Grow Your Value",
   guideStep5Desc: "Climb the leaderboard by growing your portfolio.",
   guideStep6Title: "Compete",
-  guideStep6Desc: "Race to the top of the leaderboard and earn prizes!",
+  guideStep6Desc: "Race up the leaderboards for hourly rank bonuses — or hold all six Founders to crown the skyline.",
 
   // ── Auth pages ──
   loginTitle: "Welcome Back",
@@ -367,9 +367,9 @@ const zh: TranslationKeys = {
   landQuick2Label: "翻新：",
   landQuick2Body: "让建筑估值翻倍——你的主要成长引擎。契锁守护你的高楼，法拍击破对手的契约即可夺楼。",
   landQuick3Label: "收租：",
-  landQuick3Body: "每小时收租——物业总值的 0.2% 与市政奖励，每 24 小时还可领取银行家的身价分红。",
+  landQuick3Body: "每小时收租——组合价值的 0.2%、排行榜前列奖金，外加每 24 小时领取银行家的当前价值。",
   landQuick4Label: "壮大：",
-  landQuick4Body: "城市视图中的天际线——许可 +50 地块并解锁新分区，集齐六大行业点亮一座行业城区。",
+  landQuick4Body: "你在共享城市地图上的天际线——所有玩家的城市都在同一张蓝图上，每栋建筑都带着主人的头像。许可证 +50 块地；集齐六大行业完成一个开发区。",
   landQuick5Label: "获胜：",
   landQuick5Body: "集齐六位奠基人地标并守住 1 小时——地标为你的城市加冕，城市重建，你的名字永铭奠基石。",
   landChipGet: "收购",
@@ -413,7 +413,7 @@ const zh: TranslationKeys = {
   cardBuildingLandmark: "将在我方城市中成为地标",
   muteSounds: "静音",
   unmuteSounds: "取消静音",
-  coachCredits: "其他玩家收购你的卡牌时你将获得资金，此外每 30 分钟还有一次收租。你每次被收购，估值都会上涨。",
+  coachCredits: "当其他玩家收购你的建筑时赚取资金，另有每小时租金——组合价值的 0.2%。每次被收购，你的价值都会提升。",
 
   // ── 语言切换 ──
   language: "语言",
@@ -519,7 +519,7 @@ const zh: TranslationKeys = {
   guideStep5Title: "提升估值",
   guideStep5Desc: "壮大物业，攀登排行榜。",
   guideStep6Title: "参与竞争",
-  guideStep6Desc: "冲上排行榜顶端，赢取奖励！",
+  guideStep6Desc: "冲上排行榜领取每小时排名奖金——或集齐六位奠基者，加冕天际线。",
 
   // ── 登录/注册 ──
   loginTitle: "欢迎回来",
