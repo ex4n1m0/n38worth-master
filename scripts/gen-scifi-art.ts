@@ -279,7 +279,7 @@ function ogSvg(w: number, h: number): string {
 
   <!-- Blueprint kicker -->
   <text x="${w / 2}" y="140" text-anchor="middle"
-        font-family="Consolas, 'Courier New', monospace" font-size="26" fill="#5f8f6f">plot surveyed · foundations poured…</text>
+        font-family="Consolas, 'Courier New', monospace" font-size="26" fill="#5f8f6f">plot surveyed · vaults located…</text>
 
   <!-- Wordmark (glow copy + gradient fill), mirroring the landing title -->
   <text x="${w / 2}" y="300" text-anchor="middle" dominant-baseline="middle"
@@ -292,10 +292,10 @@ function ogSvg(w: number, h: number): string {
   <!-- Tagline + action line -->
   <text x="${w / 2}" y="400" text-anchor="middle"
         font-family="Consolas, 'Courier New', monospace" font-weight="bold"
-        font-size="30" letter-spacing="12" fill="#e8ffe8">THE CITY BUILDING SIMULATION</text>
+        font-size="30" letter-spacing="12" fill="#e8ffe8">THE CITY HEIST SIMULATION</text>
   <text x="${w / 2}" y="455" text-anchor="middle"
         font-family="Consolas, 'Courier New', monospace"
-        font-size="24" fill="#00ff41" opacity="0.9">acquire · renovate · crown the skyline</text>
+        font-size="24" fill="#00ff41" opacity="0.9">acquire · raid · crown the skyline</text>
 
   <!-- Footer -->
   <text x="${w / 2}" y="${h - 74}" text-anchor="middle"
