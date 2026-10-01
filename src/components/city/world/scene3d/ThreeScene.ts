@@ -135,7 +135,6 @@ import {
   type UniverseMarker,
 } from "./world3d";
 import {
-  CIVIC_EMISSIVE,
   CIVIC_NEON,
   CIVIC_TINT,
   civicKitPrefab,
@@ -163,7 +162,6 @@ import {
 import { satelliteAnchor, macroCenter } from "@/lib/city/satellites";
 import {
   HQ_KIT_PREFAB,
-  MONUMENT_EMISSIVE,
   MONUMENT_KIT_PREFABS,
   MONUMENT_TINT,
   ROAD_TILE_SCALE,
@@ -1738,9 +1736,12 @@ export class ThreeScene {
       // Premultiply a light gray base so the ACCENT dominates the kit's
       // warm colormap (0.85 lerp alone still reads "salmon" at overview).
       mat.color.copy(new Color(0.85, 0.85, 0.85).lerp(accent, CIVIC_TINT));
-      mat.emissiveMap = null;
-      mat.emissive = accent.clone().multiplyScalar(CIVIC_EMISSIVE);
+      // Night: accent-tinted WINDOW glow (the derived emissive map rides
+      // the shared kitGlow clock via kitMaterialVariants — the 2026-10-01
+      // monument fix applies to civic lots too).
+      mat.emissive = accent.clone();
       this.civicMaterialClones.push(mat);
+      this.kitMaterialVariants.push(mat);
       const k =
         buildingKitScale(kit.footprints.get(geoKey)) * civicTierScale(tier);
       const h = kit.heights.get(geoKey) ?? 2.9;
@@ -1748,10 +1749,13 @@ export class ThreeScene {
       mesh.scale.setScalar(k);
       mesh.castShadow = this.tier.shadows;
       mesh.receiveShadow = this.tier.shadows;
-      const beaconMat = new MeshBasicMaterial({ color: accent, toneMapped: false });
+      const beaconMat = new MeshBasicMaterial({
+        color: accent.clone().lerp(new Color(1, 1, 1), 0.55),
+        toneMapped: false,
+      });
       this.civicBeaconClones.push(beaconMat);
       const beacon = new Mesh(CIVIC_BEACON_GEO, beaconMat);
-      beacon.position.y = h * k * 1.1547 + 2;
+      beacon.position.y = h * k * 1.1547 + 4;
       const wrap = new Group();
       wrap.userData.shared = true; // kit geometry shared — keep on dispose
       wrap.add(mesh, beacon);
@@ -1794,10 +1798,19 @@ export class ThreeScene {
               : new Color(0.62, 0.64, 0.68);
             const mat = this.kit.materials.get("commercial")!.clone();
             mat.color.copy(tint);
-            // Night identity: the Founder's accent glows from within after
-            // dark (unowned monuments keep a cold ember).
-            mat.emissiveMap = null;
-            mat.emissive = owned ? accent.clone().multiplyScalar(MONUMENT_EMISSIVE) : new Color(0.05, 0.06, 0.09);
+            // Night identity (2026-10-01 fix): OWNED monuments keep the
+            // derived window emissive MAP tinted in the Founder's accent —
+            // lit accent windows, geometry still readable. The old uniform
+            // accent wash (emissiveMap=null) flattened them into pastel
+            // slabs at night (image-analyst pixel QA). Unowned monuments
+            // keep a dim uniform cold ember. Intensity rides the shared
+            // kitGlow clock via kitMaterialVariants.
+            if (owned) {
+              mat.emissive = accent.clone();
+            } else {
+              mat.emissiveMap = null;
+              mat.emissive = new Color(0.05, 0.06, 0.09);
+            }
             this.kitMaterialVariants.push(mat);
             const inner = new Mesh(geo, mat);
             inner.castShadow = this.tier.shadows;
@@ -1806,15 +1819,20 @@ export class ThreeScene {
             const k = base * monumentStageScale(stage);
             inner.scale.setScalar(k);
             group.add(inner);
-            // Beacon: the Founder's light at the crown (emissive, blooms).
+            // Beacon: the Founder's light at the crown — a white-cored
+            // accent block that stays brighter than the body and blooms
+            // at night (a pure-accent 7.5px cube read as a dim speck next
+            // to the kit's own rooftop antennas — 2026-10-01 QA).
             const beaconMat = new MeshBasicMaterial({
-              color: owned ? accent : new Color(0.35, 0.38, 0.45),
+              color: owned
+                ? accent.clone().lerp(new Color(1, 1, 1), 0.55)
+                : new Color(0.35, 0.38, 0.45),
               toneMapped: false,
             });
-            const beacon = new Mesh(new BoxGeometry(7.5, 6, 7.5), beaconMat);
-            beacon.position.y = h * k * 1.1547 + 3;
+            const beacon = new Mesh(new BoxGeometry(9, 7, 9), beaconMat);
+            beacon.position.y = h * k * 1.1547 + 5;
             group.add(beacon);
-            topPx = (h * k) / PIXEL_RISE + 6;
+            topPx = (h * k) / PIXEL_RISE + 7;
           }
         }
         if (!group.children.length) {

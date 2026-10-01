@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
-  CIVIC_EMISSIVE,
   CIVIC_NEON,
   CIVIC_TINT,
   civicKitPrefab,
@@ -53,7 +52,6 @@ describe("civic 3D recipes", () => {
     expect(civicTierScale(2)).toBe(1.7);
     expect(civicTierScale(3)).toBe(2.0);
     expect(CIVIC_TINT).toBe(0.85);
-    expect(CIVIC_EMISSIVE).toBe(0.25);
     expect(CIVIC_NEON.police).toBe("#60a5fa");
     expect(CIVIC_NEON.hospital).toBe("#f87171");
   });

@@ -145,8 +145,6 @@ export function monumentStageScale(stage: number): number {
 
 /** Owned monument tint strength toward the Founder accent (unowned = gray). */
 export const MONUMENT_TINT = 0.55;
-/** Owned monument night emissive multiplier of the accent color. */
-export const MONUMENT_EMISSIVE = 0.3;
 
 export interface PrefabChoice {
   kit: KitName;

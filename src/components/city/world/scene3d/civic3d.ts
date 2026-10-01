@@ -28,9 +28,6 @@ export const CIVIC_NEON: Record<CivicKind, string> = {
  *  2026-10-01: 0.5/0.7 measured as one warm family; 0.85 + the gray
  *  premultiply in syncCivic separates the hues). */
 export const CIVIC_TINT = 0.85;
-/** Night emissive multiplier of the neon (monuments use 0.3). */
-export const CIVIC_EMISSIVE = 0.25;
-
 /**
  * Deterministic kit prefab per kind (mid-league pool, fixed seed per kind
  * so the four civic buildings are always the same four models). Pinned by

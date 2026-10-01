@@ -51,7 +51,6 @@ import {
   COMMERCIAL_BUILDINGS,
   HQ_KIT_PREFAB,
   INDUSTRIAL_BUILDINGS,
-  MONUMENT_EMISSIVE,
   MONUMENT_KIT_PREFABS,
   MONUMENT_TINT,
   SKYSCRAPERS,
@@ -167,10 +166,17 @@ function monumentCell(
   mat.color.copy(
     owned ? new Color(1, 1, 1).lerp(accent, MONUMENT_TINT) : new Color(0.62, 0.64, 0.68)
   );
-  mat.emissiveMap = null;
-  mat.emissive = owned
-    ? accent.clone().multiplyScalar(MONUMENT_EMISSIVE)
-    : new Color(0.05, 0.06, 0.09);
+  // Night identity = the 2026-10-01 scene recipe: OWNED monuments keep the
+  // window emissive MAP tinted in the Founder accent (accent-lit windows,
+  // not the old uniform wash that flattened them into pastel slabs);
+  // unowned keeps a dim cold ember.
+  if (owned) {
+    mat.emissive = accent.clone();
+  } else {
+    mat.emissiveMap = null;
+    mat.emissive = new Color(0.05, 0.06, 0.09);
+  }
+  mat.emissiveIntensity = windowEmissive(ctx.daylight);
   const h = ctx.kit.heights.get(geoKey) ?? 2.9;
   const k = buildingKitScale(ctx.kit.footprints.get(geoKey)) * monumentStageScale(stage);
   const group = new Group();
@@ -178,11 +184,13 @@ function monumentCell(
   mesh.scale.setScalar(k);
   group.add(mesh);
   const beaconMat = new MeshBasicMaterial({
-    color: owned ? accent : new Color(0.35, 0.38, 0.45),
+    color: owned
+      ? accent.clone().lerp(new Color(1, 1, 1), 0.55)
+      : new Color(0.35, 0.38, 0.45),
     toneMapped: false,
   });
   const beacon = new Mesh(BEACON_GEO, beaconMat);
-  beacon.position.y = h * k * 1.1547 + 3;
+  beacon.position.y = h * k * 1.1547 + 5;
   group.add(beacon);
   group.userData.disposables = [mat, beaconMat] as Material[];
   return group;

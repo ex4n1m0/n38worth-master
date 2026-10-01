@@ -12,7 +12,6 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   HQ_KIT_PREFAB,
-  MONUMENT_EMISSIVE,
   MONUMENT_KIT_PREFABS,
   MONUMENT_TINT,
   COMMERCIAL_BUILDINGS,
@@ -55,7 +54,6 @@ describe("Founder monument kit roster", () => {
     expect(monumentStageScale(2)).toBe(2.0);
     expect(monumentStageScale(3)).toBe(2.5);
     expect(MONUMENT_TINT).toBe(0.55);
-    expect(MONUMENT_EMISSIVE).toBe(0.3);
   });
 });
 
