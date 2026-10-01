@@ -44,5 +44,11 @@ export interface CitySceneApi {
   focusLandmark(index: number): void;
   zoomBy(delta: number): void;
   resetCamera(): void;
+  /**
+   * Pin the day/night visuals (1 = always day, 0 = always night, null =
+   * follow the game clock) — the 2026-10-01 HUD toggle. Display-only;
+   * every renderer applies it immediately.
+   */
+  setDaylightOverride(v: number | null): void;
   destroy(): void;
 }

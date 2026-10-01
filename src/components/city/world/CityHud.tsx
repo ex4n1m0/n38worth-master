@@ -1,6 +1,6 @@
 "use client";
 
-import { LocateFixed, Lock, Minus, Plus } from "lucide-react";
+import { Boxes, Building2, LocateFixed, Lock, Minus, Moon, Plus, Sun, SunMoon } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { useCityWorldStore } from "@/hooks/useCityWorldStore";
@@ -11,6 +11,12 @@ export interface CityHudActions {
   zoomIn: () => void;
   zoomOut: () => void;
   reset: () => void;
+  /** Current building art style + toggle (remounts the scene). */
+  artStyle: "kit" | "procedural";
+  onToggleArt: () => void;
+  /** Day/night pin + cycle (applied live). */
+  daylightMode: "auto" | "day" | "night";
+  onCycleDaylight: () => void;
 }
 
 /**
@@ -96,6 +102,57 @@ export function CityHud({
           className="city-world-btn"
         >
           <LocateFixed className="h-4 w-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            play("toggle");
+            actions.onToggleArt();
+          }}
+          aria-label={`${t.cityHudArt}: ${
+            actions.artStyle === "kit" ? t.cityHudArtKit : t.cityHudArtClassic
+          }`}
+          title={`${t.cityHudArt}: ${
+            actions.artStyle === "kit" ? t.cityHudArtKit : t.cityHudArtClassic
+          }`}
+          aria-pressed={actions.artStyle === "kit"}
+          className="city-world-btn"
+        >
+          {actions.artStyle === "kit" ? (
+            <Building2 className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Boxes className="h-4 w-4" aria-hidden="true" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            play("toggle");
+            actions.onCycleDaylight();
+          }}
+          aria-label={`${t.cityHudDaylight}: ${
+            actions.daylightMode === "auto"
+              ? t.cityHudLightAuto
+              : actions.daylightMode === "day"
+                ? t.cityHudLightDay
+                : t.cityHudLightNight
+          }`}
+          title={`${t.cityHudDaylight}: ${
+            actions.daylightMode === "auto"
+              ? t.cityHudLightAuto
+              : actions.daylightMode === "day"
+                ? t.cityHudLightDay
+                : t.cityHudLightNight
+          }`}
+          className="city-world-btn"
+        >
+          {actions.daylightMode === "auto" ? (
+            <SunMoon className="h-4 w-4" aria-hidden="true" />
+          ) : actions.daylightMode === "day" ? (
+            <Sun className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Moon className="h-4 w-4" aria-hidden="true" />
+          )}
         </button>
         <span className="city-world-sector-chip" aria-live="polite">
           {sectorLabel}

@@ -257,6 +257,8 @@ export class CityScene {
   private daylight = 0;
   private daylightTracking = false;
   private daylightAppliedAt = 0;
+  /** Pinned day/night (HUD toggle); null = follow the game clock. */
+  private daylightOverride: number | null = null;
   /** One-shot wake timer for the next ramp boundary (render-on-demand). */
   private daylightTimer: ReturnType<typeof setTimeout> | null = null;
   /** Frame-time EMA — feeds the dev perf overlay fps readout. */
@@ -1289,6 +1291,24 @@ export class CityScene {
    * the tick loop then owns the ramp. Already inside a ramp
    * (nextDaylightBoundaryAt ≤ now) → track immediately.
    */
+  /** HUD day/night toggle: pin the visuals instantly (null = clock). */
+  setDaylightOverride(v: number | null): void {
+    if (this.destroyed) return;
+    this.daylightOverride = v === null ? null : Math.max(0, Math.min(1, v));
+    // Instant switch (deliberate player action — no ramp), then either
+    // settle (pinned) or re-arm the natural boundary timer (auto).
+    this.daylightTracking = false;
+    if (this.daylightTimer !== null) {
+      clearTimeout(this.daylightTimer);
+      this.daylightTimer = null;
+    }
+    this.daylight = this.daylightOverride ?? daylightAt(Date.now());
+    this.applyDaylight();
+    this.dirty = true;
+    this.requestRender();
+    if (this.daylightOverride === null) this.scheduleDaylightWake();
+  }
+
   private scheduleDaylightWake(): void {
     if (this.destroyed) return;
     if (this.daylightTimer !== null) {
@@ -1319,7 +1339,7 @@ export class CityScene {
    */
   private updateDaylight(perfNow: number): boolean {
     if (!this.daylightTracking) return false;
-    const target = daylightAt(Date.now());
+    const target = this.daylightOverride ?? daylightAt(Date.now());
     const settled = (target === 0 || target === 1) && this.daylight === target;
     if (
       perfNow - this.daylightAppliedAt >= DAYLIGHT_STEP_MS &&

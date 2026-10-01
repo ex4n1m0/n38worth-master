@@ -142,6 +142,7 @@ import {
 } from "./civic3d";
 import { civicTileRef } from "@/lib/city/placement";
 import { deriveRiver, riverOffsetForCities } from "@/lib/city/river";
+import { cityArtStyle } from "@/lib/city/renderer-flag";
 import {
   disposeCityTextures,
   familySkinOf,
@@ -700,12 +701,11 @@ export class ThreeScene {
     scene.requestRender();
     scene.startLightClock();
     // Kenney City Kit (CC0): load in the background; when it lands, re-sync
-    // swaps the procedural buildings/roads/trees for kit models. ?art=
-    // procedural keeps the old renderer.
-    if (
-      scene.useKitAssets &&
-      new URLSearchParams(window.location.search).get("art") !== "procedural"
-    ) {
+    // swaps the procedural buildings/roads/trees for kit models. The art
+    // preference (?art= sticky URL > n38-city-art localStorage, default
+    // kit) pins the style — "procedural" keeps the classic renderer with
+    // no swap flash (2026-10-01 HUD toggle ruling).
+    if (scene.useKitAssets && cityArtStyle() !== "procedural") {
       loadCityKit().then((kit) => {
         if (scene.destroyed || !kit) return;
         scene.kit = kit;
