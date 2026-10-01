@@ -5,9 +5,8 @@ import { eq, and, sql, inArray, notInArray } from "drizzle-orm";
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { REMOVED_AGENT_USERNAMES } from "@/lib/agent/roster";
 import { buildingTier, heroStageOf, protectionState } from "@/lib/city/projection";
-import { universeFamilyIndex } from "@/lib/city/universe";
-import type { WorldCity, WorldBuilding } from "@/lib/city/map2d/layout";
-import { canonicalLandmarks } from "@/lib/city/map2d/layout";
+import { familyIndex } from "@/lib/city/map2d/families";
+import { canonicalLandmarks, type WorldCity, type WorldBuilding } from "@/lib/city/map2d/layout";
 
 /**
  * THE SHARED 2D WORLD MAP (CITY_2D_WORLD_STUDY.md §3.3) — replaces
@@ -134,7 +133,7 @@ export async function GET() {
         const b: WorldBuilding = {
           id: r.id,
           u: r.username,
-          f: universeFamilyIndex(r.profession),
+          f: familyIndex(r.profession),
           t: buildingTier(Number(r.playerValue), Number(r.valueFloor ?? 1)),
           p: protectionState(
             {

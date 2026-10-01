@@ -276,8 +276,8 @@ rebrand). Credits-only, mission ladder untouched, all routes per-user authed
   Pusher events: `raid-resolved`, `raid-suffered`, `bounty-claimed`,
   `bounty-completed`, `bounty-update` (handlers in `usePlayerEvents`).
 
-## City 2D shared world map (2026-10-01, CITY_2D_WORLD_STUDY.md Ship 1)
-The city VIEW is now ONE STATIC 2D CANVAS (Style A "Blueprint", always day,
+## City 2D shared world map (2026-10-01, CITY_2D_WORLD_STUDY.md — COMPLETE)
+The city view is ONE STATIC 2D CANVAS (Style A "Blueprint", always day,
 square 1:1 stage) — `CityMap2D` mounted by `CityWorld`. User rulings encoded:
 static draw zero animation (rAF-on-event only), camera opens on YOUR city,
 literally every visible city fully rendered (no caps), avatars take the
@@ -289,9 +289,11 @@ center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
   value-desc (server-sorted). World: biggest city center, others on square
   rings by building count desc (ties → username asc), per-side packing with
   2×maxHalf corner exclusion (overlap-free by construction — see tests).
-- **Data** `GET /api/city/world` (replaces universe for the map): all
-  visible cities + ALL owned buildings (tier/protection server-computed via
-  canonical projection helpers — never fork) + ownership roads;
+  Family indexing: `map2d/families.ts` (PROFESSIONS order + unassigned=6;
+  palette order MUST stay in lockstep).
+- **Data** `GET /api/city/world` (THE world endpoint): all visible cities +
+  ALL owned buildings (tier/protection server-computed via canonical
+  projection helpers — never fork) + ownership roads;
   `public, s-maxage=60, swr=300`. Goddesses are landmarks only (excluded
   from buildings); hidden cards excluded (visibleSql parity).
 - **Renderer** `CityMap2D`: single canvas, pan/zoom/tap hit-testing, module
@@ -299,16 +301,36 @@ center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
   channels (select/selectUniverseBuilding/selectUniverseCity/selectHq/
   selectLandmark with slot↔canonical goddess index translation) so the
   inspector + panels work unchanged. i18n sweep `i18n-keys/{en,zh}/city-2d.json`.
-- **/catalog** is 2D now (`Catalog2D`) — same draw primitives, no WebGL/GLBs.
-- The OLD renderers (world/scene PixiJS + world/scene3d Three, renderer-flag,
-  CitySceneHost/BuildingsCatalogMount, Kenney GLBs, /api/city/universe,
-  their tests) are UNUSED and get DELETED in Ship 2 after live verification.
-  Do NOT add new features to them.
+- **/catalog** is 2D (`Catalog2D`) — same draw primitives, no WebGL/GLBs.
 
-## Mainframe City building layer (planned 2026-09)
+**SHIP 2 DONE (2026-10-01) — the old engine is DELETED.** Removed:
+`world/scene/` (PixiJS ~9.5k LOC), `world/scene3d/` (Three.js ~6.9k LOC),
+`renderer-flag.ts`, CitySceneHost/CitySceneMount/scene-api/CityHud/
+SceneErrorBoundary/BuildingsCatalogMount, /dev-catalog,
+`lib/city/{placement,rings,streets,river,universe,satellites,layout-merge,
+layout-schema}.ts`, `lib/city/scene/{camera,camera3d,iso,lights,culling,
+diff,motion}.ts`, `/api/city/{universe,layout,my-layout}` routes,
+`public/city-assets/**` (117 Kenney GLBs), the pixi.js + three +
+@types/three deps, ~216 renderer tests, 21 dead i18n keys, and the legacy
+city_layout machinery. **Do not reintroduce any of it** — extend map2d/
+instead. KEPT from the old layer (still used by panels/inspector):
+`lib/city/{projection,neighbors,district,landmark-colors,root-sequence,
+fixtures,types}.ts`, `lib/city/scene/{store,lod,daylight,summary}.ts`,
+CityGrid/BuildingTile/BuildingSprite.tsx (DOM), `useCityWorldStore`,
+city feature flag (`useCityEnabled` / `city:flag`).
+
+## Mainframe City building layer (planned 2026-09; RENDERER PARTS DELETED 2026-10-01)
 The city is a DERIVED visual projection of the existing economy — never a
 second economy, currency, or simulation. Invariants (enforced by
 n38worth-game-systems review):
+
+> **HISTORICAL (2026-10-01):** everything below about RENDERERS (Pixi/Three,
+> ?renderer= flags, orbit ring geometry, streets/river/satellite mini-cities,
+> Kenney kit, pixel atlas, day/night, LODs, world-map v2) describes the
+> DELETED engine — see the "City 2D shared world map" section above for the
+> live system. Still-true bits: the derived-projection invariants, the
+> /api/city/[username] contract, goddesses-as-landmarks, mission-gated
+> sectors vocabulary, and the no-second-economy rules.
 - **Renderer (2026-09-30): the city defaults to the THREE.JS 3D renderer**
   (`src/components/city/world/scene3d/` — camera3d.ts pure ortho adapter at
   yaw45/elev30 = exact 2:1 iso parity, building3d.ts procedural geometry,

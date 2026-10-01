@@ -181,6 +181,3 @@ export const cityWorldStore = createStore<CityWorldState>()((set) => ({
   setPerf: (perf) => set({ perf }),
   resetWorld: () => set({ ...initial }),
 }));
-
-/** Type-only re-export for the hook file (no React import here). */
-export type { TileRef } from "../placement";

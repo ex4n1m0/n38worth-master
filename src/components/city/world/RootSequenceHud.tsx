@@ -11,7 +11,14 @@ import {
   rootSequenceKey,
   type RootSequenceVisualState,
 } from "@/lib/city/root-sequence";
-import type { CitySceneApi } from "./scene-api";
+/**
+ * Minimal scene surface this HUD needs (2026-10-01 2D rebuild): it used to
+ * type the full CitySceneApi; the 2D map has no Root-Sequence visuals, so a
+ * local structural type is all that remains.
+ */
+export interface RootSequenceSceneApi {
+  setRootSequence: (state: unknown) => void;
+}
 
 /** /api/goddess-countdown payload (public, CDN-cached). */
 interface CountdownData {
@@ -63,7 +70,7 @@ export function RootSequenceHud({
   sceneEpoch,
 }: {
   ownerUsername: string;
-  sceneRef: RefObject<CitySceneApi | null>;
+  sceneRef: RefObject<RootSequenceSceneApi | null>;
   /** Bumped by CityWorld when the scene (re)mounts — re-push current state. */
   sceneEpoch: number;
 }) {

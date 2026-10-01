@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import type { CityProjection } from "@/lib/city/types";
 import { cityWorldStore } from "@/lib/city/scene/store";
-import type { CitySceneApi } from "./scene-api";
 import { CityMap2D, type Map2DApi } from "./CityMap2D";
 import { BuildingInspector } from "./BuildingInspector";
 import { DistrictPanel } from "./DistrictPanel";
@@ -37,7 +36,7 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
   // map has no such visuals — accept and ignore (the countdown chip itself
   // still renders from its own query).
   const rootSeqShim = useMemo(
-    () => ({ current: { setRootSequence: () => {} } as unknown as CitySceneApi | null }),
+    () => ({ current: { setRootSequence: () => {} } }),
     []
   );
 
