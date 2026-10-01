@@ -236,6 +236,27 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
 - **Removed Agent is not a hireable card:** `purchaseCore.ts` rejects attempts
   to hire it (`isRemovedAgentUsername` check on the target).
 
+## Crew Battles — async auto-battler (2026-10-02, GAME_INTEGRATION_STUDY §5D)
+- **Lineups are SNAPSHOTS** (`crew_lineups`, one per player): 5 owned cards
+  stored with combat stats; attacks always resolve against the saved ghost.
+  Bands = Σ lineup tiers (5-20/21-35/36-50/51+, fees 100/250/500/1000) —
+  band parity is enforced on attack.
+- **Combat** `src/lib/crew-battle.ts` (pure, seeded mulberry32): HP 18+5×tier,
+  ATK 4+2×tier, speed = tier +3 Auctioneer; team passives per trade (Notary
+  heal 2/round, Renovator +20% ATK, Vault Keeper +20% HP, City Planner +10%
+  both, Prospector 15% ×2 crit); locked cards +10% HP; attacker first-strike
+  on speed ties, defender wins deep HP ties; ≤30 rounds; full log audited.
+- **Economy (F2 ruling)**: the fee RECYCLES into the crew pot (not burned) —
+  battles are self-funding (pot +0.1×fee/battle at parity) and a net
+  money-supply sink; prize 1.6×fee / defense reward 0.2×fee are CAS pot
+  debits above the floor. ANTI-FARMING (F1): inactive targets rejected;
+  1h per-(attacker,defender) repeat cooldown; one-sided matchups (expected
+  score > 0.9) pay NO prize (prizeEligible).
+- Elo: K24 attacker / K12 defender, floor 100 (crew_battle_records; W/L +
+  streak). /raid 5th tab: lineup editor (roster shared with crew jobs),
+  3 same-band targets, ladder, HP-bar replay modal (reduced-motion safe).
+  i18n battles* keys incl. localized badges. Pusher crew-battle-done.
+
 ## Crew Jobs — PvE heists on the Founders' banks (2026-10-01, §5C)
 - **Crew** = 5 owned visible cards; gates are COMPOSITION (Σ tiers + required
   families) — cheap cards finally matter. Jobs: 6 Founder banks with

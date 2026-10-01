@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { WorldVaultBar } from "@/components/raid/WorldVaultBar";
 import { BlueprintsTab } from "@/components/raid/BlueprintsTab";
 import { CrewTab } from "@/components/raid/CrewTab";
+import { BattlesTab } from "@/components/raid/BattlesTab";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -671,7 +672,7 @@ function BountyTab() {
 export function RaidPage() {
   const { t } = useLanguage();
   const { play } = useSound();
-  const [tab, setTab] = useState<"raid" | "bounties" | "blueprints" | "crew">("raid");
+  const [tab, setTab] = useState<"raid" | "bounties" | "blueprints" | "crew" | "battles">("raid");
 
   const tabs = useMemo(
     () =>
@@ -680,6 +681,7 @@ export function RaidPage() {
         { id: "bounties" as const, label: t.raidTabBounties },
         { id: "blueprints" as const, label: t.raidTabBlueprints },
         { id: "crew" as const, label: t.raidTabCrew },
+        { id: "battles" as const, label: t.raidTabBattles },
       ],
     [t]
   );
@@ -717,7 +719,7 @@ export function RaidPage() {
         ))}
       </div>
 
-      {tab === "raid" ? <RaidTab /> : tab === "bounties" ? <BountyTab /> : tab === "blueprints" ? <BlueprintsTab /> : <CrewTab />}
+      {tab === "raid" ? <RaidTab /> : tab === "bounties" ? <BountyTab /> : tab === "blueprints" ? <BlueprintsTab /> : tab === "crew" ? <CrewTab /> : <BattlesTab />}
     </div>
   );
 }

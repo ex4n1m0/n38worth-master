@@ -16,3 +16,4 @@ export { raidState, raidLog } from "./raidState";
 export { bounties } from "./bounties";
 export { blueprintInventory, blueprintTrades } from "./blueprints";
 export { crewJobRuns } from "./crewJobRuns";
+export { crewLineups, crewBattles, crewBattleRecords } from "./crewBattles";
