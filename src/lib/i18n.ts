@@ -66,6 +66,7 @@ import enMissionsGoddesses from "./i18n-keys/en/missions-goddesses.json";
 import enOwnershipHome from "./i18n-keys/en/ownership-home.json";
 import enSettingsOnboarding from "./i18n-keys/en/settings-onboarding.json";
 import enRaidBounties from "./i18n-keys/en/raid-bounties.json";
+import enCity2d from "./i18n-keys/en/city-2d.json";
 import zhActionButtons from "./i18n-keys/zh/action-buttons.json";
 import zhChatHistory from "./i18n-keys/zh/chat-history.json";
 import zhCity from "./i18n-keys/zh/city.json";
@@ -77,6 +78,7 @@ import zhMissionsGoddesses from "./i18n-keys/zh/missions-goddesses.json";
 import zhOwnershipHome from "./i18n-keys/zh/ownership-home.json";
 import zhSettingsOnboarding from "./i18n-keys/zh/settings-onboarding.json";
 import zhRaidBounties from "./i18n-keys/zh/raid-bounties.json";
+import zhCity2d from "./i18n-keys/zh/city-2d.json";
 
 const en = {
   // ── Landing page ──
@@ -325,6 +327,7 @@ const en = {
   ...enOwnershipHome,
   ...enSettingsOnboarding,
   ...enRaidBounties,
+  ...enCity2d,
 };
 
 export type TranslationKeys = typeof en;
@@ -576,6 +579,7 @@ const zh: TranslationKeys = {
   ...zhOwnershipHome,
   ...zhSettingsOnboarding,
   ...zhRaidBounties,
+  ...zhCity2d,
 };
 
 export const translations: Record<Locale, TranslationKeys> = { en, zh };

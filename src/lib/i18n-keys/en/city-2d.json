@@ -1,0 +1,13 @@
+{
+  "city2dLoading": "Surveying the city grid…",
+  "city2dEmpty": "No cities on the shared map yet.",
+  "city2dMyCity": "My city",
+  "city2dWholeMap": "Whole map",
+  "city2dZoomIn": "Zoom in",
+  "city2dZoomOut": "Zoom out",
+  "city2dCanvasLabel": "Shared city map — every player's city on one blueprint",
+  "city2dLandmark": "Founder landmark",
+  "city2dYou": "You",
+  "catalogSubtitle2d": "Every building family and tier on the shared 2D blueprint map — the exact same drawing the world map uses.",
+  "catalogTierValue": "×{mult} value"
+}

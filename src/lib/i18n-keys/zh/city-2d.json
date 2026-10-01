@@ -1,0 +1,13 @@
+{
+  "city2dLoading": "正在测绘城市网格…",
+  "city2dEmpty": "共享地图上还没有城市。",
+  "city2dMyCity": "我的城市",
+  "city2dWholeMap": "全图",
+  "city2dZoomIn": "放大",
+  "city2dZoomOut": "缩小",
+  "city2dCanvasLabel": "共享城市地图——所有玩家的城市在同一张蓝图上",
+  "city2dLandmark": "奠基者地标",
+  "city2dYou": "你",
+  "catalogSubtitle2d": "共享 2D 蓝图地图上的全部建筑家族与等级——与世界地图使用完全相同的绘制。",
+  "catalogTierValue": "×{mult} 倍价值"
+}

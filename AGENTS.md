@@ -276,6 +276,35 @@ rebrand). Credits-only, mission ladder untouched, all routes per-user authed
   Pusher events: `raid-resolved`, `raid-suffered`, `bounty-claimed`,
   `bounty-completed`, `bounty-update` (handlers in `usePlayerEvents`).
 
+## City 2D shared world map (2026-10-01, CITY_2D_WORLD_STUDY.md Ship 1)
+The city VIEW is now ONE STATIC 2D CANVAS (Style A "Blueprint", always day,
+square 1:1 stage) — `CityMap2D` mounted by `CityWorld`. User rulings encoded:
+static draw zero animation (rAF-on-event only), camera opens on YOUR city,
+literally every visible city fully rendered (no caps), avatars take the
+center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
+
+- **Layout** `src/lib/city/map2d/layout.ts` (pure, tested): per-city square
+  rings clockwise from 12 o'clock, HQ 3×3 core, 6 Founder landmark hex slots
+  on ring 2 (canonical GODDESS_USERNAMES order — never permute), buildings
+  value-desc (server-sorted). World: biggest city center, others on square
+  rings by building count desc (ties → username asc), per-side packing with
+  2×maxHalf corner exclusion (overlap-free by construction — see tests).
+- **Data** `GET /api/city/world` (replaces universe for the map): all
+  visible cities + ALL owned buildings (tier/protection server-computed via
+  canonical projection helpers — never fork) + ownership roads;
+  `public, s-maxage=60, swr=300`. Goddesses are landmarks only (excluded
+  from buildings); hidden cards excluded (visibleSql parity).
+- **Renderer** `CityMap2D`: single canvas, pan/zoom/tap hit-testing, module
+  avatar cache (batched redraw), selection via the EXISTING cityWorldStore
+  channels (select/selectUniverseBuilding/selectUniverseCity/selectHq/
+  selectLandmark with slot↔canonical goddess index translation) so the
+  inspector + panels work unchanged. i18n sweep `i18n-keys/{en,zh}/city-2d.json`.
+- **/catalog** is 2D now (`Catalog2D`) — same draw primitives, no WebGL/GLBs.
+- The OLD renderers (world/scene PixiJS + world/scene3d Three, renderer-flag,
+  CitySceneHost/BuildingsCatalogMount, Kenney GLBs, /api/city/universe,
+  their tests) are UNUSED and get DELETED in Ship 2 after live verification.
+  Do NOT add new features to them.
+
 ## Mainframe City building layer (planned 2026-09)
 The city is a DERIVED visual projection of the existing economy — never a
 second economy, currency, or simulation. Invariants (enforced by
