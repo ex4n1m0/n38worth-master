@@ -27,6 +27,7 @@ export default function PrivacyPolicy() {
             <li>{t.privacyUseLi1}</li>
             <li>{t.privacyUseLi2}</li>
             <li>{t.privacyUseLi3}</li>
+            <li>{t.privacyUseLi4}</li>
           </ul>
         </section>
 

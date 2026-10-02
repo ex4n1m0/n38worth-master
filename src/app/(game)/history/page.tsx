@@ -12,6 +12,7 @@ import {
   Rocket,
   Loader2,
   Filter,
+  Bot,
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -34,11 +35,18 @@ const eventTypeConfig = {
     bgColor: "bg-fuchsia-500/10",
     borderColor: "border-fuchsia-500/20",
   },
+  autopilot_action: {
+    icon: Bot,
+    color: "text-cyan-400",
+    bgColor: "bg-cyan-500/10",
+    borderColor: "border-cyan-500/20",
+  },
 };
 
 function eventLabel(eventType: string, t: TranslationKeys): string {
   if (eventType === "purchase") return t.historyEventGet;
   if (eventType === "pump") return t.historyEventOverclock;
+  if (eventType === "autopilot_action") return t.historyEventAutopilot;
   // Unknown event types fall back to the raw DB value.
   return eventType;
 }

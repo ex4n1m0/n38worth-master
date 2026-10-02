@@ -15,6 +15,7 @@ import { getAvatarSrc } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
 import { useLanguage } from "@/components/LanguageContext";
 import type { TranslationKeys } from "@/lib/i18n";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface StarterNpc {
   id: number;
@@ -118,6 +119,7 @@ export function StarterNpcsSection({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetId: nextId }),
         });
+        await throwIfRateLimited(res, t.rateLimitSlowDown);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t.autoHireFailed);
 
@@ -134,6 +136,7 @@ export function StarterNpcsSection({
         onPurchase();
       } catch (err: unknown) {
         playSound("error");
+        if (err instanceof RateLimitError) return;
         toast.error(err instanceof Error ? err.message : t.autoHireFailed);
       } finally {
         // Remove the hired NPC from queue; schedule next if any remain.
@@ -358,6 +361,7 @@ function StarterNpcCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: npc.id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
 
@@ -372,6 +376,7 @@ function StarterNpcCard({
       ]);
       onPurchase();
     } catch (err: unknown) {
+      if (err instanceof RateLimitError) return;
       toast.error(err instanceof Error ? err.message : t.purchaseFailed);
     } finally {
       setIsPending(false);

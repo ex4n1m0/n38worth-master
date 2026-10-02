@@ -1,9 +1,20 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { purchasePlayer } from "@/actions/purchasePlayer";
 import { purchaseSchema } from "@/lib/validators";
+import { guardGameAction, noteAutopilotAction } from "@/lib/autopilot/guard";
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = Number(session.user.id);
+
+    const guard = await guardGameAction(req, userId);
+    if (guard.blocked) return guard.response;
+
     const body = await req.json();
     const result = purchaseSchema.safeParse(body);
 
@@ -21,6 +32,10 @@ export async function POST(req: Request) {
         { error: purchaseResult.error },
         { status: 400 }
       );
+    }
+
+    if (guard.viaAutopilot) {
+      await noteAutopilotAction(userId, "purchase", { id: result.data.targetId });
     }
 
     return NextResponse.json(purchaseResult);

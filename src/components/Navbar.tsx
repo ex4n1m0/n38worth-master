@@ -45,6 +45,7 @@ import { useSound, useSoundSettings } from "@/hooks/useSound";
 import { Volume2, VolumeX } from "lucide-react";
 import { useOnboarding } from "./OnboardingContext";
 import { useCityEnabled } from "@/hooks/useCityEnabled";
+import { AutopilotChip } from "./AutopilotChip";
 
 // City sits LAST (2026-09-28 user ruling): Home | Buildings (market) | Raid |
 // City — the city is the destination, the market is a tool you hop into, the
@@ -312,6 +313,7 @@ export function Navbar() {
             <div className="flex items-center pl-2 sm:pl-3 py-1 border-l border-gray-800/60 ml-auto lg:ml-0 gap-2 sm:gap-3 shrink-0">
               <div className="flex items-center gap-1 shrink-0">
                 <OwnershipLimit />
+                <AutopilotChip />
                 <ChatNotificationBell className="shrink-0" />
                 <LanguageSwitcher />
                 <Button

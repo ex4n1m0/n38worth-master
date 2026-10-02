@@ -40,6 +40,7 @@ import {
   type CivicKind,
 } from "@/lib/city/types";
 import type { CityWorldData } from "./CityWorld";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 /** All buildings the inspector can resolve: every visible detailed card. */
 function indexBuildings(
@@ -266,6 +267,7 @@ export function BuildingInspector({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data as { newValue: number; cost: number };
@@ -282,6 +284,8 @@ export function BuildingInspector({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -324,6 +328,7 @@ export function BuildingInspector({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: v.targetId }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data as {
@@ -345,6 +350,8 @@ export function BuildingInspector({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

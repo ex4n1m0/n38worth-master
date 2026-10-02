@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { executeMassHire } from "@/lib/mass-hire";
+import { guardGameAction, noteAutopilotAction } from "@/lib/autopilot/guard";
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -10,10 +11,18 @@ export async function POST() {
     }
 
     const buyerId = Number(session.user.id);
+
+    const guard = await guardGameAction(req, buyerId);
+    if (guard.blocked) return guard.response;
+
     const result = await executeMassHire(buyerId);
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    if (guard.viaAutopilot) {
+      await noteAutopilotAction(buyerId, "mass_hire");
     }
 
     return NextResponse.json(result);

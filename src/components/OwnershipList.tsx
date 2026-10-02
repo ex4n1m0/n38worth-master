@@ -37,6 +37,7 @@ import { cardDisplayName } from "@/lib/display-names";
 import { Shield, MessageSquare } from "lucide-react";
 import { BlockSellButton } from "@/components/BlockSellButton";
 import { PermBlockButton } from "@/components/PermBlockButton";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 function formatTimeRemaining(date: string | Date | null | undefined): string | null {
   if (!date) return null;
@@ -246,6 +247,7 @@ function OwnershipCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: item.id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
@@ -262,6 +264,8 @@ function OwnershipCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -310,6 +314,7 @@ function OwnershipCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ownershipId: item.ownershipId }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
@@ -326,6 +331,8 @@ function OwnershipCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

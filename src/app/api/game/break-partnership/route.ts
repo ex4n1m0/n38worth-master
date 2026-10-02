@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { breakPartnershipCore } from "@/lib/purchaseCore";
-import { formatNumber } from "@/lib/utils";
+import { guardGameAction, noteAutopilotAction } from "@/lib/autopilot/guard";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -10,6 +10,9 @@ export async function POST(req: Request) {
   }
 
   const buyerId = parseInt(session.user.id);
+
+  const guard = await guardGameAction(req, buyerId);
+  if (guard.blocked) return guard.response;
 
   try {
     const { targetId } = await req.json();
@@ -24,6 +27,13 @@ export async function POST(req: Request) {
       // Format the error message with proper currency notation for the API
       const status = result.error.includes("unbreakable") ? 403 : 400;
       return NextResponse.json({ error: result.error }, { status });
+    }
+
+    if (guard.viaAutopilot) {
+      await noteAutopilotAction(buyerId, "break", {
+        id: targetId,
+        username: result.targetUsername,
+      });
     }
 
     return NextResponse.json({

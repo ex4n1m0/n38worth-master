@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { sellProfessionCombo } from "@/actions/sellProfessionCombo";
+import { guardGameAction, noteAutopilotAction } from "@/lib/autopilot/guard";
 
 export async function POST(req: Request) {
   try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const userId = Number(session.user.id);
+
+    const guard = await guardGameAction(req, userId);
+    if (guard.blocked) return guard.response;
+
     const body = await req.json();
     const { playerIds } = body;
 
@@ -24,6 +35,10 @@ export async function POST(req: Request) {
 
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    if (guard.viaAutopilot) {
+      await noteAutopilotAction(userId, "sell_combo");
     }
 
     return NextResponse.json(result);

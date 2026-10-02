@@ -12,6 +12,7 @@ import { useCredits } from "@/hooks/useCredits";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
 import { useLanguage } from "./LanguageContext";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface MarketActionButtonProps {
   id: number;
@@ -87,11 +88,13 @@ export function MarketActionButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
     },
-    onError: (err: Error) => {
+    onError: (err: Error) => {      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -110,11 +113,13 @@ export function MarketActionButton({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
     },
-    onError: (err: Error) => {
+    onError: (err: Error) => {      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

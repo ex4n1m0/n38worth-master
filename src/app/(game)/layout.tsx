@@ -9,6 +9,7 @@ import { usePlayerEvents } from "@/hooks/usePlayerEvents";
 import { useMarketEvents } from "@/hooks/useMarketEvents";
 import { useLanguage } from "@/components/LanguageContext";
 import { usePoachFallback } from "@/hooks/usePoachFallback";
+import { useAutopilot, useAutopilotEnabled } from "@/hooks/useAutopilot";
 import { AccountResetNotification } from "@/components/AccountResetNotification";
 import { OnboardingProfessionStep } from "@/components/OnboardingProfessionStep";
 import { NewPlayerGuide } from "@/components/NewPlayerGuide";
@@ -38,6 +39,10 @@ export default function GameLayout({
   usePoachFallback(session?.user?.id);
   // Public market channel: instant cross-player updates (see market-events.ts).
   useMarketEvents();
+  // BYO-AI autopilot loop (PLAYER_AI_STUDY.md) — mounts only while the
+  // feature flag is on; the loop itself checks armed + leader lock.
+  const { autopilotEnabled } = useAutopilotEnabled();
+  useAutopilot({ username: session?.user?.name, enabled: autopilotEnabled });
 
   const { t } = useLanguage();
 

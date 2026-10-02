@@ -10,6 +10,7 @@ import { useOnboarding } from "./OnboardingContext";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { formatCompact, navbarBtnStyle } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface HireButtonProps {
   targetId: number;
@@ -36,6 +37,7 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
@@ -54,6 +56,8 @@ export function HireButton({ targetId, targetUsername, cost, disabled, compact, 
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

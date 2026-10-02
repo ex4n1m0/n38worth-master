@@ -60,6 +60,7 @@ import {
   Check,
   TrendingUp,
 } from "lucide-react";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 /** Visual GET countdown on ownerless leaderboard Avatars (seconds). */
 const GET_COUNTDOWN_SECONDS = 5;
@@ -275,6 +276,7 @@ function PlayerCardImpl({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.purchaseFailed);
       return data;
@@ -291,7 +293,8 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
-      setCountdown(null);
+      setCountdown(null);      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -400,6 +403,7 @@ function PlayerCardImpl({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.overclockFailed);
       return data;
@@ -416,6 +420,8 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -465,6 +471,7 @@ function PlayerCardImpl({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.breachFailed);
       return data;
@@ -481,6 +488,8 @@ function PlayerCardImpl({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

@@ -177,5 +177,5 @@
  "lockedFeatureAria": "{title} — locked, unlocks at {threshold} owned buildings",
  "lockedFeatureUnlocksAt": "Unlocks at {threshold} owned buildings — you have",
  "lockedFeatureToGo": "({count} to go)",
- "lockedLabelUpper": "LOCKED"
-}
+ "lockedLabelUpper": "LOCKED",
+  "rateLimitSlowDown": "Slow down a moment — too many actions this minute."}

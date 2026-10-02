@@ -16,6 +16,7 @@ import {
   purchaseUnlockThreshold,
 } from "@/lib/missions-data";
 import { useLanguage } from "./LanguageContext";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 /**
  * Pinned "Botnet" (Mass Hire) bonus card for the market page.
@@ -42,6 +43,7 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
   const mutation = useMutation({
     mutationFn: async () => {
       const res = await fetch("/api/game/mass-hire", { method: "POST" });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.botnetFailed);
       return data;
@@ -63,7 +65,8 @@ export function MassHireCard({ ownedCount }: { ownedCount: number; cooldownEndsA
         queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error) => {      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },

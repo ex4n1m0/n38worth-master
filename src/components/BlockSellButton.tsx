@@ -16,6 +16,7 @@ import {
 import { useState, useEffect } from "react";
 import { useLanguage } from "./LanguageContext";
 import { useSound } from "@/hooks/useSound";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface BlockSellButtonProps {
   ownershipId: number;
@@ -59,6 +60,7 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ownershipId }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.firewallFailed);
       return data;
@@ -76,6 +78,7 @@ export function BlockSellButton({ ownershipId, ownedUsername, playerValue, block
       setOpen(false);
     },
     onError: (err: Error) => {
+      if (err instanceof RateLimitError) return;
       toast.error(err.message);
     },
   });

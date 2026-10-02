@@ -177,5 +177,5 @@
  "lockedFeatureAria": "{title}——已锁定，拥有 {threshold} 个建筑后解锁",
  "lockedFeatureUnlocksAt": "拥有 {threshold} 个建筑后解锁——你当前",
  "lockedFeatureToGo": "（还差 {count} 个）",
- "lockedLabelUpper": "已锁定"
-}
+ "lockedLabelUpper": "已锁定",
+  "rateLimitSlowDown": "慢一点——这一分钟的操作太多了。"}

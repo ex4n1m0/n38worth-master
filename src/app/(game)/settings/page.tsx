@@ -15,6 +15,8 @@ import { toast } from "@/lib/event-feed";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound, useSoundSettings } from "@/hooks/useSound";
 import { useOnboarding } from "@/components/OnboardingContext";
+import { AutopilotSettingsCard } from "@/components/AutopilotSettingsCard";
+import { useAutopilotEnabled } from "@/hooks/useAutopilot";
 
 export default function SettingsPage() {
   const { data: session, status, update } = useSession();
@@ -26,6 +28,7 @@ export default function SettingsPage() {
   const { muted, volume, setMuted, setVolume } = useSoundSettings();
   const queryClient = useQueryClient();
   const { state: onboarding, refresh: refreshOnboarding } = useOnboarding();
+  const { autopilotEnabled } = useAutopilotEnabled();
 
   const { data: player, isLoading } = useQuery({
     queryKey: ["player", "me-settings"],
@@ -259,6 +262,9 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Autopilot (BYO-AI) */}
+      {autopilotEnabled && <AutopilotSettingsCard />}
 
       {/* Change Avatar */}
       <Card className="border-gray-800 bg-transparent">

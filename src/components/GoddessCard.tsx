@@ -24,6 +24,7 @@ import {
   purchaseUnlockThreshold,
   FINAL_GODDESS_CARD,
 } from "@/lib/missions-data";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface GoddessCardProps {
   id: number;
@@ -131,6 +132,7 @@ export function GoddessCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId: id }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.goddessPurchaseFailed);
       return data;
@@ -147,6 +149,8 @@ export function GoddessCard({
       if (context?.previousCredits !== undefined) {
         queryClient.setQueryData(["credits"], context.previousCredits);
       }
+      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -214,7 +218,8 @@ export function GoddessCard({
         queryClient.invalidateQueries({ queryKey: ["leaderboard"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error) => {      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
@@ -254,6 +259,7 @@ export function GoddessCard({
     },
     onError: (err: Error) => {
       setPowerOn(!powerOn); // revert on error
+      if (err instanceof RateLimitError) return;
       toast.error(err.message);
     },
   });

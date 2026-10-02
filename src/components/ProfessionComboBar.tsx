@@ -22,6 +22,7 @@ import { professionPerk, professionName } from "@/lib/professions";
 import { cardDisplayName } from "@/lib/display-names";
 import { useLanguage } from "./LanguageContext";
 import type { ComboPlayer, UseProfessionComboSelectionReturn } from "@/hooks/useProfessionComboSelection";
+import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
 
 interface ProfessionComboBarProps {
   combo: UseProfessionComboSelectionReturn;
@@ -177,6 +178,7 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerIds: combo.selectedPlayerIds }),
       });
+      await throwIfRateLimited(res, t.rateLimitSlowDown);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.comboSellFailed);
       return data;
@@ -214,7 +216,8 @@ useEffect(() => {
         queryClient.invalidateQueries({ queryKey: ["ownership-limit"] }),
       ]);
     },
-    onError: (err: Error) => {
+    onError: (err: Error) => {      if (err instanceof RateLimitError) return;
+
       play("error");
       toast.error(err.message);
     },
