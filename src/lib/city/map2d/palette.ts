@@ -38,6 +38,11 @@ export const BLUEPRINT = {
     goldvault: { gold: "#F5C518", stroke: "#6B5335", dial: "#1B2F42" },
   },
   road: "#5A7186",
+  // Streets (CITY_ROADS_STUDY NET-F, 2026-10-02): asphalt framing every
+  // occupied cell — solid dark bands on the grey plot + a slim solid white
+  // centerline (user asks 2026-10-03). 3D mirrors these hexes (engine
+  // STREET_ASPHALT / STREET_MARK_COLOR constants).
+  street: { asphalt: "#4A4F52", mark: "#F4F1E8" },
   lockBadge: { body: "#1F2328", keyhole: "#F5C518" },
   you: "#E8590C", // highlight ring for the viewer's own plot
   // Labels render BELOW their plot, on the green field — light bone, not ink.

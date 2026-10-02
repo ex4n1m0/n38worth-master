@@ -1,8 +1,13 @@
 # CITY ROADS STUDY — asphalt streets between buildings (2D + 3D)
 
-**Date:** 2026-10-02 · **Status:** STUDY ONLY — nothing implemented, nothing committed.
+**Date:** 2026-10-02 · **Status:** NET-F chosen by user + **IMPLEMENTED
+(uncommitted, not deployed)** — see §3 NET-F.
 **Ask (user):** *"do a study on how to add these types of roads design between
-buildings in the 2D and 3D views, only where have buildings"* + reference image.
+buildings in the 2D and 3D views, only where have buildings"* + first reference
+image (orthogonal grid, double yellow, crosswalks). **Refined (same day):**
+*"all buildings use a square space, i would like the roads to go around each
+building"* + second reference image (each block framed on all four sides by
+solid asphalt, shared roads between blocks, no markings).
 
 ## 0. What the reference image specifies
 
@@ -65,12 +70,44 @@ the layout (NET-1/NET-2 below) or painting roads into the visual gaps (NET-3).
 - **Bounded rendering**: 2D streets gated per visible plot; 3D streets one
   merged mesh per world rebuild, disposed by the existing `clearWorld` traverse.
 
-## 3. Network shape — three options (pick one)
+## 3. Network shape — CHOSEN: NET-F (roads around each building)
 
-The city is radial (square rings), the reference is orthogonal. Three honest
-mappings, all feeding the same renderer layer (§4–§6):
+**USER PICK (2026-10-02 evening, second reference image): NET-F — the block
+frame lattice.** Every occupied cell keeps its square; roads FRAME each square
+on all four sides; adjacent buildings share one road; empty ground gets
+nothing. This supersedes the shape question below — implemented as:
 
-### NET-1 — Ring boulevards + diagonal spokes (RECOMMENDED)
+- **Derivation** `src/lib/city/map2d/streets.ts` (pure): the occupied set =
+  building cells ∪ prop cells ∪ landmark slots ∪ the 3×3 HQ core (ONE
+  superblock — interior core edges suppressed). A boundary line segment is
+  road iff AT LEAST ONE adjacent side is occupied; consecutive cells merge
+  into maximal runs (`StreetPlan {v[], h[]}`). Width `STREET_WIDTH = 0.15` =
+  1 − OBJECT_GAP_FACTOR, so the frame fills the existing visual alley
+  EXACTLY — zero layout change, zero position change, no footprint ever
+  touches asphalt (widest grand tier leaves 0.0875 half-gap vs 0.075 road
+  half-width). Changing OBJECT_GAP_FACTOR must re-price STREET_WIDTH.
+- **2D** `drawStreets` (draw.ts): opaque asphalt rects per run, ends extended
+  STREET_WIDTH/2 so perpendicular runs join corners gaplessly; width clamps
+  at 0.8px so the grid still reads at whole-world zoom. Drawn per visible
+  plot after the pad, before heist marks/props/buildings. Plans memoized
+  (O(radius²) — never re-derived during drag frames).
+- **3D** (engine.ts `setWorld`): ONE merged vertex-colored slab mesh for the
+  whole world via the GeoWriter (runs → flat boxes y 0.02→0.04, Lambert,
+  receiveShadow — building shadows land across the paving; ends extended
+  STREET_WIDTH/2 to close corners; not raycastable). The dashed ownership
+  roads lifted y 0.03 → 0.045 so they thread above the slabs.
+- **Colors**: asphalt `#4A4F52` (`BLUEPRINT.street.asphalt` canonical, engine
+  `STREET_ASPHALT` mirror). No markings (the block-frame reference has none)
+  — double yellow / zebra from the first reference remain an optional later
+  layer on the same runs.
+- **Tests**: `src/lib/__tests__/city/map2d-streets.test.ts` (8 cases: lone
+  building framed, shared interior roads, empty city = HQ-only frame, core
+  superblock suppression, unbuilt arcs clean, props/landmarks framed,
+  determinism, boundary-lines-only).
+
+The three originally studied shapes, kept for the record:
+
+### NET-1 — Ring boulevards + diagonal spokes (was the recommendation)
 
 Keep the radial identity. Bands of 2 building rings separated by 1 full street
 ring; 4 diagonal spokes connect the bands.
@@ -251,15 +288,13 @@ you-edge 0.05 / protection rings 0.07 unchanged.
      rebuild cost sane on the big world.
 3. image-analyst pass on 2D + 3D screenshots vs the reference before shipping.
 
-## 10. Open knobs for the user (defaults chosen above)
+## 10. Knob registry — post-NET-F state
 
-| Knob | Default | Alternatives |
+| Knob | Value shipped | Notes |
 |---|---|---|
-| Network NET | **NET-1** ring boulevards + diagonal spokes | NET-2 literal grid (bigger cities) · NET-3 zero-risk underlay |
-| NET-1 stride S | 3 (2 build rings per street ring) | 2 = denser streets, ≈ ×1.41 spread |
-| RD-W asphalt width | 0.62 cell | 0.75 heavier / 0.5 lane-like |
-| RD-S sidewalks | on (0.19) | off |
-| RD-M moat ring road | on | off (small cities then have no streets under NET-1) |
-| RD-X crosswalks | on at crossings | off |
-| Asphalt / sidewalk hexes | `#4A4F52` / `#E8E2D2` | darker `#42464A` / warmer `#EDE6D4` |
-| Ownership roads RD-K | keep dashed | asphalt restyle (separate pass) |
+| Network NET | **NET-F block frame lattice** (user pick) | NET-1/2/3 remain in §3 as rejected alternatives |
+| Street width | `STREET_WIDTH 0.15` = 1 − OBJECT_GAP_FACTOR | fills the existing alley exactly; re-price if D1.5 changes |
+| Framed objects | buildings + props + landmarks + HQ superblock | HQ always framed (anchor building); "buildings only" would need a plan flag |
+| Asphalt | `#4A4F52` | 2D `BLUEPRINT.street.asphalt` canonical, 3D `STREET_ASPHALT` mirror |
+| Markings | **solid slim white centerline** (user asks 2026-10-03: "white line in the middle" → "dashes too big, slim constant line" → "half the thickness") — `STREET_MARK {width 0.0125}` shared by both views; 2D hairline stroke gated at cell ≥ 7px, 3D one unlit paint strip per run at y 0.048–0.052 | 0.025 = previous weight · 0.03–0.04 heavier |
+| Ownership roads RD-K | keep dashed (lifted to y 0.045 in 3D) | asphalt restyle still a separate decision |

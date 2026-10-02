@@ -30,6 +30,7 @@ import {
 } from "@/lib/city/map3d/art-geometry";
 import { familyJitter } from "@/lib/city/map3d/metrics";
 import { OBJECT_GAP_FACTOR } from "@/lib/city/map2d/draw";
+import { planStreets, STREET_WIDTH, STREET_MARK } from "@/lib/city/map2d/streets";
 import { FAMILY_KEYS } from "@/lib/city/map2d/families";
 
 // Scene-look constants shared with the catalog plate renderer (map3d/plate.ts)
@@ -46,6 +47,10 @@ const ROAD = "#5A7186";
 // keeps PAPER_*; only the world scene uses these.
 export const FIELD = "#2F5226";
 export const CITY_FLOOR = "#808080";
+// Streets (CITY_ROADS_STUDY NET-F, 2026-10-02) — mirrors BLUEPRINT.street in
+// map2d/palette.ts (the 2D palette is canonical).
+export const STREET_ASPHALT = "#4A4F52";
+export const STREET_MARK_COLOR = "#F4F1E8";
 
 export type Hit3D =
   | { kind: "building"; username: string; cardId: number }
@@ -732,14 +737,76 @@ export class City3DEngine {
       group.add(label);
     }
 
-    // roads (dashed, on the ground)
+    // Streets (CITY_ROADS_STUDY NET-F, 2026-10-02): asphalt slabs framing
+    // every occupied block — ONE merged vertex-colored mesh for the whole
+    // world (slab y 0.02→0.04: on the city floor, below protection rings
+    // 0.07; ends extend STREET_WIDTH/2 so perpendicular runs join corners).
+    // receiveShadow so building shadows land across the paving. Not in
+    // raycastables — tapping asphalt behaves like tapping the floor.
+    {
+      const writer = new GeoWriter();
+      const ext = STREET_WIDTH / 2;
+      for (const p of this.plots) {
+        const plan = planStreets(p.layout);
+        for (const r of plan.v)
+          writer.box(
+            p.cx + r.at, 0.02, 0.04, p.cy + (r.from + r.to) / 2,
+            STREET_WIDTH, (r.to - r.from + 1) + 2 * ext, STREET_ASPHALT
+          );
+        for (const r of plan.h)
+          writer.box(
+            p.cx + (r.from + r.to) / 2, 0.02, 0.04, p.cy + r.at,
+            (r.to - r.from + 1) + 2 * ext, STREET_WIDTH, STREET_ASPHALT
+          );
+      }
+      if (!writer.empty) {
+        const streets = new THREE.Mesh(
+          writer.build(),
+          new THREE.MeshLambertMaterial({ vertexColors: true })
+        );
+        streets.receiveShadow = true;
+        group.add(streets);
+      }
+    }
+
+    // Street markings (user asks 2026-10-03): ONE solid slim white centerline
+    // per run — thin paint strips (y 0.048→0.052, above the asphalt's 0.04
+    // top) in ONE unlit merged mesh so the paint stays bright; the width
+    // constant (STREET_MARK) is shared with the 2D strokes.
+    {
+      const writer = new GeoWriter();
+      const ext = STREET_WIDTH / 2;
+      for (const p of this.plots) {
+        const plan = planStreets(p.layout);
+        for (const r of plan.v)
+          writer.box(
+            p.cx + r.at, 0.048, 0.052, p.cy + (r.from + r.to) / 2,
+            STREET_MARK.width, (r.to - r.from + 1) + 2 * ext, STREET_MARK_COLOR
+          );
+        for (const r of plan.h)
+          writer.box(
+            p.cx + (r.from + r.to) / 2, 0.048, 0.052, p.cy + r.at,
+            (r.to - r.from + 1) + 2 * ext, STREET_MARK.width, STREET_MARK_COLOR
+          );
+      }
+      if (!writer.empty) {
+        const marks = new THREE.Mesh(
+          writer.build(),
+          new THREE.MeshBasicMaterial({ vertexColors: true })
+        );
+        group.add(marks);
+      }
+    }
+
+    // roads (dashed, on the ground — y lifted to 0.045 so the ownership
+    // dashes thread ABOVE the street slabs where they cross a built city)
     for (const r of extras.roads) {
       const a = byName.get(r.from);
       const b = byName.get(r.to);
       if (!a || !b) continue;
       const geo = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(a.cx, 0.03, a.cy),
-        new THREE.Vector3(b.cx, 0.03, b.cy),
+        new THREE.Vector3(a.cx, 0.045, a.cy),
+        new THREE.Vector3(b.cx, 0.045, b.cy),
       ]);
       const mat = new THREE.LineDashedMaterial({ color: ROAD, dashSize: 0.5, gapSize: 0.35 });
       const line = new THREE.Line(geo, mat);

@@ -7,6 +7,7 @@
  */
 import { BLUEPRINT, familyStyle } from "./palette";
 import type { WorldBuilding, WorldPlot } from "./layout";
+import { STREET_WIDTH, STREET_MARK, type StreetPlan } from "./streets";
 
 /** Building footprints ≥ this many px carry the card's avatar (2026-10-01
  *  user ruling; below it a photo is noise — plain footprint instead). */
@@ -80,6 +81,62 @@ export function drawRoad(
   ctx.lineTo(x2, y2);
   ctx.stroke();
   ctx.setLineDash([]);
+}
+
+/**
+ * Streets (CITY_ROADS_STUDY NET-F, 2026-10-02): paint a city's street plan as
+ * solid asphalt bands on the cell-boundary lattice — every occupied block
+ * framed, shared roads between neighbors, nothing on empty ground. Runs
+ * extend STREET_WIDTH/2 past their end cells so perpendicular runs overlap
+ * and corners fill without gaps (opaque fills make the overlap invisible).
+ * Width clamps to 0.8px so the grid still reads as paving lines at
+ * whole-world zoom. Drawn AFTER the plot pad, BEFORE heist marks/props/
+ * buildings — everything built overpaints its grazes.
+ */
+export function drawStreets(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  cell: number,
+  plan: StreetPlan
+) {
+  const halfW = STREET_WIDTH / 2;
+  const w = Math.max(0.8, halfW * 2 * cell);
+  const ext = halfW * cell;
+  ctx.fillStyle = BLUEPRINT.street.asphalt;
+  for (const r of plan.v) {
+    ctx.fillRect(
+      px + (r.at - halfW) * cell,
+      py + (r.from - 0.5) * cell - ext,
+      w,
+      (r.to - r.from + 1) * cell + 2 * ext
+    );
+  }
+  for (const r of plan.h) {
+    ctx.fillRect(
+      px + (r.from - 0.5) * cell - ext,
+      py + (r.at - halfW) * cell,
+      (r.to - r.from + 1) * cell + 2 * ext,
+      w
+    );
+  }
+  // Solid slim white centerline (user ask 2026-10-03: dashes read too chunky
+  // at map scale — a constant hairline is cleaner) — zoom-gated: below ~7px
+  // per cell the line is sub-pixel mush that only adds noise.
+  if (cell >= 7) {
+    ctx.strokeStyle = BLUEPRINT.street.mark;
+    ctx.lineWidth = Math.max(0.5, STREET_MARK.width * cell);
+    ctx.beginPath();
+    for (const r of plan.v) {
+      ctx.moveTo(px + r.at * cell, py + (r.from - 0.5) * cell - ext);
+      ctx.lineTo(px + r.at * cell, py + (r.to + 0.5) * cell + ext);
+    }
+    for (const r of plan.h) {
+      ctx.moveTo(px + (r.from - 0.5) * cell - ext, py + r.at * cell);
+      ctx.lineTo(px + (r.to + 0.5) * cell + ext, py + r.at * cell);
+    }
+    ctx.stroke();
+  }
 }
 
 export function drawBuilding(

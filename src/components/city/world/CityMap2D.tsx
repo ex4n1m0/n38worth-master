@@ -9,6 +9,7 @@ import {
   drawFieldBackground,
   drawCityFloor,
   drawRoad,
+  drawStreets,
   drawBuilding,
   drawHq,
   drawLandmark,
@@ -19,6 +20,7 @@ import {
   AVATAR_MIN_PX,
   OBJECT_GAP_FACTOR,
 } from "@/lib/city/map2d/draw";
+import { planStreets, type StreetPlan } from "@/lib/city/map2d/streets";
 import { familyStyle } from "@/lib/city/map2d/palette";
 import { cityWorldStore } from "@/lib/city/scene/store";
 import { professionName } from "@/lib/professions";
@@ -113,6 +115,13 @@ export function CityMap2D({
 
   const world = worldQuery.data ?? null;
   const plots = useMemo(() => (world ? layoutWorld(world.cities) : []), [world]);
+  // Street plans are pure-derived per layout but O(radius²) — memoized so
+  // drag/zoom redraws (which run on every pointer frame) never re-derive.
+  const streetPlans = useMemo(() => {
+    const m = new Map<string, StreetPlan>();
+    for (const p of plots) m.set(p.username, planStreets(p.layout));
+    return m;
+  }, [plots]);
   useEffect(() => {
     plotsRef.current = plots;
   }, [plots]);
@@ -185,6 +194,10 @@ export function CityMap2D({
       const isYou = p.username === myUsername;
       const isSelectedCity = !!selUniv && selUniv.username === p.username;
       drawPlotPad(ctx, p, px, py, cell, isYou, isSelectedCity);
+
+      // Streets (NET-F): asphalt frames on the grey floor, under everything
+      // built — the per-building block grid from the reference image.
+      drawStreets(ctx, px, py, cell, streetPlans.get(p.username)!);
 
       // Heist visuals (derived): 24h raid damage cracks + hits badge, and an
       // open-bounty marker on cities someone is paying to hit (2026-10-01).
@@ -300,7 +313,7 @@ export function CityMap2D({
         drawCityLabel(ctx, px, py + plotPx + 3, p.username, 10);
       }
     }
-  }, [world, plots, plotByName, myUsername]);
+  }, [world, plots, plotByName, streetPlans, myUsername]);
 
   const requestDraw = useCallback(() => {
     if (rafRef.current) return;
