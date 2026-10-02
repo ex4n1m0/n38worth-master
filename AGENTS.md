@@ -398,7 +398,16 @@ center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
   channels (select/selectUniverseBuilding/selectUniverseCity/selectHq/
   selectLandmark with slot↔canonical goddess index translation) so the
   inspector + panels work unchanged. i18n sweep `i18n-keys/{en,zh}/city-2d.json`.
-- **/catalog** is 2D (`Catalog2D`) — same draw primitives, no WebGL/GLBs.
+- **/catalog is the COMPREHENSIVE buildings catalog (2026-10-02 rebuild, see
+  BUILDING_CATALOG_STUDY.md)**: every subject — 7 families × ALL 14 tiers,
+  protection states, HQ stages 1–3, the six Founder landmarks, the five
+  album props — shown side by side as 2D blueprint plate (map2d primitives)
+  + live card art (BuildingSprite) + 3D shot. 3D plates come from
+  `map3d/plate.ts` (one module-singleton OFFSCREEN WebGLRenderer, ~8ms-frame
+  batched queue, soft failure), which builds subjects via the engine's
+  EXPORTED builders (`artClassGeometry`, `buildHqObject`, `buildMonumentObject`,
+  `buildPropObject` in engine.ts) — extend those, never fork them. Catalog
+  i18n keys live in `i18n-keys/{en,zh}/city-2d.json` (catalog* keys).
 
 **SHIP 2 DONE (2026-10-01) — the old engine is DELETED.** Removed:
 `world/scene/` (PixiJS ~9.5k LOC), `world/scene3d/` (Three.js ~6.9k LOC),

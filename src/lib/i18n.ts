@@ -147,19 +147,12 @@ const en = {
   navbarMyValue: "My value",
   navBuildingsCatalog: "Buildings Catalog",
 
-  // ── Buildings catalog (/catalog) ──
+  // ── Buildings catalog (/catalog) — catalog keys live in city-2d.json ──
   catalogTitle: "Buildings Catalog",
-  catalogSubtitle:
-    "Every building family and tier in the city — acquire more, grow value, and watch them rise.",
-  catalogSectionFamilies: "Trade families × architecture league",
-  catalogBandSuburban: "Levels 1–3 · homes",
-  catalogBandCommercial: "Levels 4–7 · blocks",
-  catalogBandSkyscraper: "Levels 8–14 · skyscrapers",
   catalogSectionProtection: "Protection states",
   catalogSectionHq: "HQ core",
   catalogSectionLandmarks: "The Founders' landmarks",
   catalogUnassigned: "No trade",
-  catalogNoProtection: "No protection",
   catalogFirewall: "DEED LOCK",
   catalogHardLock: "IRON DEED",
   catalogStage: "Stage {n}",
@@ -384,19 +377,12 @@ const zh: TranslationKeys = {
   navbarMyValue: "我的估值",
   navBuildingsCatalog: "建筑图鉴",
 
-  // ── 建筑图鉴（/catalog）──
+  // ── 建筑图鉴（/catalog）——catalog 文案键位于 city-2d.json ──
   catalogTitle: "建筑图鉴",
-  catalogSubtitle:
-    "城市中的全部建筑家族与层级——收购更多建筑、推高估值，看着它们拔地而起。",
-  catalogSectionFamilies: "行业家族 × 建筑梯队",
-  catalogBandSuburban: "1–3 级 · 住宅",
-  catalogBandCommercial: "4–7 级 · 商业",
-  catalogBandSkyscraper: "8–14 级 · 摩天楼",
   catalogSectionProtection: "保护状态",
   catalogSectionHq: "总部核心",
   catalogSectionLandmarks: "奠基人地标",
   catalogUnassigned: "无行业",
-  catalogNoProtection: "无保护",
   catalogFirewall: "契锁",
   catalogHardLock: "铁契",
   catalogStage: "阶段 {n}",

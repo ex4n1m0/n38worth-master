@@ -21,22 +21,32 @@ import {
   type WorldPlot,
 } from "@/lib/city/map2d/layout";
 import { buildingArt, monumentArt } from "@/lib/city/building-art";
-import { compileArtToVolumes, type ArtVolumes } from "@/lib/city/map3d/art-geometry";
+import {
+  ART_K,
+  HQ_K,
+  MONUMENT_K,
+  compileArtToVolumes,
+  type ArtVolumes,
+} from "@/lib/city/map3d/art-geometry";
 import { familyJitter } from "@/lib/city/map3d/metrics";
-import { tierScale } from "@/lib/city/map2d/draw";
+import { OBJECT_GAP_FACTOR } from "@/lib/city/map2d/draw";
+import { FAMILY_KEYS } from "@/lib/city/map2d/families";
 
-const PAPER_BG = "#F4F1E8";
-const PAPER_GROUND = "#EFE9DA";
-const GRID_INK = 0x9fb4c4;
-const INK = "#33506B";
-const GOLD = "#F5C518";
+// Scene-look constants shared with the catalog plate renderer (map3d/plate.ts)
+// so offscreen shots match the world view exactly.
+export const PAPER_BG = "#F4F1E8";
+export const PAPER_GROUND = "#EFE9DA";
+export const GRID_INK = 0x9fb4c4;
+export const INK = "#33506B";
+export const GOLD = "#F5C518";
 const YOU = "#E8590C";
 const ROAD = "#5A7186";
 
 export type Hit3D =
   | { kind: "building"; username: string; cardId: number }
   | { kind: "hq"; username: string }
-  | { kind: "landmark"; username: string; slotIndex: number };
+  | { kind: "landmark"; username: string; slotIndex: number }
+  | { kind: "prop"; username: string; prop: string };
 
 export interface WorldExtras {
   roads: { from: string; to: string }[];
@@ -59,8 +69,8 @@ interface CellRef {
 }
 
 /** Flat diamond (iso ground pad) directly in the XZ plane — no rotateX
- *  mirroring surprises. */
-function diamondGeometry(cx: number, cz: number, half: number): THREE.BufferGeometry {
+ *  mirroring surprises. Shared with the catalog plate renderer. */
+export function diamondGeometry(cx: number, cz: number, half: number): THREE.BufferGeometry {
   const verts = new Float32Array([
     cx, 0, cz,
     cx, 0, cz - half,
@@ -186,7 +196,7 @@ class GeoWriter {
   }
 }
 
-function volumesToGeometry(vols: ArtVolumes): THREE.BufferGeometry {
+export function volumesToGeometry(vols: ArtVolumes): THREE.BufferGeometry {
   const w = new GeoWriter();
   for (const b of vols.boxes) w.box(b.x, b.y0, b.y1, b.z, b.w, b.d, b.color);
   for (const s of vols.spheres) w.sphere(s.x, s.y, s.z, s.r, s.squashY, s.color);
@@ -196,10 +206,11 @@ function volumesToGeometry(vols: ArtVolumes): THREE.BufferGeometry {
 
 /** Per-(family, tier) compiled card art — one geometry instanced per class
  *  (window pattern class-wide; per-card seed variety is invisible at map
- *  scale). Module cache survives world refreshes; capped. */
+ *  scale). Module cache survives world refreshes; capped. Also used by the
+ *  catalog plate renderer — never fork this pipeline. */
 const classGeoCache = new Map<string, { geo: THREE.BufferGeometry; width: number }>();
 
-function artClassGeometry(familyIndex: number, tier: number): { geo: THREE.BufferGeometry; width: number } | null {
+export function artClassGeometry(familyIndex: number, tier: number): { geo: THREE.BufferGeometry; width: number } | null {
   const key = `${familyIndex}|${tier}`;
   const hit = classGeoCache.get(key);
   if (hit) return hit;
@@ -208,25 +219,277 @@ function artClassGeometry(familyIndex: number, tier: number): { geo: THREE.Buffe
     classGeoCache.clear();
   }
   const family =
-    familyIndex >= 0 && familyIndex < 6
-      ? ["Cryptographer", "Zero-Day", "Overclocker", "Cache Keeper", "Server Marshal", "Bot Herder"][familyIndex]
+    familyIndex >= 0 && familyIndex < FAMILY_KEYS.length
+      ? FAMILY_KEYS[familyIndex]
       : null;
-  const k = (tierScale(tier) * 1.45) / 128;
+  const k = ART_K(tier);
   const vols = compileArtToVolumes(buildingArt({ tier, family, seed: 0 }), k);
   const entry = { geo: volumesToGeometry(vols), width: vols.widthCells };
   classGeoCache.set(key, entry);
   return entry;
 }
 
-/** Footprint scale per tier (the former iso view's drawW ladder — kept so
- *  3D massing matches the card proportions). */
-const HQ_K = 2.4 / 128;
-const MONUMENT_K = 1.6 / 150;
+/** Volumetric scale constants live in art-geometry (shared with the card's
+ *  volume renderer — card-matches-3D ruling, 2026-10-02); re-exported here
+ *  for existing importers. */
+export { HQ_K, MONUMENT_K } from "@/lib/city/map3d/art-geometry";
 
-function seedOfString(s: string): number {
+export function seedOfString(s: string): number {
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
   return h;
+}
+
+// ── standalone subject builders (shared by the world engine + catalog) ─────
+//
+// These build the Object3D ONLY — position, userData and raycast registration
+// stay with the engine; the catalog plate renderer (map3d/plate.ts) calls the
+// same builders so the two can never drift apart.
+
+export function buildMonumentObject(canonicalIndex: number): THREE.Group {
+  // The Founder monuments render through the card monument art (monumentArt
+  // → volumes): spires, citadels, observatory domes, obelisks, pyramids.
+  const vols = compileArtToVolumes(monumentArt(canonicalIndex), MONUMENT_K);
+  const mesh = new THREE.Mesh(
+    volumesToGeometry(vols),
+    new THREE.MeshLambertMaterial({ vertexColors: true })
+  );
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  const g = new THREE.Group();
+  g.add(mesh);
+  return g;
+}
+
+export function buildHqObject(
+  stage: number,
+  profession: string | null,
+  seed: number
+): THREE.Group {
+  const g = new THREE.Group();
+  const stg = Math.max(1, Math.min(3, stage));
+  // platform + gold mast/beacon (the one crown no regular building has);
+  // the tower body itself is the OWNER'S family grand megaform from the
+  // shared card art (tiers 10/12/14 by stage — always the tallest).
+  const plateGeo = new THREE.BoxGeometry(3, 0.3, 3);
+  const plate = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: "#2E4A66" }));
+  plate.position.y = 0.15;
+  plate.receiveShadow = true;
+  g.add(plate);
+  const tier = Math.min(14, 10 + (stg - 1) * 2);
+  const art = buildingArt({ tier, family: profession, seed });
+  const vols = compileArtToVolumes(art, HQ_K);
+  const body = new THREE.Mesh(
+    volumesToGeometry(vols),
+    new THREE.MeshLambertMaterial({ vertexColors: true })
+  );
+  body.position.y = 0.28;
+  body.castShadow = true;
+  body.receiveShadow = true;
+  g.add(body);
+  const goldMat = new THREE.MeshBasicMaterial({ color: GOLD });
+  const H = vols.heightCells + 0.28;
+  // Mast grows with stage (F10, 2026-10-02) so the three HQ stages read
+  // apart even before the body ladder (t10/12/14) kicks in.
+  const mastH = 0.7 + stg * 0.25;
+  const mastGeo = new THREE.CylinderGeometry(0.04, 0.04, mastH, 6);
+  const mast = new THREE.Mesh(mastGeo, goldMat);
+  mast.position.y = H + mastH / 2;
+  g.add(mast);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), goldMat);
+  beacon.position.y = H + mastH + 0.12;
+  g.add(beacon);
+  if (stg >= 2) {
+    const trimGeo = new THREE.BoxGeometry(2.15, 0.12, 2.15);
+    const trim = new THREE.Mesh(trimGeo, goldMat);
+    trim.position.y = 0.36;
+    g.add(trim);
+  }
+  if (stg >= 3) {
+    // Stage-3 second trim ring — the "crowned" read.
+    const trim2Geo = new THREE.BoxGeometry(1.65, 0.1, 1.65);
+    const trim2 = new THREE.Mesh(trim2Geo, goldMat);
+    trim2.position.y = 0.48;
+    g.add(trim2);
+  }
+  return g;
+}
+
+export function buildPropObject(prop: string): THREE.Group {
+  // F3 rebuild (2026-10-02): 3D props match their 2D drawings' identity —
+  // striped canopy + bulbs, full crane with counterweight + hook, colonnade
+  // + finial, dial spokes. Bounded: each stays a handful of primitives.
+  const g = new THREE.Group();
+  const add = (mesh: THREE.Mesh) => {
+    mesh.castShadow = true;
+    g.add(mesh);
+    return mesh;
+  };
+  switch (prop) {
+    case "park": {
+      const pad = add(
+        new THREE.Mesh(
+          new THREE.BoxGeometry(1.1, 0.08, 1.1),
+          new THREE.MeshLambertMaterial({ color: "#6FA35C" })
+        )
+      );
+      pad.position.y = 0.05;
+      const treeGeo = new THREE.ConeGeometry(0.16, 0.4, 6);
+      const treeMat = new THREE.MeshLambertMaterial({ color: "#2F5226" });
+      for (const [tx, tz] of [
+        [-0.25, -0.2],
+        [0.22, 0.05],
+        [-0.05, 0.25],
+      ]) {
+        const tree = new THREE.Mesh(treeGeo, treeMat);
+        tree.position.set(tx, 0.3, tz);
+        add(tree);
+      }
+      break;
+    }
+    case "marquee": {
+      // Neon Marquee: two posts, striped canopy, bulb row under the lip.
+      const postMat = new THREE.MeshLambertMaterial({ color: "#6B5335" });
+      const goldMat = new THREE.MeshLambertMaterial({ color: GOLD });
+      const bulbMat = new THREE.MeshBasicMaterial({ color: "#FFF3C4" });
+      for (const dx of [-0.34, 0.34]) {
+        const post = add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.52, 0.09), postMat));
+        post.position.set(dx, 0.26, 0.12);
+      }
+      const canopy = add(new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.16, 0.52), goldMat));
+      canopy.position.set(0, 0.58, 0);
+      // Ink stripes across the canopy top.
+      const stripeMat = new THREE.MeshLambertMaterial({ color: "#1B2F42" });
+      for (let i = 0; i < 3; i++) {
+        const stripe = add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 0.54), stripeMat));
+        stripe.position.set(-0.32 + i * 0.32, 0.67, 0);
+      }
+      for (let i = 0; i < 4; i++) {
+        const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8), bulbMat);
+        bulb.position.set(-0.33 + i * 0.22, 0.48, 0.24);
+        g.add(bulb);
+      }
+      break;
+    }
+    case "crane": {
+      // Crane Row: base pad, mast, peak ties, jib + counter-jib,
+      // counterweight, cable and hook.
+      const mat = new THREE.MeshLambertMaterial({ color: INK });
+      const base = add(new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.1, 0.24), mat));
+      base.position.set(0, 0.05, 0);
+      const mast = add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.2, 0.09), mat));
+      mast.position.set(0, 0.7, 0);
+      const apex = add(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 5), mat));
+      apex.position.set(0, 1.39, 0);
+      const jib = add(new THREE.Mesh(new THREE.BoxGeometry(1.42, 0.06, 0.06), mat));
+      jib.position.set(0.24, 1.28, 0);
+      // Peak ties (rotated thin boxes from the apex down to both jib ends).
+      for (const [tx, len] of [
+        [-0.46, 0.62],
+        [0.88, 0.78],
+      ] as const) {
+        const tie = new THREE.Mesh(new THREE.BoxGeometry(len, 0.035, 0.035), mat);
+        tie.position.set(tx / 2 + 0.02, 1.335, 0);
+        tie.rotation.z = Math.atan2(0.1, Math.abs(tx));
+        tie.castShadow = true;
+        g.add(tie);
+      }
+      const counter = add(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.15, 0.13), mat));
+      counter.position.set(-0.44, 1.2, 0);
+      const cable = add(new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.5, 0.025), mat));
+      cable.position.set(0.42, 1.02, 0);
+      const hook = new THREE.Mesh(
+        new THREE.TorusGeometry(0.07, 0.022, 8, 14),
+        new THREE.MeshBasicMaterial({ color: INK })
+      );
+      hook.position.set(0.42, 0.74, 0);
+      g.add(hook);
+      break;
+    }
+    case "rotunda": {
+      // City Rotunda: colonnade ring + drum + gold dome + finial.
+      const colMat = new THREE.MeshLambertMaterial({ color: "#D9D2BE" });
+      const goldMat = new THREE.MeshLambertMaterial({ color: GOLD });
+      const base = add(
+        new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.5, 0.1, 14), colMat)
+      );
+      base.position.y = 0.05;
+      const colGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.26, 6);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const col = new THREE.Mesh(colGeo, colMat);
+        col.position.set(Math.cos(a) * 0.4, 0.23, Math.sin(a) * 0.4);
+        add(col);
+      }
+      const drum = add(new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.4, 0.08, 14), colMat));
+      drum.position.y = 0.4;
+      const dome = add(
+        new THREE.Mesh(
+          new THREE.SphereGeometry(0.4, 16, 9, 0, Math.PI * 2, 0, Math.PI / 2),
+          goldMat
+        )
+      );
+      dome.position.y = 0.44;
+      const finial = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), goldMat);
+      finial.position.y = 0.92;
+      g.add(finial);
+      break;
+    }
+    case "goldvault": {
+      // Golden Vault Emblem: gold plate + dial ring + four spokes + hub.
+      const goldMat = new THREE.MeshLambertMaterial({ color: GOLD });
+      const box = add(
+        new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 0.9), goldMat)
+      );
+      box.position.y = 0.18;
+      const dialMat = new THREE.MeshBasicMaterial({ color: "#1B2F42" });
+      const dial = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 8, 20), dialMat);
+      dial.rotation.x = Math.PI / 2;
+      dial.position.y = 0.38;
+      g.add(dial);
+      for (let i = 0; i < 4; i++) {
+        const a = (Math.PI / 180) * (45 + 90 * i);
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.022, 0.03), dialMat);
+        spoke.position.set(Math.cos(a) * 0.11, 0.385, Math.sin(a) * 0.11);
+        spoke.rotation.y = -a;
+        g.add(spoke);
+      }
+      const hub = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), dialMat);
+      hub.position.y = 0.39;
+      g.add(hub);
+      break;
+    }
+  }
+  return g;
+}
+
+// ── protection rings (F1 + F11, 2026-10-02) ────────────────────────────────
+//
+// Deed Lock (timed) reads GOLD, Iron Deed (permanent) reads dark INK — the
+// same two-color language as the 2D badges. Shared by the world engine
+// (instanced) and the catalog plate renderer (single mesh).
+
+export const PROTECTION_RING = {
+  radius: 0.55,
+  tube: 0.055,
+  colors: { firewall: GOLD, hardlock: "#1B2F42" } as const,
+} as const;
+
+/** Single protection ring mesh at the origin (plate renderer use). */
+export function buildProtectionRing(kind: "firewall" | "hardlock"): THREE.Mesh {
+  const geo = new THREE.TorusGeometry(
+    PROTECTION_RING.radius,
+    PROTECTION_RING.tube,
+    8,
+    28
+  );
+  geo.rotateX(Math.PI / 2);
+  const mesh = new THREE.Mesh(
+    geo,
+    new THREE.MeshBasicMaterial({ color: PROTECTION_RING.colors[kind] })
+  );
+  mesh.position.y = 0.07;
+  return mesh;
 }
 
 export class City3DEngine {
@@ -427,6 +690,11 @@ export class City3DEngine {
     }
     const matrix = new THREE.Matrix4();
     const tint = new THREE.Color();
+    // VISUAL-ONLY gap (2026-10-02): footprints shrink to OBJECT_GAP_FACTOR of
+    // the cell, heights untouched — cells/rings/shape stay identical to 2D.
+    const instPos = new THREE.Vector3();
+    const instQuat = new THREE.Quaternion();
+    const instScale = new THREE.Vector3(OBJECT_GAP_FACTOR, 1, OBJECT_GAP_FACTOR);
     const buildingMaterial = new THREE.MeshLambertMaterial({ vertexColors: true });
     for (const [key, entry] of classCells) {
       const cls = artClassGeometry(entry.f, entry.t);
@@ -442,7 +710,8 @@ export class City3DEngine {
       mesh.userData = { kind: "building", familyCells: entry.cells };
       for (let i = 0; i < entry.cells.length; i++) {
         const cell = entry.cells[i];
-        matrix.makeTranslation(cell.wx, 0, cell.wy);
+        instPos.set(cell.wx, 0, cell.wy);
+        matrix.compose(instPos, instQuat, instScale);
         mesh.setMatrixAt(i, matrix);
         tint.setScalar(familyJitter(this.cellRefs[cell.refIndex].cardId));
         mesh.setColorAt(i, tint);
@@ -454,13 +723,51 @@ export class City3DEngine {
       void key;
     }
 
+    // Protection rings (F1, 2026-10-02): Deed Lock = gold, Iron Deed = ink —
+    // the 3D counterpart of the 2D corner badges, one flat ring hugging each
+    // protected tower's base. Instanced per kind (shared geometry + material,
+    // disposed with the world group on rebuild).
+    for (const kind of ["firewall", "hardlock"] as const) {
+      const cells: { wx: number; wy: number }[] = [];
+      for (const p of this.plots) {
+        for (const c of p.layout.cells) {
+          if (c.p === kind) cells.push({ wx: p.cx + c.x, wy: p.cy + c.y });
+        }
+      }
+      if (cells.length === 0) continue;
+      const ringGeo = new THREE.TorusGeometry(
+        PROTECTION_RING.radius,
+        PROTECTION_RING.tube,
+        8,
+        28
+      );
+      ringGeo.rotateX(Math.PI / 2);
+      const rings = new THREE.InstancedMesh(
+        ringGeo,
+        new THREE.MeshBasicMaterial({ color: PROTECTION_RING.colors[kind] }),
+        cells.length
+      );
+      for (let i = 0; i < cells.length; i++) {
+        instPos.set(cells[i].wx, 0.07, cells[i].wy);
+        matrix.compose(instPos, instQuat, instScale);
+        rings.setMatrixAt(i, matrix);
+      }
+      rings.instanceMatrix.needsUpdate = true;
+      group.add(rings);
+    }
+
     // landmarks, HQs, props
     for (const p of this.plots) {
       for (const slot of p.layout.landmarkSlots) {
         group.add(this.makeMonument(p.username, slot.i, p.cx + slot.x, p.cy + slot.y));
       }
       for (const pc of p.layout.propCells) {
-        group.add(this.makeProp(pc.prop, p.cx + pc.x, p.cy + pc.y));
+        const propObj = buildPropObject(pc.prop);
+        propObj.position.set(p.cx + pc.x, 0, p.cy + pc.y);
+        propObj.scale.set(OBJECT_GAP_FACTOR, 1, OBJECT_GAP_FACTOR);
+        propObj.userData = { kind: "prop", username: p.username, prop: pc.prop };
+        group.add(propObj);
+        this.raycastables.push(propObj);
       }
       group.add(this.makeHq(p));
     }
@@ -492,140 +799,75 @@ export class City3DEngine {
     // → volumes): spires, citadels, observatory domes, obelisks, pyramids.
     const plot = this.plots.find((p) => p.username === username);
     const canonical = plot ? landmarkCanonicalIndex(plot.city, slotIndex) : slotIndex;
-    const vols = compileArtToVolumes(monumentArt(canonical), MONUMENT_K);
-    const geo = volumesToGeometry(vols);
-    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    const g = new THREE.Group();
-    g.add(mesh);
+    const g = buildMonumentObject(canonical);
     g.position.set(x, 0, z);
+    g.scale.set(OBJECT_GAP_FACTOR, 1, OBJECT_GAP_FACTOR);
     g.userData = { kind: "landmark", username, slotIndex };
     this.raycastables.push(g);
     return g;
   }
 
   private makeHq(p: WorldPlot): THREE.Object3D {
-    const g = new THREE.Group();
-    const stage = Math.max(1, Math.min(3, p.city.hqStage));
-    // platform + gold mast/beacon (the one crown no regular building has);
-    // the tower body itself is the OWNER'S family grand megaform from the
-    // shared card art (tiers 10/12/14 by stage — always the tallest).
-    const plateGeo = new THREE.BoxGeometry(3, 0.3, 3);
-    const plate = new THREE.Mesh(plateGeo, new THREE.MeshLambertMaterial({ color: "#2E4A66" }));
-    plate.position.y = 0.15;
-    plate.receiveShadow = true;
-    g.add(plate);
-    const tier = Math.min(14, 10 + (stage - 1) * 2);
-    const art = buildingArt({ tier, family: p.city.profession, seed: seedOfString(p.username) });
-    const vols = compileArtToVolumes(art, HQ_K);
-    const body = new THREE.Mesh(
-      volumesToGeometry(vols),
-      new THREE.MeshLambertMaterial({ vertexColors: true })
-    );
-    body.position.y = 0.28;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    g.add(body);
-    const goldMat = new THREE.MeshBasicMaterial({ color: GOLD });
-    const H = vols.heightCells + 0.28;
-    const mastGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.8, 6);
-    const mast = new THREE.Mesh(mastGeo, goldMat);
-    mast.position.y = H + 0.4;
-    g.add(mast);
-    const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), goldMat);
-    beacon.position.y = H + 0.85;
-    g.add(beacon);
-    if (stage >= 2) {
-      const trimGeo = new THREE.BoxGeometry(2.15, 0.12, 2.15);
-      const trim = new THREE.Mesh(trimGeo, goldMat);
-      trim.position.y = 0.36;
-      g.add(trim);
-    }
+    const g = buildHqObject(p.city.hqStage, p.city.profession, seedOfString(p.username));
+    // F6 (2026-10-02): the owner's avatar — the 2D map's gold ring, in 3D a
+    // gold-ringed billboard plaque floating at the podium front (always
+    // faces the free camera, never clips the body).
+    const plaque = this.makeAvatarPlaque(p.username);
+    plaque.position.set(0, 1.15, 1.95);
+    g.add(plaque);
     g.position.set(p.cx, 0, p.cy);
     g.userData = { kind: "hq", username: p.username };
     this.raycastables.push(g);
     return g;
   }
 
-  private makeProp(prop: string, x: number, z: number): THREE.Object3D {
-    const g = new THREE.Group();
-    const add = (mesh: THREE.Mesh) => {
-      mesh.castShadow = true;
-      g.add(mesh);
-      return mesh;
+  /** Gold-ringed circular avatar plaque on a canvas texture; the photo loads
+   *  async and re-renders when it arrives (render-on-demand dirty flip). */
+  private makeAvatarPlaque(username: string): THREE.Sprite {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 128;
+    const draw = (img: HTMLImageElement | null) => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.clearRect(0, 0, 128, 128);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(64, 64, 50, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.fillStyle = "#EFE9DA";
+      ctx.fillRect(0, 0, 128, 128);
+      if (img) {
+        ctx.drawImage(img, 14, 14, 100, 100);
+      } else {
+        ctx.fillStyle = "#33506B";
+        ctx.font = "700 44px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(username.slice(0, 1).toUpperCase(), 64, 66);
+      }
+      ctx.restore();
+      ctx.strokeStyle = GOLD;
+      ctx.lineWidth = 8;
+      ctx.beginPath();
+      ctx.arc(64, 64, 50, 0, Math.PI * 2);
+      ctx.stroke();
     };
-    switch (prop) {
-      case "park": {
-        const pad = add(
-          new THREE.Mesh(
-            new THREE.BoxGeometry(1.1, 0.08, 1.1),
-            new THREE.MeshLambertMaterial({ color: "#6FA35C" })
-          )
-        );
-        pad.position.y = 0.05;
-        const treeGeo = new THREE.ConeGeometry(0.16, 0.4, 6);
-        const treeMat = new THREE.MeshLambertMaterial({ color: "#2F5226" });
-        for (const [tx, tz] of [
-          [-0.25, -0.2],
-          [0.22, 0.05],
-          [-0.05, 0.25],
-        ]) {
-          const tree = new THREE.Mesh(treeGeo, treeMat);
-          tree.position.set(tx, 0.3, tz);
-          add(tree);
-        }
-        break;
-      }
-      case "marquee": {
-        const box = add(
-          new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), new THREE.MeshLambertMaterial({ color: GOLD }))
-        );
-        box.position.y = 0.3;
-        break;
-      }
-      case "crane": {
-        const mat = new THREE.MeshLambertMaterial({ color: INK });
-        const mast = add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.08), mat));
-        mast.position.y = 0.6;
-        const jib = add(new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.06, 0.06), mat));
-        jib.position.set(0.25, 1.2, 0);
-        break;
-      }
-      case "rotunda": {
-        const col = add(
-          new THREE.Mesh(
-            new THREE.CylinderGeometry(0.42, 0.46, 0.34, 12),
-            new THREE.MeshLambertMaterial({ color: "#D9D2BE" })
-          )
-        );
-        col.position.y = 0.17;
-        const dome = add(
-          new THREE.Mesh(
-            new THREE.SphereGeometry(0.44, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2),
-            new THREE.MeshLambertMaterial({ color: GOLD })
-          )
-        );
-        dome.position.y = 0.34;
-        break;
-      }
-      case "goldvault": {
-        const box = add(
-          new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.35, 0.9), new THREE.MeshLambertMaterial({ color: GOLD }))
-        );
-        box.position.y = 0.18;
-        const dial = new THREE.Mesh(
-          new THREE.TorusGeometry(0.2, 0.045, 8, 20),
-          new THREE.MeshBasicMaterial({ color: "#1B2F42" })
-        );
-        dial.rotation.x = Math.PI / 2;
-        dial.position.y = 0.38;
-        g.add(dial);
-        break;
-      }
-    }
-    g.position.set(x, 0, z);
-    return g;
+    draw(null);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+    sprite.scale.set(0.95, 0.95, 1);
+    sprite.renderOrder = 12;
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      draw(img);
+      tex.needsUpdate = true;
+      this.dirty = true;
+    };
+    img.src = `/api/avatar/${encodeURIComponent(username)}`;
+    return sprite;
   }
 
   // ── selection highlight ──────────────────────────────────────────────────
@@ -646,7 +888,7 @@ export class City3DEngine {
       return;
     }
     this.highlight.position.set(ref.wx, 0.06, ref.wy);
-    this.highlight.scale.setScalar(Math.max(0.7, ref.w * 0.85));
+    this.highlight.scale.setScalar(Math.max(0.7, ref.w * 0.85 * OBJECT_GAP_FACTOR));
     this.highlight.visible = true;
     this.dirty = true;
   }
@@ -793,6 +1035,7 @@ export class City3DEngine {
           kind?: string;
           username?: string;
           slotIndex?: number;
+          prop?: string;
           familyCells?: { refIndex: number }[];
         };
         if (data?.kind === "building" && hit.instanceId != null && data.familyCells) {
@@ -810,6 +1053,9 @@ export class City3DEngine {
             username: data.username,
             slotIndex: data.slotIndex,
           });
+          return;
+        } else if (data?.kind === "prop" && data.username && data.prop) {
+          this.onHit({ kind: "prop", username: data.username, prop: data.prop });
           return;
         }
         obj = obj.parent;

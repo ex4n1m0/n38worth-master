@@ -12,9 +12,26 @@ import type { WorldBuilding, WorldPlot } from "./layout";
  *  user ruling; below it a photo is noise — plain footprint instead). */
 export const AVATAR_MIN_PX = 24;
 
-/** Footprint size as a fraction of the cell, by tier 1..14. */
+/**
+ * VISUAL-ONLY object gap (2026-10-02 user ruling): every object's footprint
+ * is drawn at this FRACTION of its cell in BOTH renderers (2D square sizes,
+ * 3D x/z instance scale), leaving (1 − factor) of shared edge space between
+ * neighbors so buildings, landmarks and props read as separate objects.
+ * Cell positions, ring order and city shape are UNTOUCHED — this is a draw
+ * multiplier, not a layout stride. Keep 2D draw calls and the 3D engine
+ * (instance/monument/prop scales) in lockstep with it.
+ */
+export const OBJECT_GAP_FACTOR = 0.85;
+
+/** Footprint size as a fraction of the cell, by tier 1..14. The GRAND
+ *  league (8+) jumps to near-full cell (study F4, 2026-10-02) so towers
+ *  announce themselves on the registry map; civic grows 0.40→0.86. Shared
+ *  by the 2D draw calls, the 3D scale ladder (ART_K) and the card renderer —
+ *  composes with OBJECT_GAP_FACTOR (visual gap is multiplicative). */
 export function tierScale(tier: number): number {
-  return 0.42 + 0.58 * Math.min(1, Math.max(0, (tier - 1) / 13));
+  const t = Math.max(1, Math.min(14, tier));
+  if (t >= 8) return 0.97 + 0.03 * ((t - 8) / 6);
+  return 0.4 + 0.46 * ((t - 1) / 7);
 }
 
 export function drawPaperBackground(
@@ -78,10 +95,28 @@ export function drawBuilding(
   ctx.lineWidth = Math.max(0.7, size * 0.06);
   ctx.strokeRect(px, py, size, size);
   if (b.t >= 8 && size >= 12) {
-    // Grand-tier inner register (blueprint "nested plate" look).
+    // Grand-tier inner register (blueprint "nested plate" look)…
     const inset = size * 0.28;
     ctx.lineWidth = Math.max(0.5, size * 0.04);
     ctx.strokeRect(px + inset, py + inset, size - 2 * inset, size - 2 * inset);
+    // …plus corner brackets (F4, 2026-10-02): drafting marks that make a
+    // grand tower read as a MAJOR structure even at small sizes.
+    const c = Math.max(2, size * 0.16);
+    ctx.lineWidth = Math.max(0.8, size * 0.055);
+    ctx.beginPath();
+    ctx.moveTo(px, py + c);
+    ctx.lineTo(px, py);
+    ctx.lineTo(px + c, py);
+    ctx.moveTo(px + size - c, py);
+    ctx.lineTo(px + size, py);
+    ctx.lineTo(px + size, py + c);
+    ctx.moveTo(px + size, py + size - c);
+    ctx.lineTo(px + size, py + size);
+    ctx.lineTo(px + size - c, py + size);
+    ctx.moveTo(px + c, py + size);
+    ctx.lineTo(px, py + size);
+    ctx.lineTo(px, py + size - c);
+    ctx.stroke();
   }
   if (size >= AVATAR_MIN_PX) {
     // The card's avatar takes the center of its square (user ruling).
@@ -101,12 +136,37 @@ export function drawBuilding(
     ctx.stroke();
   }
   if (b.p && size >= 10) {
-    // Deed-lock / iron-deed badge (top-left corner).
+    // Protection badges (F11, 2026-10-02): the two states are now DISTINCT —
+    // Deed Lock (timed) = ink SQUARE + gold keyhole; Iron Deed (permanent) =
+    // gold DIAMOND + ink keyhole. Same two-color language as the 3D base
+    // rings (gold = timed, ink = permanent).
     const s = Math.max(4, size * 0.26);
-    ctx.fillStyle = BLUEPRINT.lockBadge.body;
-    ctx.fillRect(px - 1, py - 1, s, s);
-    ctx.fillStyle = BLUEPRINT.lockBadge.keyhole;
-    ctx.fillRect(px - 1 + s * 0.35, py - 1 + s * 0.3, Math.max(1, s * 0.3), Math.max(1, s * 0.3));
+    const bx = px - 1;
+    const by = py - 1;
+    const keyhole = (ink: string) => {
+      ctx.fillStyle = ink;
+      ctx.fillRect(
+        bx + s * 0.35,
+        by + s * 0.3,
+        Math.max(1, s * 0.3),
+        Math.max(1, s * 0.3)
+      );
+    };
+    if (b.p === "hardlock") {
+      ctx.fillStyle = BLUEPRINT.hq.gold;
+      ctx.beginPath();
+      ctx.moveTo(bx + s / 2, by);
+      ctx.lineTo(bx + s, by + s / 2);
+      ctx.lineTo(bx + s / 2, by + s);
+      ctx.lineTo(bx, by + s / 2);
+      ctx.closePath();
+      ctx.fill();
+      keyhole(BLUEPRINT.lockBadge.body);
+    } else {
+      ctx.fillStyle = BLUEPRINT.lockBadge.body;
+      ctx.fillRect(bx, by, s, s);
+      keyhole(BLUEPRINT.hq.gold);
+    }
   }
 }
 
@@ -171,11 +231,20 @@ export function drawHq(
   }
 }
 
+/**
+ * Founder landmark: the gold hexagon + a per-Founder SIGIL (F2, 2026-10-02)
+ * in blueprint ink — the six monuments' identity reduced to drafting marks,
+ * so landmarks are tellable apart ON the 2D map (they were six identical
+ * hexes before). `canonical` is the GODDESS_USERNAMES index (0..5); unknown
+ * values fall back to the plain center dot. Card art + 3D keep the full
+ * monuments.
+ */
 export function drawLandmark(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  size: number
+  size: number,
+  canonical: number = -1
 ) {
   const r = size * 0.575; // hexagon circumradius (slightly over cell)
   ctx.beginPath();
@@ -194,11 +263,112 @@ export function drawLandmark(
   ctx.strokeStyle = BLUEPRINT.landmark.stroke;
   ctx.lineWidth = Math.max(0.8, size * 0.07);
   ctx.stroke();
-  if (size >= 14) {
-    ctx.fillStyle = BLUEPRINT.landmark.stroke;
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(1.2, size * 0.12), 0, Math.PI * 2);
-    ctx.fill();
+  if (size < 14) {
+    if (size >= 8) {
+      ctx.fillStyle = BLUEPRINT.landmark.stroke;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1.2, size * 0.12), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    return;
+  }
+  const ink = BLUEPRINT.landmark.stroke;
+  const u = size * 0.01; // sigil unit
+  ctx.strokeStyle = ink;
+  ctx.fillStyle = ink;
+  ctx.lineWidth = Math.max(0.9, size * 0.055);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  switch (canonical) {
+    case 0: {
+      // The Architect — root spire: mast, cross arm, needle tip.
+      ctx.beginPath();
+      ctx.moveTo(x, y + 15 * u);
+      ctx.lineTo(x, y - 13 * u);
+      ctx.moveTo(x - 7 * u, y - 4 * u);
+      ctx.lineTo(x + 7 * u, y - 4 * u);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y - 22 * u);
+      ctx.lineTo(x + 3.2 * u, y - 14 * u);
+      ctx.lineTo(x - 3.2 * u, y - 14 * u);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 1: {
+      // The Registrar — the key: bow ring, shaft, two wards.
+      ctx.beginPath();
+      ctx.arc(x, y - 8 * u, 6.5 * u, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y - 1.5 * u);
+      ctx.lineTo(x, y + 15 * u);
+      ctx.moveTo(x, y + 7 * u);
+      ctx.lineTo(x + 5 * u, y + 7 * u);
+      ctx.moveTo(x, y + 12 * u);
+      ctx.lineTo(x + 6 * u, y + 12 * u);
+      ctx.stroke();
+      break;
+    }
+    case 2: {
+      // The Surveyor — observatory dome + sight dot.
+      ctx.beginPath();
+      ctx.arc(x, y + 6 * u, 11 * u, Math.PI, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 12 * u, y + 6 * u);
+      ctx.lineTo(x + 12 * u, y + 6 * u);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y - 6 * u, 2.4 * u, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 3: {
+      // The Foreman — clock face with hands.
+      ctx.beginPath();
+      ctx.arc(x, y, 10.5 * u, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y - 6.5 * u);
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 5 * u, y + 3 * u);
+      ctx.stroke();
+      break;
+    }
+    case 4: {
+      // The Wrecker — the fracture: a split obelisk bolt.
+      ctx.beginPath();
+      ctx.moveTo(x - 7 * u, y + 15 * u);
+      ctx.lineTo(x + 3 * u, y + 4 * u);
+      ctx.lineTo(x - 2 * u, y + 2 * u);
+      ctx.lineTo(x + 7 * u, y - 15 * u);
+      ctx.stroke();
+      break;
+    }
+    case 5: {
+      // The Banker — stepped treasury pyramid.
+      ctx.beginPath();
+      ctx.moveTo(x - 12 * u, y + 13 * u);
+      ctx.lineTo(x, y - 13 * u);
+      ctx.lineTo(x + 12 * u, y + 13 * u);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x - 7 * u, y + 3 * u);
+      ctx.lineTo(x + 7 * u, y + 3 * u);
+      ctx.moveTo(x - 3.5 * u, y + 8 * u);
+      ctx.lineTo(x + 3.5 * u, y + 8 * u);
+      ctx.stroke();
+      break;
+    }
+    default: {
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1.2, size * 0.12), 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 

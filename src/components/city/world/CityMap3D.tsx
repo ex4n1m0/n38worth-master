@@ -98,6 +98,8 @@ export function CityMap3D({
       } else if (hit.kind === "building") {
         if (own) store.select(hit.cardId);
         else store.selectUniverseBuilding({ username: hit.username, cardId: hit.cardId });
+      } else if (hit.kind === "prop") {
+        store.selectProp({ username: hit.username, prop: hit.prop });
       }
     },
     [focusUsername]

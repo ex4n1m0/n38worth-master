@@ -16,6 +16,7 @@ import {
   drawProp,
   tierScale,
   AVATAR_MIN_PX,
+  OBJECT_GAP_FACTOR,
 } from "@/lib/city/map2d/draw";
 import { familyStyle } from "@/lib/city/map2d/palette";
 import { cityWorldStore } from "@/lib/city/scene/store";
@@ -249,7 +250,7 @@ export function CityMap2D({
       // graze.
       if (p.layout.propCells.length > 0 && cell >= 2) {
         for (const pc of p.layout.propCells) {
-          drawProp(ctx, px + pc.x * cell, py + pc.y * cell, cell * 1.15, pc.prop);
+          drawProp(ctx, px + pc.x * cell, py + pc.y * cell, cell * 1.15 * OBJECT_GAP_FACTOR, pc.prop);
         }
       }
 
@@ -257,7 +258,7 @@ export function CityMap2D({
         const bx = px + c.x * cell;
         const by = py + c.y * cell;
         if (bx < -cell || by < -cell || bx > w + cell || by > h + cell) continue;
-        const size = Math.max(1.5, tierScale(c.t) * cell);
+        const size = Math.max(1.5, tierScale(c.t) * cell * OBJECT_GAP_FACTOR);
         const avatar = size >= AVATAR_MIN_PX ? getAvatar(c.u) : null;
         drawBuilding(ctx, bx, by, size, c, avatar);
         if (isYou && selCard != null && c.id === selCard) {
@@ -271,7 +272,8 @@ export function CityMap2D({
         const lx = px + s.x * cell;
         const ly = py + s.y * cell;
         if (lx < -cell || ly < -cell || lx > w + cell || ly > h + cell) continue;
-        drawLandmark(ctx, lx, ly, cell * 1.15);
+        // Canonical goddess index → the per-Founder sigil (F2, 2026-10-02).
+        drawLandmark(ctx, lx, ly, cell * 1.15 * OBJECT_GAP_FACTOR, landmarkCanonicalIndex(p.city, s.i));
       }
 
       const hqAvatar = cell * 2.6 >= 22 ? getAvatar(p.username) : null;
@@ -465,6 +467,10 @@ export function CityMap2D({
         if (Math.abs(dx - s.x) < 0.6 && Math.abs(dy - s.y) < 0.6)
           return { kind: "landmark" as const, plot: p, index: s.i };
       }
+      const prop = p.layout.propCells.find(
+        (pc) => pc.x === Math.round(dx) && pc.y === Math.round(dy)
+      );
+      if (prop) return { kind: "prop" as const, plot: p, prop: prop.prop };
       const cell = p.layout.cells.find(
         (b) => b.x === Math.round(dx) && b.y === Math.round(dy)
       );
@@ -552,6 +558,8 @@ export function CityMap2D({
           username: hit.plot.username,
           cardId: hit.cell.id,
         });
+    } else if (hit.kind === "prop") {
+      store.selectProp({ username: hit.plot.username, prop: hit.prop });
     } else {
       store.selectUniverseCity(hit.plot.username);
     }

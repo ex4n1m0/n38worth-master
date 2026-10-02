@@ -15,6 +15,28 @@
  */
 
 import type { ArtSpec, ArtShape } from "@/lib/city/building-art";
+import { mixHex } from "@/lib/city/building-art";
+import { tierScale } from "@/lib/city/map2d/draw";
+
+/** Volumetric scale constants — the ONE source shared by the 3D engine, the
+ *  catalog plates and the card's volume renderer (card-matches-3D ruling,
+ *  2026-10-02). Never fork these numbers. */
+export function ART_K(tier: number): number {
+  return (tierScale(tier) * 1.45) / 128;
+}
+export const MONUMENT_K = 1.6 / 150;
+export const HQ_K = 2.4 / 128;
+
+/** Paper the world is drawn on — opacity is BAKED toward this color in the
+ *  compiler (study F5), so translucent halos/glow bands read the same in 3D
+ *  and on volume-rendered cards instead of snapping to full strength. */
+const PAPER_HEX = "#F4F1E8";
+
+function bakeOpacity(hex: string | undefined, opacity: number | undefined): string | undefined {
+  if (!hex || hex === "none") return hex;
+  if (opacity == null || opacity >= 1) return hex;
+  return mixHex(PAPER_HEX, hex, Math.max(0, Math.min(1, opacity)));
+}
 
 export interface VolBox {
   /** Center X (cells). */
@@ -59,6 +81,9 @@ export interface ArtVolumes {
   heightCells: number;
   /** Half-width of the main (tallest) mass — wall anchor for facade quads. */
   mainHalfW: number;
+  /** Index into `spheres` of the rooftop beacon (pulse flag from the art
+   *  spec) — consumed by the card's volume renderer for the CSS pulse. */
+  beaconSphere: number;
 }
 
 function unshade(hex: string, k: number): string {
@@ -94,6 +119,7 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
   const spheres: VolSphere[] = [];
   const tori: VolTorus[] = [];
   const windowRects: ArtShape[] = [];
+  let beaconSphere = -1;
   const toX = (artX: number) => (artX - spec.w / 2) * k;
   const toY = (artY: number) => (spec.h - artY) * k;
 
@@ -125,7 +151,8 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
         pushBox(face.cx, face.baseY, face.hw * 2, face.h, unshade(s.fill ?? "#888888", 0.62));
         continue;
       }
-      if (s.fill && s.fill !== "none") {
+      const baked = bakeOpacity(s.fill, s.opacity);
+      if (baked && baked !== "none") {
         // Free polygon (shards, pyramid steps, pads): bbox slab with the
         // polygon's own color — flat pads get a shallow box.
         const xs = s.pts.map((p) => p[0]);
@@ -139,64 +166,72 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
           Math.max(...ys),
           wArt,
           isPad ? Math.max(1.5, hArt) : hArt,
-          s.fill,
+          baked,
           isPad ? 0.9 : 0.5
         );
       }
     } else if (s.kind === "rect") {
       const wk = s.w * k;
       const hk = s.h * k;
+      const baked = bakeOpacity(s.fill, s.opacity);
       if (Math.min(wk, hk) < 0.09) {
         windowRects.push(s); // lit-window dots → facade quads after main box
-      } else if (s.fill && s.fill !== "none") {
+      } else if (baked && baked !== "none") {
         // Glass cores, LED strips, plates: thin boxes at their spot.
-        pushBox(s.x + s.w / 2, s.y + s.h, s.w, s.h, s.fill, 0.7);
+        pushBox(s.x + s.w / 2, s.y + s.h, s.w, s.h, baked, 0.7);
       }
     } else if (s.kind === "ellipse") {
-      if (s.fill && s.fill !== "none") {
+      const fill = bakeOpacity(s.fill, s.opacity);
+      const stroke = bakeOpacity(s.stroke, s.opacity);
+      if (fill && fill !== "none") {
         spheres.push({
           x: toX(s.cx),
           y: toY(s.cy),
           z: 0,
           r: s.rx * k,
           squashY: Math.min(1, s.ry / Math.max(0.01, s.rx)),
-          color: s.fill,
+          color: fill,
         });
-      } else if (s.stroke) {
+      } else if (stroke) {
         tori.push({
           x: toX(s.cx),
           y: toY(s.cy),
           z: 0,
           r: s.rx * k,
           tube: Math.max(0.012, (s.strokeW ?? 1.5) * k * 0.5),
-          color: s.stroke,
+          color: stroke,
         });
       }
     } else if (s.kind === "circle") {
-      if (s.fill && s.fill !== "none") {
-        spheres.push({ x: toX(s.cx), y: toY(s.cy), z: 0, r: s.r * k, squashY: 1, color: s.fill });
-      } else if (s.stroke) {
+      const fill = bakeOpacity(s.fill, s.opacity);
+      const stroke = bakeOpacity(s.stroke, s.opacity);
+      if (fill && fill !== "none") {
+        spheres.push({ x: toX(s.cx), y: toY(s.cy), z: 0, r: s.r * k, squashY: 1, color: fill });
+        if ("pulse" in s && s.pulse) beaconSphere = spheres.length - 1;
+      } else if (stroke) {
         tori.push({
           x: toX(s.cx),
           y: toY(s.cy),
           z: 0,
           r: s.r * k,
           tube: Math.max(0.012, (s.strokeW ?? 1.5) * k * 0.5),
-          color: s.stroke,
+          color: stroke,
         });
       }
     } else if (s.kind === "line") {
       const dx = Math.abs(s.x2 - s.x1);
       const dy = Math.abs(s.y2 - s.y1);
       const th = Math.max(0.02, s.strokeW * k);
+      const stroke = bakeOpacity(s.stroke, s.opacity) ?? "#888888";
       if (dy >= dx) {
         // vertical mast/antenna
-        pushBox(s.x1, Math.max(s.y1, s.y2), th / k, dy + th, s.stroke, 0.4);
+        pushBox(s.x1, Math.max(s.y1, s.y2), th / k, dy + th, stroke, 0.4);
       } else {
-        pushBox((s.x1 + s.x2) / 2, Math.max(s.y1, s.y2), dx + th, th / k, s.stroke, 0.4);
+        pushBox((s.x1 + s.x2) / 2, Math.max(s.y1, s.y2), dx + th, th / k, stroke, 0.4);
       }
     }
-    // paths (monument arcs) are skipped — below map legibility
+    // paths are gone from the art (2026-10-02 card-matches-3D ruling) — the
+    // shape kind stays in the union for forward compatibility only.
   }
 
   // Facade windows: thin quads ON the main mass walls (mirrored to all four
@@ -216,6 +251,9 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
     const h = Math.max(0.035, r.h * k);
     const along = Math.max(0.045, r.w * k * 2.4);
     const off = toX(r.x);
+    // Window dots keep their raw emissive color (the 0.9 art opacity is
+    // imperceptible; tests + the lit-strip look depend on the exact hex).
+    const color = r.fill ?? "#ffb547";
     for (const side of [-1, 1]) {
       boxes.push({
         x: side * (mainHalfW + 0.012),
@@ -224,7 +262,7 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
         d: along,
         y0: yMid - h / 2,
         y1: yMid + h / 2,
-        color: r.fill ?? "#ffb547",
+        color,
       });
       boxes.push({
         x: off,
@@ -233,7 +271,7 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
         d: 0.018,
         y0: yMid - h / 2,
         y1: yMid + h / 2,
-        color: r.fill ?? "#ffb547",
+        color,
       });
     }
   }
@@ -256,5 +294,6 @@ export function compileArtToVolumes(spec: ArtSpec, k: number): ArtVolumes {
     widthCells: Number.isFinite(minX) ? maxX - minX : 1,
     heightCells: topY,
     mainHalfW,
+    beaconSphere,
   };
 }

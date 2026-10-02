@@ -6,13 +6,18 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronUp,
+  Construction,
   ExternalLink,
   Flame,
   GraduationCap,
   HeartPulse,
+  Landmark as LandmarkIcon,
   Loader2,
   Shield,
   ShieldCheck,
+  Ticket,
+  Trees,
+  Vault,
   X,
   Zap,
 } from "lucide-react";
@@ -24,6 +29,7 @@ import { useSound } from "@/hooks/useSound";
 import { getCityWorldStore, useCityWorldStore } from "@/hooks/useCityWorldStore";
 import { cardDisplayName } from "@/lib/display-names";
 import { professionName } from "@/lib/professions";
+import { ALBUMS } from "@/lib/blueprints";
 import { CIVIC_TIER_THRESHOLDS } from "@/lib/city/projection";
 import { formatCompact } from "@/lib/utils";
 import { AssignProfessionDialog } from "@/components/AssignProfessionDialog";
@@ -198,6 +204,7 @@ export function BuildingInspector({
   const selectedForeign = useCityWorldStore((s) => s.selectedForeign);
   const selectedHq = useCityWorldStore((s) => s.selectedHq);
   const selectedCivic = useCityWorldStore((s) => s.selectedCivic);
+  const selectedProp = useCityWorldStore((s) => s.selectedProp);
   const selectedUniverseBuilding = useCityWorldStore(
     (s) => s.selectedUniverseBuilding
   );
@@ -206,7 +213,7 @@ export function BuildingInspector({
   const [minimized, setMinimized] = useState(false);
   useEffect(() => {
     setMinimized(false);
-  }, [selectedCardId, selectedForeign, selectedHq, selectedCivic, selectedUniverseBuilding]);
+  }, [selectedCardId, selectedForeign, selectedHq, selectedCivic, selectedProp, selectedUniverseBuilding]);
 
   const foreign =
     selectedForeign !== null && neighbors && neighbors.length > 0
@@ -378,14 +385,16 @@ export function BuildingInspector({
     foreign === null &&
     selectedHq === null &&
     selectedCivic === null &&
+    selectedProp === null &&
     selectedUniverseBuilding === null
   ) {
     return null;
   }
 
   // ── minimized: slim bar over the map, selection preserved ──────────────
-  // (civic landmarks have no avatar for the bar — they always show full.)
-  if (minimized && selectedCivic === null) {
+  // (civic landmarks and album props have no avatar for the bar — they
+  // always show full.)
+  if (minimized && selectedCivic === null && selectedProp === null) {
     const activeUsername =
       selectedHq ??
       selectedUniverseBuilding?.username ??
@@ -503,6 +512,98 @@ export function BuildingInspector({
             {t.cityCivicMaxTier}
           </p>
         )}
+      </aside>
+    );
+  }
+
+  // ── ALBUM PROP panel (park/marquee/crane/rotunda/goldvault, 2026-10-02
+  // "select everything"): completed-album landmarks are selectable on every
+  // city like buildings/landmarks/HQs. Read-only — props are cosmetic.
+  if (selectedProp !== null) {
+    const album = ALBUMS.find((a) => a.prop === selectedProp.prop) ?? null;
+    const propName =
+      album != null
+        ? locale === "zh"
+          ? album.propNameZh
+          : album.propNameEn
+        : selectedProp.prop;
+    const albumName =
+      album != null ? (locale === "zh" ? album.nameZh : album.nameEn) : null;
+    const ownerName = cardDisplayName(selectedProp.username, locale);
+    const PropIcon =
+      selectedProp.prop === "park"
+        ? Trees
+        : selectedProp.prop === "marquee"
+          ? Ticket
+          : selectedProp.prop === "crane"
+            ? Construction
+            : selectedProp.prop === "rotunda"
+              ? LandmarkIcon
+              : Vault;
+    const isViewedCityProp = selectedProp.username === projection.owner.username;
+    return (
+      <aside
+        id="city-inspector-body"
+        className="city-world-inspector"
+        role="region"
+        aria-label={t.cityPropPanelTitle}
+      >
+        <header className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-800 ring-2 ring-emerald-400">
+              <PropIcon className="h-5 w-5 text-emerald-300" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="truncate text-sm font-bold text-white">{propName}</h3>
+              <p className="truncate text-[11px] font-semibold tracking-widest text-emerald-300">
+                {t.cityPropPanelTitle} · @{selectedProp.username}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => getCityWorldStore().selectProp(null)}
+              aria-label={t.cityInspectorClose}
+              className="city-world-btn"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+          <dt className="font-semibold text-gray-500">{t.cityInspectorCityOf}</dt>
+          <dd className="truncate font-bold text-purple-300">{ownerName}</dd>
+        </dl>
+
+        <p className="mt-2 rounded-md border border-gray-800 px-2 py-1.5 text-[11px] font-bold text-gray-400">
+          {albumName
+            ? t.cityPropEarnedBy.replace("{album}", albumName)
+            : t.cityPropPanelTitle}
+        </p>
+        <p className="mt-2 rounded-md border border-emerald-900 px-2 py-1.5 text-[11px] font-bold text-emerald-300">
+          {t.cityPropCosmeticNote}
+        </p>
+
+        <div className="mt-3 flex flex-col gap-1.5">
+          {!isViewedCityProp ? (
+            <a
+              href={`/city/${encodeURIComponent(selectedProp.username)}`}
+              className="city-world-link"
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {t.cityUniverseVisit}
+            </a>
+          ) : null}
+          <a
+            href={`/players/${encodeURIComponent(selectedProp.username)}`}
+            className="city-world-link"
+          >
+            <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+            {t.cityInspectorOpenProfile}
+          </a>
+        </div>
       </aside>
     );
   }

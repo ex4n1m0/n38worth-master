@@ -1,27 +1,25 @@
 /**
  * Static building preview for avatar cards (the "Buildings" browse grid).
- * A THIN SVG RENDERER over the pure art spec (src/lib/city/building-art.ts):
  *
- *   tiers 1–7  → CIVIC preview (family stack + shared tier features)
- *   tiers 8–14 → GRAND preview (the family megaform: taller massing, glow
- *                band, halo rings, crown/spire — one more detail per tier)
- *   goddesses  → their LANDMARK monument echo (stage-2 elaborated form)
+ * CARD-MATCHES-3D RULING (2026-10-02): the card renders the COMPILED
+ * VOLUMES of the shared art spec — buildingArt → compileArtToVolumes →
+ * volume-art's 2:1 iso projection — i.e. the exact boxes/spheres/tori the
+ * 3D world map builds, with the engine's own face-shading constants. Card
+ * and 3D view therefore share ONE art language by construction; whatever
+ * the compiler drops (paths, sub-cell detail) also disappears here, which
+ * is the intended simplification.
  *
  * Pure display: the tier derives from the SAME `buildingTier` the city
  * projection uses, so the preview always matches the building that hire
- * would add to the city. The geometry itself lives in the pure module —
- * this file only maps one ArtShape to one SVG element, in spec order
- * (= paint order), emitting only the attributes the spec sets.
+ * would add to the city. Goddess cards render their monument echo the same
+ * way (monumentArt → volumes).
  */
 
 import { GODDESS_USERNAMES } from "@/lib/goddesses";
 import { buildingTier } from "@/lib/city/projection";
-import {
-  buildingArt,
-  monumentArt,
-  type ArtShape,
-  type ArtSpec,
-} from "@/lib/city/building-art";
+import { buildingArt, monumentArt, type ArtShape, type ArtSpec } from "@/lib/city/building-art";
+import { ART_K, MONUMENT_K, compileArtToVolumes } from "@/lib/city/map3d/art-geometry";
+import { volumesToCardArt } from "@/lib/city/volume-art";
 import { cn } from "@/lib/utils";
 
 interface BuildingSpriteProps {
@@ -48,20 +46,23 @@ export function BuildingSprite({
   className,
   title,
 }: BuildingSpriteProps) {
+  let spec: ArtSpec;
   if (goddessUsername) {
     const index = GODDESS_USERNAMES.indexOf(goddessUsername);
-    if (index >= 0) {
-      return <ArtCard spec={monumentArt(index)} className={className} title={title} />;
-    }
+    spec =
+      index >= 0
+        ? volumesToCardArt(compileArtToVolumes(monumentArt(index), MONUMENT_K), {
+            targetWidth: 128,
+          })
+        : { w: 128, h: 128, shapes: [] };
+  } else {
+    const tier = buildingTier(playerValue, valueFloor);
+    spec = volumesToCardArt(
+      compileArtToVolumes(buildingArt({ tier, family: profession, seed: cardId }), ART_K(tier)),
+      { targetWidth: 128 }
+    );
   }
-  const tier = buildingTier(playerValue, valueFloor);
-  return (
-    <ArtCard
-      spec={buildingArt({ tier, family: profession, seed: cardId })}
-      className={className}
-      title={title}
-    />
-  );
+  return <ArtCard spec={spec} className={className} title={title} />;
 }
 
 function ArtCard({

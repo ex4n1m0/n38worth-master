@@ -102,24 +102,30 @@ const PV_W = 128;
 const PV_PAD_TOP = 34;
 const PV_PAD_BOTTOM = 20;
 
-/** Family geometry (mirrors art.ts FamilyArtSpec height ratios). */
+/** Family geometry (mirrors art.ts FamilyArtSpec height ratios). The per-tier
+ *  floor steps were raised 2026-10-02 (study F10) so adjacent tiers stay
+ *  distinguishable in the shared volume language (card + 3D). */
 const PV_SPEC: Record<
   string,
   { baseH: number; floorH: number; hw: number; grandBaseH: number; grandFloorH: number }
 > = {
-  Cryptographer: { baseH: 26, floorH: 9, hw: 46, grandBaseH: 96, grandFloorH: 12 },
-  "Zero-Day": { baseH: 30, floorH: 12, hw: 44, grandBaseH: 116, grandFloorH: 14 },
-  Overclocker: { baseH: 34, floorH: 11, hw: 36, grandBaseH: 118, grandFloorH: 12 },
-  "Cache Keeper": { baseH: 26, floorH: 10, hw: 40, grandBaseH: 106, grandFloorH: 12 },
-  "Server Marshal": { baseH: 36, floorH: 13, hw: 32, grandBaseH: 130, grandFloorH: 12 },
-  "Bot Herder": { baseH: 22, floorH: 10, hw: 46, grandBaseH: 100, grandFloorH: 11 },
-  Unassigned: { baseH: 28, floorH: 12, hw: 34, grandBaseH: 112, grandFloorH: 10 },
+  Cryptographer: { baseH: 26, floorH: 11, hw: 46, grandBaseH: 96, grandFloorH: 15 },
+  "Zero-Day": { baseH: 30, floorH: 14, hw: 44, grandBaseH: 116, grandFloorH: 17 },
+  Overclocker: { baseH: 34, floorH: 13, hw: 36, grandBaseH: 118, grandFloorH: 15 },
+  "Cache Keeper": { baseH: 26, floorH: 12, hw: 40, grandBaseH: 106, grandFloorH: 15 },
+  "Server Marshal": { baseH: 36, floorH: 15, hw: 32, grandBaseH: 130, grandFloorH: 15 },
+  "Bot Herder": { baseH: 22, floorH: 12, hw: 46, grandBaseH: 100, grandFloorH: 14 },
+  Unassigned: { baseH: 28, floorH: 14, hw: 34, grandBaseH: 114, grandFloorH: 13 },
 };
 
 /** Every family key in the geometry table (test coverage / catalog use). */
 export const ART_FAMILIES: readonly string[] = Object.keys(PV_SPEC);
 
-function shadeHex(hexColor: string, k: number): string {
+/**
+ * Shared hex color math — exported for the volume pipeline (art-geometry's
+ * opacity baking and volume-art's card face shading use the SAME constants).
+ */
+export function shadeHex(hexColor: string, k: number): string {
   const n = parseInt(hexColor.slice(1), 16);
   const r = Math.min(255, Math.round(((n >> 16) & 0xff) * k));
   const g = Math.min(255, Math.round(((n >> 8) & 0xff) * k));
@@ -127,7 +133,7 @@ function shadeHex(hexColor: string, k: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
-function mixHex(a: string, b: string, t: number): string {
+export function mixHex(a: string, b: string, t: number): string {
   const na = parseInt(a.slice(1), 16);
   const nb = parseInt(b.slice(1), 16);
   const ch = (shift: number) =>
@@ -1019,9 +1025,11 @@ function grandBody(
 
 // ── goddess monument echo ─────────────────────────────────────────────────
 //
-// Echoes of the six LandmarkSprite monuments (landmarks.ts), in their
-// stage-2 (climbing) elaborated forms — the representative look of each
-// Founder's landmark. Indexed by GODDESS_USERNAMES order (0..5).
+// Echoes of the six Founder monuments, in their stage-2 (climbing) elaborated
+// forms — the representative look of each Founder's landmark. Indexed by
+// GODDESS_USERNAMES order (0..5). Since the 2026-10-02 "card matches 3D"
+// ruling every shape here COMPILES to a volume (circles/ellipses/lines/polys
+// — no `path` arcs): what the card shows is exactly what the 3D map builds.
 
 export function monumentArt(index: number): ArtSpec {
   const color = LANDMARK_HEX_COLORS[index] ?? "#7dd3fc";
@@ -1100,7 +1108,7 @@ export function monumentArt(index: number): ArtSpec {
     shapes.push({ kind: "circle", cx: cx - 34, cy: baseY - 96, r: 3, fill: "#ffffff" });
     shapes.push({ kind: "circle", cx: cx + 34, cy: baseY - 96, r: 3, fill: "#ffffff" });
   } else if (index === 1) {
-    // The Locksmith — citadel towers + the floating key.
+    // The Registrar — citadel towers + the floating key.
     pvBox(shapes, cx - 22, baseY, 12, 88, stone);
     pvBox(shapes, cx + 22, baseY, 12, 88, stone);
     pvBox(shapes, cx, baseY - 2, 14, 34, shadeHex(color, 0.25));
@@ -1114,12 +1122,15 @@ export function monumentArt(index: number): ArtSpec {
       rx: 4,
       fill: shadeHex(color, 0.55),
     });
+    // Key bow — stroked circle (compiles to a torus, like the 3D view).
     shapes.push({
-      kind: "path",
-      d: `M ${cx - 9} ${baseY - 74} A 9 9 0 0 1 ${cx + 9} ${baseY - 74}`,
+      kind: "circle",
+      cx,
+      cy: baseY - 74,
+      r: 9,
       fill: "none",
       stroke: color,
-      strokeW: 4,
+      strokeW: 3.5,
     });
     shapes.push({ kind: "circle", cx, cy: baseY - 68, r: 3, fill: "#fffbeb" });
     shapes.push({
@@ -1159,7 +1170,7 @@ export function monumentArt(index: number): ArtSpec {
       strokeW: 2,
     });
   } else if (index === 2) {
-    // The Oracle — observatory dome, sensor eye + relay mast.
+    // The Surveyor — observatory dome, sensor eye + relay mast.
     shapes.push({ kind: "rect", x: cx - 17, y: baseY - 46, w: 34, h: 46, fill: stone });
     shapes.push({
       kind: "ellipse",
@@ -1193,9 +1204,12 @@ export function monumentArt(index: number): ArtSpec {
       ry: 3.5,
       fill: "#ffffff",
     });
+    // Sensor rings — stroked circles (compile to tori, like the 3D view).
     shapes.push({
-      kind: "path",
-      d: `M ${cx - 14} ${baseY - 62} A 14 14 0 0 1 ${cx + 14} ${baseY - 62}`,
+      kind: "circle",
+      cx,
+      cy: baseY - 58,
+      r: 14,
       fill: "none",
       stroke: color,
       strokeW: 2,
@@ -1211,22 +1225,26 @@ export function monumentArt(index: number): ArtSpec {
       strokeW: 2.5,
     });
     shapes.push({
-      kind: "path",
-      d: `M ${cx - 7} ${baseY - 76} A 7 7 0 0 1 ${cx + 7} ${baseY - 76}`,
+      kind: "circle",
+      cx,
+      cy: baseY - 76,
+      r: 7,
       fill: "none",
       stroke: color,
       strokeW: 1.5,
     });
     shapes.push({
-      kind: "path",
-      d: `M ${cx - 6} ${baseY - 88} A 6 6 0 0 1 ${cx + 6} ${baseY - 88}`,
+      kind: "circle",
+      cx,
+      cy: baseY - 88,
+      r: 6,
       fill: "none",
       stroke: color,
       strokeW: 1.5,
     });
     shapes.push({ kind: "circle", cx, cy: baseY - 98, r: 2.2, fill: "#ffffff" });
   } else if (index === 3) {
-    // The Clockkeeper — clock tower + chrono rings.
+    // The Foreman — clock tower + chrono rings.
     pvBox(shapes, cx, baseY, 15, 58, stone);
     pvBox(shapes, cx, baseY - 58, 18, 16, shadeHex(color, 0.45));
     shapes.push({
@@ -1281,7 +1299,7 @@ export function monumentArt(index: number): ArtSpec {
     });
     shapes.push({ kind: "circle", cx, cy: baseY - 122, r: 2.2, fill: "#ffffff" });
   } else if (index === 4) {
-    // NullPointer — fractured obelisk + orbit shards.
+    // The Wrecker — fractured obelisk + orbit shards.
     shapes.push({
       kind: "poly",
       pts: [
