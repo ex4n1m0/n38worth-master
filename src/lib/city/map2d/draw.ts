@@ -239,3 +239,188 @@ export function drawCityLabel(
   ctx.fillStyle = BLUEPRINT.label;
   ctx.fillText(text, x, yBelow);
 }
+
+/** Completed-album prop key — matches ALBUMS[].prop in lib/blueprints. */
+export type PropKey = "park" | "marquee" | "crane" | "rotunda" | "goldvault";
+
+/**
+ * Draw a completed-album prop as a REAL STRUCTURE on its ring-2 slot (drawn
+ * by CityMap2D; see layout.PROP_SLOTS). Blueprint-language line work that
+ * degrades gracefully — details switch on at size thresholds like
+ * drawBuilding. Static by ruling: no clock, no animation. `prop` comes off
+ * the wire as a plain string; unknown keys draw nothing (forward-compatible).
+ */
+export function drawProp(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  prop: string
+) {
+  const s = size;
+  switch (prop) {
+    case "park": {
+      // Central Park: lawn plate, diagonal footpath, three trees.
+      ctx.fillStyle = BLUEPRINT.props.park.lawn;
+      ctx.fillRect(x - s / 2, y - s / 2, s, s);
+      ctx.strokeStyle = BLUEPRINT.props.park.lawnDark;
+      ctx.lineWidth = Math.max(0.7, s * 0.06);
+      ctx.strokeRect(x - s / 2, y - s / 2, s, s);
+      ctx.strokeStyle = BLUEPRINT.props.park.path;
+      ctx.lineWidth = Math.max(0.8, s * 0.13);
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.5, y + s * 0.5);
+      ctx.lineTo(x + s * 0.5, y - s * 0.5);
+      ctx.stroke();
+      if (s >= 8) {
+        ctx.fillStyle = BLUEPRINT.props.park.lawnDark;
+        for (const [tx, ty, r] of [
+          [-0.28, -0.3, 0.16],
+          [0.27, -0.14, 0.14],
+          [-0.08, 0.28, 0.15],
+        ] as const) {
+          ctx.beginPath();
+          ctx.arc(x + tx * s, y + ty * s, r * s, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+    case "marquee": {
+      // Neon Marquee: theater gate — two posts, striped canopy, bulb row.
+      ctx.strokeStyle = BLUEPRINT.props.marquee.post;
+      ctx.lineWidth = Math.max(0.8, s * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.3, y + s * 0.48);
+      ctx.lineTo(x - s * 0.3, y - s * 0.06);
+      ctx.moveTo(x + s * 0.3, y + s * 0.48);
+      ctx.lineTo(x + s * 0.3, y - s * 0.06);
+      ctx.stroke();
+      const cw = s * 1.06;
+      const ch = s * 0.42;
+      const cy = y - s * 0.44;
+      ctx.fillStyle = BLUEPRINT.props.marquee.canopy;
+      ctx.fillRect(x - cw / 2, cy, cw, ch);
+      ctx.strokeStyle = BLUEPRINT.props.marquee.post;
+      ctx.lineWidth = Math.max(0.7, s * 0.06);
+      ctx.strokeRect(x - cw / 2, cy, cw, ch);
+      if (s >= 10) {
+        ctx.fillStyle = BLUEPRINT.paper;
+        const sw = cw / 7;
+        for (let i = 0; i < 3; i++) ctx.fillRect(x - cw / 2 + sw * (1 + i * 2), cy, sw, ch);
+      }
+      if (s >= 14) {
+        ctx.fillStyle = BLUEPRINT.props.marquee.post;
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath();
+          ctx.arc(x - cw * 0.3 + (i * cw) / 5.2, cy + ch + s * 0.08, Math.max(0.6, s * 0.045), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+    }
+    case "crane": {
+      // Crane Row: tower crane — base pad, mast, peak ties, jib +
+      // counterweight, cable + hook. Line work over a paper pad so it holds
+      // up against busy neighbors (QA 2026-10-02: heavier strokes too).
+      ctx.save();
+      ctx.fillStyle = BLUEPRINT.paper;
+      ctx.globalAlpha = 0.9;
+      ctx.fillRect(x - s * 0.48, y - s * 0.48, s * 0.96, s * 0.96);
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = BLUEPRINT.props.crane.mast;
+      ctx.fillStyle = BLUEPRINT.props.crane.mast;
+      ctx.lineCap = "round";
+      ctx.fillRect(x - s * 0.24, y + s * 0.38, s * 0.48, s * 0.12); // base pad
+      ctx.lineWidth = Math.max(1.2, s * 0.15);
+      ctx.beginPath();
+      ctx.moveTo(x, y + s * 0.4);
+      ctx.lineTo(x, y - s * 0.36); // mast
+      ctx.moveTo(x - s * 0.44, y - s * 0.36);
+      ctx.lineTo(x + s * 0.52, y - s * 0.36); // jib + counter-jib
+      ctx.stroke();
+      ctx.lineWidth = Math.max(0.8, s * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(x, y - s * 0.58); // peak
+      ctx.lineTo(x - s * 0.44, y - s * 0.36);
+      ctx.moveTo(x, y - s * 0.58);
+      ctx.lineTo(x + s * 0.52, y - s * 0.36);
+      ctx.moveTo(x + s * 0.3, y - s * 0.36); // cable
+      ctx.lineTo(x + s * 0.3, y + s * 0.06);
+      ctx.stroke();
+      ctx.fillRect(x - s * 0.46, y - s * 0.3, s * 0.16, s * 0.14); // counterweight
+      ctx.lineWidth = Math.max(1, s * 0.1);
+      ctx.beginPath();
+      ctx.arc(x + s * 0.3, y + s * 0.14, s * 0.1, Math.PI * 0.4, Math.PI * 2.1); // hook
+      ctx.stroke();
+      ctx.restore();
+      break;
+    }
+    case "rotunda": {
+      // City Rotunda: colonnade base + dome + gold finial.
+      const bw = s * 0.86;
+      const bh = s * 0.34;
+      const by = y - s * 0.02;
+      ctx.fillStyle = BLUEPRINT.paper;
+      ctx.fillRect(x - bw / 2, by, bw, bh);
+      ctx.strokeStyle = BLUEPRINT.props.rotunda.stroke;
+      ctx.lineWidth = Math.max(0.7, s * 0.055);
+      ctx.strokeRect(x - bw / 2, by, bw, bh);
+      if (s >= 10) {
+        ctx.lineWidth = Math.max(0.5, s * 0.04);
+        ctx.beginPath();
+        for (let i = 1; i <= 3; i++) {
+          const cx2 = x - bw / 2 + (bw * i) / 4;
+          ctx.moveTo(cx2, by + 1);
+          ctx.lineTo(cx2, by + bh - 1);
+        }
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.arc(x, by, s * 0.4, Math.PI, 0); // dome above the colonnade
+      ctx.closePath();
+      ctx.fillStyle = BLUEPRINT.paper;
+      ctx.fill();
+      ctx.lineWidth = Math.max(0.7, s * 0.055);
+      ctx.stroke();
+      if (s >= 12) {
+        ctx.fillStyle = BLUEPRINT.props.rotunda.finial;
+        ctx.beginPath();
+        ctx.arc(x, by - s * 0.4, Math.max(0.8, s * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case "goldvault": {
+      // Golden Vault Emblem: a SQUARE vault plate with a combination dial —
+      // deliberately NOT a hexagon, so it never twins the Founder landmarks
+      // (QA 2026-10-02 de-twin ruling).
+      const plate = s * 0.92;
+      ctx.fillStyle = BLUEPRINT.props.goldvault.gold;
+      ctx.fillRect(x - plate / 2, y - plate / 2, plate, plate);
+      ctx.strokeStyle = BLUEPRINT.props.goldvault.stroke;
+      ctx.lineWidth = Math.max(1, s * 0.09);
+      ctx.strokeRect(x - plate / 2, y - plate / 2, plate, plate);
+      // Combination dial: ink ring + spokes + hub.
+      ctx.strokeStyle = BLUEPRINT.props.goldvault.dial;
+      ctx.beginPath();
+      ctx.arc(x, y, s * 0.3, 0, Math.PI * 2);
+      ctx.lineWidth = Math.max(0.8, s * 0.06);
+      ctx.stroke();
+      if (s >= 10) {
+        ctx.beginPath();
+        for (let i = 0; i < 4; i++) {
+          const a = (Math.PI / 180) * (45 + 90 * i);
+          ctx.moveTo(x + s * 0.12 * Math.cos(a), y + s * 0.12 * Math.sin(a));
+          ctx.lineTo(x + s * 0.28 * Math.cos(a), y + s * 0.28 * Math.sin(a));
+        }
+        ctx.stroke();
+      }
+      ctx.fillStyle = BLUEPRINT.props.goldvault.dial;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(0.8, s * 0.07), 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
+}

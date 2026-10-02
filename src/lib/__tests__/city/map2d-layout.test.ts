@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   ringCellsClockwise,
   LANDMARK_SLOTS,
+  PROP_CELLS,
   layoutCity,
   layoutWorld,
   pointAtPerimeterDistance,
@@ -87,6 +88,53 @@ describe("layoutCity", () => {
     const L = layoutCity(city("empty", 0, 2));
     expect(L.cells.length).toBe(0);
     expect(L.landmarkSlots.length).toBe(2);
+  });
+});
+
+describe("album props displace buildings (user ruling 2026-10-02)", () => {
+  const ALL_PROPS = ["park", "marquee", "crane", "rotunda", "goldvault"];
+
+  it("claims its fixed ring-3 cell; buildings never stand on prop cells", () => {
+    for (const count of [1, 7, 24, 120, 500]) {
+      const L = layoutCity({ ...city(`d${count}`, count, 3), props: ALL_PROPS });
+      expect(L.propCells.length).toBe(5);
+      const occupied = new Set(L.cells.map((c) => `${c.x},${c.y}`));
+      for (const pc of L.propCells) {
+        expect(occupied.has(`${pc.x},${pc.y}`)).toBe(false);
+        expect(Math.max(Math.abs(pc.x), Math.abs(pc.y))).toBe(3); // ring 3
+        expect(PROP_CELLS[pc.prop]).toEqual({ x: pc.x, y: pc.y }); // fixed slot
+      }
+      // Every building still placed on a unique cell (pushed outward, not lost).
+      expect(L.cells.length).toBe(count);
+      expect(new Set(L.cells.map((c) => `${c.x},${c.y}`)).size).toBe(count);
+    }
+  });
+
+  it("a prop costs exactly one building's place: 24 buildings + 5 props spans ring 4", () => {
+    expect(layoutCity(city("plain", 24, 0)).radius).toBe(3); // ring 3 exactly full
+    const withProps = layoutCity({ ...city("plain", 24, 0), props: ALL_PROPS });
+    expect(withProps.radius).toBe(4); // 19 free ring-3 cells → 5 spill to ring 4
+  });
+
+  it("each prop keeps its own cell regardless of how many albums are complete", () => {
+    const L = layoutCity({ ...city("partial", 40, 0), props: ["rotunda", "park"] });
+    // Order of propCells mirrors payload order; the CELL per prop is fixed.
+    expect([...L.propCells].sort((a, b) => a.prop.localeCompare(b.prop))).toEqual([
+      { x: 0, y: -3, prop: "park" },
+      { x: 0, y: 3, prop: "rotunda" },
+    ]);
+  });
+
+  it("unknown or duplicate prop keys claim nothing extra", () => {
+    expect(layoutCity({ ...city("u", 10, 0), props: ["spaceship"] }).propCells).toEqual([]);
+    const dup = layoutCity({ ...city("u2", 10, 0), props: ["park", "park"] });
+    expect(dup.propCells).toEqual([{ x: 0, y: -3, prop: "park" }]);
+  });
+
+  it("props render alone for zero-building cities", () => {
+    const L = layoutCity({ ...city("z0", 0, 0), props: ["park"] });
+    expect(L.cells.length).toBe(0);
+    expect(L.propCells).toEqual([{ x: 0, y: -3, prop: "park" }]);
   });
 });
 

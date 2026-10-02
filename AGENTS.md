@@ -291,8 +291,13 @@ naming bible is `CITY_REBRAND_STUDY.md` (§2 vocabulary table). Keep these rules
   per press — its loop bypasses buyPlayerCore). One-time gameHistory
   backfill (≤30 commons/rares, claim-first `__backfilled` sentinel row).
 - **Rewards are COSMETIC ONLY**: album completion raises a PROP on your city
-  (park/marquee/crane/rotunda/goldvault) — derived from inventory, shipped in
-  /api/city/world `props`, drawn by CityMap2D. NO slots/value/credits ever.
+  (park/marquee/crane/rotunda/goldvault) — derived from inventory, shipped
+  per-city as `cities[].props` in /api/city/world, drawn by CityMap2D. NO
+  slots/value/credits ever. **Props TAKE THE PLACE of buildings (user ruling
+  2026-10-02)**: `layoutCity` (map2d/layout.ts) gives each prop key a FIXED
+  ring-3 cell (`PROP_CELLS`, compass points) reserved before the building
+  walk — a completed album visibly costs one building slot per prop, on
+  every viewer's identical map.
 - **Trading** (`blueprint_trades`): duplicates (count>1) only — cards stay
   non-tradeable. Propose escrows the offer copy (conditional count>1
   decrement; insert-failure refunds); accept claims via conditional status

@@ -13,6 +13,7 @@ import {
   drawLandmark,
   drawPlotPad,
   drawCityLabel,
+  drawProp,
   tierScale,
   AVATAR_MIN_PX,
 } from "@/lib/city/map2d/draw";
@@ -39,7 +40,6 @@ interface WorldPayload {
   roads: { from: string; to: string }[];
   raidHits?: { username: string; hits: number }[];
   bountyTargets?: { username: string; count: number; totalReward: number }[];
-  props?: { username: string; props: string[] }[];
 }
 
 export interface Map2DApi {
@@ -167,7 +167,6 @@ export function CityMap2D({
     const bountyTotal = new Map(
       (world?.bountyTargets ?? []).map((b) => [b.username, b.totalReward])
     );
-    const cityProps = new Map((world?.props ?? []).map((p) => [p.username, p.props]));
 
     for (const p of plots) {
       if (!visible(p)) continue;
@@ -242,67 +241,15 @@ export function CityMap2D({
         }
       }
 
-      // Completed-album props: small emblems along the plot's top edge —
-      // park (green), marquee (amber stripes), crane (dark mast), rotunda
-      // (dome), goldvault (gold hex). Deterministic slot order.
-      const props = cityProps.get(p.username);
-      if (props && props.length > 0) {
-        const halfPx = p.half * cell;
-        const s = Math.max(4, Math.min(10, cell * 0.9));
-        props.slice(0, 5).forEach((prop, i) => {
-          const cx2 = px - halfPx + s + i * (s * 2.2);
-          const cy2 = py - halfPx - s;
-          if (halfPx < 12) return;
-          ctx.lineWidth = 1.1;
-          switch (prop) {
-            case "park":
-              ctx.fillStyle = "#6FA35C";
-              ctx.beginPath();
-              ctx.arc(cx2, cy2, s * 0.7, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.strokeStyle = "#2F5226";
-              ctx.stroke();
-              break;
-            case "marquee":
-              ctx.fillStyle = "#F5C518";
-              ctx.fillRect(cx2 - s * 0.7, cy2 - s * 0.5, s * 1.4, s);
-              ctx.strokeStyle = "#6B5335";
-              ctx.strokeRect(cx2 - s * 0.7, cy2 - s * 0.5, s * 1.4, s);
-              break;
-            case "crane":
-              ctx.strokeStyle = "#33506B";
-              ctx.beginPath();
-              ctx.moveTo(cx2, cy2 + s * 0.7);
-              ctx.lineTo(cx2, cy2 - s * 0.7);
-              ctx.lineTo(cx2 + s * 0.8, cy2 - s * 0.7);
-              ctx.stroke();
-              break;
-            case "rotunda":
-              ctx.strokeStyle = "#33506B";
-              ctx.fillStyle = "#F4F1E8";
-              ctx.beginPath();
-              ctx.arc(cx2, cy2 + s * 0.3, s * 0.7, Math.PI, 0);
-              ctx.closePath();
-              ctx.fill();
-              ctx.stroke();
-              break;
-            case "goldvault":
-              ctx.fillStyle = "#F5C518";
-              ctx.strokeStyle = "#6B5335";
-              ctx.beginPath();
-              for (let k = 0; k < 6; k++) {
-                const a = (Math.PI / 180) * (60 * k - 90);
-                const hx = cx2 + s * 0.7 * Math.cos(a);
-                const hy = cy2 + s * 0.7 * Math.sin(a);
-                if (k === 0) ctx.moveTo(hx, hy);
-                else ctx.lineTo(hx, hy);
-              }
-              ctx.closePath();
-              ctx.fill();
-              ctx.stroke();
-              break;
-          }
-        });
+      // Completed-album props: REAL STRUCTURES that have TAKEN THE PLACE of
+      // buildings (user ruling 2026-10-02) — layoutCity already claimed one
+      // fixed ring-3 cell per prop, so buildings filled around them. Drawn
+      // before buildings/landmarks/HQ so those read on top where footprints
+      // graze.
+      if (p.layout.propCells.length > 0 && cell >= 2) {
+        for (const pc of p.layout.propCells) {
+          drawProp(ctx, px + pc.x * cell, py + pc.y * cell, cell * 1.15, pc.prop);
+        }
       }
 
       for (const c of p.layout.cells) {
@@ -697,6 +644,10 @@ export function CityMap2D({
         <span className="inline-flex items-center gap-1">
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#8B2E2E]" />
           {t.city2dRaided}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="inline-block h-2.5 w-2.5 rounded-[3px] border border-[#2F5226] bg-[#6FA35C]" />
+          {t.city2dAlbumProp}
         </span>
       </div>
     </div>

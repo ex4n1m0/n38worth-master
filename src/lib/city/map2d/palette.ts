@@ -22,6 +22,14 @@ export const BLUEPRINT = {
   ] as const,
   hq: { plate: "#2E4A66", stroke: "#1B2F42", gold: "#F5C518" },
   landmark: { fill: "#F5C518", fillAlpha: 0.92, stroke: "#6B5335" },
+  // Completed-album props (drawProp) — hues already proven on the paper.
+  props: {
+    park: { lawn: "#6FA35C", lawnDark: "#2F5226", path: "#F4F1E8" },
+    marquee: { canopy: "#F5C518", post: "#6B5335" },
+    crane: { mast: "#33506B" },
+    rotunda: { stroke: "#33506B", finial: "#F5C518" },
+    goldvault: { gold: "#F5C518", stroke: "#6B5335", dial: "#1B2F42" },
+  },
   road: "#5A7186",
   lockBadge: { body: "#1F2328", keyhole: "#F5C518" },
   you: "#E8590C", // highlight ring for the viewer's own plot

@@ -56,7 +56,7 @@ export async function GET() {
 
     if (cityRows.length === 0) {
       return NextResponse.json(
-        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [], raidHits: [], bountyTargets: [], props: [] },
+        { epoch: 0, generatedAt: new Date().toISOString(), cities: [], roads: [], raidHits: [], bountyTargets: [] },
         { headers: { "Cache-Control": CACHE } }
       );
     }
@@ -238,9 +238,13 @@ export async function GET() {
     for (const [uid, inv] of invByUser) {
       propsByUser.set(uid, completedProps(inv));
     }
-    const props = cityRows
-      .map((c) => ({ username: c.username, props: propsByUser.get(c.id) ?? [] }))
-      .filter((p) => p.props.length > 0);
+    // Props ride ON the city row (layout displacement input) — the map's
+    // layoutCity claims one fixed ring-3 cell per completed album.
+    const cityByUsername = new Map(cities.map((c) => [c.username, c]));
+    for (const row of cityRows) {
+      const city = cityByUsername.get(row.username);
+      if (city) city.props = propsByUser.get(row.id) ?? [];
+    }
 
     const payload = {
       epoch: Date.now(),
@@ -249,7 +253,6 @@ export async function GET() {
       roads,
       raidHits,
       bountyTargets,
-      props,
     };
     return NextResponse.json(payload, { headers: { "Cache-Control": CACHE } });
   } catch (error) {

@@ -45,6 +45,23 @@ export const LANDMARK_SLOTS: readonly { x: number; y: number }[] = [
 /** HQ occupies the 3×3 core (rings 0–1). */
 export const HQ_CORE_RADIUS = 1;
 
+/**
+ * Completed-album PROP cells (blueprint albums §5E; user ruling 2026-10-02:
+ * props TAKE THE PLACES OF BUILDINGS — never overlaid on top). Each prop key
+ * claims ONE fixed cell on ring 3 (the innermost, highest-value building
+ * ring) at a compass point, so a completed album visibly costs land and the
+ * same prop always rises at the same spot on every city. Cells are reserved
+ * BEFORE the building walk — buildings fill around them and the overflow
+ * pushes outward, exactly as if a building stood there.
+ */
+export const PROP_CELLS: Readonly<Record<string, { x: number; y: number }>> = {
+  park: { x: 0, y: -3 }, // north mid — Central Park at the head of the city
+  marquee: { x: 3, y: 0 }, // east mid — the Neon Marquee on main street
+  rotunda: { x: 0, y: 3 }, // south mid — the City Rotunda at the gates
+  crane: { x: -3, y: 0 }, // west mid — Crane Row on the works flank
+  goldvault: { x: 3, y: -3 }, // NE corner — the vault flanked by park + marquee
+};
+
 /** Building families: 6 trades + "no trade" (index 6) — palette order. */
 export const FAMILY_COUNT = 7;
 export const NO_TRADE_FAMILY = 6;
@@ -105,6 +122,11 @@ export interface WorldCity {
   landmarks: string[];
   /** ALL owned buildings, VALUE DESC (server-sorted; order = layout order). */
   buildings: WorldBuilding[];
+  /**
+   * Completed-album prop keys (ALBUMS order, from the server's completedProps
+   * projection). Each claims a fixed ring-3 cell — see PROP_CELLS.
+   */
+  props?: readonly string[];
 }
 
 export interface CityCell extends WorldBuilding {
@@ -112,11 +134,19 @@ export interface CityCell extends WorldBuilding {
   y: number;
 }
 
+export interface PropCell {
+  x: number;
+  y: number;
+  prop: string;
+}
+
 export interface CityLayout {
   /** Outer ring radius in cells (≥ HQ core). */
   radius: number;
   /** Placed landmark slots, index-aligned with city.landmarks. */
   landmarkSlots: { x: number; y: number; i: number }[];
+  /** Claimed prop cells (displace buildings — user ruling 2026-10-02). */
+  propCells: PropCell[];
   cells: CityCell[];
 }
 
@@ -142,6 +172,20 @@ export function layoutCity(city: WorldCity): CityLayout {
   }));
   for (const s of landmarkSlots) used.add(`${s.x},${s.y}`);
 
+  // Props claim their fixed ring-3 cells FIRST — the building walk then
+  // treats them as occupied, so buildings fill around them and overflow
+  // pushes outward (a prop costs exactly one building's place).
+  const propCells: PropCell[] = [];
+  const seenProps = new Set<string>();
+  for (const prop of city.props ?? []) {
+    const cell = PROP_CELLS[prop];
+    const key = `${cell?.x},${cell?.y}`;
+    if (!cell || seenProps.has(prop) || used.has(key)) continue;
+    seenProps.add(prop);
+    used.add(key);
+    propCells.push({ ...cell, prop });
+  }
+
   const cells: CityCell[] = [];
   let r = HQ_CORE_RADIUS + 2; // first building ring is 3 (moat ring 2 kept airy)
   for (const b of city.buildings) {
@@ -162,7 +206,7 @@ export function layoutCity(city: WorldCity): CityLayout {
       r++;
     }
   }
-  return { radius: Math.max(HQ_CORE_RADIUS + 2, r), landmarkSlots, cells };
+  return { radius: Math.max(HQ_CORE_RADIUS + 2, r), landmarkSlots, propCells, cells };
 }
 
 /** Plot half-size (cells) for a laid-out city. */
