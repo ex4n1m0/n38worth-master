@@ -8,6 +8,8 @@
   "city2dCanvasLabel": "共享城市地图——所有玩家的城市在同一张蓝图上",
   "cityView2d": "2D",
   "cityView3d": "3D",
+  "cityWorldRefreshIn": "{time} 后更新",
+  "cityWorldUpdating": "更新中…",
   "city3dCanvasLabel": "3D 共享城市地图——拖拽旋转，滚轮缩放",
   "city3dHint": "拖拽旋转 · 滚轮缩放 · 右键拖动平移",
   "city3dUnsupported": "此设备不支持 3D 视图。",

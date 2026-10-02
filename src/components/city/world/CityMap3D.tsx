@@ -18,6 +18,7 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useSound, playSound } from "@/hooks/useSound";
 import type { CityWorldData } from "./CityWorld";
 import type { Map2DApi } from "./CityMap2D";
+import { CITY_WORLD_REFETCH_MS } from "./CityRefreshCountdown";
 import type { City3DEngine, Hit3D } from "@/lib/city/map3d/engine";
 
 /**
@@ -67,7 +68,7 @@ export function CityMap3D({
       return (await res.json()) as WorldPayload;
     },
     staleTime: 60_000,
-    refetchInterval: 180_000,
+    refetchInterval: CITY_WORLD_REFETCH_MS,
   });
   const world = worldQuery.data ?? null;
   const plots = useMemo(() => (world ? layoutWorld(world.cities) : []), [world]);

@@ -23,6 +23,7 @@ import { professionName } from "@/lib/professions";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import type { CityWorldData } from "./CityWorld";
+import { CITY_WORLD_REFETCH_MS } from "./CityRefreshCountdown";
 
 /**
  * THE SHARED 2D WORLD MAP (CITY_2D_WORLD_STUDY.md §3.4, style A Blueprint).
@@ -105,7 +106,7 @@ export function CityMap2D({
       return (await res.json()) as WorldPayload;
     },
     staleTime: 60_000,
-    refetchInterval: 180_000,
+    refetchInterval: CITY_WORLD_REFETCH_MS,
   });
 
   const world = worldQuery.data ?? null;

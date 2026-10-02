@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type { CityProjection } from "@/lib/city/types";
 import { cityWorldStore } from "@/lib/city/scene/store";
 import { CityMap2D, type Map2DApi } from "./CityMap2D";
+import { CityRefreshCountdown } from "./CityRefreshCountdown";
 import { BuildingInspector } from "./BuildingInspector";
 import { DistrictPanel } from "./DistrictPanel";
 import { LandmarkPanel } from "./LandmarkPanel";
@@ -148,6 +149,7 @@ export function CityWorld({ projection }: { projection: CityWorldData }) {
             </button>
           ))}
         </div>
+        <CityRefreshCountdown />
         {view === "3d" ? (
           <CityMap3D
             projection={projection}

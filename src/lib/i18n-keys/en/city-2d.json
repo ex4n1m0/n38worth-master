@@ -8,6 +8,8 @@
   "city2dCanvasLabel": "Shared city map — every player's city on one blueprint",
   "cityView2d": "2D",
   "cityView3d": "3D",
+  "cityWorldRefreshIn": "Updates in {time}",
+  "cityWorldUpdating": "Updating…",
   "city3dCanvasLabel": "Shared city map in 3D — drag to rotate, scroll to zoom",
   "city3dHint": "Drag to rotate · Scroll to zoom · Right-drag to pan",
   "city3dUnsupported": "3D view is not available on this device.",
