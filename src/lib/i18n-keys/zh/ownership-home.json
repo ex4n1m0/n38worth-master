@@ -1,11 +1,11 @@
 {
   "purchaseFailed": "购买失败",
   "countdownStartedTitle": "⏱️ 倒计时开始！⏱️",
-  "countdownStartedDesc": "你集齐了全部六位奠基人！持有 60 分钟即可加冕天际线！其他玩家会试图阻止你！",
+  "countdownStartedDesc": "六位奠基人齐了！守住 60 分钟即加冕天际线——其他人会设法阻止！",
   "boughtValueToast": "你买下了 {name}！其估值现为 {value} 💰",
   "overclockFailed": "翻新失败",
   "overclockedToast": "🔨 已翻新 {name}！估值现为 {value}¢（+{cost}¢ 赠予建筑）",
-  "comboFirewalledTooltip": "契锁中——锁定期内该建筑无法开发出售",
+  "comboFirewalledTooltip": "契锁中——锁定期内无法开发出售",
   "comboFillsSlotTooltip": "可填补空开发槽位——点击添加",
   "cloaked": "未挂牌",
   "messageUsername": "私信 {name}",

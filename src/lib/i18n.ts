@@ -67,6 +67,7 @@ import enOwnershipHome from "./i18n-keys/en/ownership-home.json";
 import enSettingsOnboarding from "./i18n-keys/en/settings-onboarding.json";
 import enRaidBounties from "./i18n-keys/en/raid-bounties.json";
 import enCity2d from "./i18n-keys/en/city-2d.json";
+import enAutopilot from "./i18n-keys/en/autopilot.json";
 import zhActionButtons from "./i18n-keys/zh/action-buttons.json";
 import zhChatHistory from "./i18n-keys/zh/chat-history.json";
 import zhCity from "./i18n-keys/zh/city.json";
@@ -79,6 +80,7 @@ import zhOwnershipHome from "./i18n-keys/zh/ownership-home.json";
 import zhSettingsOnboarding from "./i18n-keys/zh/settings-onboarding.json";
 import zhRaidBounties from "./i18n-keys/zh/raid-bounties.json";
 import zhCity2d from "./i18n-keys/zh/city-2d.json";
+import zhAutopilot from "./i18n-keys/zh/autopilot.json";
 
 const en = {
   // ── Landing page ──
@@ -99,7 +101,7 @@ const en = {
   orTryInstantly: "Or try instantly",
   quickPlay: "Quick Play",
   creatingPlayer: "Creating player...",
-  quickPlayHint: "Start building instantly with a random identity — no sign-up needed",
+  quickPlayHint: "Build instantly with a random identity — no sign-up",
   alreadyHaveAccount: "Already have an account?",
   signIn: "Sign in",
   tributeNote: "This game is a tribute to",
@@ -120,15 +122,15 @@ const en = {
   landingCountdownSuffix: "away from crowning the skyline",
   howToPlay: "How to Play",
   landQuick1Label: "Acquire",
-  landQuick1Body: "buildings at their appraisal — every purchase raises one on your skyline and lifts its value. Your first 10 come with a 24-hour iron deed.",
+  landQuick1Body: "buildings at appraisal — each rises on your skyline and gains value. First 10 carry a 24h iron deed.",
   landQuick2Label: "Renovate",
-  landQuick2Body: "to double a building's value — your main engine. Deed locks shield your towers; foreclosures crack a rival's so buildings change hands.",
+  landQuick2Body: "to double a building's value. Deed locks shield yours; foreclosures crack rivals'.",
   landQuick3Label: "Collect",
-  landQuick3Body: "rent hourly — 0.2% of your portfolio, top-rank bonuses, plus The Banker's value every 24h.",
+  landQuick3Body: "hourly rent — 0.2% of portfolio, rank bonuses, The Banker's value every 24h.",
   landQuick4Label: "Grow",
-  landQuick4Body: "your skyline on the shared City map — every player's city sits on one blueprint, avatars on every building. Permits add +50 land plots; all six trades complete a district.",
+  landQuick4Body: "your skyline on the shared map — one blueprint, every player's city. Permits add +50 plots; six trades complete a district.",
   landQuick5Label: "Win",
-  landQuick5Body: "by holding all six Founders' landmarks for 1 hour — they crown your city, the city is rebuilt, and your name joins the Cornerstone forever.",
+  landQuick5Body: "by holding all six Founders for 1 hour — the city is rebuilt, your name joins the Cornerstone.",
   landChipGet: "ACQUIRE",
   landChipOverclock: "RENOVATE",
   playNow: "Play Now",
@@ -163,7 +165,7 @@ const en = {
   cardBuildingLandmark: "Becomes a landmark in your city",
   muteSounds: "Mute sounds",
   unmuteSounds: "Unmute sounds",
-  coachCredits: "Earn capital when other players acquire your cards, plus hourly rent — 0.2% of your portfolio. Your value grows every time you get acquired.",
+  coachCredits: "Earn capital when others acquire your cards, plus hourly rent (0.2% of portfolio). Value grows each time you're acquired.",
 
   // ── Language switcher ──
   language: "Language",
@@ -222,20 +224,20 @@ const en = {
 
   // ── Redeem dialog ──
   sellOutConfirmTitle: "Redeem?",
-  sellOutConfirmDesc: "Are you sure you want to redeem your deed from your landlord? You will receive capital based on your current value.",
+  sellOutConfirmDesc: "Redeem your deed for capital at your current value.",
   sellOutConfirmButton: "Yes, Redeem",
   cancel: "Cancel",
 
   // ── Discard dialog ──
   discardConfirmTitle: "Discard Building?",
-  discardConfirmDesc: "Are you sure you want to discard this building? You will lose ownership.",
+  discardConfirmDesc: "You will lose ownership of this building.",
   discardConfirmButton: "Yes, Discard",
 
   // ── Discard all dialog ──
   discardAll: "Discard All",
   discardingAll: "Discarding All...",
   discardAllConfirmTitle: "Discard All Buildings?",
-  discardAllConfirmDesc: "Are you sure you want to discard all {count} owned buildings? You will receive approximately {value}¢ and all their values will reset. Buildings with an active deed lock will be skipped.",
+  discardAllConfirmDesc: "Discard {count} buildings for ~{value}¢; their values reset. Deed-locked ones are skipped.",
   discardAllConfirmButton: "Yes, Discard All",
 
   // ── Settings ──
@@ -263,13 +265,13 @@ const en = {
   guideStep2Title: "Acquire Buildings",
   guideStep2Desc: "Acquire others to add them to your portfolio.",
   guideStep3Title: "Earn Revenue",
-  guideStep3Desc: "When someone acquires a building you own, you get a share of the price!",
+  guideStep3Desc: "Someone acquires your building — you get a share of the price!",
   guideStep4Title: "Get Acquired",
   guideStep4Desc: "When someone acquires you, your value increases!",
   guideStep5Title: "Grow Your Value",
   guideStep5Desc: "Climb the leaderboard by growing your portfolio.",
   guideStep6Title: "Compete",
-  guideStep6Desc: "Race up the leaderboards for hourly rank bonuses — or hold all six Founders to crown the skyline.",
+  guideStep6Desc: "Climb the ranks for hourly bonuses — or hold all six Founders to crown the skyline.",
 
   // ── Auth pages ──
   loginTitle: "Welcome Back",
@@ -306,6 +308,7 @@ const en = {
   ...enSettingsOnboarding,
   ...enRaidBounties,
   ...enCity2d,
+  ...enAutopilot,
 };
 
 export type TranslationKeys = typeof en;
@@ -350,15 +353,15 @@ const zh: TranslationKeys = {
   landingCountdownSuffix: "",
   howToPlay: "游戏玩法",
   landQuick1Label: "收购：",
-  landQuick1Body: "建筑，按估值购入——每次收购都会在你的天际线上立起一座新楼并推高其价值。前 10 座自带 24 小时铁契。",
+  landQuick1Body: "建筑，按估值购入——每座都立上你的天际线并升值。前 10 座自带 24 小时铁契。",
   landQuick2Label: "翻新：",
-  landQuick2Body: "让建筑估值翻倍——你的主要成长引擎。契锁守护你的高楼，法拍击破对手的契约即可夺楼。",
+  landQuick2Body: "让建筑估值翻倍。契锁守护你的楼，法拍击破对手的。",
   landQuick3Label: "收租：",
-  landQuick3Body: "每小时收租——组合价值的 0.2%、排行榜前列奖金，外加每 24 小时领取银行家的当前价值。",
+  landQuick3Body: "每小时收租——组合 0.2%、段位奖金，另每 24 小时领银行家估值。",
   landQuick4Label: "壮大：",
-  landQuick4Body: "你在共享城市地图上的天际线——所有玩家的城市都在同一张蓝图上，每栋建筑都带着主人的头像。许可证 +50 块地；集齐六大行业完成一个开发区。",
+  landQuick4Body: "共享地图上的天际线——所有城市同一张蓝图。许可 +50 地块；六行业齐成开发区。",
   landQuick5Label: "获胜：",
-  landQuick5Body: "集齐六位奠基人地标并守住 1 小时——地标为你的城市加冕，城市重建，你的名字永铭奠基石。",
+  landQuick5Body: "集齐并守住六位奠基人 1 小时——城市重建，你的名字铭刻奠基石。",
   landChipGet: "收购",
   landChipOverclock: "翻新",
   playNow: "立即游玩",
@@ -393,7 +396,7 @@ const zh: TranslationKeys = {
   cardBuildingLandmark: "将在我方城市中成为地标",
   muteSounds: "静音",
   unmuteSounds: "取消静音",
-  coachCredits: "当其他玩家收购你的建筑时赚取资金，另有每小时租金——组合价值的 0.2%。每次被收购，你的价值都会提升。",
+  coachCredits: "别人收购你的建筑即赚资金，另有每小时租金（组合 0.2%）。每次被收购估值都会上涨。",
 
   // ── 语言切换 ──
   language: "语言",
@@ -452,20 +455,20 @@ const zh: TranslationKeys = {
 
   // ── 赎回确认 ──
   sellOutConfirmTitle: "赎回？",
-  sellOutConfirmDesc: "确定要向房东赎回你的契据吗？你将根据当前估值获得资金。",
+  sellOutConfirmDesc: "赎回契据，按当前估值获得资金。",
   sellOutConfirmButton: "确认赎回",
   cancel: "取消",
 
   // ── 丢弃确认 ──
   discardConfirmTitle: "丢弃建筑？",
-  discardConfirmDesc: "确定要丢弃该建筑吗？你将失去所有权。",
+  discardConfirmDesc: "你将失去该建筑的所有权。",
   discardConfirmButton: "确认丢弃",
 
   // ── 全部丢弃确认 ──
   discardAll: "全部丢弃",
   discardingAll: "正在全部丢弃…",
   discardAllConfirmTitle: "丢弃全部建筑？",
-  discardAllConfirmDesc: "确定要丢弃拥有的全部 {count} 个建筑吗？你将获得约 {value}¢，且它们的估值将全部重置。带有契锁的建筑将被跳过。",
+  discardAllConfirmDesc: "丢弃全部 {count} 座建筑约得 {value}¢，估值全部重置。契锁中的跳过。",
   discardAllConfirmButton: "确认全部丢弃",
 
   // ── 设置 ──
@@ -493,13 +496,13 @@ const zh: TranslationKeys = {
   guideStep2Title: "收购建筑",
   guideStep2Desc: "收购其他玩家，将其纳入你的物业。",
   guideStep3Title: "赚取收益",
-  guideStep3Desc: "有人收购你拥有的建筑时，你可以分得收购收入！",
+  guideStep3Desc: "有人收购你的建筑时，你可分得一部分价款！",
   guideStep4Title: "被收购",
   guideStep4Desc: "有人收购你时，你的估值会上涨！",
   guideStep5Title: "提升估值",
   guideStep5Desc: "壮大物业，攀登排行榜。",
   guideStep6Title: "参与竞争",
-  guideStep6Desc: "冲上排行榜领取每小时排名奖金——或集齐六位奠基者，加冕天际线。",
+  guideStep6Desc: "攀登排行榜领每小时奖金——或集齐六位奠基人加冕天际线。",
 
   // ── 登录/注册 ──
   loginTitle: "欢迎回来",
@@ -536,6 +539,7 @@ const zh: TranslationKeys = {
   ...zhSettingsOnboarding,
   ...zhRaidBounties,
   ...zhCity2d,
+  ...zhAutopilot,
 };
 
 export const translations: Record<Locale, TranslationKeys> = { en, zh };

@@ -1,11 +1,11 @@
 {
   "purchaseFailed": "Purchase failed",
   "countdownStartedTitle": "⏱️ COUNTDOWN STARTED! ⏱️",
-  "countdownStartedDesc": "You own all six Founders! Hold them for 60 minutes to crown the skyline! Other players will try to stop you!",
+  "countdownStartedDesc": "All six Founders yours! Hold 60 minutes to crown the skyline — others will try to stop you!",
   "boughtValueToast": "You bought {name}! Their value is now {value} 💰",
   "overclockFailed": "Renovation failed",
   "overclockedToast": "🔨 RENOVATED {name}! Value now {value}¢ (+{cost}¢ to building)",
-  "comboFirewalledTooltip": "Deed-locked — this building can't be development-sold until the lock expires",
+  "comboFirewalledTooltip": "Deed-locked — can't be development-sold until the lock expires",
   "comboFillsSlotTooltip": "Completes an empty development slot — click to add",
   "cloaked": "Off-market",
   "messageUsername": "Message {name}",
