@@ -86,8 +86,8 @@ function CountdownBanner({ countdown }: { countdown: Countdown }) {
 /* ─── Sibling-projects strip ─── */
 /* Same "From the same maker" bar as on deepflux.space and
     onlyhumans.deepflux.space — cross-links the projects.
-    Sits above the hero in normal flow so it scrolls away, and
-    drops the taglines on mobile to stay one slim line. */
+    Sits above the hero in normal flow so it scrolls away;
+    names only, no taglines. */
 function KinStrip() {
   const { t } = useLanguage();
   return (
@@ -102,8 +102,7 @@ function KinStrip() {
           rel="noopener noreferrer"
           className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
         >
-          <b className="font-semibold text-gray-300 group-hover:text-white">DeepFlux</b>{" "}
-          <span className="hidden sm:inline">{t.kinDeepfluxDesc}</span>
+          <b className="font-semibold text-gray-300 group-hover:text-white">DeepFlux</b>
         </a>
         <span aria-hidden="true" className="h-[3px] w-[3px] flex-none rounded-full bg-white/25" />
         <a
@@ -112,8 +111,7 @@ function KinStrip() {
           rel="noopener noreferrer"
           className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
         >
-          <b className="font-semibold text-gray-300 group-hover:text-white">OnlyHumans</b>{" "}
-          <span className="hidden sm:inline">{t.kinOnlyhumansDesc}</span>
+          <b className="font-semibold text-gray-300 group-hover:text-white">OnlyHumans</b>
         </a>
         <span aria-hidden="true" className="h-[3px] w-[3px] flex-none rounded-full bg-white/25" />
         <a
@@ -122,8 +120,7 @@ function KinStrip() {
           rel="noopener noreferrer"
           className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
         >
-          <b className="font-semibold text-gray-300 group-hover:text-white">Remote</b>{" "}
-          <span className="hidden sm:inline">{t.kinRemoteDesc}</span>
+          <b className="font-semibold text-gray-300 group-hover:text-white">Remote</b>
         </a>
       </div>
     </div>
