@@ -327,9 +327,12 @@ export function CityMap2D({
   }, [focusPlot]);
 
   const fitWholeWorld = useCallback(() => {
-    const { w } = sizeRef.current;
+    const { w, h } = sizeRef.current;
     if (!worldBounds || w === 0) return;
-    camRef.current = { x: 0, y: 0, scale: (w * 0.92) / (2 * worldBounds) };
+    // Aspect-safe fit: the world is square in cell units, so bound by the
+    // SMALLER stage dimension (stages are no longer squares).
+    const scale = (Math.min(w, h) * 0.92) / (2 * worldBounds);
+    camRef.current = { x: 0, y: 0, scale };
     requestDraw();
   }, [worldBounds, requestDraw]);
   useEffect(() => {
@@ -337,8 +340,12 @@ export function CityMap2D({
   }, [fitWholeWorld]);
 
   const clampScale = useCallback(
-    (s: number) =>
-      Math.max(worldBounds ? (0.4 / worldBounds) * 8 : 0.05, Math.min(64, s)),
+    (s: number) => {
+      if (!worldBounds) return Math.min(64, s);
+      const { w, h } = sizeRef.current;
+      const fit = (Math.min(w, h) * 0.92) / (2 * worldBounds);
+      return Math.max(fit * 0.5, Math.min(64, s));
+    },
     [worldBounds]
   );
 
@@ -366,7 +373,7 @@ export function CityMap2D({
     setCameraReady(true);
   }, [focusUsername]);
 
-  // ── sizing (square 1:1, DPR-capped, camera init on first measure) ──
+  // ── sizing (fills the stage box, DPR-capped, camera init on first measure) ──
   const [measured, setMeasured] = useState(false);
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -376,13 +383,15 @@ export function CityMap2D({
       const rect = wrap.getBoundingClientRect();
       if (rect.width < 10) return;
       const dpr = Math.min(2, window.devicePixelRatio || 1);
-      // True square side (the wrapper is square by CSS; this is a safety net).
-      const side = Math.floor(Math.min(rect.width, rect.height || rect.width));
-      sizeRef.current = { w: side, h: side };
-      canvas.width = Math.floor(side * dpr);
-      canvas.height = Math.floor(side * dpr);
-      canvas.style.width = `${side}px`;
-      canvas.style.height = `${side}px`;
+      // The stage FILLS the available column (2026-10-02 ruling) — canvas
+      // matches the wrapper's full width AND height (no square clamp).
+      const w = Math.floor(rect.width);
+      const h = Math.floor(rect.height || rect.width);
+      sizeRef.current = { w, h };
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
       const ctx = canvas.getContext("2d");
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       setMeasured(true);

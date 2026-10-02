@@ -1276,13 +1276,15 @@ button {
     #05070d;
 }
 
-/* 2D shared blueprint map (2026-10-01): SQUARE 1:1 stage per the user
-   ruling — the height budget bounds the width so the stage is always a
-   true square; the canvas inside is square (see CityMap2D sizing). */
+/* 2D shared blueprint map stage. 2026-10-01 ruling was a SQUARE 1:1 stage;
+   OVERRIDDEN 2026-10-02 (user): the viewing area FILLS the whole space
+   available to it even with every right-side panel open — full column width,
+   viewport-bounded height. Applies to ALL THREE renderers (Blueprint,
+   Isometric, 3D — 3D joined later the same day). */
 .city-map-2d-stage {
   position: relative;
-  width: min(100%, clamp(420px, 70vh, 760px));
-  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: clamp(420px, calc(100vh - 230px), 1080px);
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid rgba(51, 80, 107, 0.4);

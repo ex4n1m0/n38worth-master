@@ -370,10 +370,14 @@ rebrand). Credits-only, mission ladder untouched, all routes per-user authed
   `bounty-completed`, `bounty-update` (handlers in `usePlayerEvents`).
 
 ## City 2D shared world map (2026-10-01, CITY_2D_WORLD_STUDY.md — COMPLETE)
-The city view is ONE STATIC 2D CANVAS (Style A "Blueprint", always day,
-square 1:1 stage) — `CityMap2D` mounted by `CityWorld`. User rulings encoded:
-static draw zero animation (rAF-on-event only), camera opens on YOUR city,
-literally every visible city fully rendered (no caps), avatars take the
+The city view is ONE STATIC 2D CANVAS (Style A "Blueprint", always day) —
+`CityMap2D` mounted by `CityWorld`. STAGE RULING UPDATE (2026-10-02, user):
+BOTH renderer stages (2D and 3D) FILL the whole available column (width 100%,
+height `clamp(420px, calc(100vh - 230px), 1080px)` — canvas matches the full
+wrapper, no square clamp; supersedes the 2026-10-01 square 1:1 stage). User
+rulings
+encoded: static draw zero animation (rAF-on-event only), camera opens on YOUR
+city, literally every visible city fully rendered (no caps), avatars take the
 center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
 
 - **Layout** `src/lib/city/map2d/layout.ts` (pure, tested): per-city square
@@ -411,6 +415,22 @@ instead. KEPT from the old layer (still used by panels/inspector):
 fixtures,types}.ts`, `lib/city/scene/{store,lod,daylight,summary}.ts`,
 CityGrid/BuildingTile/BuildingSprite.tsx (DOM), `useCityWorldStore`,
 city feature flag (`useCityEnabled` / `city:flag`).
+
+**UPDATE (2026-10-02, "free camera rotations" ruling):** three.js IS back as
+the SECOND renderer — `CityMap3D` (`?view=3d`, toggle "3D"), engine in
+`src/lib/city/map3d/engine.ts`, three@0.186 lazily imported ONLY when that
+view mounts (own chunk; default bundle stays 2D). It is a MINIMAL fresh
+engine (compiled card-art geometry per family/tier via `map3d/art-geometry.ts`
+— windows, silhouettes, halos from the shared building-art.ts; one shadow
+sun, custom orbit controls, raycast selection, render-on-demand) — do NOT
+grow it back into the deleted framework (no GLB kit, no addons imports, no
+LOD ladders). The city toggle is TWO views only: "2D" (the Blueprint
+CityMap2D, default) and "3D" — an intermediate "Isometric" canvas view
+(CityMapIso + map2d/iso.ts) shipped and was REMOVED the same day (2026-10-02
+user ruling); `building-art.ts` (the extracted card-art spec shared by
+BuildingSprite cards + the 3D compiler) SURVIVES it — never fork it. Legacy
+deep links/storage (`?view=blueprint`, `?view=iso`) alias to 2D. Avatars
+appear on buildings ONLY in the 2D view (user ruling 2026-10-02).
 
 ## Mainframe City building layer (planned 2026-09; RENDERER PARTS DELETED 2026-10-01)
 The city is a DERIVED visual projection of the existing economy — never a
