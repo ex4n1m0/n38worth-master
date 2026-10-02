@@ -241,3 +241,65 @@ renderer, sequential shots, same lights/sun/ground language as the engine);
 engine.ts now exports the reusable builders (`artClassGeometry`,
 `volumesToGeometry`, `buildHqObject`, `buildMonumentObject`,
 `buildPropObject`) so the catalog can NEVER drift from the world map.
+
+## 10. Second pass (2026-10-02 evening) — ALL findings addressed + the card-matches-3D ruling
+
+User ruling delivered with the fix list: **"make the drawing on the card
+match the 3D map view — simpler and consistent."** Implemented
+structurally: `BuildingSprite` no longer renders the hand-authored ArtSpec
+directly — it renders `buildingArt → compileArtToVolumes → volumesToCardArt`
+(`src/lib/city/volume-art.ts`, pure 2:1 iso projection of the SAME volumes
+the 3D engine instanced, with the GeoWriter face-shading constants
+0.95 +x / 0.8 +z / 1.2 top). Card and 3D now share ONE compiled art
+language by construction: whatever the compiler drops also disappears from
+the card — the intended simplification.
+
+Finding-by-finding resolution:
+
+- **F1 protection in 3D — FIXED.** Protected towers carry a flat base ring
+  (instanced per kind in `engine.ts`, `buildProtectionRing` for plates):
+  gold = Deed Lock, dark ink = Iron Deed.
+- **F2 identical 2D landmark hexes — FIXED.** `drawLandmark(ctx, x, y, size,
+  canonical)` draws a per-Founder ink sigil inside the gold hex: spire
+  (Architect), key (Registrar), dome + sight dot (Surveyor), clock face
+  (Foreman), fracture bolt (Wrecker), stepped pyramid (Banker). Falls back
+  to the dot below 14 px / unknown index.
+- **F3 crude 3D props — FIXED.** `buildPropObject` rebuilt: marquee =
+  posts + striped canopy + 4 bulbs; crane = base, mast, apex + peak ties,
+  jib + counter-jib, counterweight, cable + hook torus; rotunda = column
+  ring (6) + drum + gold dome + finial; goldvault = plate + dial + 4 spokes
+  + hub; park unchanged (already read fine).
+- **F4 invisible 2D tier ladder — FIXED.** `tierScale` now jumps at the
+  league boundary: civic 0.40→0.86, grand 0.97→1.00 (≈ +13% footprint jump
+  at t8, composing multiplicatively with OBJECT_GAP_FACTOR), plus grand
+  corner brackets (drafting ticks) on top of the inner register.
+- **F5 compiler drops opacity/paths — FIXED.** `compileArtToVolumes` bakes
+  opacity by mixing toward the paper color (`bakeOpacity`); every `path`
+  shape in the art was replaced with compile-surviving primitives
+  (Registrar's key bow → stroked circle → torus; Surveyor's arcs → stroked
+  circles). Nothing compiles away anymore.
+- **F6 HQ avatar 2D-only — FIXED.** `buildAvatarPlaque`: a gold-ringed
+  billboard sprite at the HQ podium front (async photo load → texture
+  update → render-on-demand flip), matching the 2D gold-ring read. Present
+  in the world engine AND the catalog plates (initial-letter placeholder
+  until the photo loads).
+- **F7 class-wide seed-0 windows — unchanged (by design).**
+- **F8 docs drift — FIXED.** monumentArt comments renamed to the current
+  Founder display names.
+- **F9 windowless t1–2 — unchanged (flavor).**
+- **F10 imperceptible adjacent-tier deltas — FIXED on three fronts.**
+  (a) PV_SPEC floor steps raised (civic +2, grand +3 per tier — t14 is
+  ~24 art px taller); (b) the F4 grand footprint jump; (c) HQ stages get a
+  per-stage mast ladder (0.95/1.2/1.45) + a stage-3 gold collar torus
+  around the tower base.
+- **F11 identical lock badges — FIXED.** Deed Lock = ink square + gold
+  keyhole (timed); Iron Deed = gold diamond + ink keyhole (permanent);
+  2D badges and 3D rings share the gold/ink language.
+
+New shared invariants from this pass:
+
+- **Card == 3D by construction** — `ART_K`/`MONUMENT_K`/`HQ_K` live in
+  `art-geometry.ts` (pure) and are the ONLY scale constants; the engine,
+  the catalog plates and `BuildingSprite` all consume them.
+- The compiler records the rooftop beacon (`ArtVolumes.beaconSphere`) so
+  the card can keep its CSS pulse while canvas/3D stay static by ruling.

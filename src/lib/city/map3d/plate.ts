@@ -24,6 +24,7 @@ import {
   GRID_INK,
   PAPER_BG,
   PAPER_GROUND,
+  PROTECTION_RING,
   seedOfString,
 } from "./engine";
 
@@ -145,11 +146,22 @@ function buildSubject(subject: PlateSubject): {
       mesh.receiveShadow = true;
       const g = new THREE.Group();
       g.add(mesh);
-      if (subject.protection) g.add(buildProtectionRing(subject.protection));
-      return { group: g, fresh: subject.protection != null };
+      if (subject.protection) {
+        const ring = buildProtectionRing(subject.protection);
+        const s = Math.max(1, cls.width / 2 / PROTECTION_RING.radius + 0.22);
+        ring.scale.set(s, 1, s);
+        g.add(ring);
+        return { group: g, fresh: true };
+      }
+      return { group: g, fresh: false };
     }
     case "hq": {
-      const g = buildHqObject(subject.stage, subject.family, seedOfString("catalog"));
+      // The plaque username is decorative in a static shot — the async
+      // photo cannot land before the pixel copy, so the initial-letter
+      // placeholder shows (the feature reads either way).
+      const g = buildHqObject(subject.stage, subject.family, seedOfString("catalog"), {
+        username: "HQ",
+      });
       return { group: g, fresh: true };
     }
     case "monument": {

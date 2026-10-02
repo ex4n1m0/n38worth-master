@@ -406,8 +406,20 @@ center square (card avatar ≥24px draw size; HQ = owner avatar ≥22px).
   `map3d/plate.ts` (one module-singleton OFFSCREEN WebGLRenderer, ~8ms-frame
   batched queue, soft failure), which builds subjects via the engine's
   EXPORTED builders (`artClassGeometry`, `buildHqObject`, `buildMonumentObject`,
-  `buildPropObject` in engine.ts) — extend those, never fork them. Catalog
-  i18n keys live in `i18n-keys/{en,zh}/city-2d.json` (catalog* keys).
+  `buildPropObject`, `buildProtectionRing` in engine.ts) — extend those, never
+  fork them. Catalog i18n keys live in `i18n-keys/{en,zh}/city-2d.json`
+  (catalog* keys).
+- **CARD-MATCHES-3D RULING (2026-10-02 evening, study §10)**: BuildingSprite
+  renders the COMPILED VOLUMES — `buildingArt → compileArtToVolumes →
+  volumesToCardArt` (lib/city/volume-art.ts, pure 2:1 iso with the engine's
+  0.95/0.8/1.2 face shading) — the exact boxes/spheres/tori the 3D engine
+  instanced, so card and 3D cannot drift. Scale constants ART_K/MONUMENT_K/
+  HQ_K live ONLY in art-geometry.ts. The compiler BAKES opacity toward paper
+  and the art contains NO `path` shapes (all replaced with circles/lines) —
+  keep it that way. Protection: gold = Deed Lock, ink = Iron Deed (2D badge
+  square vs diamond; 3D base ring via PROTECTION_RING). 2D landmarks carry
+  per-Founder sigils (drawLandmark's canonical param). tierScale jumps at
+  the league boundary (civic 0.40→0.86, grand 0.97→1.0).
 
 **SHIP 2 DONE (2026-10-01) — the old engine is DELETED.** Removed:
 `world/scene/` (PixiJS ~9.5k LOC), `world/scene3d/` (Three.js ~6.9k LOC),

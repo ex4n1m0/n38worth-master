@@ -230,9 +230,10 @@ export function BuildingsCatalog() {
                   sub={t.catalogCol2d}
                 />
                 <Plate3D
-                  subject={{ kind: "building", familyIndex: 2, tier: 6 }}
+                  subject={{ kind: "building", familyIndex: 2, tier: 6, protection: p }}
                   size={PLATE}
                   label={t.catalogCol3d}
+                  sub={p === "firewall" ? t.catalogProtectionTimed : t.catalogProtectionPerm}
                 />
               </div>
             );
@@ -295,8 +296,9 @@ export function BuildingsCatalog() {
               <Plate2D
                 width={PLATE}
                 height={PLATE}
-                draw={(ctx) => drawLandmark(ctx, PLATE / 2, PLATE / 2, 58)}
+                draw={(ctx) => drawLandmark(ctx, PLATE / 2, PLATE / 2, 58, i)}
                 label={t.catalogCol2d}
+                sub={cardDisplayName(username, locale)}
               />
               <Plate3D
                 subject={{ kind: "monument", canonical: i }}

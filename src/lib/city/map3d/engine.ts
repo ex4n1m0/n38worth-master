@@ -264,7 +264,8 @@ export function buildMonumentObject(canonicalIndex: number): THREE.Group {
 export function buildHqObject(
   stage: number,
   profession: string | null,
-  seed: number
+  seed: number,
+  plaque?: { username: string; onTextureReady?: () => void }
 ): THREE.Group {
   const g = new THREE.Group();
   const stg = Math.max(1, Math.min(3, stage));
@@ -306,13 +307,76 @@ export function buildHqObject(
     g.add(trim);
   }
   if (stg >= 3) {
-    // Stage-3 second trim ring — the "crowned" read.
-    const trim2Geo = new THREE.BoxGeometry(1.65, 0.1, 1.65);
-    const trim2 = new THREE.Mesh(trim2Geo, goldMat);
-    trim2.position.y = 0.48;
-    g.add(trim2);
+    // Stage-3 collar: a gold ring AROUND the body base — an inner trim box
+    // would hide inside the body silhouette (QA 2026-10-02).
+    const collar = new THREE.Mesh(
+      new THREE.TorusGeometry(1.08, 0.06, 8, 32),
+      goldMat
+    );
+    collar.rotation.x = Math.PI / 2;
+    collar.position.y = 0.5;
+    g.add(collar);
+  }
+  if (plaque) {
+    const p = buildAvatarPlaque(plaque.username, plaque.onTextureReady);
+    p.position.set(0, 1.15, 2.0);
+    p.scale.set(1.05, 1.05, 1);
+    g.add(p);
   }
   return g;
+}
+
+/** Gold-ringed circular avatar plaque on a canvas texture; the photo loads
+ *  async and re-renders when it arrives (render-on-demand dirty flip via
+ *  the optional callback). Shared by the world engine and catalog plates. */
+export function buildAvatarPlaque(
+  username: string,
+  onTextureReady?: () => void
+): THREE.Sprite {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const draw = (img: HTMLImageElement | null) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, 128, 128);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(64, 64, 50, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = "#EFE9DA";
+    ctx.fillRect(0, 0, 128, 128);
+    if (img) {
+      ctx.drawImage(img, 14, 14, 100, 100);
+    } else {
+      ctx.fillStyle = "#33506B";
+      ctx.font = "700 44px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(username.slice(0, 1).toUpperCase(), 64, 66);
+    }
+    ctx.restore();
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.arc(64, 64, 50, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+  draw(null);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
+  sprite.scale.set(0.95, 0.95, 1);
+  sprite.renderOrder = 12;
+  const img = new Image();
+  img.decoding = "async";
+  img.onload = () => {
+    draw(img);
+    tex.needsUpdate = true;
+    onTextureReady?.();
+  };
+  img.src = `/api/avatar/${encodeURIComponent(username)}`;
+  return sprite;
 }
 
 export function buildPropObject(prop: string): THREE.Group {
@@ -358,8 +422,9 @@ export function buildPropObject(prop: string): THREE.Group {
       }
       const canopy = add(new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.16, 0.52), goldMat));
       canopy.position.set(0, 0.58, 0);
-      // Ink stripes across the canopy top.
-      const stripeMat = new THREE.MeshLambertMaterial({ color: "#1B2F42" });
+      // Paper stripes across the canopy top — matches the 2D drawing's
+      // gold/white canopy (QA 2026-10-02 de-mismatch).
+      const stripeMat = new THREE.MeshLambertMaterial({ color: "#F4F1E8" });
       for (let i = 0; i < 3; i++) {
         const stripe = add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.02, 0.54), stripeMat));
         stripe.position.set(-0.32 + i * 0.32, 0.67, 0);
@@ -725,13 +790,23 @@ export class City3DEngine {
 
     // Protection rings (F1, 2026-10-02): Deed Lock = gold, Iron Deed = ink —
     // the 3D counterpart of the 2D corner badges, one flat ring hugging each
-    // protected tower's base. Instanced per kind (shared geometry + material,
-    // disposed with the world group on rebuild).
+    // protected tower's base (scaled to the tower's class footprint).
+    // Instanced per kind (shared geometry + material, disposed with the
+    // world group on rebuild).
+    const classWidth = new Map<string, number>();
+    for (const [key, entry] of classCells) {
+      const cls = artClassGeometry(entry.f, entry.t);
+      if (cls) classWidth.set(key, cls.width);
+    }
+    const ringScale = new THREE.Vector3();
     for (const kind of ["firewall", "hardlock"] as const) {
-      const cells: { wx: number; wy: number }[] = [];
+      const cells: { wx: number; wy: number; s: number }[] = [];
       for (const p of this.plots) {
         for (const c of p.layout.cells) {
-          if (c.p === kind) cells.push({ wx: p.cx + c.x, wy: p.cy + c.y });
+          if (c.p !== kind) continue;
+          const w = classWidth.get(`${c.f}|${c.t}`) ?? 0.8;
+          const s = Math.max(1, (w * OBJECT_GAP_FACTOR) / 2 / PROTECTION_RING.radius + 0.22);
+          cells.push({ wx: p.cx + c.x, wy: p.cy + c.y, s });
         }
       }
       if (cells.length === 0) continue;
@@ -749,7 +824,8 @@ export class City3DEngine {
       );
       for (let i = 0; i < cells.length; i++) {
         instPos.set(cells[i].wx, 0.07, cells[i].wy);
-        matrix.compose(instPos, instQuat, instScale);
+        ringScale.set(cells[i].s, 1, cells[i].s);
+        matrix.compose(instPos, instQuat, ringScale);
         rings.setMatrixAt(i, matrix);
       }
       rings.instanceMatrix.needsUpdate = true;
@@ -808,66 +884,20 @@ export class City3DEngine {
   }
 
   private makeHq(p: WorldPlot): THREE.Object3D {
-    const g = buildHqObject(p.city.hqStage, p.city.profession, seedOfString(p.username));
     // F6 (2026-10-02): the owner's avatar — the 2D map's gold ring, in 3D a
     // gold-ringed billboard plaque floating at the podium front (always
-    // faces the free camera, never clips the body).
-    const plaque = this.makeAvatarPlaque(p.username);
-    plaque.position.set(0, 1.15, 1.95);
-    g.add(plaque);
+    // faces the free camera, never clips the body). The async photo flip
+    // re-renders on demand.
+    const g = buildHqObject(p.city.hqStage, p.city.profession, seedOfString(p.username), {
+      username: p.username,
+      onTextureReady: () => {
+        this.dirty = true;
+      },
+    });
     g.position.set(p.cx, 0, p.cy);
     g.userData = { kind: "hq", username: p.username };
     this.raycastables.push(g);
     return g;
-  }
-
-  /** Gold-ringed circular avatar plaque on a canvas texture; the photo loads
-   *  async and re-renders when it arrives (render-on-demand dirty flip). */
-  private makeAvatarPlaque(username: string): THREE.Sprite {
-    const canvas = document.createElement("canvas");
-    canvas.width = 128;
-    canvas.height = 128;
-    const draw = (img: HTMLImageElement | null) => {
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.clearRect(0, 0, 128, 128);
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(64, 64, 50, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = "#EFE9DA";
-      ctx.fillRect(0, 0, 128, 128);
-      if (img) {
-        ctx.drawImage(img, 14, 14, 100, 100);
-      } else {
-        ctx.fillStyle = "#33506B";
-        ctx.font = "700 44px ui-monospace, monospace";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(username.slice(0, 1).toUpperCase(), 64, 66);
-      }
-      ctx.restore();
-      ctx.strokeStyle = GOLD;
-      ctx.lineWidth = 8;
-      ctx.beginPath();
-      ctx.arc(64, 64, 50, 0, Math.PI * 2);
-      ctx.stroke();
-    };
-    draw(null);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false }));
-    sprite.scale.set(0.95, 0.95, 1);
-    sprite.renderOrder = 12;
-    const img = new Image();
-    img.decoding = "async";
-    img.onload = () => {
-      draw(img);
-      tex.needsUpdate = true;
-      this.dirty = true;
-    };
-    img.src = `/api/avatar/${encodeURIComponent(username)}`;
-    return sprite;
   }
 
   // ── selection highlight ──────────────────────────────────────────────────
