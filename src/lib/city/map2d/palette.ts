@@ -10,6 +10,13 @@ export const BLUEPRINT = {
   gridAlpha: 0.5,
   ink: "#33506B",
   inkStrong: "#1B2F42",
+  // World floor (CITY_FLOOR_STUDY, 2026-10-02): built city plots sit on 50%
+  // grey; the ground between cities is dark green (the park prop's lawnDark
+  // family, so field and park read as the same vegetation).
+  floor: {
+    city: "#808080",
+    field: "#2F5226",
+  },
   // 6 trades + no-trade — fill (footprint) and stroke (outline/avatar ring).
   families: [
     { key: "Cryptographer", fill: "#7FA8C9", stroke: "#33506B" },
@@ -33,7 +40,8 @@ export const BLUEPRINT = {
   road: "#5A7186",
   lockBadge: { body: "#1F2328", keyhole: "#F5C518" },
   you: "#E8590C", // highlight ring for the viewer's own plot
-  label: "#3A3630",
+  // Labels render BELOW their plot, on the green field — light bone, not ink.
+  label: "#E9E4D6",
   selection: "#E8590C",
 } as const;
 

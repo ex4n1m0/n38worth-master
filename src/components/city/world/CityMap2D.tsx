@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Maximize2, Minus, Plus, Crosshair } from "lucide-react";
 import { layoutWorld, landmarkCanonicalIndex, landmarkSlotForCanonical, type WorldCity, type WorldPlot } from "@/lib/city/map2d/layout";
 import {
-  drawPaperBackground,
+  drawFieldBackground,
+  drawCityFloor,
   drawRoad,
   drawBuilding,
   drawHq,
@@ -139,7 +140,7 @@ export function CityMap2D({
     if (w === 0 || h === 0) return;
     const cam = camRef.current;
 
-    drawPaperBackground(ctx, w, h);
+    drawFieldBackground(ctx, w, h);
 
     const sx = (wx: number) => (wx - cam.x) * cam.scale + w / 2;
     const sy = (wy: number) => (wy - cam.y) * cam.scale + h / 2;
@@ -151,6 +152,13 @@ export function CityMap2D({
     const visible = (p: WorldPlot) =>
       p.cx + p.half >= viewL && p.cx - p.half <= viewR &&
       p.cy + p.half >= viewT && p.cy - p.half <= viewB;
+
+    // City floors (CITY_FLOOR_STUDY D2-A): grey plot squares go down BEFORE
+    // roads so the dashed roads read as boulevards crossing the grey.
+    for (const p of plots) {
+      if (!visible(p)) continue;
+      drawCityFloor(ctx, sx(p.cx), sy(p.cy), (p.half + 0.2) * cell);
+    }
 
     if (world) {
       for (const r of world.roads) {
@@ -600,7 +608,7 @@ export function CityMap2D({
       <div ref={wrapRef} className="city-map-2d-stage relative">
         {(worldQuery.isPending || !cameraReady) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2 text-[#33506B]">
+            <div className="flex flex-col items-center gap-2 text-[#E9E4D6]">
               <Crosshair className="h-5 w-5 animate-pulse" aria-hidden="true" />
               <span className="text-xs font-semibold">{t.city2dLoading}</span>
             </div>
@@ -608,7 +616,7 @@ export function CityMap2D({
         )}
         {(failed || (world != null && world.cities.length === 0)) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <span className="px-6 text-center text-sm text-[#33506B]">{t.city2dEmpty}</span>
+            <span className="px-6 text-center text-sm text-[#E9E4D6]">{t.city2dEmpty}</span>
           </div>
         )}
         <canvas

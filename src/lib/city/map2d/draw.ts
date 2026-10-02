@@ -34,17 +34,23 @@ export function tierScale(tier: number): number {
   return 0.4 + 0.46 * ((t - 1) / 7);
 }
 
-export function drawPaperBackground(
+/**
+ * World FIELD background (CITY_FLOOR_STUDY, 2026-10-02): the dark-green ground
+ * between cities, with the drafting grid as a surveyor's overlay. Grid alpha is
+ * LOCAL (not BLUEPRINT.gridAlpha — the catalog paper plates share that constant
+ * and keep their stronger paper grid).
+ */
+export function drawFieldBackground(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number
 ) {
-  ctx.fillStyle = BLUEPRINT.paper;
+  ctx.fillStyle = BLUEPRINT.floor.field;
   ctx.fillRect(0, 0, w, h);
   // Screen-space drafting grid (fixed 32px pitch — the paper's texture, not
   // a world feature, so it never swims while panning).
   ctx.strokeStyle = BLUEPRINT.grid;
-  ctx.globalAlpha = BLUEPRINT.gridAlpha;
+  ctx.globalAlpha = 0.25;
   ctx.lineWidth = 0.5;
   ctx.beginPath();
   for (let x = 0; x <= w; x += 32) {
@@ -370,6 +376,22 @@ export function drawLandmark(
       ctx.fill();
     }
   }
+}
+
+/**
+ * City floor (CITY_FLOOR_STUDY D1): the plot's 50%-grey ground. Extent matches
+ * the plot boundary (half + 0.2, same as drawPlotPad's strokes and the tap
+ * hit-test's half + 0.3) so the grey square IS the tappable city. Drawn in its
+ * own pass BEFORE roads (D2-A) so roads read as boulevards crossing the grey.
+ */
+export function drawCityFloor(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  halfPx: number
+) {
+  ctx.fillStyle = BLUEPRINT.floor.city;
+  ctx.fillRect(cx - halfPx, cy - halfPx, halfPx * 2, halfPx * 2);
 }
 
 export function drawPlotPad(

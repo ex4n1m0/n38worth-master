@@ -1289,7 +1289,7 @@ button {
   overflow: hidden;
   border: 1px solid rgba(51, 80, 107, 0.4);
   border-radius: 0.75rem;
-  background: #f4f1e8;
+  background: #2f5226; /* field green (CITY_FLOOR_STUDY) — behind the canvas pre-first-draw */
 }
 .city-map-2d-stage canvas {
   display: block;

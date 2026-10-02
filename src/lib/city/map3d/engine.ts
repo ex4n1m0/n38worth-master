@@ -41,6 +41,11 @@ export const INK = "#33506B";
 export const GOLD = "#F5C518";
 const YOU = "#E8590C";
 const ROAD = "#5A7186";
+// World floor (CITY_FLOOR_STUDY, 2026-10-02) — mirrors BLUEPRINT.floor in
+// map2d/palette.ts (the 2D palette is canonical). The catalog plate renderer
+// keeps PAPER_*; only the world scene uses these.
+export const FIELD = "#2F5226";
+export const CITY_FLOOR = "#808080";
 
 export type Hit3D =
   | { kind: "building"; username: string; cardId: number }
@@ -610,8 +615,8 @@ export class City3DEngine {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.camera = new THREE.PerspectiveCamera(33, 1, 0.5, 600);
 
-    this.scene.background = new THREE.Color(PAPER_BG);
-    this.scene.fog = new THREE.Fog(new THREE.Color(PAPER_BG), 120, 340);
+    this.scene.background = new THREE.Color(FIELD);
+    this.scene.fog = new THREE.Fog(new THREE.Color(FIELD), 120, 340);
 
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d2c2, 1.0));
     this.sun = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -652,11 +657,11 @@ export class City3DEngine {
     this.radiusMax = Math.max(60, maxExtent * 3.2);
     this.camera.far = Math.max(600, maxExtent * 8);
     this.camera.updateProjectionMatrix();
-    this.scene.fog = new THREE.Fog(new THREE.Color(PAPER_BG), maxExtent * 2.2, maxExtent * 6);
+    this.scene.fog = new THREE.Fog(new THREE.Color(FIELD), maxExtent * 2.2, maxExtent * 6);
 
-    // ground + drafting grid (the blueprint identity, in 3D)
+    // ground + drafting grid — the field green between cities
     const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize).rotateX(-Math.PI / 2);
-    const groundMat = new THREE.MeshLambertMaterial({ color: PAPER_GROUND });
+    const groundMat = new THREE.MeshLambertMaterial({ color: FIELD });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.receiveShadow = true;
     group.add(ground);
@@ -676,22 +681,27 @@ export class City3DEngine {
     // pads + labels + heist markers
     for (const p of this.plots) {
       const half = p.half + 0.2;
-      const padGeo = diamondGeometry(p.cx, p.cy, half);
-      const padMat = new THREE.MeshBasicMaterial({ color: "#EAE4D3", transparent: true, opacity: 0.9 });
+      // City floor (CITY_FLOOR_STUDY D1/D3): axis-aligned SQUARE grey plate —
+      // the old diamond could never cover corner ring buildings (2r > r+1.8) —
+      // Lambert + receiveShadow so building shadows land on the plot, matching
+      // the 2D grey extent (half + 0.2) exactly.
+      const padGeo = new THREE.PlaneGeometry(half * 2, half * 2).rotateX(-Math.PI / 2);
+      const padMat = new THREE.MeshLambertMaterial({ color: CITY_FLOOR });
       const pad = new THREE.Mesh(padGeo, padMat);
-      pad.position.y = 0.02;
+      pad.position.set(p.cx, 0.02, p.cy);
+      pad.receiveShadow = true;
       group.add(pad);
       const edge = new THREE.EdgesGeometry(padGeo);
       const borderMat = new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: 0.35 });
       const border = new THREE.LineSegments(edge, borderMat);
-      border.position.y = 0.03;
+      border.position.set(p.cx, 0.03, p.cy);
       group.add(border);
       if (p.username === focusUsername) {
         const youEdge = new THREE.EdgesGeometry(padGeo);
         const youMat = new THREE.LineDashedMaterial({ color: YOU, dashSize: 0.6, gapSize: 0.4 });
         const you = new THREE.LineSegments(youEdge, youMat);
         you.computeLineDistances();
-        you.position.y = 0.05;
+        you.position.set(p.cx, 0.05, p.cy);
         group.add(you);
       }
       const hits = raidHits.get(p.username) ?? 0;

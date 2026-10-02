@@ -234,7 +234,7 @@ export function CityMap3D({
       <div ref={wrapRef} className="city-map-2d-stage relative">
         {(worldQuery.isPending || !engineReady || !firstFrame) && !failed && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2 text-[#33506B]">
+            <div className="flex flex-col items-center gap-2 text-[#E9E4D6]">
               <Crosshair className="h-5 w-5 animate-pulse" aria-hidden="true" />
               <span className="text-xs font-semibold">{t.city2dLoading}</span>
             </div>
@@ -242,7 +242,7 @@ export function CityMap3D({
         )}
         {(failed || (world != null && world.cities.length === 0)) && (
           <div className="absolute inset-0 z-10 flex items-center justify-center">
-            <span className="px-6 text-center text-sm text-[#33506B]">
+            <span className="px-6 text-center text-sm text-[#E9E4D6]">
               {failed ? t.city3dUnsupported : t.city2dEmpty}
             </span>
           </div>
