@@ -9,7 +9,7 @@
  * OpenAI-compatible servers (Ollama/LM Studio) need their own CORS knobs.
  */
 
-import type { AutopilotProviderId } from "./types";
+import type { AutopilotProviderId, AutopilotSnapshot, TurnMemoryEntry } from "./types";
 
 export interface ProviderPreset {
   id: AutopilotProviderId;
@@ -24,6 +24,16 @@ export interface ProviderPreset {
 }
 
 export const PROVIDER_PRESETS: Record<AutopilotProviderId, ProviderPreset> = {
+  // The free tier FIRST (it is the default). Its calls never go through
+  // buildProviderRequest — callAutopilotModel branches to the server proxy.
+  builtin: {
+    id: "builtin",
+    labelKey: "apProviderBuiltin",
+    baseUrl: "",
+    kind: "openai",
+    defaultModel: "deepseek-flash",
+    needsBaseUrl: false,
+  },
   openrouter: {
     id: "openrouter",
     labelKey: "apProviderOpenrouter",
@@ -97,6 +107,69 @@ export interface BuildRequestOptions {
   system: string;
   user: string;
   maxTokens?: number;
+  /** Builtin tier only: the snapshot (+memory) the SERVER builds the prompt from. */
+  snapshot?: AutopilotSnapshot;
+  memory?: TurnMemoryEntry[];
+}
+
+/** Maps the proxy's machine codes to stable English error strings (v1 convention). */
+export function builtinErrorMessage(status: number, code: string | undefined, fallback: string | undefined): string {
+  switch (code) {
+    case "builtin-pace":
+      return "Free AI pace limit — one call per 10 seconds.";
+    case "builtin-user-limit":
+      return "Free AI daily limit reached — add your own API key to keep going.";
+    case "builtin-global-limit":
+      return "Free AI is paused for today — add your own API key to keep going.";
+    case "builtin-disabled":
+      return "Autopilot is currently disabled.";
+    case "builtin-unconfigured":
+      return "Free AI is not configured on the server — add your own API key.";
+    case "builtin-unavailable":
+      return "Free AI is unavailable right now — try again shortly.";
+    default:
+      return fallback || `HTTP ${status}`;
+  }
+}
+
+/**
+ * Builtin free tier: POST the snapshot to the n38worth server proxy — the
+ * DeepSeek key lives server-side and never reaches this browser. Without a
+ * snapshot (connection test) it sends a tiny ping instead.
+ */
+async function callBuiltinProxy(
+  opts: BuildRequestOptions,
+  timeoutMs: number
+): Promise<ModelCallResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch("/api/autopilot/brain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        opts.snapshot
+          ? { snapshot: opts.snapshot, memory: opts.memory ?? [] }
+          : { ping: true }
+      ),
+      signal: controller.signal,
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      content?: string;
+      usage?: { in: number; out: number };
+      code?: string;
+      error?: string;
+    };
+    if (!res.ok || data.ok !== true) {
+      return { ok: false, error: builtinErrorMessage(res.status, data.code, data.error) };
+    }
+    return { ok: true, content: data.content, usage: data.usage };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Network error" };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Normalizes preset vs custom base URLs into a full request. */
@@ -213,6 +286,8 @@ function extractContent(kind: ProviderPreset["kind"], data: unknown): { content?
 export async function callAutopilotModel(opts: BuildRequestOptions, timeoutMs = 25_000): Promise<ModelCallResult> {
   const preset = PROVIDER_PRESETS[opts.provider];
   if (!preset) return { ok: false, error: "Unknown provider" };
+  // Free tier first: no player key, server-proxied DeepSeek.
+  if (opts.provider === "builtin") return callBuiltinProxy(opts, timeoutMs);
   if (!opts.apiKey) return { ok: false, error: "No API key saved" };
   if (preset.needsBaseUrl && !opts.baseUrl) return { ok: false, error: "Base URL required" };
 

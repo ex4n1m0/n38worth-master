@@ -63,12 +63,22 @@ describe("buildProviderRequest — endpoint normalization", () => {
 });
 
 describe("PROVIDER_PRESETS invariants", () => {
-  it("every preset resolves an endpoint without a base URL unless custom", () => {
+  it("every preset resolves an endpoint without a base URL unless custom/builtin", () => {
     for (const preset of Object.values(PROVIDER_PRESETS)) {
       if (preset.needsBaseUrl) continue;
+      // builtin never goes through buildProviderRequest — it POSTs the
+      // snapshot to /api/autopilot/brain (see builtin.test.ts).
+      if (preset.id === "builtin") continue;
       const req = buildProviderRequest({ ...BASE, provider: preset.id, baseUrl: "", model: "m" });
       expect(req.url.startsWith("https://")).toBe(true);
     }
+  });
+
+  it("the builtin preset is first (the default) and has no external base URL", () => {
+    const first = Object.values(PROVIDER_PRESETS)[0];
+    expect(first.id).toBe("builtin");
+    expect(first.baseUrl).toBe("");
+    expect(first.needsBaseUrl).toBe(false);
   });
 
   it("only the custom preset requires a base URL", () => {

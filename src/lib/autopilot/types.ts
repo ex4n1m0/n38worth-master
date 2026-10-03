@@ -36,6 +36,7 @@ export const DEFAULT_AUTOPILOT_VERBS: readonly AutopilotVerb[] = [
 ] as const;
 
 export type AutopilotProviderId =
+  | "builtin" // n38worth's free server-proxied DeepSeek (no player key)
   | "openrouter"
   | "openai"
   | "groq"
@@ -62,7 +63,7 @@ export interface AutopilotConfig {
 }
 
 export const DEFAULT_AUTOPILOT_CONFIG: AutopilotConfig = {
-  provider: "openrouter",
+  provider: "builtin",
   baseUrl: "",
   model: "",
   cadenceMin: 5,

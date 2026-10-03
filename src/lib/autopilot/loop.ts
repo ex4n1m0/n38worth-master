@@ -67,7 +67,7 @@ export async function runAutopilotTurn(opts: RunTurnOptions): Promise<TurnLog> {
     return log;
   };
 
-  if (!key) {
+  if (!key && config.provider !== "builtin") {
     useAutopilotStore.getState().setLastError("no-key");
     return turn({ at: Date.now(), mode: config.mode, executed: [], plannedCount: 0, dropped: 0, spentEst: 0, error: "no-key" });
   }
@@ -109,6 +109,8 @@ export async function runAutopilotTurn(opts: RunTurnOptions): Promise<TurnLog> {
         apiKey: key,
         system: messages.system,
         user: messages.user,
+        snapshot,
+        memory,
       });
       if (res.usage) useAutopilotStore.getState().addUsage(res.usage.in, res.usage.out);
       if (!res.ok) {
@@ -173,7 +175,7 @@ export async function previewAutopilotTurn(username: string): Promise<{ plan: Au
   const store = useAutopilotStore.getState();
   const config = store.config;
   const key = getAutopilotKey();
-  if (!key) return { plan: { actions: [], dropped: 0, source: "empty" }, error: "no-key" };
+  if (!key && config.provider !== "builtin") return { plan: { actions: [], dropped: 0, source: "empty" }, error: "no-key" };
 
   try {
     const snapshot = await buildAutopilotSnapshot(username, config);
@@ -186,6 +188,8 @@ export async function previewAutopilotTurn(username: string): Promise<{ plan: Au
       apiKey: key,
       system: messages.system,
       user: messages.user,
+      snapshot,
+      memory,
     });
     if (res.usage) useAutopilotStore.getState().addUsage(res.usage.in, res.usage.out);
     if (!res.ok) return { plan: { actions: [], dropped: 0, source: "empty" }, error: res.error };

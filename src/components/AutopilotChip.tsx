@@ -22,7 +22,7 @@ import { Bot, Loader2, Settings2, X, Zap } from "lucide-react";
 import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import { useAutopilotEnabled } from "@/hooks/useAutopilot";
-import { hasAutopilotKey, useAutopilotStore } from "@/lib/autopilot/store";
+import { autopilotReady, useAutopilotStore } from "@/lib/autopilot/store";
 import { approveAwaitingPlan, AUTOPILOT_INVALIDATE_KEYS } from "@/lib/autopilot/loop";
 import { toast } from "@/lib/event-feed";
 
@@ -63,7 +63,7 @@ export function AutopilotChip() {
   }
 
   function toggleArm() {
-    if (!armed && !hasAutopilotKey()) {
+    if (!armed && !autopilotReady()) {
       toast.error(t.apErrorNoKey);
       play("error");
       return;

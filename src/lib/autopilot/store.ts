@@ -42,6 +42,14 @@ export function hasAutopilotKey(): boolean {
   return getAutopilotKey().length > 0;
 }
 
+/**
+ * Whether a turn can run at all: the builtin free tier needs no key (the
+ * server proxy holds the key); every other provider needs the player's own.
+ */
+export function autopilotReady(): boolean {
+  return useAutopilotStore.getState().config.provider === "builtin" || hasAutopilotKey();
+}
+
 /** Masked last-4 display, e.g. "sk-…9f2a" — never the full key. */
 export function maskedAutopilotKey(): string | null {
   const key = getAutopilotKey();

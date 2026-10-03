@@ -25,7 +25,7 @@ import {
 } from "@/lib/autopilot/types";
 import {
   getAutopilotKey,
-  hasAutopilotKey,
+  autopilotReady,
   maskedAutopilotKey,
   setAutopilotKey,
   useAutopilotStore,
@@ -117,7 +117,7 @@ export function AutopilotSettingsCard() {
 
   async function runPreview() {
     if (!username) return;
-    if (!hasAutopilotKey() && !keyInput.trim()) {
+    if (!autopilotReady() && !keyInput.trim()) {
       toast.error(t.apErrorNoKey);
       play("error");
       return;
@@ -158,7 +158,7 @@ export function AutopilotSettingsCard() {
 
   function toggleArm() {
     const next = !armed;
-    if (next && !hasAutopilotKey() && !keyInput.trim()) {
+    if (next && !autopilotReady() && !keyInput.trim()) {
       toast.error(t.apErrorNoKey);
       play("error");
       return;
@@ -199,6 +199,9 @@ export function AutopilotSettingsCard() {
                 </option>
               ))}
             </select>
+            {config.provider === "builtin" && (
+              <p className="text-xs text-cyan-400/80">{t.apBuiltinHint}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="ap-model" className="text-gray-300">{t.apModel}</Label>
@@ -208,6 +211,7 @@ export function AutopilotSettingsCard() {
               value={config.model}
               placeholder={preset.defaultModel || "model-name"}
               onChange={(e) => setConfig({ model: e.target.value })}
+              disabled={config.provider === "builtin"}
               className="bg-transparent border-gray-700 text-white"
             />
             <p className="text-xs text-gray-500">{t.apModelHint} · {effectiveModelName()}</p>
@@ -281,7 +285,7 @@ export function AutopilotSettingsCard() {
             type="button"
             variant="outline"
             onClick={runTest}
-            disabled={test.state === "testing" || (!keyInput.trim() && !keyMasked)}
+            disabled={test.state === "testing" || (config.provider !== "builtin" && !keyInput.trim() && !keyMasked)}
             className="border-cyan-500/40 bg-cyan-950/30 text-cyan-300 hover:text-cyan-200"
           >
             {test.state === "testing" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
