@@ -122,6 +122,15 @@ function KinStrip() {
         >
           <b className="font-semibold text-gray-300 group-hover:text-white">Remote</b>
         </a>
+        <span aria-hidden="true" className="h-[3px] w-[3px] flex-none rounded-full bg-white/25" />
+        <a
+          href="https://modelswarm.deepflux.space/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group whitespace-nowrap text-gray-500 transition-colors hover:text-gray-200"
+        >
+          <b className="font-semibold text-gray-300 group-hover:text-white">ModelSwarm</b>
+        </a>
       </div>
     </div>
   );
