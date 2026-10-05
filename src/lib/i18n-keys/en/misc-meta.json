@@ -66,7 +66,7 @@
   "privacyUseLi1": "Create and manage your game account",
   "privacyUseLi2": "Display your profile to other players",
   "privacyUseLi3": "Enable in-game features such as trading, leaderboards, and chat",
-  "privacyUseLi4": "If you enable the Autopilot feature, send your game state (portfolio, market data, cooldowns) to the third-party AI provider YOU configure, under YOUR own API key and at YOUR own cost. Your API key is stored only in your browser and never reaches our servers.",
+  "privacyUseLi4": "If you enable the Autopilot feature, your game state (portfolio, market data, cooldowns) is sent to an AI provider: with the built-in free AI, via n38worth's server to our provider; with your own key, directly from your browser — that key is stored only in your browser and never reaches our servers.",
   "privacySharingTitle": "3. Data Sharing",
   "privacySharingP1Prefix": "We do",
   "privacySharingP1Not": "not",

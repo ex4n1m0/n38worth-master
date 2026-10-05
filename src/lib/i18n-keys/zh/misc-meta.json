@@ -66,7 +66,7 @@
   "privacyUseLi1": "创建并管理你的游戏账号",
   "privacyUseLi2": "向其他玩家展示你的资料",
   "privacyUseLi3": "启用游戏内功能，如交易、排行榜和聊天",
-  "privacyUseLi4": "如果你启用自动驾驶（Autopilot）功能，将你的游戏数据（资产组合、市场信息、冷却状态）发送给你自行配置的第三方 AI 提供商，使用你自己的 API 密钥、由你自己承担费用。你的 API 密钥仅保存在你的浏览器中，绝不会上传到我们的服务器。",
+  "privacyUseLi4": "启用自动驾驶（Autopilot）功能后，你的游戏数据（资产组合、市场信息、冷却状态）会发送给 AI 提供商：使用内置免费 AI 时，经 n38worth 服务器发送至我们的提供商；使用自己的密钥时，由浏览器直接发送——该密钥仅保存在你的浏览器中，绝不会上传到我们的服务器。",
   "privacySharingTitle": "3. 数据共享",
   "privacySharingP1Prefix": "我们",
   "privacySharingP1Not": "不会",
