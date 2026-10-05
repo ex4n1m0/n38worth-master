@@ -1,6 +1,6 @@
 # TEXT_SHORTENING_STUDY.md — cut game text ~20–50% with zero meaning loss
 
-**Date:** 2026-10-03 · **Status: IMPLEMENTED (Phases A+B) — LOCAL, uncommitted & undeployed** · Phase C (server errors) skipped as planned
+**Date:** 2026-10-03 · **Status: SHIPPED — commit 5023b32, deployed to n38worth.com (build stamp verified, shortened copy confirmed in served chunk, dead keys absent)** · Phase C (server errors) skipped as planned
 
 Goal: reduce the total amount of user-visible text across the whole game
 (EN + 简体中文) while keeping every fact, number, and vocabulary ruling
