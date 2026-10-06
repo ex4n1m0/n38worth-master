@@ -134,27 +134,28 @@ const authMiddleware = auth((req) => {
   return NextResponse.next();
 }) as unknown as (req: NextRequest, event: NextFetchEvent) => Promise<NextResponse>;
 
-// Windows-only gate (2026-10-06 ruling: web + Android retired). In
-// production, every page request that does not come from the desktop
-// client (UA token `n38worth-windows`, set in desktop/src-tauri/
-// tauri.conf.json) is redirected to the /windows-only notice. Bypasses:
-// /api/* (handled below), /privacy + /terms (never matched), the
-// n38-web-preview cookie (owner browser checks — planted by
-// /api/dev-preview), and non-production (local `next dev`).
-// Kill switch: set WINDOWS_ONLY=false in the environment.
-function windowsOnlyGate(req: NextRequest): NextResponse | null {
-  const windowsOnly =
-    process.env.NODE_ENV === "production" &&
-    process.env.WINDOWS_ONLY !== "false";
-  if (!windowsOnly) return null;
-  const ua = req.headers.get("user-agent") ?? "";
-  const isDesktopClient = ua.includes("n38worth-windows");
-  const hasPreviewCookie = req.cookies.get("n38-web-preview")?.value === "1";
-  if (!isDesktopClient && !hasPreviewCookie) {
-    return NextResponse.redirect(new URL("/windows-only", req.url));
+  // Windows-only gate (2026-10-06 ruling: web + Android retired). In
+  // production, every GAME page request that does not come from the desktop
+  // client (UA token `n38worth-windows`, set in desktop/src-tauri/
+  // tauri.conf.json) is redirected to the public landing page — which now
+  // carries the download CTA instead of play/guest entry. The landing itself
+  // is not in the matcher and stays public. Bypasses: /api/* (handled
+  // below), /privacy + /terms (never matched), the n38-web-preview cookie
+  // (owner browser checks — planted by /api/dev-preview), and
+  // non-production (local `next dev`). Kill switch: WINDOWS_ONLY=false.
+  function windowsOnlyGate(req: NextRequest): NextResponse | null {
+    const windowsOnly =
+      process.env.NODE_ENV === "production" &&
+      process.env.WINDOWS_ONLY !== "false";
+    if (!windowsOnly) return null;
+    const ua = req.headers.get("user-agent") ?? "";
+    const isDesktopClient = ua.includes("n38worth-windows");
+    const hasPreviewCookie = req.cookies.get("n38-web-preview")?.value === "1";
+    if (!isDesktopClient && !hasPreviewCookie) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+    return null;
   }
-  return null;
-}
 
 export default async function middleware(req: NextRequest, event: NextFetchEvent) {
   const pathname = req.nextUrl.pathname;
@@ -189,7 +190,6 @@ export const config = {
   // the cheap CORS + Bearer branch above (no NextAuth decode here — each
   // route's own auth() remains the single session resolver for APIs).
   matcher: [
-    "/",
     "/dashboard/:path*",
     "/players/:path*",
     "/leaderboard/:path*",

@@ -1,6 +1,15 @@
 # Project notes for AI agents
 
-## Windows desktop client + Windows-only gate (2026-10-06, wave 2 SHIPPED)
+## Windows desktop client + Windows-only gate (2026-10-06, wave 2 + G1 SHIPPED)
+- **G1 graphics (e0f251c, release 1.0.1)**: the 3D city engine
+  (`src/lib/city/map3d/engine.ts`) runs on `three/webgpu` —
+  `THREE.WebGPURenderer` with a WebGL2 fallback. Construct ONLY via the async
+  `createCity3DEngine()` factory: it probes `navigator.gpu.requestAdapter()`
+  (3s timeout) BEFORE touching the canvas (a canvas holds one context type),
+  and the render loop gates on `rendererReady` until device init resolves.
+  The whole engine module imports `three/webgpu` (its own bundled three
+  copy) — do not mix `three` objects into engine scenes. The 2D Blueprint
+  view and `/catalog` plate renderer (plate.ts, classic WebGL) are unchanged.
 - **The game is Windows-only (user ruling 2026-10-06): the web and Android
   versions are RETIRED.** See PC_WINDOWS_PORT_STUDY.md + desktop/README.md.
 - **Wave 2 architecture (deployed 9691ab9, release desktop-v1.0.0)**: the exe

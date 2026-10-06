@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { signInCompat as signIn } from "@/lib/session-compat";
+import { isDesktopClient } from "@/lib/desktop-client";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Volume2, VolumeX, Crown } from "lucide-react";
+import { Volume2, VolumeX, Crown } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
@@ -142,8 +142,10 @@ export default function Home() {
   const { t } = useLanguage();
   const [gameplayOpen, setGameplayOpen] = useState(false);
   const [data, setData] = useState<LandingData | null>(null);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  // The landing is public again (web + Android retired, 2026-10-06): browsers
+  // get the download CTA; the Windows exe keeps an in-game Sign in entry.
+  const desktop = isDesktopClient();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const heroImgRef = useRef<HTMLImageElement | null>(null);
 
@@ -174,24 +176,6 @@ export default function Home() {
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Demo play handler
-  const handleDemoPlay = useCallback(async () => {
-    setDemoLoading(true);
-    try {
-      const res = await fetch("/api/demo-register", { method: "POST" });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Failed");
-      await signIn("credentials", {
-        username: d.username,
-        password: d.password,
-        redirect: false,
-      });
-      window.location.href = "/my-profile";
-    } catch {
-      setDemoLoading(false);
-    }
   }, []);
 
   // Sound toggle
@@ -259,13 +243,22 @@ export default function Home() {
         <div className="relative z-10 flex flex-col items-center gap-6">
           {/* Pushed down so the logo sits around where the stats/countdown
               block used to be — leaves the hero image visible above it. */}
-          <Link
-            href="/register"
-            className="lp-fade-up lp-gradient-text mt-32 sm:mt-44 bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
-            style={{ animationDelay: "0.1s" }}
-          >
-            n38worth
-          </Link>
+          {desktop ? (
+            <Link
+              href="/login"
+              className="lp-fade-up lp-gradient-text mt-32 sm:mt-44 bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)] hover:brightness-125 transition-all"
+              style={{ animationDelay: "0.1s" }}
+            >
+              n38worth
+            </Link>
+          ) : (
+            <div
+              className="lp-fade-up lp-gradient-text mt-32 sm:mt-44 bg-gradient-to-r from-t1-300 via-t2-300 to-t1-400 text-6xl sm:text-8xl md:text-9xl font-bold tracking-tight select-none drop-shadow-[0_0_35px_var(--t1-500)]"
+              style={{ animationDelay: "0.1s" }}
+            >
+              n38worth
+            </div>
+          )}
 
           {/* Tagline — same gradient/bold style as the title, sized so its
               line is narrower than the title but wider than the stats row
@@ -334,21 +327,33 @@ export default function Home() {
               </li>
             ))}
           </ol>
-          {/* Sign-up actions — the only place they appear. */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pb-2">
-            <Link
-              href="/register"
-              className="lp-shine relative overflow-hidden inline-flex items-center justify-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
-            >
-              {t.playNow}
-            </Link>
-            <button
-              onClick={handleDemoPlay}
-              disabled={demoLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-green-500/40 bg-green-500/10 px-8 py-4 text-lg font-semibold text-green-300 hover:bg-green-500/20 hover:scale-105 active:scale-100 transition-all disabled:opacity-50"
-            >
-              {demoLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : t.tryAsGuest}
-            </button>
+          {/* Entry actions. Web visitors (browser/Android retired 2026-10-06):
+              the single download CTA. The Windows exe keeps its Sign in entry. */}
+          <div className="flex flex-col items-center justify-center gap-3 pb-2">
+            {desktop ? (
+              <Link
+                href="/login"
+                className="lp-shine relative overflow-hidden inline-flex items-center justify-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+              >
+                {t.signIn}
+              </Link>
+            ) : (
+              <>
+                <a
+                  href="https://github.com/ex4n1m0/n38worth-master/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lp-shine relative overflow-hidden inline-flex items-center justify-center rounded-full bg-gradient-to-r from-t1-600 to-t2-600 px-10 py-4 text-lg font-semibold text-white shadow-[0_0_25px_var(--t1-600)] hover:brightness-110 hover:scale-105 active:scale-100 transition-all"
+                >
+                  {t.windowsOnlyDownload}
+                </a>
+                <p className="text-xs text-gray-400 text-center">
+                  {t.windowsOnlySoon}
+                  <br />
+                  {t.windowsOnlyExisting}
+                </p>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
