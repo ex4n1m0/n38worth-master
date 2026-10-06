@@ -1,0 +1,8 @@
+# The Vercel deployment is the API + web surface only. Everything desktop
+# (Rust shell, its multi-GB target/ build output, updater keys' dir) and the
+# static export for the bundled exe stay out of the serverless build.
+desktop
+out
+android
+Kenney
+*.log
