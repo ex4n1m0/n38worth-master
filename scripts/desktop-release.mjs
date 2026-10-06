@@ -7,7 +7,7 @@
 // Requires: gh CLI authenticated; desktop/tauri-updater.key present
 // (gitignored). The exe's window title/version come from tauri.conf.json.
 import { execSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -70,9 +70,11 @@ const latestJson = JSON.stringify(
   2
 );
 
+const latestPath = resolve(root, "desktop", "latest.json");
+writeFileSync(latestPath, latestJson);
 execSync(
-  `gh release create "${TAG}" --repo ${REPO} --title "n38worth ${version}" --notes "${notes.replace(/"/g, '\\"')}" "${setupExe}" "${setupSig}" -`,
-  { stdio: ["inherit", "inherit", "inherit"], cwd: root, input: latestJson }
+  `gh release create "${TAG}" --repo ${REPO} --title "n38worth ${version}" --notes "${notes.replace(/"/g, '\\"')}" "${setupExe}" "${setupSig}" "${latestPath}"`,
+  { stdio: "inherit", cwd: root }
 );
 console.log(
   `[desktop-release] published ${TAG} → https://github.com/${REPO}/releases/tag/${TAG}`
