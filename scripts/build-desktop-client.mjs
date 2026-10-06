@@ -6,7 +6,7 @@
 // N38_CLIENT_EXPORT=1 + NEXT_PUBLIC_API_BASE baked in, and restores the
 // tree. Output lands in out/ for Tauri to embed
 // (desktop/src-tauri/tauri.bundled.conf.json → frontendDist ../out).
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -54,6 +54,20 @@ if (existsSync(hideDir)) {
   rmSync(hideDir, { recursive: true, force: true });
 }
 rmSync(resolve(root, "out"), { recursive: true, force: true });
+// A running `next dev` holds .next and dies when this script wipes it —
+// refuse to start while one is live (2026-10-06: a release cut during a dev
+// session killed both builds). A stale .next/dev dir without a live server
+// is fine.
+if (existsSync(resolve(root, ".next/dev"))) {
+  const probe = spawnSync("curl", ["-s", "-o", "NUL", "-m", "2", "http://localhost:3000/"], { encoding: "utf8" });
+  if (probe.status === 0) {
+    console.error(
+      "[build-desktop-client] a `next dev` server is live on :3000 — stop it before cutting a desktop build."
+    );
+    process.exit(1);
+  }
+  console.log("[build-desktop-client] stale .next/dev found (no server on :3000) — proceeding");
+}
 // A stale .next/types tree still references hidden pages and fails the
 // type pass — always export from a clean build cache.
 rmSync(resolve(root, ".next"), { recursive: true, force: true });
