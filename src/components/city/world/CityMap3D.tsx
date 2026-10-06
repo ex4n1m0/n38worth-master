@@ -113,12 +113,18 @@ export function CityMap3D({
       try {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const { City3DEngine: Engine } = await import("@/lib/city/map3d/engine");
+        const { createCity3DEngine } = await import("@/lib/city/map3d/engine");
         if (cancelled) return;
-        engine = new Engine(canvas, {
+        // Async factory: probes WebGPU (with WebGL2 fallback) and resolves
+        // once the device finished init — see engine.ts (G1).
+        engine = await createCity3DEngine(canvas, {
           onHit: handleEngineHit,
           onFirstFrame: () => setFirstFrame(true),
         });
+        if (cancelled) {
+          engine.dispose();
+          return;
+        }
         engineRef.current = engine;
         const rect = wrapRef.current?.getBoundingClientRect();
         if (rect && rect.width > 10) engine.resize(rect.width, rect.height || rect.width);

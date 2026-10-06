@@ -14,7 +14,13 @@
  * shadow-casting sun, render-on-demand (idle frames do no GPU work).
  */
 
-import * as THREE from "three";
+// G1 (PC_WINDOWS_PORT_STUDY §5): the whole module imports from "three/webgpu"
+// so the engine, its geometries and its materials live in ONE three.js copy
+// (the webgpu build bundles its own core — mixing "three" and
+// "three/webgpu" objects in one scene would duplicate core classes). The
+// same WebGPURenderer class serves both backends: WebGPU when the device has
+// it, WebGL2 via forceWebGL otherwise (headless QA boxes, old GPUs).
+import * as THREE from "three/webgpu";
 import {
   layoutWorld,
   landmarkCanonicalIndex,
@@ -568,7 +574,7 @@ export function buildProtectionRing(kind: "firewall" | "hardlock"): THREE.Mesh {
 }
 
 export class City3DEngine {
-  private renderer: THREE.WebGLRenderer;
+  private renderer: THREE.WebGPURenderer;
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private sun: THREE.DirectionalLight;
@@ -596,6 +602,9 @@ export class City3DEngine {
   private dirty = true;
   private raf = 0;
   private disposed = false;
+  // WebGPU devices come up asynchronously — no render until init() resolves.
+  private rendererReady = false;
+  readonly ready: Promise<void>;
   private canvas: HTMLCanvasElement;
   private onHit: (hit: Hit3D | null) => void;
   private firstFrameCb: (() => void) | null;
@@ -609,15 +618,26 @@ export class City3DEngine {
     opts: {
       onHit: (hit: Hit3D | null) => void;
       onFirstFrame?: () => void;
+      forceWebGL?: boolean;
     }
   ) {
     this.canvas = canvas;
     this.onHit = opts.onHit;
     this.firstFrameCb = opts.onFirstFrame ?? null;
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    this.renderer = new THREE.WebGPURenderer({
+      canvas,
+      antialias: true,
+      forceWebGL: opts.forceWebGL === true,
+    });
     this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.ready = this.renderer.init().then(() => {
+      if (!this.disposed) {
+        this.rendererReady = true;
+        this.dirty = true; // first real render once the device is up
+      }
+    });
     this.camera = new THREE.PerspectiveCamera(33, 1, 0.5, 600);
 
     this.scene.background = new THREE.Color(FIELD);
@@ -1206,7 +1226,7 @@ export class City3DEngine {
     );
     this.camera.lookAt(this.target);
 
-    if (this.dirty) {
+    if (this.dirty && this.rendererReady) {
       this.dirty = false;
       this.renderer.render(this.scene, this.camera);
       if (!this.firstFrameDone) {
@@ -1269,4 +1289,44 @@ export class City3DEngine {
     this.highlightRingMat.dispose();
     this.renderer.dispose();
   }
+}
+
+// ── async factory (G1) ──────────────────────────────────────────────────────
+//
+// Minimal WebGPU ambient type (avoids the @webgpu/types dependency): the
+// factory only needs requestAdapter()'s null-vs-adapter outcome.
+declare global {
+  interface Navigator {
+    readonly gpu?: { requestAdapter(): Promise<unknown | null> };
+  }
+}
+//
+// A canvas can hold only ONE context type (webgpu OR webgl2), so the
+// WebGPU-vs-WebGL2 decision must happen BEFORE the renderer touches the
+// canvas. The factory probes navigator.gpu.requestAdapter() (3s timeout —
+// some drivers hang), falls back to forceWebGL when unavailable, then
+// constructs the engine and resolves once the device finished init().
+// Rejection propagates to the caller's failure UI (CityMap3D setFailed).
+export async function createCity3DEngine(
+  canvas: HTMLCanvasElement,
+  opts: {
+    onHit: (hit: Hit3D | null) => void;
+    onFirstFrame?: () => void;
+  }
+): Promise<City3DEngine> {
+  let forceWebGL = typeof navigator === "undefined" || !("gpu" in navigator);
+  if (!forceWebGL) {
+    try {
+      const adapter = await Promise.race([
+        navigator.gpu?.requestAdapter() ?? Promise.resolve(null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+      if (!adapter) forceWebGL = true;
+    } catch {
+      forceWebGL = true;
+    }
+  }
+  const engine = new City3DEngine(canvas, { ...opts, forceWebGL });
+  await engine.ready;
+  return engine;
 }

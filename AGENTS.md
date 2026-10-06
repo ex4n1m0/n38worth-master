@@ -1,28 +1,40 @@
 # Project notes for AI agents
 
-## Windows desktop client + Windows-only gate (2026-10-06)
+## Windows desktop client + Windows-only gate (2026-10-06, wave 2 SHIPPED)
 - **The game is Windows-only (user ruling 2026-10-06): the web and Android
-  versions are RETIRED.** See PC_WINDOWS_PORT_STUDY.md for the full plan.
-  `desktop/` holds the Tauri 2 shell (Rust): release builds load
-  `https://n38worth.com/`, `npm run desktop:dev` loads `http://localhost:3000`
-  (run `npm run dev` in a second terminal — never let Tauri's
-  beforeDevCommand start a second `next dev`). The webview user agent carries
-  the token `n38worth-windows/<version>` (desktop/src-tauri/tauri.conf.json
-  `app.windows[0].userAgent`).
+  versions are RETIRED.** See PC_WINDOWS_PORT_STUDY.md + desktop/README.md.
+- **Wave 2 architecture (deployed 9691ab9, release desktop-v1.0.0)**: the exe
+  BUNDLES the static-exported UI (`npm run desktop:dist` → scripts/
+  build-desktop-client.mjs hides api/, proxy.ts, dynamic pages, OG images →
+  `out/` embedded in the exe) and talks to the API cross-origin with a
+  Bearer token. NEVER re-fork the API base: all client API calls stay
+  relative `/api/...`; the fetch shim (`src/lib/desktop-client.ts`) rewrites
+  them in desktop mode. Session surface: `src/lib/session-compat.tsx`
+  (`useSessionCompat as useSession` etc. — client files never import
+  next-auth/react directly anymore). Server: `/api/client-session` mints
+  tokens; `src/proxy.ts` exchanges Bearer→NextAuth session cookie (both
+  cookie spellings) + CORS/OPTIONS on all /api. UI changes ship via
+  `npm run desktop:release` (GitHub Releases on the PUBLIC
+  ex4n1m0/n38worth-master repo = auto-updater endpoint) — **no Vercel deploy
+  needed for UI work**. OAuth (Google/Facebook) login is web-only; the exe
+  uses username/password.
+- **Deep links are query-based in the client**: `/player?u=<name>` and
+  `/city/visit?u=<name>` (static-export safe). Legacy `/players/[username]`
+  and `/city/[username]` pages remain for web share links only. New UI links
+  must use the query form.
 - **Gate** (`src/proxy.ts`): in production, page requests without the UA
-  token — or without the 30-day `n38-web-preview` cookie planted by
-  `/api/dev-preview` (owner browser checks) — redirect to `/windows-only`
-  (bilingual notice). Local `next dev` is never gated; kill switch is the
-  `WINDOWS_ONLY=false` env var. The Android UA (`n38worth-android`) is
-  deliberately NOT exempted. Keep the token substring `n38worth-windows` in
-  sync between tauri.conf.json and the gate.
+  token `n38worth-windows` (tauri.conf.json userAgent) — or without the
+  30-day `n38-web-preview` cookie from `/api/dev-preview` — redirect to
+  `/windows-only` (which links the GitHub release). Kill switch:
+  `WINDOWS_ONLY=false` env. Android UA is deliberately NOT exempted.
+- **Vercel excludes** build trees via `.vercelignore` (desktop/, out/,
+  android/, Kenney/) — the API-only deploy is ~57s.
 - **Cost model (the reason for the port)**: develop locally
-  (`npm run dev` + `npm run desktop:dev` — zero Vercel spend) and deploy to
-  Vercel ONLY for server-side changes (API routes, crons, proxy, i18n JSON).
-  UI-only changes verified in the local exe ride along with the next server
-  deploy until Stage B (bundled UI + updater, study §7 M4) removes that
-  coupling. Remember: local dev writes to the SHARED production Neon DB —
-  point `.env.local` at a Neon dev branch for throwaway testing.
+  (`npm run dev` + `npm run desktop:dev` — zero Vercel spend); deploy to
+  Vercel ONLY for server-side changes (API routes, crons, proxy, i18n JSON);
+  ship UI via desktop releases. Remember: local dev writes to the SHARED
+  production Neon DB — point `.env.local` at a Neon dev branch for throwaway
+  testing.
 
 ## Localization (English + 简体中文, since 2026-09)
 - **All user-visible strings go through the dictionary**: add a key to BOTH
