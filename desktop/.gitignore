@@ -4,3 +4,4 @@ src-tauri/gen/schemas/
 
 # Updater signing PRIVATE key — never commit (the .pub ships in config)
 tauri-updater.key
+desktop/latest.json
