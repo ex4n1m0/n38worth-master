@@ -1,5 +1,29 @@
 # Project notes for AI agents
 
+## Windows desktop client + Windows-only gate (2026-10-06)
+- **The game is Windows-only (user ruling 2026-10-06): the web and Android
+  versions are RETIRED.** See PC_WINDOWS_PORT_STUDY.md for the full plan.
+  `desktop/` holds the Tauri 2 shell (Rust): release builds load
+  `https://n38worth.com/`, `npm run desktop:dev` loads `http://localhost:3000`
+  (run `npm run dev` in a second terminal — never let Tauri's
+  beforeDevCommand start a second `next dev`). The webview user agent carries
+  the token `n38worth-windows/<version>` (desktop/src-tauri/tauri.conf.json
+  `app.windows[0].userAgent`).
+- **Gate** (`src/proxy.ts`): in production, page requests without the UA
+  token — or without the 30-day `n38-web-preview` cookie planted by
+  `/api/dev-preview` (owner browser checks) — redirect to `/windows-only`
+  (bilingual notice). Local `next dev` is never gated; kill switch is the
+  `WINDOWS_ONLY=false` env var. The Android UA (`n38worth-android`) is
+  deliberately NOT exempted. Keep the token substring `n38worth-windows` in
+  sync between tauri.conf.json and the gate.
+- **Cost model (the reason for the port)**: develop locally
+  (`npm run dev` + `npm run desktop:dev` — zero Vercel spend) and deploy to
+  Vercel ONLY for server-side changes (API routes, crons, proxy, i18n JSON).
+  UI-only changes verified in the local exe ride along with the next server
+  deploy until Stage B (bundled UI + updater, study §7 M4) removes that
+  coupling. Remember: local dev writes to the SHARED production Neon DB —
+  point `.env.local` at a Neon dev branch for throwaway testing.
+
 ## Localization (English + 简体中文, since 2026-09)
 - **All user-visible strings go through the dictionary**: add a key to BOTH
   `en` and `zh` in `src/lib/i18n.ts` (the `TranslationKeys` type fails the

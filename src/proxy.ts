@@ -37,6 +37,27 @@ export default auth((req) => {
   const isApiRoute = req.nextUrl.pathname.startsWith("/api");
   const pathname = req.nextUrl.pathname;
 
+  // Windows-only gate (2026-10-06 ruling: web + Android retired). In
+  // production, every page request that does not come from the desktop
+  // client (UA token `n38worth-windows`, set in desktop/src-tauri/
+  // tauri.conf.json) is redirected to the /windows-only notice. Bypasses:
+  // /api/* (never matched), /privacy + /terms (never matched), the
+  // n38-web-preview cookie (owner browser checks — planted by
+  // /api/dev-preview), and non-production (local `next dev`).
+  // Kill switch: set WINDOWS_ONLY=false in the environment.
+  const windowsOnly =
+    process.env.NODE_ENV === "production" &&
+    process.env.WINDOWS_ONLY !== "false";
+  if (windowsOnly) {
+    const ua = req.headers.get("user-agent") ?? "";
+    const isDesktopClient = ua.includes("n38worth-windows");
+    const hasPreviewCookie =
+      req.cookies.get("n38-web-preview")?.value === "1";
+    if (!isDesktopClient && !hasPreviewCookie && !isApiRoute) {
+      return NextResponse.redirect(new URL("/windows-only", req.url));
+    }
+  }
+
   // Redirect logged-in users away from auth pages to the market
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/leaderboard", req.url));
@@ -84,6 +105,7 @@ export const config = {
   // checks. Excluding /, /api/*, /privacy, /terms, and static assets keeps
   // public/landing traffic and every API call from invoking auth().
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/players/:path*",
     "/leaderboard/:path*",
@@ -97,7 +119,8 @@ export const config = {
     "/city/:path*",
     "/catalog/:path*",
     "/raid/:path*",
-    "/login",
-    "/register",
+    "/login/:path*",
+    "/register/:path*",
+    "/chat/:path*",
   ],
 };

@@ -101,5 +101,11 @@
   "termsDisclaimerTitle": "7. 免责声明",
   "termsDisclaimerP1": "n38worth 按“原样”提供，不作任何形式的保证。对于任何游戏进度、数据或虚拟物品的损失，我们不承担责任。",
   "termsChangesTitle": "8. 条款变更",
-  "termsChangesP1": "我们可能随时更新这些条款。变更后继续使用本平台即表示接受新条款。"
+  "termsChangesP1": "我们可能随时更新这些条款。变更后继续使用本平台即表示接受新条款。",
+  "windowsOnlyBadge": "已转型为 Windows 游戏",
+  "windowsOnlyTitle": "这座城市已迁移至桌面端",
+  "windowsOnlyBody": "《城市建设模拟》现已成为 Windows 原生游戏。网页版与 Android 版已停止服务。",
+  "windowsOnlyDownload": "下载 Windows 版",
+  "windowsOnlySoon": "首个公开下载即将上线——请稍后再来。",
+  "windowsOnlyExisting": "老玩家：你的账户与城市数据完整保留。在 Windows 客户端中使用原用户名登录即可。"
 }

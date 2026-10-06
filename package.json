@@ -25,7 +25,10 @@
     "city:flag": "npx tsx scripts/city-flag.ts",
     "autopilot:flag": "npx tsx scripts/autopilot-flag.ts",
     "gen:scifi-art": "npx tsx scripts/gen-scifi-art.ts",
-    "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts"
+    "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts",
+    "desktop:dev": "cd desktop && npx tauri dev",
+    "desktop:build": "cd desktop && npx tauri build",
+    "desktop:icon": "cd desktop && npx tauri icon ../Icon.png"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",
@@ -61,6 +64,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2.12.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
