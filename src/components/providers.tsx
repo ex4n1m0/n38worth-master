@@ -40,13 +40,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
     </ThemeProvider>
   );
 
+  // SessionProvider is ALWAYS mounted: useSessionCompat calls next-auth's
+  // useSession unconditionally (hooks can't be conditional) and next-auth
+  // throws without a provider — mounting it everywhere means the desktop
+  // build never crashes, it just ignores the empty web session. The desktop
+  // token session nests inside and takes precedence in useSessionCompat.
   return (
     <QueryClientProvider client={queryClient}>
-      {desktop ? (
-        <DesktopSessionProvider>{tree}</DesktopSessionProvider>
-      ) : (
-        <SessionProvider>{tree}</SessionProvider>
-      )}
+      <SessionProvider>
+        {desktop ? <DesktopSessionProvider>{tree}</DesktopSessionProvider> : tree}
+      </SessionProvider>
     </QueryClientProvider>
   );
 }

@@ -31,11 +31,13 @@
   `/city/visit?u=<name>` (static-export safe). Legacy `/players/[username]`
   and `/city/[username]` pages remain for web share links only. New UI links
   must use the query form.
-- **Gate** (`src/proxy.ts`): in production, page requests without the UA
+- **Gate** (`src/proxy.ts`): in production, GAME page requests without the UA
   token `n38worth-windows` (tauri.conf.json userAgent) — or without the
-  30-day `n38-web-preview` cookie from `/api/dev-preview` — redirect to
-  `/windows-only` (which links the GitHub release). Kill switch:
-  `WINDOWS_ONLY=false` env. Android UA is deliberately NOT exempted.
+  30-day `n38-web-preview` cookie from `/api/dev-preview` — redirect to the
+  public landing page, which carries the Download-for-Windows CTA (replacing
+  the retired play/guest entries; the standalone /windows-only notice page is
+  DELETED). Kill switch: `WINDOWS_ONLY=false` env. Android UA is deliberately
+  NOT exempted.
 - **Vercel excludes** build trees via `.vercelignore` (desktop/, out/,
   android/, Kenney/) — the API-only deploy is ~57s.
 - **Cost model (the reason for the port)**: develop locally

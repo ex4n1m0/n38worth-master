@@ -11,8 +11,14 @@
 /// src/lib/desktop-client.ts).
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
+    // The updater config lives in tauri.bundled.conf.json (release builds
+    // merge it); the base config used by `tauri dev` has none, so the plugin
+    // is registered for release builds only — dev never auto-updates.
+    let mut builder = tauri::Builder::default();
+    if !cfg!(debug_assertions) {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .setup(|app| {
             // Best-effort auto-update on launch: check the endpoint, and if
             // a newer signed build exists, download + install it (passive
@@ -20,6 +26,7 @@ pub fn run() {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 use tauri_plugin_updater::UpdaterExt;
+                // Errors quietly in dev builds (plugin not registered).
                 let updater = match handle.updater() {
                     Ok(u) => u,
                     Err(_) => return,
