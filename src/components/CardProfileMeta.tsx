@@ -26,7 +26,7 @@ export function CardProfileMeta({
   const openInNewTab = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    window.open(`/players/${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
+    window.open(`/player?u=${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
   };
 
   const count = ownedCount ?? 0;

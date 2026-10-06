@@ -300,7 +300,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user, trigger, session }) {
       const isInitialSignIn = !!user;
       if (user) {
-        token.id = user.id;
+        // Cast: importing next-auth/jwt (proxy.ts desktop session exchange)
+        // tightens the global JWT augmentation so token.id is `string`; the
+        // runtime value is always set here (credentials authorize + OAuth
+        // callbacks both assign user.id/user.name before this runs).
+        token.id = user.id as string;
         token.name = user.name;
         // NOTE: do NOT set lastVerified here — we want the verify branch below
         // to run on the very first JWT pass so token.avatarCompleted is
@@ -338,9 +342,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.avatarCompleted = dbUser.avatarCompleted === 1 && !!dbUser.avatarUrl;
             token.lastVerified = Date.now();
           } else {
-            // User was deleted from DB — invalidate token to force re-auth
-            token.id = undefined;
-            token.name = undefined;
+            // User was deleted from DB — invalidate token to force re-auth.
+            // Casts needed for the tightened JWT augmentation (see above).
+            token.id = undefined as unknown as string;
+            token.name = undefined as unknown as string;
             token.lastVerified = undefined;
           }
         }

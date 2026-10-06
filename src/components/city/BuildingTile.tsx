@@ -6,6 +6,7 @@ import { formatCompact } from "@/lib/utils";
 import { UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { useSound } from "@/hooks/useSound";
 import type { CityBuilding } from "@/lib/city/types";
+import { absoluteApiUrl } from "@/lib/desktop-client";
 
 interface BuildingTileProps {
   building: CityBuilding;
@@ -66,7 +67,7 @@ export function BuildingTile({
 
   return (
     <a
-      href={`/players/${encodeURIComponent(building.username)}`}
+      href={`/player?u=${encodeURIComponent(building.username)}`}
       data-city-tile
       aria-label={ariaLabel}
       title={ariaLabel}
@@ -84,7 +85,7 @@ export function BuildingTile({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`/api/avatar/${encodeURIComponent(building.username)}`}
+          src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(building.username)}`}
           alt=""
           loading="lazy"
           decoding="async"

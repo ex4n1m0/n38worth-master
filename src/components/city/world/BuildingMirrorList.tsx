@@ -211,7 +211,7 @@ export function BuildingMirrorList({
               return (
                 <div role="gridcell" key={building.cardId} className="flex">
                   <a
-                    href={`/players/${encodeURIComponent(row.username ?? "")}`}
+                    href={`/player?u=${encodeURIComponent(row.username ?? "")}`}
                     data-city-mirror-row
                     aria-label={ariaLabel}
                     title={ariaLabel}

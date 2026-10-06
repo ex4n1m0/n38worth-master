@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Medal } from "lucide-react";
 import { formatCompact } from "@/lib/utils";

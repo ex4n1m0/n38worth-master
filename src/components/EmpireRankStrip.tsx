@@ -152,7 +152,7 @@ function RankList({ rows, suffix }: { rows: RankRow[]; suffix?: string }) {
           <span className={`w-3.5 shrink-0 text-center font-mono font-bold ${RANK_COLORS[i] ?? "text-gray-500"}`}>
             {i + 1}
           </span>
-          <Link href={`/players/${p.username}`} className="flex-1 truncate font-medium text-gray-200 hover:underline">
+          <Link href={`/player?u=${p.username}`} className="flex-1 truncate font-medium text-gray-200 hover:underline">
             {shortName(p.username, locale)}
           </Link>
           <span className="shrink-0 font-mono tabular-nums text-gray-400">
@@ -198,7 +198,7 @@ function HireFeed({ events }: { events: HireEvent[] }) {
           <span className="flex min-w-0 flex-1 items-center gap-1">
             {e.actorUsername ? (
               <Link
-                href={`/players/${e.actorUsername}`}
+                href={`/player?u=${e.actorUsername}`}
                 className="truncate font-medium text-gray-200 hover:underline"
               >
                 {shortName(e.actorUsername, locale)}
@@ -208,7 +208,7 @@ function HireFeed({ events }: { events: HireEvent[] }) {
             )}
             <ArrowRight className="h-2.5 w-2.5 shrink-0 text-gray-600" />
             <Link
-              href={`/players/${e.targetUsername}`}
+              href={`/player?u=${e.targetUsername}`}
               className="truncate font-medium text-cyan-300 hover:underline"
             >
               {shortName(e.targetUsername, locale)}
@@ -317,7 +317,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
                       <span className="font-mono font-bold text-gray-500">{champions.length - i}</span>
                     )}
                   </span>
-                  <Link href={`/players/${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
+                  <Link href={`/player?u=${w.username}`} className={`flex-1 truncate font-semibold hover:underline ${i === 0 ? "text-yellow-300" : "text-white"}`}>
                     {shortName(w.username, locale)}
                   </Link>
                   <span className="shrink-0 flex items-center gap-0.5 text-gray-500">
@@ -363,7 +363,7 @@ export function EmpireRankStrip({ variant = "default" }: { variant?: "default" |
                     {online && (
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 animate-pulse" />
                     )}
-                    <Link href={`/players/${h.username}`} className={`flex-1 truncate font-medium hover:underline ${online ? "text-emerald-300" : "text-gray-200"}`}>
+                    <Link href={`/player?u=${h.username}`} className={`flex-1 truncate font-medium hover:underline ${online ? "text-emerald-300" : "text-gray-200"}`}>
                       {shortName(h.username, locale)}
                     </Link>
                     <span className="shrink-0 text-gray-500">

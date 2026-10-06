@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import {
   ChevronDown,
@@ -41,6 +41,7 @@ import {
 } from "@/lib/city/types";
 import type { CityWorldData } from "./CityWorld";
 import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
+import { absoluteApiUrl } from "@/lib/desktop-client";
 
 /** All buildings the inspector can resolve: every visible detailed card. */
 function indexBuildings(
@@ -130,7 +131,7 @@ function InspectorBar({
         {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
             route, not a static asset; next/image adds nothing here. */}
         <img
-          src={`/api/avatar/${encodeURIComponent(username)}`}
+          src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(username)}`}
           alt={avatarAlt}
           width={20}
           height={20}
@@ -596,7 +597,7 @@ export function BuildingInspector({
         <div className="mt-3 flex flex-col gap-1.5">
           {!isViewedCityProp ? (
             <a
-              href={`/city/${encodeURIComponent(selectedProp.username)}`}
+              href={`/city/visit?u=${encodeURIComponent(selectedProp.username)}`}
               className="city-world-link"
             >
               <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -604,7 +605,7 @@ export function BuildingInspector({
             </a>
           ) : null}
           <a
-            href={`/players/${encodeURIComponent(selectedProp.username)}`}
+            href={`/player?u=${encodeURIComponent(selectedProp.username)}`}
             className="city-world-link"
           >
             <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -634,7 +635,7 @@ export function BuildingInspector({
             {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
                 route, not a static asset; next/image adds nothing here. */}
             <img
-              src={`/api/avatar/${encodeURIComponent(selectedHq)}`}
+              src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(selectedHq)}`}
               alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
               width={44}
               height={44}
@@ -713,7 +714,7 @@ export function BuildingInspector({
             <div className="mt-3 flex flex-col gap-1.5">
               {!isViewedCityCore ? (
                 <a
-                  href={`/city/${encodeURIComponent(selectedHq)}`}
+                  href={`/city/visit?u=${encodeURIComponent(selectedHq)}`}
                   className="city-world-link"
                 >
                   <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -721,7 +722,7 @@ export function BuildingInspector({
                 </a>
               ) : null}
               <a
-                href={`/players/${encodeURIComponent(selectedHq)}`}
+                href={`/player?u=${encodeURIComponent(selectedHq)}`}
                 className="city-world-link"
               >
                 <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -802,7 +803,7 @@ export function BuildingInspector({
             {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
                 route, not a static asset; next/image adds nothing here. */}
             <img
-              src={`/api/avatar/${encodeURIComponent(building.username)}`}
+              src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(building.username)}`}
               alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
               width={44}
               height={44}
@@ -922,14 +923,14 @@ export function BuildingInspector({
 
         <div className="mt-3 flex flex-col gap-1.5">
           <a
-            href={`/city/${encodeURIComponent(selectedUniverseBuilding.username)}`}
+            href={`/city/visit?u=${encodeURIComponent(selectedUniverseBuilding.username)}`}
             className="city-world-link"
           >
             <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             {t.cityUniverseVisit}
           </a>
           <a
-            href={`/players/${encodeURIComponent(building.username)}`}
+            href={`/player?u=${encodeURIComponent(building.username)}`}
             className="city-world-link"
           >
             <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -973,7 +974,7 @@ export function BuildingInspector({
             {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
                 route, not a static asset; next/image adds nothing here. */}
             <img
-              src={`/api/avatar/${encodeURIComponent(building.username)}`}
+              src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(building.username)}`}
               alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
               width={44}
               height={44}
@@ -1099,7 +1100,7 @@ export function BuildingInspector({
         ) : null}
 
         <a
-          href={`/players/${encodeURIComponent(building.username)}`}
+          href={`/player?u=${encodeURIComponent(building.username)}`}
           className="city-world-link mt-3"
         >
           <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -1158,7 +1159,7 @@ export function BuildingInspector({
           {/* eslint-disable-next-line @next/next/no-img-element -- CDN avatar
               route, not a static asset; next/image adds nothing here. */}
           <img
-            src={`/api/avatar/${encodeURIComponent(building.username)}`}
+            src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(building.username)}`}
             alt={t.cityInspectorAvatarAlt.replace("{name}", displayName)}
             width={44}
             height={44}
@@ -1277,7 +1278,7 @@ export function BuildingInspector({
       ) : null}
 
       <a
-        href={`/players/${encodeURIComponent(building.username)}`}
+        href={`/player?u=${encodeURIComponent(building.username)}`}
         className="city-world-link mt-3"
       >
         <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

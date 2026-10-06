@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 
 /**
  * Returns `true` once it's confirmed that at least one player OTHER than the

@@ -14,7 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { signOut } from "next-auth/react";
+import { signOutCompat as signOut } from "@/lib/session-compat";
 import { useSound } from "@/hooks/useSound";
 import { formatCompact } from "@/lib/utils";
 import { useLanguage } from "@/components/LanguageContext";

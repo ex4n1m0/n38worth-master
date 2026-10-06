@@ -106,6 +106,6 @@
   "windowsOnlyTitle": "The city has moved to the desktop",
   "windowsOnlyBody": "The City Building Simulation is now a native Windows game. The browser and Android versions have been retired.",
   "windowsOnlyDownload": "Download for Windows",
-  "windowsOnlySoon": "The first public download is on its way — check back shortly.",
+  "windowsOnlySoon": "Installer from GitHub Releases — the game updates itself automatically.",
   "windowsOnlyExisting": "Existing players: your account and city carry over. Sign in with your username in the Windows client."
 }

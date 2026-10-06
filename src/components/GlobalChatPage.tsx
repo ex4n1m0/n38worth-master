@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSession, signIn } from "next-auth/react";
+import { useSessionCompat as useSession, signInCompat as signIn } from "@/lib/session-compat";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -284,7 +284,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                   </div>
                 )}
                 <div className={`flex gap-2.5 animate-chat-msg-in ${isOwn ? "flex-row-reverse" : ""}`}>
-                  <Link href={`/players/${msg.sender.username}`} className="shrink-0">
+                  <Link href={`/player?u=${msg.sender.username}`} className="shrink-0">
                     <Avatar className="h-8 w-8 ring-1 ring-gray-700/50">
                       <AvatarImage src={msg.sender.avatarUrl || undefined} />
                       <AvatarFallback className="bg-gradient-to-br from-t1-600 to-t2-600 text-white text-[10px] font-bold">
@@ -296,7 +296,7 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
                     <div className={`flex items-center gap-1.5 mb-0.5 ${isOwn ? "flex-row-reverse" : ""}`}>
                       {!isOwn && (
                         <Link
-                          href={`/players/${msg.sender.username}`}
+                          href={`/player?u=${msg.sender.username}`}
                           className="text-[11px] font-semibold text-gray-300 hover:text-t1-400 transition-colors"
                         >
                           {msg.sender.username}

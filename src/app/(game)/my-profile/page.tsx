@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -14,7 +14,7 @@ export default function MyProfilePage() {
       if (new URLSearchParams(window.location.search).get("autoCards") === "1") {
         sessionStorage.setItem("auto-navigate-cards", "1");
       }
-      router.replace(`/players/${session.user.name}`, { scroll: true });
+      router.replace(`/player?u=${session.user.name}`, { scroll: true });
     }
   }, [session, status, router]);
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { toast } from "@/lib/event-feed";
 import { Loader2, Shield, Sparkles, ShoppingCart, Wand2, Zap, RotateCcw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";

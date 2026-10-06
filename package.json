@@ -28,6 +28,9 @@
     "gen:city-atlas": "npx tsx scripts/gen-city-atlas.ts",
     "desktop:dev": "cd desktop && npx tauri dev",
     "desktop:build": "cd desktop && npx tauri build",
+    "desktop:export": "node scripts/build-desktop-client.mjs",
+    "desktop:dist": "node scripts/build-desktop-client.mjs && cd desktop && npx tauri build --config src-tauri/tauri.bundled.conf.json",
+    "desktop:release": "node scripts/desktop-release.mjs",
     "desktop:icon": "cd desktop && npx tauri icon ../Icon.png"
   },
   "dependencies": {

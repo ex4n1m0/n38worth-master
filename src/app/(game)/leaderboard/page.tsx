@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -95,7 +95,7 @@ export default function LeaderboardPage() {
     try {
       const isComplete = onboarding?.onboardingComplete === true;
       if (!isComplete && session?.user?.name) {
-        router.replace(`/players/${session.user.name}`);
+        router.replace(`/player?u=${session.user.name}`);
       }
     } catch (error) {
       console.error("Leaderboard onboarding redirect error:", error);

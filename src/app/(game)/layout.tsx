@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { redirect, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Navbar } from "@/components/Navbar";

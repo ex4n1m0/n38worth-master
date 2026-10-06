@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -444,7 +444,7 @@ function OwnershipCard({
           </div>
         )}
         <CardContent className="p-2 flex flex-col items-center gap-1.5">
-          <Link href={`/players/${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
+          <Link href={`/player?u=${item.username}`} className="block w-full" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
             <div className="relative w-full">
               <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">
                 <AvatarImage src={cardAvatarSrc} alt={cardDisplayName(item.username, locale)} className={avatarFitClass} />
@@ -547,7 +547,7 @@ function OwnershipCard({
         </div>
       )}
       <CardContent className="p-2 relative">
-        <Link href={`/players/${item.username}`} className="block" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
+        <Link href={`/player?u=${item.username}`} className="block" onClick={comboSelection ? (e) => e.preventDefault() : undefined}>
           {/* TOP: Full-width avatar with overlayed square Hire button */}
           <div className="relative mb-2">
             <Avatar className="w-full h-auto aspect-square rounded-lg ring-2 ring-gray-700 group-hover:ring-t1-500/50 transition-all">

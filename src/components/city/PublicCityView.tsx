@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Share2 } from "lucide-react";
 import { toast } from "@/lib/event-feed";
@@ -62,7 +62,7 @@ export function PublicCityView({ username }: { username: string }) {
       navigator.sendBeacon?.(
         "/api/analytics/city-visit",
         new Blob(
-          [JSON.stringify({ username, path: `/city/${username}` })],
+          [JSON.stringify({ username, path: `/city/visit?u=${username}` })],
           { type: "application/json" }
         )
       );

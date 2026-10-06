@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -11,7 +11,7 @@ export default function MyOwnersPage() {
 
   useEffect(() => {
     if (status === "authenticated" && session?.user?.name) {
-      router.replace(`/players/${session.user.name}`);
+      router.replace(`/player?u=${session.user.name}`);
     }
   }, [session, status, router]);
 

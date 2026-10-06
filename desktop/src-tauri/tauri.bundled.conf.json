@@ -1,0 +1,20 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "frontendDist": "../../out"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDI5ODk5NTA4NzU0QkUwMjkKUldRcDRFdDFDSldKS1NYZlJIZVhCYjJyNjR1VFMvdjZGVXFxeUptVDFQN1UxVThoV1FyWTRzeVoK",
+      "endpoints": [
+        "https://github.com/ex4n1m0/n38worth-master/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

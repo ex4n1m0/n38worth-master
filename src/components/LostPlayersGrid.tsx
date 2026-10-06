@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { Swords, ChevronLeft, ChevronRight } from "lucide-react";
 import { RestoreAllButton } from "@/components/RestoreAllButton";
 import { PlayerCard } from "@/components/PlayerCard";

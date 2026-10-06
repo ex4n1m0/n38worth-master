@@ -8,7 +8,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { getPusherClient } from "@/lib/pusher-client";
 import { playSound } from "@/hooks/useSound";
 

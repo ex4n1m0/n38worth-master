@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, Gift, Shuffle } from "lucide-react";
 import { toast } from "@/lib/event-feed";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useSound } from "@/hooks/useSound";
 import { useOnboarding } from "./OnboardingContext";
 import { useLanguage } from "@/components/LanguageContext";

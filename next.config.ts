@@ -27,6 +27,16 @@ const nextConfig: NextConfig = {
   },
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
+  // Windows desktop client build (scripts/build-desktop-client.mjs): the UI
+  // is statically exported into the Tauri exe and talks to the live API
+  // cross-origin (NEXT_PUBLIC_API_BASE). Server-only routes are hidden by
+  // the build script before `next build` runs.
+  ...(process.env.N38_CLIENT_EXPORT
+    ? ({
+        output: "export" as const,
+        distDir: "out",
+      })
+    : {}),
   env: {
     NEXT_PUBLIC_BUILD_SHA: buildSha(),
     NEXT_PUBLIC_BUILD_DATE: new Date().toISOString(),

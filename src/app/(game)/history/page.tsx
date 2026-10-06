@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -178,7 +178,7 @@ export default function GameHistoryPage() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <Link
-                                  href={`/players/${event.actorUsername}`}
+                                  href={`/player?u=${event.actorUsername}`}
                                   className="text-sm text-white font-medium truncate hover:text-t1-400 hover:underline transition-colors"
                                 >
                                   {event.actorUsername}
@@ -196,7 +196,7 @@ export default function GameHistoryPage() {
 
                             {event.targetUsername && (
                               <Link
-                                href={`/players/${event.targetUsername}`}
+                                href={`/player?u=${event.targetUsername}`}
                                 className="text-sm text-white font-medium truncate hover:text-t1-400 hover:underline transition-colors"
                               >
                                 {event.targetUsername}

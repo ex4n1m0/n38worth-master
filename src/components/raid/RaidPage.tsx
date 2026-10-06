@@ -339,7 +339,7 @@ function RaidTab() {
                 <MiniAvatar username={target.username} avatarUrl={target.avatarUrl} />
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={`/players/${target.username}`}
+                    href={`/player?u=${target.username}`}
                     className="block truncate text-sm font-bold text-gray-100 hover:text-cyan-300"
                   >
                     {target.username}
@@ -387,7 +387,7 @@ function RaidTab() {
                 </span>
                 {entry.other ? (
                   <Link
-                    href={`/players/${entry.other.username}`}
+                    href={`/player?u=${entry.other.username}`}
                     className="text-sm font-semibold text-gray-200 hover:text-cyan-300 truncate"
                   >
                     {entry.direction === "out"
@@ -580,7 +580,7 @@ function BountyTab() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <Link
-                      href={`/players/${bounty.targetUsername}`}
+                      href={`/player?u=${bounty.targetUsername}`}
                       className="text-sm font-bold text-gray-100 hover:text-cyan-300 truncate"
                     >
                       {bounty.targetUsername}
@@ -605,7 +605,7 @@ function BountyTab() {
                     {formatCompact(bounty.rewardCredits)}¢
                   </div>
                   <Link
-                    href={`/players/${bounty.targetUsername}`}
+                    href={`/player?u=${bounty.targetUsername}`}
                     className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300"
                   >
                     {t.bountyGoPoach} →

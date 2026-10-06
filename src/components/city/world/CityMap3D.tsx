@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Maximize2, Minus, Plus, Crosshair } from "lucide-react";
 import {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { signInCompat as signIn } from "@/lib/session-compat";
 import {
   Dialog,
   DialogContent,

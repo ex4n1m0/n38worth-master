@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Eye, Clock } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { toast } from "@/lib/event-feed";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";

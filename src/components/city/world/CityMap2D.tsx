@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Maximize2, Minus, Plus, Crosshair } from "lucide-react";
 import { layoutWorld, landmarkCanonicalIndex, landmarkSlotForCanonical, type WorldCity, type WorldPlot } from "@/lib/city/map2d/layout";
@@ -28,6 +28,7 @@ import { useLanguage } from "@/components/LanguageContext";
 import { useSound } from "@/hooks/useSound";
 import type { CityWorldData } from "./CityWorld";
 import { CITY_WORLD_REFETCH_MS } from "./CityRefreshCountdown";
+import { absoluteApiUrl } from "@/lib/desktop-client";
 
 /**
  * THE SHARED 2D WORLD MAP (CITY_2D_WORLD_STUDY.md §3.4, style A Blueprint).
@@ -72,7 +73,7 @@ function getAvatar(username: string): HTMLImageElement | null {
     avatarRedrawTimer = setTimeout(() => avatarRedraw?.(), 60);
   };
   img.onerror = () => avatarCache.set(username, null);
-  img.src = `/api/avatar/${encodeURIComponent(username)}`;
+  img.src = `${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(username)}`;
   return null;
 }
 

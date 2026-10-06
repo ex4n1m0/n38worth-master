@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -77,7 +77,7 @@ export function MyProfileCard() {
 
   return (
     <Link
-      href={`/players/${username}`}
+      href={`/player?u=${username}`}
       className="group block relative overflow-hidden rounded-3xl"
     >
       {/* Ambient gradient glow */}

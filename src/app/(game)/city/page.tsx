@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { Boxes, Building2, Gem, Grid3x3, Lock, Map, TrendingUp } from "lucide-react";
 import { useCityEnabled } from "@/hooks/useCityEnabled";

@@ -6,8 +6,16 @@ import { useState } from "react";
 import { ThemeProvider } from "./ThemeContext";
 import { LanguageProvider } from "./LanguageContext";
 import { OnboardingProvider } from "./OnboardingContext";
+import { installDesktopFetch, isDesktopClient } from "@/lib/desktop-client";
+import { DesktopSessionProvider } from "@/lib/session-compat";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  // The bundled Windows client rewrites /api/* fetches to the remote API and
+  // authenticates with a Bearer token (see src/lib/desktop-client.ts). No-op
+  // on the web build.
+  const desktop = isDesktopClient();
+  if (desktop) installDesktopFetch();
+
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -24,17 +32,21 @@ export function Providers({ children }: { children: React.ReactNode }) {
       })
   );
 
+  const tree = (
+    <ThemeProvider>
+      <LanguageProvider>
+        <OnboardingProvider>{children}</OnboardingProvider>
+      </LanguageProvider>
+    </ThemeProvider>
+  );
+
   return (
-    <SessionProvider>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <LanguageProvider>
-            <OnboardingProvider>
-              {children}
-            </OnboardingProvider>
-          </LanguageProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
-    </SessionProvider>
+    <QueryClientProvider client={queryClient}>
+      {desktop ? (
+        <DesktopSessionProvider>{tree}</DesktopSessionProvider>
+      ) : (
+        <SessionProvider>{tree}</SessionProvider>
+      )}
+    </QueryClientProvider>
   );
 }

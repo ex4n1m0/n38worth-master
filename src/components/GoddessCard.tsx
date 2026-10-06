@@ -8,7 +8,7 @@ import Link from "next/link";
 import { BlockCountdownBar } from "./BlockCountdownBar";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/event-feed";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
@@ -300,7 +300,7 @@ export function GoddessCard({
               <p className="text-gray-400 text-xs">{t.goddessOwnerLabel}</p>
               {isOwned ? (
                 <Link
-                  href={`/players/${ownerName}`}
+                  href={`/player?u=${ownerName}`}
                   className="text-yellow-400 font-semibold text-sm truncate hover:text-yellow-300 transition-colors block"
                 >
                   {ownerName}
@@ -314,7 +314,7 @@ export function GoddessCard({
           {/* Slim profile link — same consistent spot as PlayerCard, so every
               card in the game offers a direct path to its profile page. */}
           <Link
-            href={`/players/${encodeURIComponent(username)}`}
+            href={`/player?u=${encodeURIComponent(username)}`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => {

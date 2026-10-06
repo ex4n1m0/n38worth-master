@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -174,7 +174,7 @@ export function ChatRoom() {
                 key={msg.id}
                 className={`flex gap-2 ${isOwn ? "flex-row-reverse" : ""}`}
               >
-                <Link href={`/players/${msg.sender.username}`}>
+                <Link href={`/player?u=${msg.sender.username}`}>
                   <Avatar className="h-7 w-7 shrink-0">
                     <AvatarImage src={getAvatarSrc({
                       avatarUrl: msg.sender.avatarUrl,
@@ -196,7 +196,7 @@ export function ChatRoom() {
                   <div className="flex items-center gap-1.5 mb-0.5">
                     {!isOwn && (
                       <Link
-                        href={`/players/${msg.sender.username}`}
+                        href={`/player?u=${msg.sender.username}`}
                         className="text-[11px] font-medium text-gray-400 hover:text-t1-400"
                       >
                         {msg.sender.username}

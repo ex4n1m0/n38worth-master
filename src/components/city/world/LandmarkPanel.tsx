@@ -126,7 +126,7 @@ export function LandmarkPanel({
             {goddessPower(detail.username, locale)}
           </p>
           <a
-            href={`/players/${encodeURIComponent(detail.username)}`}
+            href={`/player?u=${encodeURIComponent(detail.username)}`}
             className="city-world-link mt-2"
           >
             <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />

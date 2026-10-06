@@ -1,6 +1,6 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,7 @@ export default function MosaicPage() {
             {paginatedPlayers.map((p) => (
               <Link
                 key={p.id}
-                href={`/players/${p.username}`}
+                href={`/player?u=${p.username}`}
                 className="group relative aspect-square overflow-hidden rounded-lg bg-gray-800 border border-gray-800 hover:border-t1-500 transition-all"
               >
                 {p.avatarUrl ? (

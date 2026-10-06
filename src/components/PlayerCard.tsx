@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, memo } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/event-feed";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useSound } from "@/hooks/useSound";
 import { useCredits } from "@/hooks/useCredits";
 import { useOwnedPlayerIds } from "@/hooks/useOwnedPlayerIds";
@@ -61,6 +61,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { RateLimitError, throwIfRateLimited } from "@/lib/action-rate";
+import { absoluteApiUrl } from "@/lib/desktop-client";
 
 /** Visual GET countdown on ownerless leaderboard Avatars (seconds). */
 const GET_COUNTDOWN_SECONDS = 5;
@@ -261,7 +262,7 @@ function PlayerCardImpl({
   });
 
   const displayedAvatarSrc = alwaysShowAvatar
-    ? `/api/avatar/${encodeURIComponent(username)}`
+    ? `${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(username)}`
     : resolvedAvatarSrc === UNHIRED_AVATAR_SRC && professionImage
       ? professionImage
       : resolvedAvatarSrc;
@@ -343,7 +344,7 @@ function PlayerCardImpl({
     e.preventDefault();
     e.stopPropagation();
     play("changepage");
-    window.open(`/players/${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
+    window.open(`/player?u=${encodeURIComponent(username)}`, "_blank", "noopener,noreferrer");
   };
 
   // ── Long-press quick-action sheet ──────────────────────────────────────
@@ -728,7 +729,7 @@ function PlayerCardImpl({
           handleAvatarAction(e);
           return;
         }
-        router.push(`/players/${username}`);
+        router.push(`/player?u=${username}`);
       }}
       onPointerDown={handlePressStart}
       onPointerUp={clearPressTimer}

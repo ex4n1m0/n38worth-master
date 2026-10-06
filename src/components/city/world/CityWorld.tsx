@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import type { CityProjection } from "@/lib/city/types";
 import { cityWorldStore } from "@/lib/city/scene/store";
 import { CityMap2D, type Map2DApi } from "./CityMap2D";

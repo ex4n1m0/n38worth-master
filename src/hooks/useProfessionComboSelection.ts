@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { create } from "zustand";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import { useQuery } from "@tanstack/react-query";
 import { useNow } from "@/hooks/useNow";
 

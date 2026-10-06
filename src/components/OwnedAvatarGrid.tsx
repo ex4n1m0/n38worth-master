@@ -7,6 +7,7 @@ import { UNHIRED_AVATAR_SRC } from "@/lib/avatar-utils";
 import { formatCompact } from "@/lib/utils";
 import { useLanguage } from "@/components/LanguageContext";
 import { cardDisplayName } from "@/lib/display-names";
+import { absoluteApiUrl } from "@/lib/desktop-client";
 
 /** How many cards fit the grid (12 cols × 6 rows on desktop). */
 const GRID_LIMIT = 72;
@@ -67,7 +68,7 @@ export function OwnedAvatarGrid({
         {topPlayers.map((p) => (
           <Link
             key={p.id}
-            href={`/players/${encodeURIComponent(p.username)}`}
+            href={`/player?u=${encodeURIComponent(p.username)}`}
             title={t.avatarValueTooltip
               .replace("{name}", cardDisplayName(p.username, locale))
               .replace("{value}", formatCompact(p.playerValue))}
@@ -76,7 +77,7 @@ export function OwnedAvatarGrid({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`/api/avatar/${encodeURIComponent(p.username)}`}
+              src={`${absoluteApiUrl("/api/avatar/")}${encodeURIComponent(p.username)}`}
               alt={cardDisplayName(p.username, locale)}
               loading="lazy"
               decoding="async"

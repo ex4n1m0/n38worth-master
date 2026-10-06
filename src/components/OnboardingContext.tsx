@@ -8,7 +8,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useSession } from "next-auth/react";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import type { OnboardingState } from "@/types/onboarding";
 
 const defaultState: OnboardingState = {

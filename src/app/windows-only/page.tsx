@@ -35,9 +35,15 @@ export default function WindowsOnlyPage() {
         <p className="text-lg text-gray-400">{t.windowsOnlyBody}</p>
 
         <div className="pt-2 space-y-2">
-          <p className="text-sm font-semibold text-gray-200">
-            {t.windowsOnlyDownload} — {t.windowsOnlySoon}
-          </p>
+          <a
+            href="https://github.com/ex4n1m0/n38worth-master/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block rounded-full bg-gradient-to-r from-t1-600 to-t2-600 hover:from-t1-500 hover:to-t2-500 text-white font-semibold px-8 py-3 transition-colors"
+          >
+            {t.windowsOnlyDownload}
+          </a>
+          <p className="text-sm text-gray-500">{t.windowsOnlySoon}</p>
         </div>
 
         <p className="text-sm text-gray-500 border-t border-gray-800 pt-6">

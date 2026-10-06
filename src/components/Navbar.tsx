@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { useSessionCompat as useSession, signOutCompat as signOut } from "@/lib/session-compat";
 import { Button } from "@/components/ui/button";
 import { useCredits } from "@/hooks/useCredits";
 import { usePlayerValue } from "@/hooks/usePlayerValue";
@@ -93,7 +93,7 @@ export function Navbar() {
     if (!gameUnlocked || typeof window === "undefined") return;
     const isHomePath =
       pathname === "/my-profile" ||
-      (!!session?.user?.name && pathname === `/players/${session.user.name}`);
+      (!!session?.user?.name && pathname === `/player?u=${session.user.name}`);
     // Only mark as visited when the player NAVIGATES to Home from a different
     // page — not when gameUnlocked flips to true while they're already on Home
     // (the mission-level query refetches every 60s, so the flip can happen
@@ -137,7 +137,7 @@ export function Navbar() {
 
   const isActive = (href: string) => {
     if (pathname === href) return true;
-    if (href === "/my-profile" && session?.user?.name && pathname === `/players/${session.user.name}`) return true;
+    if (href === "/my-profile" && session?.user?.name && pathname === `/player?u=${session.user.name}`) return true;
     return false;
   };
 
@@ -158,7 +158,7 @@ export function Navbar() {
       // landing page is the user's own profile — the avatar uploader and the
       // 3 starter-NPC cards now both live there.
       if (!onboarding.onboardingComplete) {
-        router.replace(`/players/${session.user?.name}`);
+        router.replace(`/player?u=${session.user?.name}`);
       } else {
         // The city is the game's home screen since 2026-09-28 — a stranded
         // fully-onboarded player lands there (market when the flag is off).
@@ -344,7 +344,7 @@ export function Navbar() {
                     </div>
                     <DropdownMenuSeparator className="bg-gray-800" />
                     <DropdownMenuItem asChild>
-                      <Link href={`/players/${session.user?.name}`} onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
+                      <Link href={`/player?u=${session.user?.name}`} onClick={() => play("buttons")} className="text-gray-300 cursor-pointer">
                         <Users className="h-4 w-4 mr-2" />
                         {t.myProfile}
                       </Link>
