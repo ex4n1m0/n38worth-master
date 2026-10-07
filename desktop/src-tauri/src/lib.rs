@@ -20,24 +20,31 @@ pub fn run() {
     }
     builder
         .setup(|app| {
+            // Debug builds compile out the updater check below, leaving `app`
+            // unused.
+            let _ = app;
             // Best-effort auto-update on launch: check the endpoint, and if
             // a newer signed build exists, download + install it (passive
-            // progress) before the game window settles. Never fatal.
-            let handle = app.handle().clone();
-            tauri::async_runtime::spawn(async move {
-                use tauri_plugin_updater::UpdaterExt;
-                // Errors quietly in dev builds (plugin not registered).
-                let updater = match handle.updater() {
-                    Ok(u) => u,
-                    Err(_) => return,
-                };
-                match updater.check().await {
-                    Ok(Some(update)) => {
-                        let _ = update.download_and_install(|_, _| {}, || {}).await;
+            // progress) before the game window settles. Release only —
+            // UpdaterExt::updater() PANICS (not errors) when the plugin is
+            // unregistered, which is exactly the dev configuration.
+            #[cfg(not(debug_assertions))]
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tauri_plugin_updater::UpdaterExt;
+                    let updater = match handle.updater() {
+                        Ok(u) => u,
+                        Err(_) => return,
+                    };
+                    match updater.check().await {
+                        Ok(Some(update)) => {
+                            let _ = update.download_and_install(|_, _| {}, || {}).await;
+                        }
+                        _ => {}
                     }
-                    _ => {}
-                }
-            });
+                });
+            }
             Ok(())
         })
         .run(tauri::generate_context!())
