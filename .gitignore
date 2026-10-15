@@ -70,3 +70,6 @@ scripts/city-pixel-preview*.png
 
 # Source asset packs (originals; shipped copies live in public/city-assets)
 /Kenney/
+
+# Neon sunset backup (2026-10-15) — local only, never commit player data
+backups/
