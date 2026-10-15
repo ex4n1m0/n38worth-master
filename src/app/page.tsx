@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { isDesktopClient } from "@/lib/desktop-client";
+import { useSessionCompat as useSession } from "@/lib/session-compat";
 import {
   Dialog,
   DialogContent,
@@ -155,6 +157,18 @@ export default function Home() {
     captureUtmCookies();
     sendVisitBeacon("/");
   }, []);
+
+  // In the Windows exe the landing is just the sign-in shell: once the token
+  // session resolves, go straight to the game (the city is the home screen).
+  // Web visitors always keep the marketing page. Without this, exe players
+  // who land here post-login had no path back into the game.
+  const router = useRouter();
+  const { status } = useSession();
+  useEffect(() => {
+    if (desktop && status === "authenticated") {
+      router.replace("/city");
+    }
+  }, [desktop, status, router]);
 
   // Fetch landing data
   useEffect(() => {

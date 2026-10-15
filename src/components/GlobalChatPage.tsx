@@ -83,6 +83,10 @@ function GlobalChatInner({ embedded = false }: { embedded?: boolean }) {
         username: d.username,
         password: d.password,
         redirect: false,
+        // Desktop compat hard-navigates to callbackUrl — without this the
+        // guest login bounces exe users to the landing instead of reloading
+        // the chat page.
+        callbackUrl: "/chat",
       });
       window.location.reload();
     } catch (e) {

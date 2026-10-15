@@ -72,6 +72,11 @@ export default function LoginPage() {
         username,
         password,
         redirect: false,
+        // Desktop compat hard-navigates to callbackUrl after minting the
+        // token — without this it lands on the marketing landing and the
+        // player has no way back into the game (the router.push below loses
+        // the race to that hard navigation).
+        callbackUrl: "/my-profile?autoCards=1",
       });
 
       if (result?.error) {

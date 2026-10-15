@@ -81,6 +81,9 @@ export default function RegisterPage() {
         username: data.username,
         password: data.password,
         redirect: false,
+        // Desktop compat navigates here directly; the explicit href below is
+        // the web path (and a same-URL no-op on desktop).
+        callbackUrl: "/my-profile?autoCards=1",
       });
 
       if (result?.error) {
@@ -144,6 +147,9 @@ export default function RegisterPage() {
         username,
         password,
         redirect: false,
+        // Desktop compat hard-navigates here (the router.push below loses
+        // that race and previously dumped exe players back on the landing).
+        callbackUrl: "/my-profile?autoCards=1",
       });
 
       if (signInResult?.error) {
